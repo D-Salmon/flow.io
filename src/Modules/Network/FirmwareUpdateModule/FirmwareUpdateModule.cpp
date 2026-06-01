@@ -504,11 +504,8 @@ bool FirmwareUpdateModule::configJson_(char* out, size_t outLen) const
     return n > 0 && (size_t)n < outLen;
 }
 
-bool FirmwareUpdateModule::checkManifestJson_(char* out, size_t outLen, char* errOut, size_t errOutLen)
+bool FirmwareUpdateModule::checkManifestJsonStream_(Print& out, char* errOut, size_t errOutLen)
 {
-    if (!out || outLen == 0) return false;
-    out[0] = '\0';
-
     bool isBusy = false;
     bool hasPending = false;
     portENTER_CRITICAL(&lock_);
@@ -546,7 +543,9 @@ bool FirmwareUpdateModule::checkManifestJson_(char* out, size_t outLen, char* er
         return false;
     }
 
-    DynamicJsonDocument doc(4096);
+    size_t jsonCapacity = payload.length() + 1024U;
+    if (jsonCapacity < 4096U) jsonCapacity = 4096U;
+    DynamicJsonDocument doc(jsonCapacity);
     const DeserializationError jsonErr = deserializeJson(doc, payload);
     if (jsonErr || !doc.is<JsonObjectConst>()) {
         writeSimpleError_(errOut, errOutLen, "manifest invalid json");
@@ -560,16 +559,13 @@ bool FirmwareUpdateModule::checkManifestJson_(char* out, size_t outLen, char* er
     sanitizeJsonString_(safeUrl);
     sanitizeJsonString_(current);
 
-    const int n = snprintf(out,
-                           outLen,
-                           "{\"ok\":true,\"manifest_url\":\"%s\",\"current\":{\"supervisor\":\"%s\"},\"manifest\":%s}",
-                           safeUrl,
-                           current,
-                           payload.c_str());
-    if (n <= 0 || (size_t)n >= outLen) {
-        writeSimpleError_(errOut, errOutLen, "manifest response too long");
-        return false;
-    }
+    out.print("{\"ok\":true,\"manifest_url\":\"");
+    out.print(safeUrl);
+    out.print("\",\"current\":{\"supervisor\":\"");
+    out.print(current);
+    out.print("\"},\"manifest\":");
+    out.print(payload);
+    out.print("}");
     return true;
 }
 

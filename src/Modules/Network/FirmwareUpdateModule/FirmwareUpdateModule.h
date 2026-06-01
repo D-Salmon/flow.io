@@ -136,7 +136,7 @@ private:
     bool statusJson_(char* out, size_t outLen);
     bool isBusy_();
     bool configJson_(char* out, size_t outLen) const;
-    bool checkManifestJson_(char* out, size_t outLen, char* errOut, size_t errOutLen);
+    bool checkManifestJsonStream_(Print& out, char* errOut, size_t errOutLen);
     bool setConfig_(const char* updateHost,
                     const char* updatePath,
                     const char* flowioPath,
@@ -178,7 +178,7 @@ private:
         ServiceBinding::bind<&FirmwareUpdateModule::statusJson_>,
         ServiceBinding::bind<&FirmwareUpdateModule::isBusy_>,
         ServiceBinding::bind<&FirmwareUpdateModule::configJson_>,
-        ServiceBinding::bind<&FirmwareUpdateModule::checkManifestJson_>,
+        ServiceBinding::bind<&FirmwareUpdateModule::checkManifestJsonStream_>,
         ServiceBinding::bind<&FirmwareUpdateModule::setConfig_>,
         this
     };

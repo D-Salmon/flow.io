@@ -10,6 +10,9 @@
     },
     "network/wifi": {
       "label_t": "cfgmods.network.wifi.label"
+    },
+    "network/ethernet": {
+      "label_t": "cfgmods.network.ethernet.label"
     }
   },
   "meta": {
@@ -25,6 +28,10 @@
       {
         "display": "network/mqtt",
         "store": "mqtt"
+      },
+      {
+        "display": "network/ethernet",
+        "store": "ethernet"
       }
     ],
     "cfg_tree_virtual_branches": [
@@ -33,7 +40,8 @@
         "children": [
           "wifi",
           "time",
-          "mqtt"
+          "mqtt",
+          "ethernet"
         ]
       }
     ]

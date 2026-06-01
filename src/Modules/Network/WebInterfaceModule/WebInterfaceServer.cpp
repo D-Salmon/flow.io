@@ -3488,15 +3488,17 @@ void WebInterfaceModule::startServer_()
         if (!fwUpdateSvc_ && services_) {
             fwUpdateSvc_ = services_->get<FirmwareUpdateService>(ServiceId::FirmwareUpdate);
         }
-        if (!fwUpdateSvc_ || !fwUpdateSvc_->checkManifestJson) {
+        if (!fwUpdateSvc_ || !fwUpdateSvc_->checkManifestJsonStream) {
             request->send(503, "application/json",
                           "{\"ok\":false,\"err\":{\"code\":\"NotReady\",\"where\":\"fwupdate.check\"}}");
             return;
         }
 
-        char out[4096] = {0};
+        AsyncResponseStream* out = request->beginResponseStream("application/json");
+        addNoCacheHeaders_(out);
         char err[128] = {0};
-        if (!fwUpdateSvc_->checkManifestJson(fwUpdateSvc_->ctx, out, sizeof(out), err, sizeof(err))) {
+        if (!fwUpdateSvc_->checkManifestJsonStream(fwUpdateSvc_->ctx, *out, err, sizeof(err))) {
+            delete out;
             sanitizeJsonString_(err);
             char msg[320] = {0};
             const int n = snprintf(msg,
@@ -3511,7 +3513,7 @@ void WebInterfaceModule::startServer_()
             return;
         }
 
-        request->send(200, "application/json", out);
+        request->send(out);
     });
 
     server_.on("/api/fwupdate/config", HTTP_POST, [this](AsyncWebServerRequest* request) {

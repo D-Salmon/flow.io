@@ -7,6 +7,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+class Print;
+
 enum class FirmwareUpdateTarget : uint8_t {
     FlowIO = 1,
     Nextion = 2,
@@ -19,7 +21,7 @@ struct FirmwareUpdateService {
     bool (*statusJson)(void* ctx, char* out, size_t outLen);
     bool (*isBusy)(void* ctx);
     bool (*configJson)(void* ctx, char* out, size_t outLen);
-    bool (*checkManifestJson)(void* ctx, char* out, size_t outLen, char* errOut, size_t errOutLen);
+    bool (*checkManifestJsonStream)(void* ctx, Print& out, char* errOut, size_t errOutLen);
     bool (*setConfig)(void* ctx,
                       const char* updateHost,
                       const char* updatePath,
