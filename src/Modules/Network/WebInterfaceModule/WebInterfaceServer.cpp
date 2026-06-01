@@ -1404,7 +1404,7 @@ bool appendFlowios3LocalRuntimeValue_(Print& out,
             flowios3EnsureAlarmMasks_(ctx, alarmSvc);
             printRuntimeU32_(out, firstValue, id, "alarms.condition_mask", ctx.alarmConditionMask);
             return true;
-        case 2301:
+        case 2401:
             flowios3EnsurePoolMode_(ctx, cfgStore);
             if (!ctx.poolModeAvailable) {
                 flowios3PrintUnavailableByManifestType_(out, firstValue, id);
@@ -1412,7 +1412,7 @@ bool appendFlowios3LocalRuntimeValue_(Print& out,
                 printRuntimeBool_(out, firstValue, id, "pool.auto_mode", ctx.poolAutoMode);
             }
             return true;
-        case 2302:
+        case 2402:
             flowios3EnsurePoolMode_(ctx, cfgStore);
             if (!ctx.poolModeAvailable) {
                 flowios3PrintUnavailableByManifestType_(out, firstValue, id);
@@ -1420,7 +1420,7 @@ bool appendFlowios3LocalRuntimeValue_(Print& out,
                 printRuntimeBool_(out, firstValue, id, "pool.winter_mode", ctx.poolWinterMode);
             }
             return true;
-        case 2303:
+        case 2403:
             flowios3EnsurePoolMode_(ctx, cfgStore);
             if (!ctx.poolModeAvailable) {
                 flowios3PrintUnavailableByManifestType_(out, firstValue, id);
@@ -1428,7 +1428,7 @@ bool appendFlowios3LocalRuntimeValue_(Print& out,
                 printRuntimeBool_(out, firstValue, id, "pool.ph_auto_mode", ctx.poolPhAutoMode);
             }
             return true;
-        case 2304:
+        case 2404:
             flowios3EnsurePoolMode_(ctx, cfgStore);
             if (!ctx.poolModeAvailable) {
                 flowios3PrintUnavailableByManifestType_(out, firstValue, id);
@@ -1436,19 +1436,19 @@ bool appendFlowios3LocalRuntimeValue_(Print& out,
                 printRuntimeBool_(out, firstValue, id, "pool.orp_auto_mode", ctx.poolOrpAutoMode);
             }
             return true;
-        case 2201:
-        case 2202:
-        case 2203:
-        case 2204: {
+        case 2301:
+        case 2302:
+        case 2303:
+        case 2304: {
             uint8_t slot = PoolBinding::kDeviceSlotFiltrationPump;
             const char* key = "pool.filtration_on";
-            if (id == 2202) {
+            if (id == 2302) {
                 slot = PoolBinding::kDeviceSlotPhPump;
                 key = "pool.ph_pump_on";
-            } else if (id == 2203) {
+            } else if (id == 2303) {
                 slot = PoolBinding::kDeviceSlotChlorinePump;
                 key = "pool.chlorine_pump_on";
-            } else if (id == 2204) {
+            } else if (id == 2304) {
                 slot = PoolBinding::kDeviceSlotRobot;
                 key = "pool.robot_on";
             }
@@ -1461,10 +1461,10 @@ bool appendFlowios3LocalRuntimeValue_(Print& out,
             }
             return true;
         }
-        case 2001:
+        case 2101:
             printRuntimeBool_(out, firstValue, id, "mqtt.ready", mqttReady(*dataStore));
             return true;
-        case 2002:
+        case 2102:
             flowios3EnsureMqttServer_(ctx, cfgStore);
             if (ctx.mqttServer[0] == '\0') {
                 flowios3PrintUnavailableByManifestType_(out, firstValue, id);
@@ -1472,38 +1472,38 @@ bool appendFlowios3LocalRuntimeValue_(Print& out,
                 printRuntimeString_(out, firstValue, id, "mqtt.server", ctx.mqttServer);
             }
             return true;
-        case 2003:
+        case 2103:
             printRuntimeU32_(out, firstValue, id, "mqtt.rx_drop", mqttRxDrop(*dataStore));
             return true;
-        case 2004:
+        case 2104:
             printRuntimeU32_(out, firstValue, id, "mqtt.parse_fail", mqttParseFail(*dataStore));
             return true;
-        case 2005:
+        case 2105:
             printRuntimeU32_(out, firstValue, id, "mqtt.handler_fail", mqttHandlerFail(*dataStore));
             return true;
-        case 2006:
+        case 2106:
             printRuntimeU32_(out, firstValue, id, "mqtt.oversize_drop", mqttOversizeDrop(*dataStore));
             return true;
-        case 2101:
-        case 2102:
-        case 2103:
-        case 2104:
-        case 2106: {
+        case 2201:
+        case 2202:
+        case 2203:
+        case 2204:
+        case 2206: {
             uint8_t runtimeIndex = PoolBinding::kSensorBindings[PoolBinding::kSensorSlotWaterTemp].runtimeIndex;
             const char* key = "pool.water_temp";
             const char* unit = "\xC2\xB0""C";
-            if (id == 2102) {
+            if (id == 2202) {
                 runtimeIndex = PoolBinding::kSensorBindings[PoolBinding::kSensorSlotAirTemp].runtimeIndex;
                 key = "pool.air_temp";
-            } else if (id == 2103) {
+            } else if (id == 2203) {
                 runtimeIndex = PoolBinding::kSensorBindings[PoolBinding::kSensorSlotPh].runtimeIndex;
                 key = "pool.ph";
                 unit = nullptr;
-            } else if (id == 2104) {
+            } else if (id == 2204) {
                 runtimeIndex = PoolBinding::kSensorBindings[PoolBinding::kSensorSlotOrp].runtimeIndex;
                 key = "pool.orp";
                 unit = "mV";
-            } else if (id == 2106) {
+            } else if (id == 2206) {
                 runtimeIndex = PoolBinding::kSensorBindings[PoolBinding::kSensorSlotPsi].runtimeIndex;
                 key = "pool.psi";
                 unit = "PSI";
@@ -1517,7 +1517,7 @@ bool appendFlowios3LocalRuntimeValue_(Print& out,
             }
             return true;
         }
-        case 2105: {
+        case 2205: {
             const uint8_t runtimeIndex = PoolBinding::kSensorBindings[PoolBinding::kSensorSlotWaterCounter].runtimeIndex;
             float value = 0.0f;
             if (ioEndpointFloat(*dataStore, runtimeIndex, value)) {
@@ -1532,28 +1532,28 @@ bool appendFlowios3LocalRuntimeValue_(Print& out,
             flowios3PrintUnavailableByManifestType_(out, firstValue, id);
             return true;
         }
-        case 2107:
-        case 2108:
-        case 2109:
-        case 2110:
-        case 2111:
-        case 2112:
-        case 2113:
-        case 2114:
+        case 2207:
+        case 2208:
+        case 2209:
+        case 2210:
+        case 2211:
+        case 2212:
+        case 2213:
+        case 2214:
             flowios3PrintUnavailableByManifestType_(out, firstValue, id);
             return true;
-        case 1701:
+        case 1801:
             printRuntimeString_(out, firstValue, id, "system.firmware", FirmwareVersion::Full);
             return true;
-        case 1702:
+        case 1802:
             flowios3EnsureSystemStats_(ctx);
             printRuntimeU32_(out, firstValue, id, "system.uptime_ms", (uint32_t)ctx.systemStats.uptimeMs, "ms");
             return true;
-        case 1703:
+        case 1803:
             flowios3EnsureSystemStats_(ctx);
             printRuntimeU32_(out, firstValue, id, "system.heap_free", ctx.systemStats.heap.freeBytes, "B");
             return true;
-        case 1704:
+        case 1804:
             flowios3EnsureSystemStats_(ctx);
             printRuntimeU32_(out, firstValue, id, "system.heap_min_free", ctx.systemStats.heap.minFreeBytes, "B");
             return true;
@@ -4995,41 +4995,6 @@ void WebInterfaceModule::startServer_()
     started_ = true;
     noteServerStarted_();
     LOGI("WebInterface server started, listening on 0.0.0.0:%d", kServerPort);
-
-    if (hmiSvc_ && hmiSvc_->setStatusLedState && hmiSvc_->setStatusLedAutoWifiMode) {
-        bool prevAutoMode = true;
-        if (hmiSvc_->isStatusLedAutoWifiMode) {
-            prevAutoMode = hmiSvc_->isStatusLedAutoWifiMode(hmiSvc_->ctx);
-        }
-        webStartLedPrevAutoMode_ = prevAutoMode;
-        webStartLedPrevAutoModeValid_ = true;
-
-        HmiStatusLedState webStartState{};
-        webStartState.enabled = true;
-        webStartState.blinkEnabled = true;
-        webStartState.red = 0;
-        webStartState.green = 255;
-        webStartState.blue = 0;
-        webStartState.brightness = 128;
-        webStartState.blinkOnMs = 60;
-        webStartState.blinkOffMs = 60;
-
-        const bool autoModeDisabled = hmiSvc_->setStatusLedAutoWifiMode(hmiSvc_->ctx, false);
-        const bool stateApplied = hmiSvc_->setStatusLedState(hmiSvc_->ctx, &webStartState);
-        if (autoModeDisabled && stateApplied) {
-            webStartLedPulseActive_ = true;
-            webStartLedPulseUntilMs_ = millis() + 2000U;
-            LOGI("Web start LED pulse active color=green duration_ms=2000");
-        } else {
-            if (autoModeDisabled && webStartLedPrevAutoModeValid_) {
-                hmiSvc_->setStatusLedAutoWifiMode(hmiSvc_->ctx, webStartLedPrevAutoMode_);
-            }
-            webStartLedPulseActive_ = false;
-            LOGW("Web start LED pulse failed auto_disabled=%d state_applied=%d",
-                 autoModeDisabled ? 1 : 0,
-                 stateApplied ? 1 : 0);
-        }
-    }
 
     char ip[16] = {0};
     NetworkAccessMode mode = NetworkAccessMode::None;

@@ -9,12 +9,14 @@
 struct Ws2812StatusLedState {
     bool enabled = true;
     bool blinkEnabled = false;
+    bool breatheEnabled = false;
     uint8_t red = 0;
     uint8_t green = 0;
     uint8_t blue = 255;
     uint8_t brightness = 96;
     uint16_t blinkOnMs = 250;
     uint16_t blinkOffMs = 250;
+    uint16_t breathePeriodMs = 2200;
 };
 
 class Ws2812StatusLedDriver {
@@ -48,8 +50,9 @@ private:
     bool blinkPhaseOn_ = true;
     uint32_t blinkPhaseSinceMs_ = 0U;
     bool lastWriteValid_ = false;
+    uint32_t breathePhaseSinceMs_ = 0U;
+    uint32_t lastBreatheApplyMs_ = 0U;
     uint8_t lastWriteR_ = 0U;
     uint8_t lastWriteG_ = 0U;
     uint8_t lastWriteB_ = 0U;
 };
-

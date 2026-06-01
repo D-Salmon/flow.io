@@ -170,10 +170,6 @@ private:
     bool rebootPending_ = false;
     uint32_t rebootAtMs_ = 0;
     char rebootReason_[24] = {0};
-    bool webStartLedPulseActive_ = false;
-    uint32_t webStartLedPulseUntilMs_ = 0U;
-    bool webStartLedPrevAutoMode_ = true;
-    bool webStartLedPrevAutoModeValid_ = false;
 
 #if defined(FLOW_PROFILE_MICRONOVA)
     static constexpr UBaseType_t kLocalLogQueueLen = 6;

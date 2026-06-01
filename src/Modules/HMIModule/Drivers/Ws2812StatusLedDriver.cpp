@@ -6,8 +6,14 @@
 #include "Modules/HMIModule/Drivers/Ws2812StatusLedDriver.h"
 
 #include <Arduino.h>
+#include <esp_arduino_version.h>
 #include <esp32-hal-rgb-led.h>
 #include <string.h>
+
+namespace {
+constexpr uint32_t kBreatheRefreshMs = 30U;
+constexpr uint8_t kBreatheMinBrightness = 8U;
+}
 
 void Ws2812StatusLedDriver::setConfig(const Config& cfg)
 {
@@ -30,6 +36,8 @@ bool Ws2812StatusLedDriver::begin()
     pinMode((uint8_t)cfg_.gpio, OUTPUT);
     blinkPhaseOn_ = true;
     blinkPhaseSinceMs_ = millis();
+    breathePhaseSinceMs_ = blinkPhaseSinceMs_;
+    lastBreatheApplyMs_ = 0U;
     ready_ = true;
     applyOutput_(true);
     return true;
@@ -39,10 +47,15 @@ void Ws2812StatusLedDriver::tick(uint32_t nowMs)
 {
     if (!ready_) return;
 
-    if (!state_.enabled || !state_.blinkEnabled) {
+    if (!state_.enabled || (!state_.blinkEnabled && !state_.breatheEnabled)) {
         if (!blinkPhaseOn_) {
             blinkPhaseOn_ = true;
             blinkPhaseSinceMs_ = nowMs;
+            applyOutput_(true);
+        } else if (state_.enabled &&
+                   state_.breatheEnabled &&
+                   (uint32_t)(nowMs - lastBreatheApplyMs_) >= kBreatheRefreshMs) {
+            lastBreatheApplyMs_ = nowMs;
             applyOutput_(true);
         } else {
             applyOutput_(false);
@@ -54,6 +67,9 @@ void Ws2812StatusLedDriver::tick(uint32_t nowMs)
     if ((uint32_t)(nowMs - blinkPhaseSinceMs_) >= (uint32_t)phaseMs) {
         blinkPhaseOn_ = !blinkPhaseOn_;
         blinkPhaseSinceMs_ = nowMs;
+        applyOutput_(true);
+    } else if (state_.breatheEnabled && (uint32_t)(nowMs - lastBreatheApplyMs_) >= kBreatheRefreshMs) {
+        lastBreatheApplyMs_ = nowMs;
         applyOutput_(true);
     } else {
         applyOutput_(false);
@@ -70,6 +86,10 @@ bool Ws2812StatusLedDriver::setState(const Ws2812StatusLedState& state)
     if (state_.blinkEnabled) {
         blinkPhaseOn_ = true;
         blinkPhaseSinceMs_ = millis();
+    }
+    if (state_.breatheEnabled) {
+        breathePhaseSinceMs_ = millis();
+        lastBreatheApplyMs_ = 0U;
     }
     if (changed) applyOutput_(true);
     return true;
@@ -131,9 +151,13 @@ bool Ws2812StatusLedDriver::setBlink(bool enabled, uint16_t onMs, uint16_t offMs
 
 void Ws2812StatusLedDriver::sanitizeState_(Ws2812StatusLedState& state) const
 {
-    if (!state.blinkEnabled) return;
-    if (state.blinkOnMs == 0U) state.blinkOnMs = 250U;
-    if (state.blinkOffMs == 0U) state.blinkOffMs = 250U;
+    if (state.blinkEnabled) {
+        if (state.blinkOnMs == 0U) state.blinkOnMs = 250U;
+        if (state.blinkOffMs == 0U) state.blinkOffMs = 250U;
+    }
+    if (state.breatheEnabled && state.breathePeriodMs < 500U) {
+        state.breathePeriodMs = 500U;
+    }
 }
 
 void Ws2812StatusLedDriver::applyOutput_(bool force)
@@ -145,9 +169,22 @@ void Ws2812StatusLedDriver::applyOutput_(bool force)
     uint8_t outB = 0U;
     const bool outputEnabled = state_.enabled && (!state_.blinkEnabled || blinkPhaseOn_);
     if (outputEnabled) {
-        outR = (uint8_t)(((uint16_t)state_.red * (uint16_t)state_.brightness + 127U) / 255U);
-        outG = (uint8_t)(((uint16_t)state_.green * (uint16_t)state_.brightness + 127U) / 255U);
-        outB = (uint8_t)(((uint16_t)state_.blue * (uint16_t)state_.brightness + 127U) / 255U);
+        uint8_t brightness = state_.brightness;
+        if (state_.breatheEnabled) {
+            const uint16_t period = state_.breathePeriodMs ? state_.breathePeriodMs : 2200U;
+            const uint32_t phase = (uint32_t)(millis() - breathePhaseSinceMs_) % period;
+            const uint32_t half = (uint32_t)period / 2U;
+            const uint32_t rising = (phase < half) ? phase : ((uint32_t)period - phase);
+            const uint8_t wave = (uint8_t)((rising * 255U) / (half ? half : 1U));
+            const uint8_t minBrightness = (state_.brightness > kBreatheMinBrightness)
+                                              ? kBreatheMinBrightness
+                                              : 0U;
+            brightness = (uint8_t)(minBrightness +
+                                   (((uint16_t)(state_.brightness - minBrightness) * wave + 127U) / 255U));
+        }
+        outR = (uint8_t)(((uint16_t)state_.red * (uint16_t)brightness + 127U) / 255U);
+        outG = (uint8_t)(((uint16_t)state_.green * (uint16_t)brightness + 127U) / 255U);
+        outB = (uint8_t)(((uint16_t)state_.blue * (uint16_t)brightness + 127U) / 255U);
     }
 
     if (!force &&
@@ -158,9 +195,11 @@ void Ws2812StatusLedDriver::applyOutput_(bool force)
         return;
     }
 
-    // This board's status LED expects RGB ordering while Arduino's helper
-    // internally applies GRB packing, so swap R/G at call-site.
+#if ESP_ARDUINO_VERSION_MAJOR >= 3
+    rgbLedWriteOrdered((uint8_t)cfg_.gpio, LED_COLOR_ORDER_RGB, outR, outG, outB);
+#else
     neopixelWrite((uint8_t)cfg_.gpio, outG, outR, outB);
+#endif
     lastWriteR_ = outR;
     lastWriteG_ = outG;
     lastWriteB_ = outB;

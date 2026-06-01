@@ -1,7 +1,7 @@
 {
   "schema": "flowio.firmware-manifest.v1",
-  "generated_at": "2026-05-29T15:00:31+02:00",
-  "release": "2026.05.29",
+  "generated_at": "2026-06-02T00:50:54+02:00",
+  "release": "2026.06.02",
   "artifacts": {
     "nextion": [
       {
@@ -43,12 +43,12 @@
         "title": "esp32s3",
         "label": "esp32s3",
         "version": "1.0.3",
-        "build_date": "2026-05-29T15:00:31+02:00",
+        "build_date": "2026-06-02T00:50:54+02:00",
         "target": "esp32s3",
         "path": "esp32s3-1.0.3.bin",
         "kind": "esp32-firmware",
         "route": "/fwupdate/flowio",
-        "size": 1625296
+        "size": 1625568
       }
     ],
     "esp32s3-spiffs": [
@@ -67,7 +67,7 @@
         "title": "esp32s3-spiffs",
         "label": "esp32s3-spiffs",
         "version": "1.0.3",
-        "build_date": "2026-05-29T14:38:41+02:00",
+        "build_date": "2026-06-02T00:40:35+02:00",
         "target": "spiffs",
         "path": "esp32s3-spiffs-1.0.3.bin",
         "kind": "esp32-spiffs",
@@ -104,12 +104,12 @@
         "title": "flowio",
         "label": "flowio",
         "version": "1.0.3",
-        "build_date": "2026-05-29T14:51:05+02:00",
+        "build_date": "2026-06-02T00:25:57+02:00",
         "target": "flowio",
         "path": "flowio-1.0.3.bin",
         "kind": "esp32-firmware",
         "route": "/fwupdate/flowio",
-        "size": 1319280
+        "size": 1319760
       }
     ],
     "spiffs": [
@@ -136,6 +136,17 @@
         "kind": "esp32-firmware",
         "route": "/fwupdate/supervisor",
         "size": 1441456
+      },
+      {
+        "title": "supervisor",
+        "label": "supervisor",
+        "version": "1.0.3",
+        "build_date": "2026-06-01T23:29:01+02:00",
+        "target": "supervisor",
+        "path": "supervisor-1.0.3.bin",
+        "kind": "esp32-firmware",
+        "route": "/fwupdate/supervisor",
+        "size": 1444176
       }
     ]
   }

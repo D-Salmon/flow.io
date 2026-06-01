@@ -459,7 +459,7 @@ void WifiProvisioningModule::handleLightPortalClient_()
 {
     if (!portalHttpActive_) return;
 
-    WiFiClient client = portalServer_.available();
+    WiFiClient client = portalServer_.accept();
     if (!client) return;
 
     client.setTimeout(250);
@@ -520,7 +520,7 @@ void WifiProvisioningModule::handleLightPortalClient_()
     }
 
     (void)handleLightPortalRequest_(client, portalMethod_, portalPath_, query, portalBody_);
-    client.flush();
+    client.clear();
     client.stop();
 }
 

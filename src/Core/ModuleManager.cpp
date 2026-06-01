@@ -6,6 +6,7 @@
 #include <Arduino.h>
 #include <esp_heap_caps.h>
 #include "Board/BoardSerialMap.h"
+#include "Core/EventBus/EventBus.h"
 #include "Core/Log.h"
 #include "Core/LogModuleIds.h"
 
@@ -361,6 +362,11 @@ bool ModuleManager::tickStartup(ConfigStore& cfg, ServiceRegistry& services)
 
     if (allStarted) {
         startupFlags_ &= (uint8_t)~kStartupActiveFlag;
+        auto* ebService = services.get<EventBusService>(ServiceId::EventBus);
+        if (ebService && ebService->bus) {
+            (void)ebService->bus->post(EventId::StartupComplete, nullptr, 0, ModuleId::Unknown);
+        }
+        Log::info(LOG_MODULE_ID, "startup complete modules=%u", (unsigned)orderedCount);
     }
     return true;
 }

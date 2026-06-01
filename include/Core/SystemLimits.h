@@ -315,7 +315,7 @@ static_assert(MaxDiscoveryCleanups > 0, "HA cleanup capacity must be at least 1"
 
 namespace Timing {
 /** @brief Delay in ms between each HA discovery entity publish in `HAModule`. */
-constexpr uint32_t DiscoveryStepMs = 200;
+constexpr uint32_t DiscoveryStepMs = 100;
 }  // namespace Timing
 }  // namespace Ha
 
