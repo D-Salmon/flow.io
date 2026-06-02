@@ -441,6 +441,16 @@
           "value": 71,
           "label_t": "cfgmods_meta.iomodule.enum_sets.flowio_logical_input_digital.7.label"
         }
+      ],
+      "io_output_boot_behavior": [
+        {
+          "value": false,
+          "label_t": "cfgmods_meta.iomodule.enum_sets.io_output_boot_behavior.0.label"
+        },
+        {
+          "value": true,
+          "label_t": "cfgmods_meta.iomodule.enum_sets.io_output_boot_behavior.1.label"
+        }
       ]
     }
   }

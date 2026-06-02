@@ -531,7 +531,12 @@ void PoolLogicModule::runControlLoop_(uint32_t nowMs)
         // Legacy-like manual mode: when auto_mode is off, keep filtration fully manual.
         filtrationDesiredBase = filtrationFsm_.on;
     } else {
-        if (filtrationFsm_.on && haveAirTemp && airTemp <= freezeHoldTempC_) {
+        const bool timeSynced = timeSvc_ && timeSvc_->isSynced && timeSvc_->isSynced(timeSvc_->ctx);
+        if (filtrationFsm_.on && !timeSynced) {
+            // During a warm reboot, keep a retained pump running until the
+            // scheduler can make a reliable clock-based decision.
+            filtrationDesiredBase = true;
+        } else if (filtrationFsm_.on && haveAirTemp && airTemp <= freezeHoldTempC_) {
             // Freeze hold: once running, never stop under freeze-hold threshold.
             filtrationDesiredBase = true;
         } else {

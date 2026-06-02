@@ -340,6 +340,7 @@ private:
     // Services and adapters
     ConfigStore* cfgStore_ = nullptr;
     EventBus* eventBus_ = nullptr;
+    const TimeService* timeSvc_ = nullptr;
     const TimeSchedulerService* schedSvc_ = nullptr;
     const IOServiceV2* ioSvc_ = nullptr;
     const PoolDeviceService* poolSvc_ = nullptr;
@@ -357,6 +358,7 @@ private:
     // Scheduler
     void ensureDailySlot_();
     bool applyFiltrationWindowSlot_(uint8_t startHour, uint8_t stopHour);
+    bool currentFiltrationWindowActive_(uint8_t startHour, uint8_t stopHour, bool& activeOut) const;
     bool computeFiltrationWindow_(float waterTemp, uint8_t& startHourOut, uint8_t& stopHourOut, uint8_t& durationOut);
     bool recalcAndApplyFiltrationWindow_(uint8_t* startHourOut = nullptr,
                                          uint8_t* stopHourOut = nullptr,

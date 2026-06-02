@@ -11,6 +11,13 @@
 namespace {
 static constexpr uint32_t kWsLogMinFreeBytes = 12288U;
 static constexpr uint32_t kWsLogMinLargestBytes = 3072U;
+
+struct BootLogReplayCtx {
+    WebInterfaceModule* self = nullptr;
+    AsyncWebSocketClient* client = nullptr;
+    uint16_t sent = 0;
+    bool limited = false;
+};
 }
 
 bool WebInterfaceModule::isLogByte_(uint8_t c)
@@ -152,6 +159,100 @@ void WebInterfaceModule::onLocalLogSinkWrite_(void* ctx, const LogEntry& e)
         (void)xQueueReceive(self->localLogQueue_, dropped, 0);
         (void)xQueueSend(self->localLogQueue_, line, 0);
     }
+}
+
+bool WebInterfaceModule::sendBootLogCaptureEntry_(void* writerCtx,
+                                                  const LogEntry& e,
+                                                  uint16_t,
+                                                  uint16_t)
+{
+    BootLogReplayCtx* replay = static_cast<BootLogReplayCtx*>(writerCtx);
+    if (!replay || !replay->self || !replay->client) return false;
+    if (!replay->client->canSend() || replay->client->queueLen() >= 12U) {
+        replay->limited = true;
+        return false;
+    }
+
+    WebInterfaceModule* self = replay->self;
+    const char* moduleName = nullptr;
+    char moduleFallback[24] = {0};
+    if (self->logHub_ && self->logHub_->resolveModuleName) {
+        moduleName = self->logHub_->resolveModuleName(self->logHub_->ctx, e.moduleId);
+    }
+    if (!moduleName || moduleName[0] == '\0') {
+        snprintf(moduleFallback, sizeof(moduleFallback), "#%u", (unsigned)e.moduleId);
+        moduleName = moduleFallback;
+    }
+
+    char ts[48] = {0};
+    formatTimestamp_(self, e, ts, sizeof(ts));
+
+    char line[kLocalLogLineMax] = {0};
+    int wrote = snprintf(line,
+                         sizeof(line),
+                         "[%s][%c][%s] %s%s",
+                         ts,
+                         levelChar_(e.lvl),
+                         moduleName,
+                         levelColor_(e.lvl),
+                         e.msg);
+    if (wrote > 0 && (size_t)wrote < sizeof(line)) {
+        wrote += snprintf(line + wrote, sizeof(line) - (size_t)wrote, "%s", colorReset_());
+    }
+    if (wrote <= 0) return true;
+    if ((size_t)wrote >= sizeof(line)) {
+        line[sizeof(line) - 1] = '\0';
+    }
+
+    if (!replay->client->text(line)) {
+        replay->limited = true;
+        return false;
+    }
+    ++replay->sent;
+    return true;
+}
+
+void WebInterfaceModule::dumpBootLogCapture_(AsyncWebSocketClient* client)
+{
+    if (!client) return;
+    if (!bootLogCapture_ || !bootLogCapture_->getStats || !bootLogCapture_->replay) {
+        client->text("[webinterface] bootlog non disponible");
+        return;
+    }
+
+    BootLogCaptureStats stats{};
+    bootLogCapture_->getStats(bootLogCapture_->ctx, &stats);
+    if (stats.capacity == 0 || !stats.psram) {
+        client->text("[webinterface] bootlog non disponible: PSRAM inactive");
+        return;
+    }
+
+    char header[128] = {0};
+    snprintf(header,
+             sizeof(header),
+             "[webinterface] bootlog replay entries=%u/%u dropped=%lu state=%s",
+             (unsigned)stats.count,
+             (unsigned)stats.capacity,
+             (unsigned long)stats.droppedCount,
+             stats.capturing ? "capture" : (stats.complete ? "complete" : "idle"));
+    client->text(header);
+
+    BootLogReplayCtx replay{};
+    replay.self = this;
+    replay.client = client;
+    const uint16_t replayed = bootLogCapture_->replay(bootLogCapture_->ctx,
+                                                      &WebInterfaceModule::sendBootLogCaptureEntry_,
+                                                      &replay);
+
+    char footer[128] = {0};
+    snprintf(footer,
+             sizeof(footer),
+             replay.limited
+                 ? "[webinterface] bootlog replay interrompu: %u/%u lignes envoyees"
+                 : "[webinterface] bootlog replay termine: %u/%u lignes envoyees",
+             (unsigned)replayed,
+             (unsigned)stats.count);
+    client->text(footer);
 }
 
 void WebInterfaceModule::flushLocalLogQueue_()

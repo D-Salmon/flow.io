@@ -68,6 +68,9 @@
               <option value="flowio">Flow.io (wserial)</option>
             </select>
             <span id="wsStatus" class="status-chip" data-i18n="terminal.inactive">inactif</span>
+            <button id="bootLogDumpBtn" class="secondary btn-compact" type="button" title="Afficher les logs de boot" aria-label="Afficher les logs de boot">
+              <span class="ui-msr ui-msr-sm" aria-hidden="true">history</span><span>Boot</span>
+            </button>
             <label class="autoscroll-chip" for="toggleAutoscroll" title="Défilement automatique des journaux">
               <span class="autoscroll-label">Scroll</span>
               <span class="md3-switch md3-switch-compact">
@@ -380,7 +383,7 @@
           <div class="card info-card">
             <div class="config-section info-panel">
               <div class="info-card-head">
-              <div class="info-card-header" data-i18n="info.flowWifi">WiFi Flow.io</div>
+              <div class="info-card-header" data-i18n="info.flowNetwork">Réseau Flow.io</div>
                 <button id="infoWifiLoader" class="btn-tonal btn-icon-only btn-refresh-icon info-card-load-btn" aria-label="Charger le domaine WiFi" title="Charger le domaine WiFi">
                   <span class="refresh-icon-glyph" aria-hidden="true"></span>
                 </button>

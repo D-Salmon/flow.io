@@ -308,6 +308,15 @@ bool PoolDeviceModule::configureRuntime_()
             if (s.tankRemainingMl > s.def.tankCapacityMl) s.tankRemainingMl = s.def.tankCapacityMl;
         }
 
+        bool initialIoOn = false;
+        if (readIoState_(s, initialIoOn)) {
+            s.actualOn = initialIoOn;
+            s.desiredOn = initialIoOn;
+            if (initialIoOn) {
+                LOGI("Pool device %s boot sync: hardware ON adopted as desired", s.id);
+            }
+        }
+
         s.lastTickMs = now;
         s.stateTsMs = now;
         s.metricsTsMs = now;

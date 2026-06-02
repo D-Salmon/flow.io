@@ -187,6 +187,8 @@ void WebInterfaceModule::onWsLogEvent_(AsyncWebSocket*,
         } else if (strcmp(cmd, "src:supervisor") == 0) {
             setWsActiveSource_(0U);
             if (client) client->text("[webinterface] source=supervisor");
+        } else if (strcmp(cmd, "bootlog:dump") == 0) {
+            dumpBootLogCapture_(client);
         } else if (client) {
             client->text("[webinterface] cmd inconnu");
         }

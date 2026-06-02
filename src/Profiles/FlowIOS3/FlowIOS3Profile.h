@@ -8,6 +8,9 @@
 #include "Modules/HMIModule/HMIModule.h"
 #include "Modules/IOModule/IOBus/OneWireBus.h"
 #include "Modules/IOModule/IOModule.h"
+#if FLOW_ENABLE_BOOT_LOG_CAPTURE
+#include "Modules/Logs/BootLogCaptureModule/BootLogCaptureModule.h"
+#endif
 #include "Modules/Logs/LogDispatcherModule/LogDispatcherModule.h"
 #include "Modules/Logs/LogHubModule/LogHubModule.h"
 #include "Modules/Logs/LogSerialSinkModule/LogSerialSinkModule.h"
@@ -50,6 +53,9 @@ struct ModuleInstances {
     SystemModule systemModule{};
     SystemMonitorModule systemMonitorModule{};
     LogSerialSinkModule logSerialSinkModule{};
+#if FLOW_ENABLE_BOOT_LOG_CAPTURE
+    BootLogCaptureModule bootLogCaptureModule{};
+#endif
     LogDispatcherModule logDispatcherModule{};
     LogHubModule logHubModule{};
     EventBusModule eventBusModule{};

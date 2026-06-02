@@ -1548,6 +1548,7 @@
     const term = document.getElementById('term');
     const wsStatus = document.getElementById('wsStatus');
     const logSourceSelect = document.getElementById('logSourceSelect');
+    const bootLogDumpBtn = document.getElementById('bootLogDumpBtn');
     const toggleAutoscrollInput = document.getElementById('toggleAutoscroll');
     let autoScrollEnabled = true;
     let terminalActive = false;
@@ -1949,6 +1950,19 @@
       };
     }
 
+    function requestBootLogDump() {
+      if (!logSocket || logSocket.readyState !== WebSocket.OPEN) {
+        setWsStatusText(tr('terminal.connecting', 'connexion...'));
+        connectLogSocket();
+        return;
+      }
+      try {
+        logSocket.send('bootlog:dump');
+      } catch (err) {
+        setWsStatusText(tr('terminal.error', 'erreur'));
+      }
+    }
+
     function setLogSource(source) {
       let normalized = String(source || '').trim().toLowerCase();
       if (webLocalRuntime && normalized === 'flowio') {
@@ -2003,6 +2017,9 @@
       logSourceSelect.addEventListener('change', () => {
         setLogSource(logSourceSelect.value);
       });
+    }
+    if (bootLogDumpBtn) {
+      bootLogDumpBtn.addEventListener('click', requestBootLogDump);
     }
     applyLogSourceUi();
     refreshAutoscrollUi();
@@ -7008,8 +7025,14 @@
       if (typeName === 'int32' || typeName === 'uint16' || typeName === 'uint8') {
         return 'int';
       }
+      if (typeName === 'bool' || typeName === 'boolean') {
+        return 'bool';
+      }
       if (typeof value === 'number') {
         return Number.isInteger(value) ? 'int' : 'float';
+      }
+      if (typeof value === 'boolean') {
+        return 'bool';
       }
       return 'string';
     }
@@ -7163,6 +7186,10 @@
       const kind = String(el.dataset.kind || '').trim();
       const displayFormat = String(el.dataset.format || '').trim();
       if (kind === 'bool') {
+        if (el.tagName === 'SELECT') {
+          const raw = String(el.value ?? '').trim().toLowerCase();
+          return raw === 'true' || raw === '1' || raw === 'on';
+        }
         return !!el.checked;
       }
       if (kind === 'int' || kind === 'float') {
@@ -7289,29 +7316,7 @@
         const valueWrap = document.createElement('div');
         valueWrap.className = 'control-value-wrap';
 
-        if (typeof value === 'boolean') {
-          row.classList.add('control-row-bool');
-          const sw = document.createElement('label');
-          sw.className = 'md3-switch';
-          const input = document.createElement('input');
-          input.type = 'checkbox';
-          input.checked = value;
-          input.dataset.key = key;
-          input.dataset.kind = 'bool';
-          input.setAttribute('aria-label', label.textContent || key);
-          const track = document.createElement('span');
-          track.className = 'md3-track';
-          const thumb = document.createElement('span');
-          thumb.className = 'md3-thumb';
-          storeConfigFieldInitialValue(input, value);
-          sw.appendChild(input);
-          sw.appendChild(track);
-          sw.appendChild(thumb);
-          inputEl = input;
-          inputEl.dataset.module = moduleName;
-          valueWrap.classList.add('control-value-wrap-bool');
-          valueWrap.appendChild(sw);
-        } else if (enumOptions && enumOptions.length > 0 && enumOptions.some((opt) => opt && typeof opt.color === 'string' && opt.color.trim().length > 0)) {
+        if (enumOptions && enumOptions.length > 0 && enumOptions.some((opt) => opt && typeof opt.color === 'string' && opt.color.trim().length > 0)) {
           const colorControl = createColorPickerControl(doc, key, value, enumOptions);
           inputEl = colorControl.input;
           inputEl.dataset.module = moduleName;
@@ -7368,6 +7373,28 @@
           inputEl = select;
           inputEl.dataset.module = moduleName;
           valueWrap.appendChild(select);
+        } else if (typeof value === 'boolean') {
+          row.classList.add('control-row-bool');
+          const sw = document.createElement('label');
+          sw.className = 'md3-switch';
+          const input = document.createElement('input');
+          input.type = 'checkbox';
+          input.checked = value;
+          input.dataset.key = key;
+          input.dataset.kind = 'bool';
+          input.setAttribute('aria-label', label.textContent || key);
+          const track = document.createElement('span');
+          track.className = 'md3-track';
+          const thumb = document.createElement('span');
+          thumb.className = 'md3-thumb';
+          storeConfigFieldInitialValue(input, value);
+          sw.appendChild(input);
+          sw.appendChild(track);
+          sw.appendChild(thumb);
+          inputEl = input;
+          inputEl.dataset.module = moduleName;
+          valueWrap.classList.add('control-value-wrap-bool');
+          valueWrap.appendChild(sw);
         } else if (configNumericKind(doc, value) !== 'string') {
           const input = document.createElement('input');
           input.className = 'control-input';

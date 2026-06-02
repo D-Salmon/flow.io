@@ -864,9 +864,44 @@ void logSpiffsAssetHeapForensic_(const char* stage,
 }
 #endif
 
+uint32_t webAssetFingerprintFile_(uint32_t hash, const char* path)
+{
+    if (!path || path[0] == '\0' || !SPIFFS.exists(path)) {
+        return hash ^ 0x9E3779B9UL;
+    }
+
+    File file = SPIFFS.open(path, FILE_READ);
+    if (!file) {
+        return hash ^ 0x85EBCA6BUL;
+    }
+
+    hash ^= (uint32_t)file.size();
+    hash *= 16777619UL;
+
+    uint8_t buffer[128];
+    while (file.available()) {
+        const size_t got = file.read(buffer, sizeof(buffer));
+        for (size_t i = 0; i < got; ++i) {
+            hash ^= (uint32_t)buffer[i];
+            hash *= 16777619UL;
+        }
+    }
+    return hash;
+}
+
 const char* webAssetVersion_()
 {
-    return FirmwareVersion::BuildRef;
+    static char version[64] = {0};
+    if (version[0] != '\0') return version;
+
+    uint32_t hash = 2166136261UL;
+    hash = webAssetFingerprintFile_(hash, "/webinterface/app-core.js.gz");
+    hash = webAssetFingerprintFile_(hash, "/webinterface/app-core.css.gz");
+    hash = webAssetFingerprintFile_(hash, "/webinterface/sh.html.gz");
+    hash = webAssetFingerprintFile_(hash, "/webinterface/app.js.gz");
+    hash = webAssetFingerprintFile_(hash, "/wc/i.j.gz");
+    snprintf(version, sizeof(version), "%s-%08lx", FirmwareVersion::BuildRef, (unsigned long)hash);
+    return version;
 }
 
 void addNoCacheHeaders_(AsyncWebServerResponse* response)
@@ -2725,6 +2760,7 @@ static const char kWebSerialLogPage[] PROGMEM = R"HTML(
   <div class="top">
     <div class="status" id="status">Connexion...</div>
     <div class="actions">
+      <button id="bootlog" type="button">Boot</button>
       <button id="pause" type="button">Pause</button>
       <button id="clear" type="button">Clear</button>
       <a href="/webinterface">Retour UI</a>
@@ -2735,6 +2771,7 @@ static const char kWebSerialLogPage[] PROGMEM = R"HTML(
 (() => {
   const out = document.getElementById('out');
   const status = document.getElementById('status');
+  const bootlogBtn = document.getElementById('bootlog');
   const pauseBtn = document.getElementById('pause');
   const clearBtn = document.getElementById('clear');
   let paused = false;
@@ -2834,6 +2871,9 @@ static const char kWebSerialLogPage[] PROGMEM = R"HTML(
     paused = !paused;
     pauseBtn.textContent = paused ? "Reprendre" : "Pause";
   });
+  bootlogBtn.addEventListener('click', () => {
+    if (ws && ws.readyState === WebSocket.OPEN) ws.send("bootlog:dump");
+  });
   clearBtn.addEventListener('click', () => { out.textContent = ""; });
 
   open();
@@ -2912,6 +2952,11 @@ void WebInterfaceModule::init(ConfigStore& cfg, ServiceRegistry& services)
     services_ = &services;
     logHub_ = services.get<LogHubService>(ServiceId::LogHub);
     logSinkReg_ = services.get<LogSinkRegistryService>(ServiceId::LogSinks);
+#if FLOW_ENABLE_BOOT_LOG_CAPTURE
+    bootLogCapture_ = bootLogCaptureService();
+#else
+    bootLogCapture_ = nullptr;
+#endif
     wifiSvc_ = services.get<WifiService>(ServiceId::Wifi);
     cmdSvc_ = services.get<CommandService>(ServiceId::Command);
     hmiSvc_ = services.get<HmiService>(ServiceId::Hmi);

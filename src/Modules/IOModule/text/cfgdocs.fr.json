@@ -1095,6 +1095,54 @@
       "label_t": "cfgdocs.io.output.d07.d07_pulse_ms.label",
       "help_t": "cfgdocs.io.output.d07.d07_pulse_ms.help",
       "unit": "ms"
+    },
+    "io/output/d00/retain_on_warm_reboot": {
+      "type": "Bool",
+      "label_t": "cfgdocs.io.output.d00.retain_on_warm_reboot.label",
+      "help_t": "cfgdocs.io.output.d00.retain_on_warm_reboot.help",
+      "enum_set": "io_output_boot_behavior"
+    },
+    "io/output/d01/retain_on_warm_reboot": {
+      "type": "Bool",
+      "label_t": "cfgdocs.io.output.d01.retain_on_warm_reboot.label",
+      "help_t": "cfgdocs.io.output.d01.retain_on_warm_reboot.help",
+      "enum_set": "io_output_boot_behavior"
+    },
+    "io/output/d02/retain_on_warm_reboot": {
+      "type": "Bool",
+      "label_t": "cfgdocs.io.output.d02.retain_on_warm_reboot.label",
+      "help_t": "cfgdocs.io.output.d02.retain_on_warm_reboot.help",
+      "enum_set": "io_output_boot_behavior"
+    },
+    "io/output/d03/retain_on_warm_reboot": {
+      "type": "Bool",
+      "label_t": "cfgdocs.io.output.d03.retain_on_warm_reboot.label",
+      "help_t": "cfgdocs.io.output.d03.retain_on_warm_reboot.help",
+      "enum_set": "io_output_boot_behavior"
+    },
+    "io/output/d04/retain_on_warm_reboot": {
+      "type": "Bool",
+      "label_t": "cfgdocs.io.output.d04.retain_on_warm_reboot.label",
+      "help_t": "cfgdocs.io.output.d04.retain_on_warm_reboot.help",
+      "enum_set": "io_output_boot_behavior"
+    },
+    "io/output/d05/retain_on_warm_reboot": {
+      "type": "Bool",
+      "label_t": "cfgdocs.io.output.d05.retain_on_warm_reboot.label",
+      "help_t": "cfgdocs.io.output.d05.retain_on_warm_reboot.help",
+      "enum_set": "io_output_boot_behavior"
+    },
+    "io/output/d06/retain_on_warm_reboot": {
+      "type": "Bool",
+      "label_t": "cfgdocs.io.output.d06.retain_on_warm_reboot.label",
+      "help_t": "cfgdocs.io.output.d06.retain_on_warm_reboot.help",
+      "enum_set": "io_output_boot_behavior"
+    },
+    "io/output/d07/retain_on_warm_reboot": {
+      "type": "Bool",
+      "label_t": "cfgdocs.io.output.d07.retain_on_warm_reboot.label",
+      "help_t": "cfgdocs.io.output.d07.retain_on_warm_reboot.help",
+      "enum_set": "io_output_boot_behavior"
     }
   }
 }

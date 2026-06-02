@@ -664,6 +664,7 @@ private:
     ConfigVariable<PhysicalPortId,0> d0BindingVar_{NVS_KEY(NvsKeys::Io::IO_D0BP),"binding_port","io/output/d00",ConfigType::UInt16,&digitalCfg_[0].bindingPort,ConfigPersistence::Persistent,0};
     ConfigVariable<bool,0> d0ActiveHighVar_{NVS_KEY(NvsKeys::Io::IO_D0AH),"d00_active_high","io/output/d00",ConfigType::Bool,&digitalCfg_[0].activeHigh,ConfigPersistence::Persistent,0};
     ConfigVariable<bool,0> d0InitialOnVar_{NVS_KEY(NvsKeys::Io::IO_D0IN),"d00_initial_on","io/output/d00",ConfigType::Bool,&digitalCfg_[0].initialOn,ConfigPersistence::Persistent,0};
+    ConfigVariable<bool,0> d0RetainWarmVar_{NVS_KEY(NvsKeys::Io::IO_D0RT),"retain_on_warm_reboot","io/output/d00",ConfigType::Bool,&digitalCfg_[0].retainOnWarmReboot,ConfigPersistence::Persistent,0};
     ConfigVariable<bool,0> d0MomentaryVar_{NVS_KEY(NvsKeys::Io::IO_D0MO),"d00_momentary","io/output/d00",ConfigType::Bool,&digitalCfg_[0].momentary,ConfigPersistence::Persistent,0};
     ConfigVariable<int32_t,0> d0PulseVar_{NVS_KEY(NvsKeys::Io::IO_D0PM),"d00_pulse_ms","io/output/d00",ConfigType::Int32,&digitalCfg_[0].pulseMs,ConfigPersistence::Persistent,0};
 
@@ -671,6 +672,7 @@ private:
     ConfigVariable<PhysicalPortId,0> d1BindingVar_{NVS_KEY(NvsKeys::Io::IO_D1BP),"binding_port","io/output/d01",ConfigType::UInt16,&digitalCfg_[1].bindingPort,ConfigPersistence::Persistent,0};
     ConfigVariable<bool,0> d1ActiveHighVar_{NVS_KEY(NvsKeys::Io::IO_D1AH),"d01_active_high","io/output/d01",ConfigType::Bool,&digitalCfg_[1].activeHigh,ConfigPersistence::Persistent,0};
     ConfigVariable<bool,0> d1InitialOnVar_{NVS_KEY(NvsKeys::Io::IO_D1IN),"d01_initial_on","io/output/d01",ConfigType::Bool,&digitalCfg_[1].initialOn,ConfigPersistence::Persistent,0};
+    ConfigVariable<bool,0> d1RetainWarmVar_{NVS_KEY(NvsKeys::Io::IO_D1RT),"retain_on_warm_reboot","io/output/d01",ConfigType::Bool,&digitalCfg_[1].retainOnWarmReboot,ConfigPersistence::Persistent,0};
     ConfigVariable<bool,0> d1MomentaryVar_{NVS_KEY(NvsKeys::Io::IO_D1MO),"d01_momentary","io/output/d01",ConfigType::Bool,&digitalCfg_[1].momentary,ConfigPersistence::Persistent,0};
     ConfigVariable<int32_t,0> d1PulseVar_{NVS_KEY(NvsKeys::Io::IO_D1PM),"d01_pulse_ms","io/output/d01",ConfigType::Int32,&digitalCfg_[1].pulseMs,ConfigPersistence::Persistent,0};
 
@@ -678,6 +680,7 @@ private:
     ConfigVariable<PhysicalPortId,0> d2BindingVar_{NVS_KEY(NvsKeys::Io::IO_D2BP),"binding_port","io/output/d02",ConfigType::UInt16,&digitalCfg_[2].bindingPort,ConfigPersistence::Persistent,0};
     ConfigVariable<bool,0> d2ActiveHighVar_{NVS_KEY(NvsKeys::Io::IO_D2AH),"d02_active_high","io/output/d02",ConfigType::Bool,&digitalCfg_[2].activeHigh,ConfigPersistence::Persistent,0};
     ConfigVariable<bool,0> d2InitialOnVar_{NVS_KEY(NvsKeys::Io::IO_D2IN),"d02_initial_on","io/output/d02",ConfigType::Bool,&digitalCfg_[2].initialOn,ConfigPersistence::Persistent,0};
+    ConfigVariable<bool,0> d2RetainWarmVar_{NVS_KEY(NvsKeys::Io::IO_D2RT),"retain_on_warm_reboot","io/output/d02",ConfigType::Bool,&digitalCfg_[2].retainOnWarmReboot,ConfigPersistence::Persistent,0};
     ConfigVariable<bool,0> d2MomentaryVar_{NVS_KEY(NvsKeys::Io::IO_D2MO),"d02_momentary","io/output/d02",ConfigType::Bool,&digitalCfg_[2].momentary,ConfigPersistence::Persistent,0};
     ConfigVariable<int32_t,0> d2PulseVar_{NVS_KEY(NvsKeys::Io::IO_D2PM),"d02_pulse_ms","io/output/d02",ConfigType::Int32,&digitalCfg_[2].pulseMs,ConfigPersistence::Persistent,0};
 
@@ -685,6 +688,7 @@ private:
     ConfigVariable<PhysicalPortId,0> d3BindingVar_{NVS_KEY(NvsKeys::Io::IO_D3BP),"binding_port","io/output/d03",ConfigType::UInt16,&digitalCfg_[3].bindingPort,ConfigPersistence::Persistent,0};
     ConfigVariable<bool,0> d3ActiveHighVar_{NVS_KEY(NvsKeys::Io::IO_D3AH),"d03_active_high","io/output/d03",ConfigType::Bool,&digitalCfg_[3].activeHigh,ConfigPersistence::Persistent,0};
     ConfigVariable<bool,0> d3InitialOnVar_{NVS_KEY(NvsKeys::Io::IO_D3IN),"d03_initial_on","io/output/d03",ConfigType::Bool,&digitalCfg_[3].initialOn,ConfigPersistence::Persistent,0};
+    ConfigVariable<bool,0> d3RetainWarmVar_{NVS_KEY(NvsKeys::Io::IO_D3RT),"retain_on_warm_reboot","io/output/d03",ConfigType::Bool,&digitalCfg_[3].retainOnWarmReboot,ConfigPersistence::Persistent,0};
     ConfigVariable<bool,0> d3MomentaryVar_{NVS_KEY(NvsKeys::Io::IO_D3MO),"d03_momentary","io/output/d03",ConfigType::Bool,&digitalCfg_[3].momentary,ConfigPersistence::Persistent,0};
     ConfigVariable<int32_t,0> d3PulseVar_{NVS_KEY(NvsKeys::Io::IO_D3PM),"d03_pulse_ms","io/output/d03",ConfigType::Int32,&digitalCfg_[3].pulseMs,ConfigPersistence::Persistent,0};
 
@@ -692,6 +696,7 @@ private:
     ConfigVariable<PhysicalPortId,0> d4BindingVar_{NVS_KEY(NvsKeys::Io::IO_D4BP),"binding_port","io/output/d04",ConfigType::UInt16,&digitalCfg_[4].bindingPort,ConfigPersistence::Persistent,0};
     ConfigVariable<bool,0> d4ActiveHighVar_{NVS_KEY(NvsKeys::Io::IO_D4AH),"d04_active_high","io/output/d04",ConfigType::Bool,&digitalCfg_[4].activeHigh,ConfigPersistence::Persistent,0};
     ConfigVariable<bool,0> d4InitialOnVar_{NVS_KEY(NvsKeys::Io::IO_D4IN),"d04_initial_on","io/output/d04",ConfigType::Bool,&digitalCfg_[4].initialOn,ConfigPersistence::Persistent,0};
+    ConfigVariable<bool,0> d4RetainWarmVar_{NVS_KEY(NvsKeys::Io::IO_D4RT),"retain_on_warm_reboot","io/output/d04",ConfigType::Bool,&digitalCfg_[4].retainOnWarmReboot,ConfigPersistence::Persistent,0};
     ConfigVariable<bool,0> d4MomentaryVar_{NVS_KEY(NvsKeys::Io::IO_D4MO),"d04_momentary","io/output/d04",ConfigType::Bool,&digitalCfg_[4].momentary,ConfigPersistence::Persistent,0};
     ConfigVariable<int32_t,0> d4PulseVar_{NVS_KEY(NvsKeys::Io::IO_D4PM),"d04_pulse_ms","io/output/d04",ConfigType::Int32,&digitalCfg_[4].pulseMs,ConfigPersistence::Persistent,0};
 
@@ -699,6 +704,7 @@ private:
     ConfigVariable<PhysicalPortId,0> d5BindingVar_{NVS_KEY(NvsKeys::Io::IO_D5BP),"binding_port","io/output/d05",ConfigType::UInt16,&digitalCfg_[5].bindingPort,ConfigPersistence::Persistent,0};
     ConfigVariable<bool,0> d5ActiveHighVar_{NVS_KEY(NvsKeys::Io::IO_D5AH),"d05_active_high","io/output/d05",ConfigType::Bool,&digitalCfg_[5].activeHigh,ConfigPersistence::Persistent,0};
     ConfigVariable<bool,0> d5InitialOnVar_{NVS_KEY(NvsKeys::Io::IO_D5IN),"d05_initial_on","io/output/d05",ConfigType::Bool,&digitalCfg_[5].initialOn,ConfigPersistence::Persistent,0};
+    ConfigVariable<bool,0> d5RetainWarmVar_{NVS_KEY(NvsKeys::Io::IO_D5RT),"retain_on_warm_reboot","io/output/d05",ConfigType::Bool,&digitalCfg_[5].retainOnWarmReboot,ConfigPersistence::Persistent,0};
     ConfigVariable<bool,0> d5MomentaryVar_{NVS_KEY(NvsKeys::Io::IO_D5MO),"d05_momentary","io/output/d05",ConfigType::Bool,&digitalCfg_[5].momentary,ConfigPersistence::Persistent,0};
     ConfigVariable<int32_t,0> d5PulseVar_{NVS_KEY(NvsKeys::Io::IO_D5PM),"d05_pulse_ms","io/output/d05",ConfigType::Int32,&digitalCfg_[5].pulseMs,ConfigPersistence::Persistent,0};
 
@@ -706,6 +712,7 @@ private:
     ConfigVariable<PhysicalPortId,0> d6BindingVar_{NVS_KEY(NvsKeys::Io::IO_D6BP),"binding_port","io/output/d06",ConfigType::UInt16,&digitalCfg_[6].bindingPort,ConfigPersistence::Persistent,0};
     ConfigVariable<bool,0> d6ActiveHighVar_{NVS_KEY(NvsKeys::Io::IO_D6AH),"d06_active_high","io/output/d06",ConfigType::Bool,&digitalCfg_[6].activeHigh,ConfigPersistence::Persistent,0};
     ConfigVariable<bool,0> d6InitialOnVar_{NVS_KEY(NvsKeys::Io::IO_D6IN),"d06_initial_on","io/output/d06",ConfigType::Bool,&digitalCfg_[6].initialOn,ConfigPersistence::Persistent,0};
+    ConfigVariable<bool,0> d6RetainWarmVar_{NVS_KEY(NvsKeys::Io::IO_D6RT),"retain_on_warm_reboot","io/output/d06",ConfigType::Bool,&digitalCfg_[6].retainOnWarmReboot,ConfigPersistence::Persistent,0};
     ConfigVariable<bool,0> d6MomentaryVar_{NVS_KEY(NvsKeys::Io::IO_D6MO),"d06_momentary","io/output/d06",ConfigType::Bool,&digitalCfg_[6].momentary,ConfigPersistence::Persistent,0};
     ConfigVariable<int32_t,0> d6PulseVar_{NVS_KEY(NvsKeys::Io::IO_D6PM),"d06_pulse_ms","io/output/d06",ConfigType::Int32,&digitalCfg_[6].pulseMs,ConfigPersistence::Persistent,0};
 
@@ -713,6 +720,7 @@ private:
     ConfigVariable<PhysicalPortId,0> d7BindingVar_{NVS_KEY(NvsKeys::Io::IO_D7BP),"binding_port","io/output/d07",ConfigType::UInt16,&digitalCfg_[7].bindingPort,ConfigPersistence::Persistent,0};
     ConfigVariable<bool,0> d7ActiveHighVar_{NVS_KEY(NvsKeys::Io::IO_D7AH),"d07_active_high","io/output/d07",ConfigType::Bool,&digitalCfg_[7].activeHigh,ConfigPersistence::Persistent,0};
     ConfigVariable<bool,0> d7InitialOnVar_{NVS_KEY(NvsKeys::Io::IO_D7IN),"d07_initial_on","io/output/d07",ConfigType::Bool,&digitalCfg_[7].initialOn,ConfigPersistence::Persistent,0};
+    ConfigVariable<bool,0> d7RetainWarmVar_{NVS_KEY(NvsKeys::Io::IO_D7RT),"retain_on_warm_reboot","io/output/d07",ConfigType::Bool,&digitalCfg_[7].retainOnWarmReboot,ConfigPersistence::Persistent,0};
     ConfigVariable<bool,0> d7MomentaryVar_{NVS_KEY(NvsKeys::Io::IO_D7MO),"d07_momentary","io/output/d07",ConfigType::Bool,&digitalCfg_[7].momentary,ConfigPersistence::Persistent,0};
     ConfigVariable<int32_t,0> d7PulseVar_{NVS_KEY(NvsKeys::Io::IO_D7PM),"d07_pulse_ms","io/output/d07",ConfigType::Int32,&digitalCfg_[7].pulseMs,ConfigPersistence::Persistent,0};
 };

@@ -524,6 +524,24 @@
     "runtimeui.io.v13.group": "Sondes",
     "runtimeui.io.v13.label": "Pression BME680",
     "runtimeui.io.v14.group": "Sondes",
-    "runtimeui.io.v14.label": "Gaz BME680"
+    "runtimeui.io.v14.label": "Gaz BME680",
+    "cfgdocs.io.output.d00.retain_on_warm_reboot.label": "Comportement au reboot D00",
+    "cfgdocs.io.output.d00.retain_on_warm_reboot.help": "Choisit si D00 applique son etat initial au demarrage ou conserve le latch materiel TCA9554 lors d un reboot chaud de l ESP32. Sur un demarrage electrique froid, les sorties restent forcees a OFF.",
+    "cfgdocs.io.output.d01.retain_on_warm_reboot.label": "Comportement au reboot D01",
+    "cfgdocs.io.output.d01.retain_on_warm_reboot.help": "Choisit si D01 applique son etat initial au demarrage ou conserve le latch materiel TCA9554 lors d un reboot chaud de l ESP32. Sur un demarrage electrique froid, les sorties restent forcees a OFF.",
+    "cfgdocs.io.output.d02.retain_on_warm_reboot.label": "Comportement au reboot D02",
+    "cfgdocs.io.output.d02.retain_on_warm_reboot.help": "Choisit si D02 applique son etat initial au demarrage ou conserve le latch materiel TCA9554 lors d un reboot chaud de l ESP32. Sur un demarrage electrique froid, les sorties restent forcees a OFF.",
+    "cfgdocs.io.output.d03.retain_on_warm_reboot.label": "Comportement au reboot D03",
+    "cfgdocs.io.output.d03.retain_on_warm_reboot.help": "Choisit si D03 applique son etat initial au demarrage ou conserve le latch materiel TCA9554 lors d un reboot chaud de l ESP32. Sur un demarrage electrique froid, les sorties restent forcees a OFF.",
+    "cfgdocs.io.output.d04.retain_on_warm_reboot.label": "Comportement au reboot D04",
+    "cfgdocs.io.output.d04.retain_on_warm_reboot.help": "Choisit si D04 applique son etat initial au demarrage ou conserve le latch materiel TCA9554 lors d un reboot chaud de l ESP32. Sur un demarrage electrique froid, les sorties restent forcees a OFF.",
+    "cfgdocs.io.output.d05.retain_on_warm_reboot.label": "Comportement au reboot D05",
+    "cfgdocs.io.output.d05.retain_on_warm_reboot.help": "Choisit si D05 applique son etat initial au demarrage ou conserve le latch materiel TCA9554 lors d un reboot chaud de l ESP32. Sur un demarrage electrique froid, les sorties restent forcees a OFF.",
+    "cfgdocs.io.output.d06.retain_on_warm_reboot.label": "Comportement au reboot D06",
+    "cfgdocs.io.output.d06.retain_on_warm_reboot.help": "Choisit si D06 applique son etat initial au demarrage ou conserve le latch materiel TCA9554 lors d un reboot chaud de l ESP32. Sur un demarrage electrique froid, les sorties restent forcees a OFF.",
+    "cfgdocs.io.output.d07.retain_on_warm_reboot.label": "Comportement au reboot D07",
+    "cfgdocs.io.output.d07.retain_on_warm_reboot.help": "Choisit si D07 applique son etat initial au demarrage ou conserve le latch materiel TCA9554 lors d un reboot chaud de l ESP32. Sur un demarrage electrique froid, les sorties restent forcees a OFF.",
+    "cfgmods_meta.iomodule.enum_sets.io_output_boot_behavior.0.label": "Appliquer etat initial",
+    "cfgmods_meta.iomodule.enum_sets.io_output_boot_behavior.1.label": "Conserver au reboot ESP32"
   }
 }

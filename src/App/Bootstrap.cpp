@@ -1,6 +1,11 @@
 #include "App/Bootstrap.h"
 
 #include "App/BuildFlags.h"
+#include "Core/Services/ILogger.h"
+
+#ifndef FLOW_ENABLE_BOOT_LOG_CAPTURE
+#define FLOW_ENABLE_BOOT_LOG_CAPTURE 0
+#endif
 
 #if FLOW_BUILD_IS_FLOWIO
 #include "Profiles/FlowIO/FlowIOProfile.h"
@@ -26,6 +31,9 @@ namespace {
 
 AppContext gContext{};
 bool gStarted = false;
+#if FLOW_ENABLE_BOOT_LOG_CAPTURE
+bool gBootLogCaptureCompleteMarked = false;
+#endif
 
 const FirmwareProfile& resolveProfile()
 {
@@ -48,6 +56,17 @@ const FirmwareProfile& resolveProfile()
 
 namespace Bootstrap {
 
+#if FLOW_ENABLE_BOOT_LOG_CAPTURE
+void markBootLogCaptureCompleteIfReady()
+{
+    if (gBootLogCaptureCompleteMarked) return;
+    if (!gContext.moduleManager.startupComplete()) return;
+
+    markBootLogCaptureComplete();
+    gBootLogCaptureCompleteMarked = true;
+}
+#endif
+
 void run()
 {
     if (gStarted) return;
@@ -65,6 +84,9 @@ void run()
 
     gContext.bootCompleted = true;
     gStarted = true;
+#if FLOW_ENABLE_BOOT_LOG_CAPTURE
+    markBootLogCaptureCompleteIfReady();
+#endif
 }
 
 void loop()
@@ -74,6 +96,9 @@ void loop()
     }
 
     (void)gContext.moduleManager.tickStartup(gContext.registry, gContext.services);
+#if FLOW_ENABLE_BOOT_LOG_CAPTURE
+    markBootLogCaptureCompleteIfReady();
+#endif
 
     if (gContext.profile && gContext.profile->loop) {
         gContext.profile->loop(gContext);

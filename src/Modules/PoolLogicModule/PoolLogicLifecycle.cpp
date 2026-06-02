@@ -228,6 +228,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
 
     const EventBusService* ebSvc = services.get<EventBusService>(ServiceId::EventBus);
     eventBus_ = ebSvc ? ebSvc->bus : nullptr;
+    timeSvc_ = services.get<TimeService>(ServiceId::Time);
     schedSvc_ = services.get<TimeSchedulerService>(ServiceId::TimeScheduler);
     ioSvc_ = services.get<IOServiceV2>(ServiceId::Io);
     poolSvc_ = services.get<PoolDeviceService>(ServiceId::PoolDevice);

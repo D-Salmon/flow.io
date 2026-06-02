@@ -141,6 +141,11 @@ private:
     static void formatUptime_(char* out, size_t outSize, uint32_t ms);
     static void formatTimestamp_(WebInterfaceModule* self, const LogEntry& e, char* out, size_t outSize);
     static void onLocalLogSinkWrite_(void* ctx, const LogEntry& e);
+    static bool sendBootLogCaptureEntry_(void* writerCtx,
+                                         const LogEntry& e,
+                                         uint16_t index,
+                                         uint16_t total);
+    void dumpBootLogCapture_(AsyncWebSocketClient* client);
 
     // Lifecycle and service surface
     bool setPaused_(bool paused);
@@ -168,6 +173,7 @@ private:
 
     const LogHubService* logHub_ = nullptr;
     const LogSinkRegistryService* logSinkReg_ = nullptr;
+    const BootLogCaptureService* bootLogCapture_ = nullptr;
     const TimeService* timeSvc_ = nullptr;
     const WifiService* wifiSvc_ = nullptr;
     const CommandService* cmdSvc_ = nullptr;

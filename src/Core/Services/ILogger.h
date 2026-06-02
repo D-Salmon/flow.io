@@ -38,6 +38,20 @@ struct LogHubStatsSnapshot {
     LogModuleId lastFormatTruncModuleId = (LogModuleId)LogModuleIdValue::Unknown;
 };
 
+struct BootLogCaptureStats {
+    uint16_t capacity = 0;
+    uint16_t count = 0;
+    uint32_t droppedCount = 0;
+    bool capturing = false;
+    bool complete = false;
+    bool psram = false;
+};
+
+using BootLogCaptureReplayWriter = bool (*)(void* writerCtx,
+                                            const LogEntry& entry,
+                                            uint16_t index,
+                                            uint16_t total);
+
 /** @brief Log sink interface. */
 struct LogSinkService {
     void (*write)(void* ctx, const LogEntry& e);
@@ -56,6 +70,22 @@ struct LogHubService {
     void (*noteFormatTruncation)(void* ctx, LogModuleId moduleId, uint32_t wrote);
     void* ctx;
 };
+
+struct BootLogCaptureService {
+    void (*markComplete)(void* ctx);
+    void (*getStats)(void* ctx, BootLogCaptureStats* out);
+    uint16_t (*replay)(void* ctx, BootLogCaptureReplayWriter writer, void* writerCtx);
+    void* ctx;
+};
+
+#ifndef FLOW_ENABLE_BOOT_LOG_CAPTURE
+#define FLOW_ENABLE_BOOT_LOG_CAPTURE 0
+#endif
+
+#if FLOW_ENABLE_BOOT_LOG_CAPTURE
+const BootLogCaptureService* bootLogCaptureService();
+void markBootLogCaptureComplete();
+#endif
 
 /** @brief Registry interface for log sinks. */
 struct LogSinkRegistryService {

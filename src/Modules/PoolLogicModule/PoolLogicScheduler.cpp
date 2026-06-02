@@ -8,6 +8,7 @@
 
 #include <cstring>
 #include <math.h>
+#include <time.h>
 
 #define LOG_MODULE_ID ((LogModuleId)LogModuleIdValue::PoolLogicModule)
 #include "Core/ModuleLog.h"
@@ -62,6 +63,28 @@ bool PoolLogicModule::computeFiltrationWindow_(float waterTemp, uint8_t& startHo
     return true;
 }
 
+bool PoolLogicModule::currentFiltrationWindowActive_(uint8_t startHour, uint8_t stopHour, bool& activeOut) const
+{
+    if (!timeSvc_ || !timeSvc_->isSynced || !timeSvc_->epoch) return false;
+    if (!timeSvc_->isSynced(timeSvc_->ctx)) return false;
+
+    const uint64_t epoch = timeSvc_->epoch(timeSvc_->ctx);
+    if (epoch < 1609459200ULL) return false;
+
+    const time_t now = (time_t)epoch;
+    struct tm localNow {};
+    if (!localtime_r(&now, &localNow)) return false;
+
+    const uint16_t minuteOfDay = (uint16_t)((localNow.tm_hour * 60) + localNow.tm_min);
+    const uint16_t startMinute = (uint16_t)(((startHour < 24U) ? startHour : 23U) * 60U);
+    const uint16_t stopMinute = (uint16_t)(((stopHour < 24U) ? stopHour : 23U) * 60U);
+
+    activeOut = (stopMinute <= startMinute)
+        ? (minuteOfDay >= startMinute || minuteOfDay < stopMinute)
+        : (minuteOfDay >= startMinute && minuteOfDay < stopMinute);
+    return true;
+}
+
 bool PoolLogicModule::applyFiltrationWindowSlot_(uint8_t startHour, uint8_t stopHour)
 {
     if (!schedSvc_ || !schedSvc_->setSlot) {
@@ -92,7 +115,10 @@ bool PoolLogicModule::applyFiltrationWindowSlot_(uint8_t startHour, uint8_t stop
     }
 
     bool windowActive = filtrationWindowActive_;
-    if (schedSvc_->isActive) {
+    if (currentFiltrationWindowActive_(startHour, stopHour, windowActive)) {
+        // Keep PoolLogic deterministic during the short gap after setSlot(),
+        // before TimeModule has rebuilt its active mask.
+    } else if (schedSvc_->isActive) {
         windowActive = schedSvc_->isActive(schedSvc_->ctx, SLOT_FILTR_WINDOW);
     }
 

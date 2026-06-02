@@ -525,6 +525,24 @@
     "runtimeui.io.v13.group": "Sensors",
     "runtimeui.io.v13.label": "Pressure BME680",
     "runtimeui.io.v14.group": "Sensors",
-    "runtimeui.io.v14.label": "Gaz BME680"
+    "runtimeui.io.v14.label": "Gaz BME680",
+    "cfgdocs.io.output.d00.retain_on_warm_reboot.label": "Boot behavior D00",
+    "cfgdocs.io.output.d00.retain_on_warm_reboot.help": "Choose whether D00 applies its initial state at startup or keeps the TCA9554 hardware latch during an ESP32 warm reboot. On cold power-on, outputs are still forced OFF.",
+    "cfgdocs.io.output.d01.retain_on_warm_reboot.label": "Boot behavior D01",
+    "cfgdocs.io.output.d01.retain_on_warm_reboot.help": "Choose whether D01 applies its initial state at startup or keeps the TCA9554 hardware latch during an ESP32 warm reboot. On cold power-on, outputs are still forced OFF.",
+    "cfgdocs.io.output.d02.retain_on_warm_reboot.label": "Boot behavior D02",
+    "cfgdocs.io.output.d02.retain_on_warm_reboot.help": "Choose whether D02 applies its initial state at startup or keeps the TCA9554 hardware latch during an ESP32 warm reboot. On cold power-on, outputs are still forced OFF.",
+    "cfgdocs.io.output.d03.retain_on_warm_reboot.label": "Boot behavior D03",
+    "cfgdocs.io.output.d03.retain_on_warm_reboot.help": "Choose whether D03 applies its initial state at startup or keeps the TCA9554 hardware latch during an ESP32 warm reboot. On cold power-on, outputs are still forced OFF.",
+    "cfgdocs.io.output.d04.retain_on_warm_reboot.label": "Boot behavior D04",
+    "cfgdocs.io.output.d04.retain_on_warm_reboot.help": "Choose whether D04 applies its initial state at startup or keeps the TCA9554 hardware latch during an ESP32 warm reboot. On cold power-on, outputs are still forced OFF.",
+    "cfgdocs.io.output.d05.retain_on_warm_reboot.label": "Boot behavior D05",
+    "cfgdocs.io.output.d05.retain_on_warm_reboot.help": "Choose whether D05 applies its initial state at startup or keeps the TCA9554 hardware latch during an ESP32 warm reboot. On cold power-on, outputs are still forced OFF.",
+    "cfgdocs.io.output.d06.retain_on_warm_reboot.label": "Boot behavior D06",
+    "cfgdocs.io.output.d06.retain_on_warm_reboot.help": "Choose whether D06 applies its initial state at startup or keeps the TCA9554 hardware latch during an ESP32 warm reboot. On cold power-on, outputs are still forced OFF.",
+    "cfgdocs.io.output.d07.retain_on_warm_reboot.label": "Boot behavior D07",
+    "cfgdocs.io.output.d07.retain_on_warm_reboot.help": "Choose whether D07 applies its initial state at startup or keeps the TCA9554 hardware latch during an ESP32 warm reboot. On cold power-on, outputs are still forced OFF.",
+    "cfgmods_meta.iomodule.enum_sets.io_output_boot_behavior.0.label": "Apply initial state",
+    "cfgmods_meta.iomodule.enum_sets.io_output_boot_behavior.1.label": "Retain on ESP32 reboot"
   }
 }
