@@ -501,6 +501,9 @@ void configureIoModule(const AppContext& ctx, ModuleInstances& modules)
         def.bindingPort = spec->bindingPort;
         def.activeHigh = spec->activeHigh;
         def.initialOn = false;
+        def.startupPolicy = spec->retainOnWarmReboot
+            ? IOOutputStartupPolicy::PreserveHardwareState
+            : IOOutputStartupPolicy::ApplyInitial;
         def.retainOnWarmReboot = spec->retainOnWarmReboot;
         def.momentary = spec->momentary;
         def.pulseMs = spec->momentary ? spec->pulseMs : 0;

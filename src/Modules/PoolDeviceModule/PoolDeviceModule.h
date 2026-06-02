@@ -141,6 +141,8 @@ private:
     PoolDeviceSvcStatus svcMetaImpl_(uint8_t slot, PoolDeviceSvcMeta* outMeta) const;
     PoolDeviceSvcStatus svcReadActualOnImpl_(uint8_t slot, uint8_t* outOn, uint32_t* outTsMs) const;
     PoolDeviceSvcStatus svcWriteDesiredImpl_(uint8_t slot, uint8_t on);
+    PoolDeviceSvcStatus svcSetWritesEnabledImpl_(uint8_t enabled);
+    uint8_t svcWritesEnabledImpl_() const;
     PoolDeviceSvcStatus svcRefillTankImpl_(uint8_t slot, float remainingMl);
     void tickDevices_(uint32_t nowMs, bool allowPersist = true);
     void resetDailyCounters_();
@@ -157,6 +159,7 @@ private:
     static bool maxUptimeReached_(const PoolDeviceSlot& slot);
     bool readIoState_(const PoolDeviceSlot& slot, bool& onOut) const;
     bool writeIo_(IoId ioId, bool on);
+    bool actuatorWritesEnabled() const { return writesEnabled_; }
     static uint32_t toSeconds_(uint64_t ms);
 
     // Runtime
@@ -184,6 +187,7 @@ private:
 
     // State and configuration storage
     bool runtimeReady_ = false;
+    bool writesEnabled_ = false;
     portMUX_TYPE resetMux_ = portMUX_INITIALIZER_UNLOCKED;
     uint8_t resetPendingMask_ = 0;
     bool periodReconcilePending_ = true;
@@ -202,6 +206,8 @@ private:
         ServiceBinding::bind<&PoolDeviceModule::svcMetaImpl_>,
         ServiceBinding::bind<&PoolDeviceModule::svcReadActualOnImpl_>,
         ServiceBinding::bind<&PoolDeviceModule::svcWriteDesiredImpl_>,
+        ServiceBinding::bind<&PoolDeviceModule::svcSetWritesEnabledImpl_>,
+        ServiceBinding::bind<&PoolDeviceModule::svcWritesEnabledImpl_>,
         ServiceBinding::bind<&PoolDeviceModule::svcRefillTankImpl_>,
         this
     };

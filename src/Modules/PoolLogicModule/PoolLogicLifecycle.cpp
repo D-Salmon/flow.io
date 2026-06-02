@@ -834,6 +834,12 @@ void PoolLogicModule::onConfigLoaded(ConfigStore&, ServiceRegistry& services)
 void PoolLogicModule::loop()
 {
     if (!enabled_) {
+        if (!bootControlReady_) {
+            if (setPoolDeviceWritesEnabled_(true)) {
+                bootControlReady_ = true;
+                LOGI("PoolLogic disabled: pool device writes enabled after adoption");
+            }
+        }
         vTaskDelay(pdMS_TO_TICKS(500));
         return;
     }
@@ -858,7 +864,18 @@ void PoolLogicModule::loop()
         LOGI("Daily reset: cleaning_done=false");
     }
 
-    runControlLoop_(millis());
+    const uint32_t nowMs = millis();
+    if (!bootControlReady_) {
+        adoptBootDeviceState_(nowMs);
+        if (setPoolDeviceWritesEnabled_(true)) {
+            bootControlReady_ = true;
+            LOGI("PoolLogic boot adoption complete; pool device writes enabled");
+        }
+        vTaskDelay(pdMS_TO_TICKS(200));
+        return;
+    }
+
+    runControlLoop_(nowMs);
     vTaskDelay(pdMS_TO_TICKS(200));
 }
 

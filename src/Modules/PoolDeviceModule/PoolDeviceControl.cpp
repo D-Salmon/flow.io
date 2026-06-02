@@ -106,6 +106,11 @@ PoolDeviceSvcStatus PoolDeviceModule::svcWriteDesiredImpl_(uint8_t slot, uint8_t
     s.desiredOn = requested;
     if (!requested && !maxUptimeReached) s.blockReason = POOL_DEVICE_BLOCK_NONE;
 
+    if (!writesEnabled_) {
+        tickDevices_(millis(), false);
+        return POOLDEV_SVC_OK;
+    }
+
     if (s.actualOn != requested) {
         if (writeIo_(s.ioId, requested)) {
             s.actualOn = requested;
@@ -119,6 +124,24 @@ PoolDeviceSvcStatus PoolDeviceModule::svcWriteDesiredImpl_(uint8_t slot, uint8_t
 
     tickDevices_(millis(), false);
     return POOLDEV_SVC_OK;
+}
+
+PoolDeviceSvcStatus PoolDeviceModule::svcSetWritesEnabledImpl_(uint8_t enabled)
+{
+    if (!runtimeReady_) return POOLDEV_SVC_ERR_NOT_READY;
+
+    const bool newValue = (enabled != 0U);
+    if (writesEnabled_ == newValue) return POOLDEV_SVC_OK;
+
+    writesEnabled_ = newValue;
+    LOGI("Pool actuator writes %s", writesEnabled_ ? "enabled" : "frozen");
+    tickDevices_(millis(), false);
+    return POOLDEV_SVC_OK;
+}
+
+uint8_t PoolDeviceModule::svcWritesEnabledImpl_() const
+{
+    return writesEnabled_ ? 1U : 0U;
 }
 
 PoolDeviceSvcStatus PoolDeviceModule::svcRefillTankImpl_(uint8_t slot, float remainingMl)
@@ -493,7 +516,7 @@ void PoolDeviceModule::tickDevices_(uint32_t nowMs, bool allowPersist)
                 s.desiredOn = false;
                 stateChanged = true;
             }
-            if (s.actualOn) {
+            if (s.actualOn && writesEnabled_) {
                 if (writeIo_(s.ioId, false)) {
                     s.actualOn = false;
                     s.blockReason = POOL_DEVICE_BLOCK_MAX_UPTIME;
@@ -512,7 +535,7 @@ void PoolDeviceModule::tickDevices_(uint32_t nowMs, bool allowPersist)
         }
 
         // Interlocks are re-evaluated every tick so manual writes cannot bypass them.
-        if (s.actualOn && !dependenciesSatisfied_(i)) {
+        if (s.actualOn && !dependenciesSatisfied_(i) && writesEnabled_) {
             s.desiredOn = false;
             if (writeIo_(s.ioId, false)) {
                 s.actualOn = false;
@@ -523,7 +546,7 @@ void PoolDeviceModule::tickDevices_(uint32_t nowMs, bool allowPersist)
             stateChanged = true;
         }
 
-        if (s.desiredOn && !s.actualOn) {
+        if (s.desiredOn && !s.actualOn && writesEnabled_) {
             if (dependenciesSatisfied_(i)) {
                 if (writeIo_(s.ioId, true)) {
                     s.actualOn = true;
@@ -537,7 +560,7 @@ void PoolDeviceModule::tickDevices_(uint32_t nowMs, bool allowPersist)
                 s.blockReason = POOL_DEVICE_BLOCK_INTERLOCK;
                 stateChanged = true;
             }
-        } else if (!s.desiredOn && s.actualOn) {
+        } else if (!s.desiredOn && s.actualOn && writesEnabled_) {
             if (writeIo_(s.ioId, false)) {
                 s.actualOn = false;
                 s.blockReason = maxUptimeReached_(s) ? POOL_DEVICE_BLOCK_MAX_UPTIME : POOL_DEVICE_BLOCK_NONE;

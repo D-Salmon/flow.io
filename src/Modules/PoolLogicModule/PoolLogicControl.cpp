@@ -33,6 +33,7 @@ const char* poolDeviceSvcStatusStr_(PoolDeviceSvcStatus st)
         case POOLDEV_SVC_ERR_INTERLOCK: return "interlock";
         case POOLDEV_SVC_ERR_IO: return "io";
         case POOLDEV_SVC_ERR_MAX_UPTIME: return "max_uptime";
+        case POOLDEV_SVC_ERR_WRITES_DISABLED: return "writes_disabled";
         default: return "unknown";
     }
 }
@@ -183,6 +184,20 @@ bool PoolLogicModule::writeDeviceDesired_(uint8_t deviceSlot, bool on)
     return true;
 }
 
+bool PoolLogicModule::setPoolDeviceWritesEnabled_(bool enabled)
+{
+    if (!poolSvc_ || !poolSvc_->setWritesEnabled) return false;
+    const PoolDeviceSvcStatus st = poolSvc_->setWritesEnabled(poolSvc_->ctx, enabled ? 1U : 0U);
+    if (st != POOLDEV_SVC_OK) {
+        LOGW("pooldev.setWritesEnabled failed enabled=%u st=%u(%s)",
+             enabled ? 1u : 0u,
+             (unsigned)st,
+             poolDeviceSvcStatusStr_(st));
+        return false;
+    }
+    return true;
+}
+
 // Device FSM synchronization is edge-oriented: it preserves the current state
 // and only emits transitions when the observed hardware state changes.
 void PoolLogicModule::syncDeviceState_(uint8_t deviceSlot, DeviceFsm& fsm, uint32_t nowMs, bool& turnedOnOut, bool& turnedOffOut)
@@ -208,6 +223,31 @@ void PoolLogicModule::syncDeviceState_(uint8_t deviceSlot, DeviceFsm& fsm, uint3
         fsm.on = actualOn;
         fsm.stateSinceMs = nowMs;
     }
+}
+
+void PoolLogicModule::syncAllDeviceStates_(uint32_t nowMs)
+{
+    bool unusedStart = false;
+    bool unusedStop = false;
+    syncDeviceState_(filtrationDeviceSlot_, filtrationFsm_, nowMs, unusedStart, unusedStop);
+    syncDeviceState_(robotDeviceSlot_, robotFsm_, nowMs, unusedStart, unusedStop);
+    syncDeviceState_(swgDeviceSlot_, swgFsm_, nowMs, unusedStart, unusedStop);
+    syncDeviceState_(fillingDeviceSlot_, fillingFsm_, nowMs, unusedStart, unusedStop);
+    syncDeviceState_(phPumpDeviceSlot_, phPumpFsm_, nowMs, unusedStart, unusedStop);
+    syncDeviceState_(orpPumpDeviceSlot_, orpPumpFsm_, nowMs, unusedStart, unusedStop);
+    syncDeviceState_(heaterDeviceSlot_, heaterFsm_, nowMs, unusedStart, unusedStop);
+}
+
+void PoolLogicModule::adoptBootDeviceState_(uint32_t nowMs)
+{
+    syncAllDeviceStates_(nowMs);
+    filtrationFsm_.lastDesired = filtrationFsm_.on;
+    robotFsm_.lastDesired = robotFsm_.on;
+    swgFsm_.lastDesired = swgFsm_.on;
+    fillingFsm_.lastDesired = fillingFsm_.on;
+    phPumpFsm_.lastDesired = phPumpFsm_.on;
+    orpPumpFsm_.lastDesired = orpPumpFsm_.on;
+    heaterFsm_.lastDesired = heaterFsm_.on;
 }
 
 uint32_t PoolLogicModule::stateUptimeSec_(const DeviceFsm& fsm, uint32_t nowMs) const

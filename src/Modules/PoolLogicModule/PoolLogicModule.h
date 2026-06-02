@@ -212,6 +212,7 @@ private:
     bool pendingDailyRecalc_ = false;
     bool pendingDayReset_ = false;
     bool pendingFiltrationReconcile_ = false;
+    bool bootControlReady_ = false;
 
     bool psiError_ = false;
     bool phTankLowError_ = false;
@@ -375,7 +376,10 @@ private:
     AlarmCondState condPumpMaxUptime_(uint8_t deviceSlot) const;
     bool readDeviceActualOn_(uint8_t deviceSlot, bool& onOut) const;
     bool writeDeviceDesired_(uint8_t deviceSlot, bool on);
+    bool setPoolDeviceWritesEnabled_(bool enabled);
     void syncDeviceState_(uint8_t deviceSlot, DeviceFsm& fsm, uint32_t nowMs, bool& turnedOnOut, bool& turnedOffOut);
+    void syncAllDeviceStates_(uint32_t nowMs);
+    void adoptBootDeviceState_(uint32_t nowMs);
     uint32_t stateUptimeSec_(const DeviceFsm& fsm, uint32_t nowMs) const;
     bool loadAnalogSensor_(IoId ioId, float& out, uint32_t* tsMsOut = nullptr) const;
     bool loadDigitalSensor_(IoId ioId, bool& out) const;

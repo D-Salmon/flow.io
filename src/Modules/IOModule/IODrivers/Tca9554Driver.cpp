@@ -31,6 +31,21 @@ bool Tca9554Driver::begin()
     return true;
 }
 
+bool Tca9554Driver::beginPreserveHardwareState()
+{
+    uint8_t config = 0xFF;
+    uint8_t output = 0xFF;
+    if (!readReg_(kRegConfiguration, config)) return false;
+    if (!readReg_(kRegOutputPort, output)) return false;
+
+    bootWasColdPowerOn_ = (config == 0xFF);
+    state_ = output;
+
+    if (!writeReg_(kRegPolarityInversion, 0x00)) return false;
+    if (!writeReg_(kRegConfiguration, 0x00)) return false;
+    return true;
+}
+
 bool Tca9554Driver::writeMask(uint8_t mask)
 {
     state_ = mask;
@@ -57,6 +72,12 @@ bool Tca9554Driver::readShadow(uint8_t pin, bool& on) const
 {
     if (pin > 7) return false;
     on = (state_ & (uint8_t)(1u << pin)) != 0;
+    return true;
+}
+
+bool Tca9554Driver::readOutputPort(uint8_t& value) const
+{
+    if (!readReg_(kRegOutputPort, value)) return false;
     return true;
 }
 

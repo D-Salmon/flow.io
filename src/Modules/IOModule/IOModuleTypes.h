@@ -102,6 +102,11 @@ enum IODigitalEdgeMode : uint8_t {
     IO_EDGE_BOTH = 2
 };
 
+enum class IOOutputStartupPolicy : uint8_t {
+    ApplyInitial = 0,
+    PreserveHardwareState = 1
+};
+
 struct IOAnalogDefinition {
     char id[24] = {0};
     /** Required explicit AI id in [IO_ID_AI_BASE..IO_ID_AI_BASE+MAX_ANALOG_ENDPOINTS). */
@@ -129,6 +134,7 @@ struct IODigitalOutputDefinition {
     PhysicalPortId bindingPort = IO_PORT_INVALID;
     bool activeHigh = false;
     bool initialOn = false;
+    IOOutputStartupPolicy startupPolicy = IOOutputStartupPolicy::ApplyInitial;
     bool retainOnWarmReboot = false;
     bool momentary = false;
     uint16_t pulseMs = 500;
@@ -139,6 +145,7 @@ struct IODigitalOutputSlotConfig {
     PhysicalPortId bindingPort = IO_PORT_INVALID;
     bool activeHigh = false;
     bool initialOn = false;
+    IOOutputStartupPolicy startupPolicy = IOOutputStartupPolicy::ApplyInitial;
     bool retainOnWarmReboot = false;
     bool momentary = false;
     int32_t pulseMs = 500;

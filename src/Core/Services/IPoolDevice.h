@@ -15,7 +15,8 @@ enum PoolDeviceSvcStatus : uint8_t {
     POOLDEV_SVC_ERR_DISABLED = 4,
     POOLDEV_SVC_ERR_INTERLOCK = 5,
     POOLDEV_SVC_ERR_IO = 6,
-    POOLDEV_SVC_ERR_MAX_UPTIME = 7
+    POOLDEV_SVC_ERR_MAX_UPTIME = 7,
+    POOLDEV_SVC_ERR_WRITES_DISABLED = 8
 };
 
 /** Static metadata for one pool device slot. */
@@ -40,6 +41,10 @@ struct PoolDeviceService {
     PoolDeviceSvcStatus (*readActualOn)(void* ctx, uint8_t slot, uint8_t* outOn, uint32_t* outTsMs);
     /** Write desired state of one slot. */
     PoolDeviceSvcStatus (*writeDesired)(void* ctx, uint8_t slot, uint8_t on);
+    /** Enable or freeze physical actuator writes while keeping runtime readable. */
+    PoolDeviceSvcStatus (*setWritesEnabled)(void* ctx, uint8_t enabled);
+    /** Read whether physical actuator writes are currently enabled. */
+    uint8_t (*writesEnabled)(void* ctx);
     /** Refill tracked tank level for one slot (peristaltic pumps). */
     PoolDeviceSvcStatus (*refillTank)(void* ctx, uint8_t slot, float remainingMl);
     /** Opaque implementation context. */

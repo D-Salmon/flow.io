@@ -43,3 +43,8 @@ bool DigitalActuatorEndpoint::syncFromHardware(bool on, bool valid, uint32_t tim
     value_.timestampMs = timestampMs;
     return true;
 }
+
+bool DigitalActuatorEndpoint::adoptValue(bool on, uint32_t timestampMs)
+{
+    return syncFromHardware(on, true, timestampMs);
+}

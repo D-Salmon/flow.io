@@ -476,6 +476,7 @@ bool IOModule::defineDigitalOutput(const IODigitalOutputDefinition& def)
             digitalCfg_[cfgIdx].bindingPort = def.bindingPort;
             digitalCfg_[cfgIdx].activeHigh = def.activeHigh;
             digitalCfg_[cfgIdx].initialOn = def.initialOn;
+            digitalCfg_[cfgIdx].startupPolicy = def.startupPolicy;
             digitalCfg_[cfgIdx].retainOnWarmReboot = def.retainOnWarmReboot;
             digitalCfg_[cfgIdx].momentary = def.momentary;
             digitalCfg_[cfgIdx].pulseMs = (int32_t)def.pulseMs;
@@ -1919,12 +1920,15 @@ bool IOModule::configureRuntime_()
 
     bool needPcfOutput = false;
     bool needTcaOutput = false;
+    bool needTcaPreserveStartup = false;
     for (uint8_t i = 0; i < MAX_DIGITAL_SLOTS; ++i) {
         const DigitalSlot& s = digitalSlots_[i];
         if (!s.used || s.kind != DIGITAL_SLOT_OUTPUT) continue;
         PhysicalPortId bindingPort = s.outDef.bindingPort;
+        IOOutputStartupPolicy startupPolicy = s.outDef.startupPolicy;
         if (s.logicalIdx < DIGITAL_CFG_SLOTS) {
             bindingPort = digitalCfg_[s.logicalIdx].bindingPort;
+            startupPolicy = digitalCfg_[s.logicalIdx].startupPolicy;
         }
         const IOBindingPortSpec* spec = bindingPortSpec_(bindingPort);
         if (spec && spec->kind == IO_PORT_KIND_PCF8574_OUTPUT) {
@@ -1932,6 +1936,9 @@ bool IOModule::configureRuntime_()
         }
         if (spec && spec->kind == IO_PORT_KIND_TCA9554_OUTPUT) {
             needTcaOutput = true;
+            if (startupPolicy == IOOutputStartupPolicy::PreserveHardwareState) {
+                needTcaPreserveStartup = true;
+            }
         }
     }
 
@@ -2055,6 +2062,7 @@ bool IOModule::configureRuntime_()
             s.outDef.bindingPort = digitalCfg_[cfgIdx].bindingPort;
             s.outDef.activeHigh = digitalCfg_[cfgIdx].activeHigh;
             s.outDef.initialOn = digitalCfg_[cfgIdx].initialOn;
+            s.outDef.startupPolicy = digitalCfg_[cfgIdx].startupPolicy;
             s.outDef.retainOnWarmReboot = digitalCfg_[cfgIdx].retainOnWarmReboot;
             s.outDef.momentary = digitalCfg_[cfgIdx].momentary;
             int32_t p = digitalCfg_[cfgIdx].pulseMs;
@@ -2125,7 +2133,10 @@ bool IOModule::configureRuntime_()
                     continue;
                 }
                 tcaDriver_ = static_cast<Tca9554Driver*>(tcaMaskDriver);
-                if (!makeMaskProvider(tcaDriver_).begin()) {
+                const bool tcaBeginOk = needTcaPreserveStartup
+                    ? tcaDriver_->beginPreserveHardwareState()
+                    : makeMaskProvider(tcaDriver_).begin();
+                if (!tcaBeginOk) {
                     LOGW("TCA9554 not detected at 0x%02X", cfgData_.pcfAddress);
                     tcaDriver_ = nullptr;
                     continue;
@@ -2151,17 +2162,19 @@ bool IOModule::configureRuntime_()
         registry_.add(s.endpoint);
 
         bool actualOn = s.outDef.initialOn;
-        const bool tcaColdPowerOn = usesTcaOut && tcaDriver_ && tcaDriver_->bootWasColdPowerOn();
-        const bool retainWarmTca = usesTcaOut && s.outDef.retainOnWarmReboot && !tcaColdPowerOn;
-        if (tcaColdPowerOn || retainWarmTca) {
-            (void)s.provider.read(actualOn);
+        const bool preserveStartup =
+            s.outDef.startupPolicy == IOOutputStartupPolicy::PreserveHardwareState;
+        if (preserveStartup) {
+            if (!s.provider.read(actualOn)) {
+                LOGW("Digital output %s startup state adoption failed", s.endpointId);
+            }
         } else {
             (void)s.provider.write(s.outDef.initialOn);
             actualOn = s.outDef.initialOn;
         }
 
         const uint32_t nowMs = millis();
-        static_cast<DigitalActuatorEndpoint*>(s.endpoint)->syncFromHardware(actualOn, true, nowMs);
+        static_cast<DigitalActuatorEndpoint*>(s.endpoint)->adoptValue(actualOn, nowMs);
         if (dataStore_) {
             uint8_t rtIdx = 0;
             if (endpointIndexFromId_(s.endpointId, rtIdx)) {

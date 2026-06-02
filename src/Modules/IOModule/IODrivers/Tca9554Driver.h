@@ -14,12 +14,14 @@ public:
 
     const char* id() const override { return driverId_; }
     bool begin() override;
+    bool beginPreserveHardwareState();
     void tick(uint32_t) override {}
 
     bool writeMask(uint8_t mask) override;
     bool readMask(uint8_t& mask) const override;
     bool writePin(uint8_t pin, bool on);
     bool readShadow(uint8_t pin, bool& on) const;
+    bool readOutputPort(uint8_t& value) const;
     bool bootWasColdPowerOn() const { return bootWasColdPowerOn_; }
 
 private:
