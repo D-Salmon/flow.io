@@ -7,6 +7,7 @@
 #include "Modules/PoolLogicModule/FiltrationWindow.h"
 
 #include <cstring>
+#include <math.h>
 
 #define LOG_MODULE_ID ((LogModuleId)LogModuleIdValue::PoolLogicModule)
 #include "Core/ModuleLog.h"
@@ -106,19 +107,20 @@ bool PoolLogicModule::recalcAndApplyFiltrationWindow_(uint8_t* startHourOut,
                                                       uint8_t* stopHourOut,
                                                       uint8_t* durationOut)
 {
-    if (!ioSvc_ || !ioSvc_->readAnalog) {
-        LOGW("No IOServiceV2 available for water temperature");
-        return false;
-    }
     if (!schedSvc_ || !schedSvc_->setSlot) {
         LOGW("No time.scheduler service available");
         return false;
     }
 
-    float waterTemp = 0.0f;
-    if (!loadAnalogSensor_(waterTempIoId_, waterTemp)) {
-        LOGW("Water temperature unavailable on ioId=%u", (unsigned)waterTempIoId_);
-        return false;
+    float waterTemp = NAN;
+    bool hasWaterTemp = false;
+    if (ioSvc_ && ioSvc_->readAnalog) {
+        hasWaterTemp = loadAnalogSensor_(waterTempIoId_, waterTemp);
+    }
+    if (!ioSvc_ || !ioSvc_->readAnalog) {
+        LOGW("No IOServiceV2 available for water temperature; using widest filtration window");
+    } else if (!hasWaterTemp) {
+        LOGW("Water temperature unavailable on ioId=%u; using widest filtration window", (unsigned)waterTempIoId_);
     }
 
     uint8_t startHour = 0;
@@ -156,10 +158,17 @@ bool PoolLogicModule::recalcAndApplyFiltrationWindow_(uint8_t* startHourOut,
     if (stopHourOut) *stopHourOut = stopHour;
     if (durationOut) *durationOut = duration;
 
-    LOGI("Filtration duration=%uh water=%.2fC start=%uh stop=%uh",
-         (unsigned)duration,
-         (double)waterTemp,
-         (unsigned)startHour,
-         (unsigned)stopHour);
+    if (hasWaterTemp) {
+        LOGI("Filtration duration=%uh water=%.2fC start=%uh stop=%uh",
+             (unsigned)duration,
+             (double)waterTemp,
+             (unsigned)startHour,
+             (unsigned)stopHour);
+    } else {
+        LOGI("Filtration duration=%uh water=unavailable start=%uh stop=%uh",
+             (unsigned)duration,
+             (unsigned)startHour,
+             (unsigned)stopHour);
+    }
     return true;
 }

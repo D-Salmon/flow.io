@@ -1611,20 +1611,12 @@ void TimeModule::tickScheduler_()
     lastSchedulerEvalEpochSec_ = (uint64_t)now;
 #endif
 
-    struct PendingEvent {
-        uint8_t slot;
-        uint8_t edge;
-        uint8_t replayed;
-        uint16_t eventId;
-        uint64_t epochSec;
-    };
-
-    PendingEvent pending[TIME_SCHED_MAX_SLOTS * 2]{};
+    SchedulerPendingEvent* pending = schedulerPending_;
     uint8_t pendingCount = 0;
 
     auto pushPending = [&](uint8_t slot, SchedulerEdge edge, uint8_t replayed, uint16_t eventId) {
         if (pendingCount >= (TIME_SCHED_MAX_SLOTS * 2)) return;
-        pending[pendingCount++] = PendingEvent{slot, (uint8_t)edge, replayed, eventId, (uint64_t)now};
+        pending[pendingCount++] = SchedulerPendingEvent{slot, (uint8_t)edge, replayed, eventId, (uint64_t)now};
     };
 
     portENTER_CRITICAL(&schedMux_);

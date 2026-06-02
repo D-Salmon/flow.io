@@ -36,7 +36,7 @@ void test_temp_equal_setpoint_switches_to_high_factor()
     TEST_ASSERT_EQUAL_UINT8(21, out.stopHour);
 }
 
-void test_nan_temperature_returns_false()
+void test_nan_temperature_uses_widest_available_window()
 {
     FiltrationWindowInput in{};
     in.waterTemp = NAN;
@@ -46,7 +46,10 @@ void test_nan_temperature_returns_false()
     in.stopMaxHour = 23;
 
     FiltrationWindowOutput out{};
-    TEST_ASSERT_FALSE(computeFiltrationWindowDeterministic(in, out));
+    TEST_ASSERT_TRUE(computeFiltrationWindowDeterministic(in, out));
+    TEST_ASSERT_EQUAL_UINT8(15, out.durationHours);
+    TEST_ASSERT_EQUAL_UINT8(8, out.startHour);
+    TEST_ASSERT_EQUAL_UINT8(23, out.stopHour);
 }
 
 void test_stop_le_start_uses_emergency_duration_when_possible()
@@ -86,7 +89,7 @@ int main()
     UNITY_BEGIN();
     RUN_TEST(test_temp_below_low_uses_min_duration);
     RUN_TEST(test_temp_equal_setpoint_switches_to_high_factor);
-    RUN_TEST(test_nan_temperature_returns_false);
+    RUN_TEST(test_nan_temperature_uses_widest_available_window);
     RUN_TEST(test_stop_le_start_uses_emergency_duration_when_possible);
     RUN_TEST(test_stop_le_start_with_late_start_uses_fallback_window);
     return UNITY_END();

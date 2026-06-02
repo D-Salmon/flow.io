@@ -38,7 +38,7 @@ public:
     const char* taskName() const override { return "time"; }
     /** @brief Pin control-path scheduler on core 1. */
     BaseType_t taskCore() const override { return 1; }
-    uint16_t taskStackSize() const override { return 2560; }
+    uint16_t taskStackSize() const override { return 4096; }
     uint8_t taskCount() const override { return 1; }
     const ModuleTaskSpec* taskSpecs() const override { return singleLoopTaskSpec(); }
 
@@ -71,6 +71,14 @@ private:
         TimeSchedulerSlot def{};
         bool active = false;
         uint32_t lastTriggerMinuteKey = INVALID_MINUTE_KEY;
+    };
+
+    struct SchedulerPendingEvent {
+        uint8_t slot = 0;
+        uint8_t edge = 0;
+        uint8_t replayed = 0;
+        uint16_t eventId = 0;
+        uint64_t epochSec = 0;
     };
 
     TimeConfig cfgData{};
@@ -205,6 +213,7 @@ private:
     // ---- time scheduler ----
     mutable portMUX_TYPE schedMux_ = portMUX_INITIALIZER_UNLOCKED;
     SchedulerSlotRuntime sched_[TIME_SCHED_MAX_SLOTS]{};
+    SchedulerPendingEvent schedulerPending_[TIME_SCHED_MAX_SLOTS * 2]{};
     bool schedNeedsReload_ = true;
     bool schedInitialized_ = false;
     uint16_t activeMaskValue_ = 0;
