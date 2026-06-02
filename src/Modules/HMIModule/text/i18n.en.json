@@ -9,7 +9,7 @@
     "cfgdocs.hmi.venice.enabled.label": "Venice RF433 enabled",
     "cfgdocs.hmi.venice.tx_gpio.help": "Venice RF433 transmitter GPIO.",
     "cfgdocs.hmi.venice.tx_gpio.label": "Venice Transmitter GPIO",
-    "cfgmods.hmi.label": "Display",
+    "cfgmods.hmi.label": "display",
     "cfgmods.hmi.leds.label": "Front LEDs",
     "cfgmods.hmi.nextion.label": "Nextion",
     "cfgmods.hmi.venice.label": "Venice RF433"

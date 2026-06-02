@@ -1,6 +1,6 @@
 {
   "schema": "flowio.firmware-manifest.v1",
-  "generated_at": "2026-06-02T22:31:15+02:00",
+  "generated_at": "2026-06-02T22:46:52+02:00",
   "release": "2026.06.02",
   "artifacts": {
     "nextion": [
@@ -43,7 +43,7 @@
         "title": "esp32s3",
         "label": "esp32s3",
         "version": "1.0.3",
-        "build_date": "2026-06-02T22:31:15+02:00",
+        "build_date": "2026-06-02T22:46:52+02:00",
         "target": "esp32s3",
         "path": "esp32s3-1.0.3.bin",
         "kind": "esp32-firmware",
@@ -67,7 +67,7 @@
         "title": "esp32s3-spiffs",
         "label": "esp32s3-spiffs",
         "version": "1.0.3",
-        "build_date": "2026-06-02T22:30:28+02:00",
+        "build_date": "2026-06-02T22:46:15+02:00",
         "target": "spiffs",
         "path": "esp32s3-spiffs-1.0.3.bin",
         "kind": "esp32-spiffs",
