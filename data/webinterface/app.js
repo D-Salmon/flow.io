@@ -1048,7 +1048,7 @@
 
     function infoFlowDomainLabel(domainKey) {
       if (domainKey === 'system') return tr('info.flowSystem', 'Système Flow.io');
-      if (domainKey === 'wifi') return tr('info.flowWifi', 'WiFi Flow.io');
+      if (domainKey === 'wifi') return tr('info.flowNetwork', tr('info.flowWifi', 'Réseau Flow.io'));
       if (domainKey === 'mqtt') return tr('info.flowMqtt', 'MQTT Flow.io');
       return formatRuntimeDomainLabel(domainKey);
     }
@@ -1110,11 +1110,11 @@
       if (hasAnyValue && domainKey === 'system') {
         data = {
           ok: true,
-          fw: infoRuntimeValue(valueById, 1701, ''),
-          upms: infoRuntimeValue(valueById, 1702, 0),
+          fw: infoRuntimeValue(valueById, 1801, ''),
+          upms: infoRuntimeValue(valueById, 1802, 0),
           heap: {
-            free: infoRuntimeValue(valueById, 1703, 0),
-            min_free: infoRuntimeValue(valueById, 1704, 0)
+            free: infoRuntimeValue(valueById, 1803, 0),
+            min_free: infoRuntimeValue(valueById, 1804, 0)
           }
         };
       } else if (hasAnyValue && domainKey === 'wifi') {
@@ -1123,6 +1123,7 @@
           ok: true,
           wifi: {
             rdy: !!infoRuntimeValue(valueById, 1001, false),
+            typ: infoRuntimeValue(valueById, 1004, 'wifi'),
             ip: normalizeIpValue(infoRuntimeValue(valueById, 1002, '')),
             rssi: infoRuntimeValue(valueById, 1003, null),
             hrss: infoRuntimeValueAvailable(rssiItem)
@@ -1132,12 +1133,12 @@
         data = {
           ok: true,
           mqtt: {
-            rdy: !!infoRuntimeValue(valueById, 2001, false),
-            srv: infoRuntimeValue(valueById, 2002, ''),
-            rxdrp: infoRuntimeValue(valueById, 2003, 0),
-            prsf: infoRuntimeValue(valueById, 2004, 0),
-            hndf: infoRuntimeValue(valueById, 2005, 0),
-            ovr: infoRuntimeValue(valueById, 2006, 0)
+            rdy: !!infoRuntimeValue(valueById, 2101, false),
+            srv: infoRuntimeValue(valueById, 2102, ''),
+            rxdrp: infoRuntimeValue(valueById, 2103, 0),
+            prsf: infoRuntimeValue(valueById, 2104, 0),
+            hndf: infoRuntimeValue(valueById, 2105, 0),
+            ovr: infoRuntimeValue(valueById, 2106, 0)
           }
         };
       }
@@ -1232,6 +1233,13 @@
       return Number.isFinite(n) ? String(Math.trunc(n)) : '-';
     }
 
+    function formatInfoNetworkType(value) {
+      const normalized = String(value || '').trim().toLowerCase();
+      if (normalized === 'ethernet') return tr('info.netType.ethernet', 'Ethernet');
+      if (normalized === 'wifi' || normalized === 'wi-fi') return tr('info.netType.wifi', 'Wifi');
+      return normalized ? normalized : '-';
+    }
+
     function renderInfoPanel() {
       const heap = (supervisorHeap && typeof supervisorHeap === 'object') ? supervisorHeap : {};
       const pressure = deriveInfoPressure(heap);
@@ -1266,6 +1274,7 @@
       const wifi = (wifiDomain && wifiDomain.wifi && typeof wifiDomain.wifi === 'object') ? wifiDomain.wifi : {};
       const wifiRows = [
         [tr('info.row.state', 'Etat'), wifiDomain ? formatInfoBoolean(!!wifi.rdy, tr('info.state.connected', 'Connecté'), tr('info.state.disconnected', 'Déconnecté')) : '-'],
+        [tr('info.row.type', 'Type'), wifiDomain ? formatInfoNetworkType(wifi.typ) : '-'],
         [tr('info.row.ip', 'Adresse IP'), wifiDomain ? normalizeIpValue(wifi.ip) : '-'],
         [tr('info.row.signal', 'Signal'), (wifiDomain && wifi.hrss) ? formatInfoDbm(wifi.rssi) : '-']
       ];
@@ -1738,23 +1747,24 @@
     const infoFlowDomainKeys = ['system', 'wifi', 'mqtt'];
     const infoRuntimeDomainEntries = Object.freeze({
       system: Object.freeze([
-        Object.freeze({ id: 1701 }),
-        Object.freeze({ id: 1702 }),
-        Object.freeze({ id: 1703 }),
-        Object.freeze({ id: 1704 })
+        Object.freeze({ id: 1801 }),
+        Object.freeze({ id: 1802 }),
+        Object.freeze({ id: 1803 }),
+        Object.freeze({ id: 1804 })
       ]),
       wifi: Object.freeze([
         Object.freeze({ id: 1001 }),
         Object.freeze({ id: 1002 }),
-        Object.freeze({ id: 1003 })
+        Object.freeze({ id: 1003 }),
+        Object.freeze({ id: 1004 })
       ]),
       mqtt: Object.freeze([
-        Object.freeze({ id: 2001 }),
-        Object.freeze({ id: 2002 }),
-        Object.freeze({ id: 2003 }),
-        Object.freeze({ id: 2004 }),
-        Object.freeze({ id: 2005 }),
-        Object.freeze({ id: 2006 })
+        Object.freeze({ id: 2101 }),
+        Object.freeze({ id: 2102 }),
+        Object.freeze({ id: 2103 }),
+        Object.freeze({ id: 2104 }),
+        Object.freeze({ id: 2105 }),
+        Object.freeze({ id: 2106 })
       ])
     });
     const infoFlowLoaderNodes = {

@@ -1301,7 +1301,8 @@ const char kMicronovaRuntimeManifestJson[] PROGMEM = R"json({
     {"id":1704,"runtimeId":1704,"moduleId":17,"module":"system","valueId":4,"key":"system.heap_min_free","label":"Heap minimum","type":"uint32","domain":"system","group":"Mémoire","unit":"B","decimals":0,"order":40},
     {"id":1001,"runtimeId":1001,"moduleId":10,"module":"wifi","valueId":1,"key":"wifi.ready","label":"WiFi connecté","type":"bool","domain":"wifi","group":"WiFi","unit":null,"decimals":null,"order":10,"display":"boolean"},
     {"id":1002,"runtimeId":1002,"moduleId":10,"module":"wifi","valueId":2,"key":"wifi.ip","label":"Adresse IP","type":"string","domain":"wifi","group":"WiFi","unit":null,"decimals":null,"order":20},
-    {"id":1003,"runtimeId":1003,"moduleId":10,"module":"wifi","valueId":3,"key":"wifi.rssi","label":"RSSI","type":"int32","domain":"wifi","group":"WiFi","unit":"dBm","decimals":0,"order":30}
+    {"id":1003,"runtimeId":1003,"moduleId":10,"module":"wifi","valueId":3,"key":"wifi.rssi","label":"RSSI","type":"int32","domain":"wifi","group":"WiFi","unit":"dBm","decimals":0,"order":30},
+    {"id":1004,"runtimeId":1004,"moduleId":10,"module":"wifi","valueId":4,"key":"network.type","label":"Type","type":"string","domain":"wifi","group":"Réseau","unit":null,"decimals":null,"order":40}
   ]
 })json";
 
@@ -1793,6 +1794,9 @@ bool appendFlowios3LocalRuntimeValue_(Print& out,
                 printRuntimeI32_(out, firstValue, id, "wifi.rssi", (int32_t)WiFi.RSSI(), "dBm");
             }
             return true;
+        case 1004:
+            printRuntimeString_(out, firstValue, id, "network.type", (networkReady(*dataStore) && !WiFi.isConnected()) ? "ethernet" : "wifi");
+            return true;
         default:
             flowios3PrintUnavailableByManifestType_(out, firstValue, id);
             return true;
@@ -1856,12 +1860,14 @@ bool flowios3BuildStatusDomainJson_(FlowStatusDomain domain,
     if (domain == FlowStatusDomain::Wifi) {
         JsonObject wifi = doc.createNestedObject("wifi");
         const bool wifiUp = dataStore ? networkReady(*dataStore) : false;
+        const bool wifiConnected = WiFi.isConnected();
         wifi["rdy"] = wifiUp;
+        wifi["typ"] = (wifiUp && !wifiConnected) ? "ethernet" : "wifi";
         IpV4 ip = dataStore ? networkIp(*dataStore) : IpV4{{0, 0, 0, 0}};
         char ipText[20] = {0};
         snprintf(ipText, sizeof(ipText), "%u.%u.%u.%u", (unsigned)ip.b[0], (unsigned)ip.b[1], (unsigned)ip.b[2], (unsigned)ip.b[3]);
         wifi["ip"] = ipText;
-        if (wifiUp && WiFi.status() == WL_CONNECTED) {
+        if (wifiUp && wifiConnected) {
             wifi["rssi"] = (int32_t)WiFi.RSSI();
             wifi["hrss"] = true;
         } else {
@@ -2955,9 +2961,9 @@ void WebInterfaceModule::onStart(ConfigStore&, ServiceRegistry&)
 void WebInterfaceModule::startLocalRuntime_()
 {
 #if defined(FLOW_PROFILE_FLOWIOS3)
+    // FlowIOS3 exposes its own LogHub on /wslog; there is no secondary UART
+    // bridge to read, especially now that USB CDC on boot is disabled.
     bridgeUartEnabled_ = false;
-    LOGI("WebInterface local log runtime disabled on FlowIOS3");
-    return;
 #endif
 
     if (!localLogQueue_) {
@@ -2980,6 +2986,11 @@ void WebInterfaceModule::startLocalRuntime_()
         LOGI("WebInterface local runtime disabled in provisioning-only mode (wslog only)");
         return;
     }
+
+#if defined(FLOW_PROFILE_FLOWIOS3)
+    LOGI("WebInterface local log runtime enabled on FlowIOS3 (serial bridge disabled)");
+    return;
+#endif
 
 #if !FLOW_ENABLE_READONLY_SERIAL_LOG
     bridgeUartEnabled_ = false;
