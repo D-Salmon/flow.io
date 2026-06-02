@@ -31,10 +31,19 @@ private:
     static void serviceMarkComplete_(void* ctx);
     static void serviceGetStats_(void* ctx, BootLogCaptureStats* out);
     static uint16_t serviceReplay_(void* ctx, BootLogCaptureReplayWriter writer, void* writerCtx);
+    static uint16_t serviceReadPage_(void* ctx,
+                                     uint16_t offset,
+                                     uint16_t limit,
+                                     BootLogCaptureReplayWriter writer,
+                                     void* writerCtx);
 
     void markComplete_();
     void getStats_(BootLogCaptureStats& out) const;
     uint16_t replay_(BootLogCaptureReplayWriter writer, void* writerCtx) const;
+    uint16_t readPage_(uint16_t offset,
+                       uint16_t limit,
+                       BootLogCaptureReplayWriter writer,
+                       void* writerCtx) const;
     void write_(const LogEntry& e);
 
     LogEntry* entries_ = nullptr;

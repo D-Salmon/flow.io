@@ -140,12 +140,20 @@ private:
     static bool isSystemTimeValid_();
     static void formatUptime_(char* out, size_t outSize, uint32_t ms);
     static void formatTimestamp_(WebInterfaceModule* self, const LogEntry& e, char* out, size_t outSize);
+    static void formatLogEntryLine_(WebInterfaceModule* self,
+                                    const LogEntry& e,
+                                    char* out,
+                                    size_t outSize,
+                                    bool colorize);
     static void onLocalLogSinkWrite_(void* ctx, const LogEntry& e);
-    static bool sendBootLogCaptureEntry_(void* writerCtx,
-                                         const LogEntry& e,
-                                         uint16_t index,
-                                         uint16_t total);
+    static bool writeBootLogJsonLine_(void* writerCtx,
+                                      const LogEntry& e,
+                                      uint16_t index,
+                                      uint16_t total);
     void dumpBootLogCapture_(AsyncWebSocketClient* client);
+    void sendBootLogHttpResponse_(AsyncWebServerRequest* request, bool statusOnly);
+    bool initLocalLogQueue_();
+    void freeLocalLogQueue_();
 
     // Lifecycle and service surface
     bool setPaused_(bool paused);
@@ -206,7 +214,8 @@ private:
     static constexpr size_t kRuntimeValuesBodyMax = 512U;
     static constexpr size_t kRuntimeValuesJsonDocCapacity = 768U;
 #elif defined(FLOW_PROFILE_FLOWIOS3)
-    static constexpr UBaseType_t kLocalLogQueueLen = 12;
+    static constexpr UBaseType_t kLocalLogQueueLen = 128;
+    static_assert(kLocalLogQueueLen == 128, "FlowIOS3 wslog queue must keep 128 lines");
     static constexpr size_t kRuntimeValuesBodyMax = 4096U;
     static constexpr size_t kRuntimeValuesJsonDocCapacity = 4096U;
 #else
@@ -215,6 +224,10 @@ private:
     static constexpr size_t kRuntimeValuesJsonDocCapacity = 2048U;
 #endif
     QueueHandle_t localLogQueue_ = nullptr;
+    StaticQueue_t* localLogQueueControl_ = nullptr;
+    uint8_t* localLogQueueStorage_ = nullptr;
+    bool localLogQueueStatic_ = false;
+    bool localLogQueueStorageInPsram_ = false;
     static constexpr uint8_t kWsLogFlushBurstMax = 4U;
 
     char lineBuf_[kLineBufferSize] = {0};

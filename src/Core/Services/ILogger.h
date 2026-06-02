@@ -75,6 +75,11 @@ struct BootLogCaptureService {
     void (*markComplete)(void* ctx);
     void (*getStats)(void* ctx, BootLogCaptureStats* out);
     uint16_t (*replay)(void* ctx, BootLogCaptureReplayWriter writer, void* writerCtx);
+    uint16_t (*readPage)(void* ctx,
+                         uint16_t offset,
+                         uint16_t limit,
+                         BootLogCaptureReplayWriter writer,
+                         void* writerCtx);
     void* ctx;
 };
 

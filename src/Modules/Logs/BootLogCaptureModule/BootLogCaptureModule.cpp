@@ -37,6 +37,7 @@ void BootLogCaptureModule::init(ConfigStore& cfg, ServiceRegistry& services)
     service_.markComplete = &BootLogCaptureModule::serviceMarkComplete_;
     service_.getStats = &BootLogCaptureModule::serviceGetStats_;
     service_.replay = &BootLogCaptureModule::serviceReplay_;
+    service_.readPage = &BootLogCaptureModule::serviceReadPage_;
     service_.ctx = this;
     gBootLogCaptureService = &service_;
 
@@ -106,6 +107,17 @@ uint16_t BootLogCaptureModule::serviceReplay_(void* ctx,
     return self->replay_(writer, writerCtx);
 }
 
+uint16_t BootLogCaptureModule::serviceReadPage_(void* ctx,
+                                                uint16_t offset,
+                                                uint16_t limit,
+                                                BootLogCaptureReplayWriter writer,
+                                                void* writerCtx)
+{
+    BootLogCaptureModule* self = static_cast<BootLogCaptureModule*>(ctx);
+    if (!self) return 0;
+    return self->readPage_(offset, limit, writer, writerCtx);
+}
+
 void BootLogCaptureModule::write_(const LogEntry& e)
 {
     if (!entries_ || capacity_ == 0) return;
@@ -167,22 +179,34 @@ void BootLogCaptureModule::getStats_(BootLogCaptureStats& out) const
 
 uint16_t BootLogCaptureModule::replay_(BootLogCaptureReplayWriter writer, void* writerCtx) const
 {
+    return readPage_(0, UINT16_MAX, writer, writerCtx);
+}
+
+uint16_t BootLogCaptureModule::readPage_(uint16_t offset,
+                                         uint16_t limit,
+                                         BootLogCaptureReplayWriter writer,
+                                         void* writerCtx) const
+{
     if (!writer || !entries_ || capacity_ == 0) return 0;
 
     uint16_t total = 0;
     portENTER_CRITICAL(&mux_);
     total = count_;
     portEXIT_CRITICAL(&mux_);
+    if (offset >= total || limit == 0U) return 0;
 
+    const uint16_t available = (uint16_t)(total - offset);
+    const uint16_t maxToSend = (limit < available) ? limit : available;
     uint16_t sent = 0;
-    for (uint16_t i = 0; i < total; ++i) {
+    for (uint16_t i = 0; i < maxToSend; ++i) {
         LogEntry entry{};
         portENTER_CRITICAL(&mux_);
-        const uint16_t idx = (uint16_t)((head_ + i) % capacity_);
+        const uint16_t logicalIndex = (uint16_t)(offset + i);
+        const uint16_t idx = (uint16_t)((head_ + logicalIndex) % capacity_);
         entry = entries_[idx];
         portEXIT_CRITICAL(&mux_);
 
-        if (!writer(writerCtx, entry, i, total)) {
+        if (!writer(writerCtx, entry, logicalIndex, total)) {
             break;
         }
         ++sent;

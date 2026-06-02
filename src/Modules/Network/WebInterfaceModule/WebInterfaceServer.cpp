@@ -132,6 +132,21 @@ static bool copyRequestParamValue_(AsyncWebServerRequest* request,
     return true;
 }
 
+static int32_t requestIntParam_(AsyncWebServerRequest* request,
+                                const char* name,
+                                int32_t fallback)
+{
+    if (!request || !name || !request->hasParam(name)) return fallback;
+    const AsyncWebParameter* param = request->getParam(name);
+    if (!param) return fallback;
+    const String value = param->value();
+    const char* raw = value.c_str();
+    char* end = nullptr;
+    const long parsed = strtol(raw, &end, 10);
+    if (!end || end == raw) return fallback;
+    return (int32_t)parsed;
+}
+
 template <size_t N>
 static inline void sendProgmemLiteral_(AsyncWebServerRequest* request, const char* contentType, const char (&content)[N])
 {
@@ -192,6 +207,13 @@ struct WebHeapCharBuffer {
 
     char* data = nullptr;
     size_t capacity = 0;
+};
+
+struct BootLogJsonPageCtx {
+    WebInterfaceModule* self = nullptr;
+    AsyncResponseStream* response = nullptr;
+    bool first = true;
+    uint16_t count = 0;
 };
 
 struct FirmwareManifestChunkState {
@@ -2843,8 +2865,8 @@ static const char kWebSerialLogPage[] PROGMEM = R"HTML(
     }
   };
 
-  const append = (line) => {
-    if (paused) return;
+  const append = (line, force = false) => {
+    if (paused && !force) return;
     const row = document.createElement("span");
     row.className = "line";
     appendAnsiAware(row, line, levelClassFor(line));
@@ -2867,12 +2889,53 @@ static const char kWebSerialLogPage[] PROGMEM = R"HTML(
     };
   };
 
+  const loadBootLogs = async () => {
+    const limit = 64;
+    let offset = 0;
+    let loaded = 0;
+    let entries = 0;
+    let dropped = 0;
+    let state = "unknown";
+    bootlogBtn.disabled = true;
+    status.textContent = "Boot logs : chargement...";
+    try {
+      while (true) {
+        const response = await fetch(`/api/logs/boot?offset=${encodeURIComponent(offset)}&limit=${limit}`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const page = await response.json();
+        const lines = Array.isArray(page.lines) ? page.lines : [];
+        entries = Number(page.entries) || 0;
+        dropped = Number(page.dropped) || 0;
+        state = String(page.state || "unknown");
+        if (offset === 0) {
+          append(`===== BOOT LOGS BEGIN - ${entries} lignes disponibles, dropped=${dropped}, state=${state} =====`, true);
+        }
+        for (const line of lines) append(String(line || ""), true);
+        loaded += Number(page.count) || lines.length;
+        status.textContent = `Boot logs : ${loaded}/${entries} lignes affichees, ${dropped} perdues, etat=${state}`;
+        if (page.complete || page.next == null || Number(page.count) === 0) break;
+        offset = Number(page.next);
+        if (!Number.isFinite(offset) || offset < 0) break;
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+      append(`===== BOOT LOGS END - ${loaded}/${entries} lignes affichees =====`, true);
+      status.textContent = `Boot logs : ${loaded}/${entries} lignes affichees, ${dropped} perdues, etat=${state}`;
+    } catch (err) {
+      const msg = `Impossible de charger les logs de boot : ${err && err.message ? err.message : String(err)}`;
+      append(msg, true);
+      status.textContent = msg;
+      console.error(err);
+    } finally {
+      bootlogBtn.disabled = false;
+    }
+  };
+
   pauseBtn.addEventListener('click', () => {
     paused = !paused;
     pauseBtn.textContent = paused ? "Reprendre" : "Pause";
   });
   bootlogBtn.addEventListener('click', () => {
-    if (ws && ws.readyState === WebSocket.OPEN) ws.send("bootlog:dump");
+    loadBootLogs();
   });
   clearBtn.addEventListener('click', () => { out.textContent = ""; });
 
@@ -2900,6 +2963,7 @@ WebInterfaceModule::WebInterfaceModule(const BoardSpec& board)
 
 WebInterfaceModule::~WebInterfaceModule()
 {
+    freeLocalLogQueue_();
     freeRuntimeValuesBodyScratch_();
 }
 
@@ -2942,6 +3006,224 @@ void WebInterfaceModule::freeRuntimeValuesBodyScratch_()
     runtimeValuesBodyScratch_ = runtimeValuesBodyScratchLocal_;
     runtimeValuesBodyScratchInPsram_ = false;
 #endif
+}
+
+bool WebInterfaceModule::initLocalLogQueue_()
+{
+    if (localLogQueue_) return true;
+
+    const size_t storageBytes = (size_t)kLocalLogQueueLen * kLocalLogLineMax;
+#if defined(FLOW_PROFILE_FLOWIOS3)
+    if (psramFound()) {
+        localLogQueueStorage_ = static_cast<uint8_t*>(
+            heap_caps_malloc(storageBytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)
+        );
+        if (localLogQueueStorage_) {
+            localLogQueueStorageInPsram_ = true;
+        } else {
+            LOGW("wslog queue PSRAM allocation failed, fallback to internal RAM lines=%u bytes=%u",
+                 (unsigned)kLocalLogQueueLen,
+                 (unsigned)storageBytes);
+        }
+    } else {
+        LOGW("wslog queue PSRAM unavailable, fallback to internal RAM lines=%u bytes=%u",
+             (unsigned)kLocalLogQueueLen,
+             (unsigned)storageBytes);
+    }
+#endif
+    if (!localLogQueueStorage_) {
+        localLogQueueStorage_ = static_cast<uint8_t*>(
+            heap_caps_malloc(storageBytes, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)
+        );
+    }
+    if (localLogQueueStorage_) {
+        localLogQueueControl_ = static_cast<StaticQueue_t*>(
+            heap_caps_malloc(sizeof(StaticQueue_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)
+        );
+    }
+    if (localLogQueueStorage_ && localLogQueueControl_) {
+        localLogQueue_ = xQueueCreateStatic(kLocalLogQueueLen,
+                                            kLocalLogLineMax,
+                                            localLogQueueStorage_,
+                                            localLogQueueControl_);
+        localLogQueueStatic_ = (localLogQueue_ != nullptr);
+    }
+
+    if (localLogQueue_) {
+        LOGI(localLogQueueStorageInPsram_
+                 ? "wslog queue allocated in PSRAM lines=%u bytes=%u"
+                 : "wslog queue allocated in internal RAM lines=%u bytes=%u",
+             (unsigned)kLocalLogQueueLen,
+             (unsigned)storageBytes);
+        return true;
+    }
+
+    if (localLogQueueStorage_) {
+        heap_caps_free(localLogQueueStorage_);
+        localLogQueueStorage_ = nullptr;
+    }
+    if (localLogQueueControl_) {
+        heap_caps_free(localLogQueueControl_);
+        localLogQueueControl_ = nullptr;
+    }
+    localLogQueueStorageInPsram_ = false;
+    localLogQueueStatic_ = false;
+
+    localLogQueue_ = xQueueCreate(kLocalLogQueueLen, kLocalLogLineMax);
+    if (localLogQueue_) {
+        LOGW("wslog queue static allocation failed, fallback to FreeRTOS dynamic lines=%u bytes=%u",
+             (unsigned)kLocalLogQueueLen,
+             (unsigned)storageBytes);
+        return true;
+    }
+
+    LOGW("WebInterface local log queue alloc failed lines=%u bytes=%u",
+         (unsigned)kLocalLogQueueLen,
+         (unsigned)storageBytes);
+    return false;
+}
+
+void WebInterfaceModule::freeLocalLogQueue_()
+{
+    if (localLogQueue_) {
+        vQueueDelete(localLogQueue_);
+        localLogQueue_ = nullptr;
+    }
+    if (localLogQueueStorage_) {
+        heap_caps_free(localLogQueueStorage_);
+        localLogQueueStorage_ = nullptr;
+    }
+    if (localLogQueueControl_) {
+        heap_caps_free(localLogQueueControl_);
+        localLogQueueControl_ = nullptr;
+    }
+    localLogQueueStatic_ = false;
+    localLogQueueStorageInPsram_ = false;
+}
+
+bool WebInterfaceModule::writeBootLogJsonLine_(void* writerCtx,
+                                               const LogEntry& e,
+                                               uint16_t,
+                                               uint16_t)
+{
+    BootLogJsonPageCtx* ctx = static_cast<BootLogJsonPageCtx*>(writerCtx);
+    if (!ctx || !ctx->self || !ctx->response) return false;
+
+    char line[kLocalLogLineMax] = {0};
+    formatLogEntryLine_(ctx->self, e, line, sizeof(line), false);
+    if (line[0] == '\0') return true;
+
+    if (!ctx->first) {
+        ctx->response->print(',');
+    }
+    ctx->first = false;
+    printJsonEscaped_(*ctx->response, line);
+    ++ctx->count;
+    return true;
+}
+
+void WebInterfaceModule::sendBootLogHttpResponse_(AsyncWebServerRequest* request, bool statusOnly)
+{
+    if (!request) return;
+    noteHttpActivity_();
+
+#if FLOW_ENABLE_BOOT_LOG_CAPTURE
+    if (!bootLogCapture_) {
+        bootLogCapture_ = bootLogCaptureService();
+    }
+#endif
+    BootLogCaptureStats stats{};
+    bool available = false;
+    if (bootLogCapture_ && bootLogCapture_->getStats) {
+        bootLogCapture_->getStats(bootLogCapture_->ctx, &stats);
+        available = (stats.capacity > 0U);
+    }
+    const char* state = available
+        ? (stats.capturing ? "capture" : (stats.complete ? "complete" : "idle"))
+        : "unavailable";
+
+    int32_t requestedOffset = statusOnly ? 0 : requestIntParam_(request, "offset", 0);
+    int32_t requestedLimit = statusOnly ? 0 : requestIntParam_(request, "limit", 64);
+    if (requestedOffset < 0) requestedOffset = 0;
+    if (requestedLimit <= 0) requestedLimit = statusOnly ? 0 : 64;
+    if (requestedLimit > 128) requestedLimit = 128;
+
+    const uint16_t offset = (requestedOffset > UINT16_MAX) ? UINT16_MAX : (uint16_t)requestedOffset;
+    const uint16_t limit = (requestedLimit > UINT16_MAX) ? UINT16_MAX : (uint16_t)requestedLimit;
+
+    LOGI("bootlog status entries=%u capacity=%u dropped=%lu state=%s",
+         (unsigned)stats.count,
+         (unsigned)stats.capacity,
+         (unsigned long)stats.droppedCount,
+         state);
+
+    AsyncResponseStream* response = request->beginResponseStream("application/json");
+    addNoCacheHeaders_(response);
+    response->printf("{\"capacity\":%u,\"entries\":%u,\"dropped\":%lu,\"state\":\"%s\"",
+                     (unsigned)stats.capacity,
+                     (unsigned)stats.count,
+                     (unsigned long)stats.droppedCount,
+                     state);
+
+    if (statusOnly) {
+        response->print('}');
+        request->send(response);
+        return;
+    }
+
+    BootLogJsonPageCtx pageCtx{};
+    pageCtx.self = this;
+    pageCtx.response = response;
+
+    const uint16_t writableLimit = available ? limit : 0U;
+    uint16_t expectedCount = 0U;
+    if (available && bootLogCapture_ && bootLogCapture_->readPage && offset < stats.count && writableLimit > 0U) {
+        const uint16_t remaining = (uint16_t)(stats.count - offset);
+        expectedCount = (writableLimit < remaining) ? writableLimit : remaining;
+    }
+    const bool expectedComplete = ((uint32_t)offset + (uint32_t)expectedCount >= stats.count) ||
+                                  expectedCount == 0U;
+    const int32_t expectedNext = expectedComplete ? -1 : (int32_t)offset + (int32_t)expectedCount;
+
+    response->printf(",\"offset\":%u,\"limit\":%u,\"count\":%u,\"next\":",
+                     (unsigned)offset,
+                     (unsigned)limit,
+                     (unsigned)expectedCount);
+    if (expectedNext < 0) {
+        response->print("null");
+    } else {
+        response->print((unsigned)expectedNext);
+    }
+    response->printf(",\"complete\":%s,\"lines\":[", expectedComplete ? "true" : "false");
+
+    uint16_t count = 0;
+    if (available && bootLogCapture_->readPage && offset < stats.count && writableLimit > 0U) {
+        count = bootLogCapture_->readPage(bootLogCapture_->ctx,
+                                          offset,
+                                          writableLimit,
+                                          &WebInterfaceModule::writeBootLogJsonLine_,
+                                          &pageCtx);
+    }
+    response->print("]}");
+
+    if (available && bootLogCapture_->readPage && offset < stats.count && writableLimit > 0U) {
+        const bool complete = ((uint32_t)offset + (uint32_t)count >= stats.count) || count == 0U;
+        const int32_t next = complete ? -1 : (int32_t)offset + (int32_t)count;
+        LOGI("bootlog page offset=%u limit=%u count=%u entries=%u complete=%s next=%ld",
+             (unsigned)offset,
+             (unsigned)limit,
+             (unsigned)count,
+             (unsigned)stats.count,
+             complete ? "true" : "false",
+             (long)next);
+    } else {
+        LOGI("bootlog page offset=%u limit=%u count=0 entries=%u complete=true",
+             (unsigned)offset,
+             (unsigned)limit,
+             (unsigned)stats.count);
+    }
+
+    request->send(response);
 }
 
 void WebInterfaceModule::init(ConfigStore& cfg, ServiceRegistry& services)
@@ -3011,12 +3293,7 @@ void WebInterfaceModule::startLocalRuntime_()
     bridgeUartEnabled_ = false;
 #endif
 
-    if (!localLogQueue_) {
-        localLogQueue_ = xQueueCreate(kLocalLogQueueLen, kLocalLogLineMax);
-        if (!localLogQueue_) {
-            LOGW("WebInterface local log queue alloc failed");
-        }
-    }
+    if (!initLocalLogQueue_()) return;
     if (!localLogSinkRegistered_ && localLogQueue_ && logSinkReg_ && logSinkReg_->add) {
         const LogSinkService sink{&WebInterfaceModule::onLocalLogSinkWrite_, this};
         if (logSinkReg_->add(logSinkReg_->ctx, sink)) {
@@ -3419,6 +3696,14 @@ void WebInterfaceModule::startServer_()
             return;
         }
         sendPreparedAssetResponse(request, response, &forensicMeta);
+    });
+    server_.on("/api/logs/boot/status", HTTP_GET, [this](AsyncWebServerRequest* request) {
+        HttpLatencyScope latency(request, "/api/logs/boot/status");
+        sendBootLogHttpResponse_(request, true);
+    });
+    server_.on("/api/logs/boot", HTTP_GET, [this](AsyncWebServerRequest* request) {
+        HttpLatencyScope latency(request, "/api/logs/boot");
+        sendBootLogHttpResponse_(request, false);
     });
     server_.on("/api/cfgdoc/index", HTTP_GET, [this, beginSpiffsAssetResponse, sendPreparedAssetResponse](AsyncWebServerRequest* request) {
         HttpLatencyScope latency(request, "/api/cfgdoc/index");
