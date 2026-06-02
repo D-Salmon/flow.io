@@ -10,11 +10,6 @@
 #include <esp32-hal-rgb-led.h>
 #include <string.h>
 
-namespace {
-constexpr uint32_t kBreatheRefreshMs = 30U;
-constexpr uint8_t kBreatheMinBrightness = 8U;
-}
-
 void Ws2812StatusLedDriver::setConfig(const Config& cfg)
 {
     cfg_ = cfg;
@@ -36,8 +31,7 @@ bool Ws2812StatusLedDriver::begin()
     pinMode((uint8_t)cfg_.gpio, OUTPUT);
     blinkPhaseOn_ = true;
     blinkPhaseSinceMs_ = millis();
-    breathePhaseSinceMs_ = blinkPhaseSinceMs_;
-    lastBreatheApplyMs_ = 0U;
+    breatheSinceMs_ = blinkPhaseSinceMs_;
     ready_ = true;
     applyOutput_(true);
     return true;
@@ -52,14 +46,13 @@ void Ws2812StatusLedDriver::tick(uint32_t nowMs)
             blinkPhaseOn_ = true;
             blinkPhaseSinceMs_ = nowMs;
             applyOutput_(true);
-        } else if (state_.enabled &&
-                   state_.breatheEnabled &&
-                   (uint32_t)(nowMs - lastBreatheApplyMs_) >= kBreatheRefreshMs) {
-            lastBreatheApplyMs_ = nowMs;
-            applyOutput_(true);
         } else {
             applyOutput_(false);
         }
+        return;
+    }
+    if (state_.breatheEnabled) {
+        applyOutput_(false);
         return;
     }
 
@@ -67,9 +60,6 @@ void Ws2812StatusLedDriver::tick(uint32_t nowMs)
     if ((uint32_t)(nowMs - blinkPhaseSinceMs_) >= (uint32_t)phaseMs) {
         blinkPhaseOn_ = !blinkPhaseOn_;
         blinkPhaseSinceMs_ = nowMs;
-        applyOutput_(true);
-    } else if (state_.breatheEnabled && (uint32_t)(nowMs - lastBreatheApplyMs_) >= kBreatheRefreshMs) {
-        lastBreatheApplyMs_ = nowMs;
         applyOutput_(true);
     } else {
         applyOutput_(false);
@@ -88,8 +78,7 @@ bool Ws2812StatusLedDriver::setState(const Ws2812StatusLedState& state)
         blinkPhaseSinceMs_ = millis();
     }
     if (state_.breatheEnabled) {
-        breathePhaseSinceMs_ = millis();
-        lastBreatheApplyMs_ = 0U;
+        breatheSinceMs_ = millis();
     }
     if (changed) applyOutput_(true);
     return true;
@@ -141,6 +130,7 @@ bool Ws2812StatusLedDriver::setBlink(bool enabled, uint16_t onMs, uint16_t offMs
     }
 
     state_.blinkEnabled = enabled;
+    if (enabled) state_.breatheEnabled = false;
     state_.blinkOnMs = onMs;
     state_.blinkOffMs = offMs;
     blinkPhaseOn_ = true;
@@ -149,14 +139,30 @@ bool Ws2812StatusLedDriver::setBlink(bool enabled, uint16_t onMs, uint16_t offMs
     return true;
 }
 
+bool Ws2812StatusLedDriver::setBreathe(bool enabled, uint16_t periodMs)
+{
+    if (enabled && periodMs < 200U) periodMs = 200U;
+    if (state_.breatheEnabled == enabled && state_.breathePeriodMs == periodMs) {
+        return true;
+    }
+
+    state_.breatheEnabled = enabled;
+    if (enabled) state_.blinkEnabled = false;
+    state_.breathePeriodMs = periodMs;
+    breatheSinceMs_ = millis();
+    applyOutput_(true);
+    return true;
+}
+
 void Ws2812StatusLedDriver::sanitizeState_(Ws2812StatusLedState& state) const
 {
     if (state.blinkEnabled) {
+        state.breatheEnabled = false;
         if (state.blinkOnMs == 0U) state.blinkOnMs = 250U;
         if (state.blinkOffMs == 0U) state.blinkOffMs = 250U;
     }
-    if (state.breatheEnabled && state.breathePeriodMs < 500U) {
-        state.breathePeriodMs = 500U;
+    if (state.breatheEnabled && state.breathePeriodMs < 200U) {
+        state.breathePeriodMs = 200U;
     }
 }
 
@@ -171,16 +177,13 @@ void Ws2812StatusLedDriver::applyOutput_(bool force)
     if (outputEnabled) {
         uint8_t brightness = state_.brightness;
         if (state_.breatheEnabled) {
-            const uint16_t period = state_.breathePeriodMs ? state_.breathePeriodMs : 2200U;
-            const uint32_t phase = (uint32_t)(millis() - breathePhaseSinceMs_) % period;
-            const uint32_t half = (uint32_t)period / 2U;
-            const uint32_t rising = (phase < half) ? phase : ((uint32_t)period - phase);
-            const uint8_t wave = (uint8_t)((rising * 255U) / (half ? half : 1U));
-            const uint8_t minBrightness = (state_.brightness > kBreatheMinBrightness)
-                                              ? kBreatheMinBrightness
-                                              : 0U;
-            brightness = (uint8_t)(minBrightness +
-                                   (((uint16_t)(state_.brightness - minBrightness) * wave + 127U) / 255U));
+            const uint16_t period = (state_.breathePeriodMs < 200U) ? 200U : state_.breathePeriodMs;
+            const uint16_t phase = (uint16_t)((millis() - breatheSinceMs_) % period);
+            const uint16_t half = (uint16_t)(period / 2U);
+            const uint16_t ramp = (phase < half) ? phase : (uint16_t)(period - phase);
+            const uint8_t minBrightness = 12U;
+            const uint16_t span = (brightness > minBrightness) ? (uint16_t)(brightness - minBrightness) : 0U;
+            brightness = (uint8_t)(minBrightness + ((span * ramp) / (half == 0U ? 1U : half)));
         }
         outR = (uint8_t)(((uint16_t)state_.red * (uint16_t)brightness + 127U) / 255U);
         outG = (uint8_t)(((uint16_t)state_.green * (uint16_t)brightness + 127U) / 255U);

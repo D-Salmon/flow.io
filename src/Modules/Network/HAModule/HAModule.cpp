@@ -10,6 +10,7 @@
 #include "Core/MqttTopics.h"
 #include "Core/SystemLimits.h"
 #include <ArduinoJson.h>
+#include <esp_mac.h>
 #include <esp_system.h>
 #include <ctype.h>
 #include <math.h>
@@ -949,8 +950,6 @@ bool HAModule::enqueuePending_(MqttPublishPriority prio)
     if (oneShotCompleted_) return false;
     if (!mqttSvc_ || !mqttSvc_->enqueue) return false;
     if (!startupReady_) return false;
-    if (!dsSvc_ || !dsSvc_->store) return false;
-    if (!networkReady(*dsSvc_->store) || !mqttReady(*dsSvc_->store)) return false;
 
     const uint16_t count = messageCount_();
     constexpr uint8_t kFlags = (uint8_t)MqttEnqueueFlags::SilentRejectLog;

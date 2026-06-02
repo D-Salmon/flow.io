@@ -10,6 +10,8 @@
 #include "Board/BoardSpec.h"
 #include "Board/BoardSerialMap.h"
 #include "Core/MqttTopics.h"
+#include "Core/Log.h"
+#include "Core/LogModuleIds.h"
 #include "Core/Services/Services.h"
 #include "Domain/Pool/PoolBindings.h"
 #include "Modules/IOModule/IORuntime.h"
@@ -93,8 +95,13 @@ bool ensureDiscoveryHeap()
 {
     if (gDiscoveryHeap) return true;
     gDiscoveryHeap = static_cast<FlowIoDiscoveryHeap*>(
-        heap_caps_calloc(1, sizeof(FlowIoDiscoveryHeap), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)
+        heap_caps_calloc(1, sizeof(FlowIoDiscoveryHeap), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)
     );
+    if (!gDiscoveryHeap) {
+        gDiscoveryHeap = static_cast<FlowIoDiscoveryHeap*>(
+            heap_caps_calloc(1, sizeof(FlowIoDiscoveryHeap), MALLOC_CAP_8BIT)
+        );
+    }
     if (gDiscoveryHeap) {
         FLOWIOS3_HA_BOOT_TRACE("FlowIOS3 discovery heap allocated (%u bytes)", (unsigned)sizeof(FlowIoDiscoveryHeap));
     } else {
@@ -183,7 +190,10 @@ uint8_t exioOrdinalFromPort(PhysicalPortId port)
 void requireSetup(bool ok, const char* step)
 {
     if (ok) return;
-    Board::SerialMap::logSerial().printf("Setup failure: %s\r\n", step ? step : "unknown");
+    Log::error((LogModuleId)LogModuleIdValue::Core, "setup failure: %s", step ? step : "unknown");
+    if (!Log::hub()) {
+        Board::SerialMap::logSerial().printf("Setup failure: %s\r\n", step ? step : "unknown");
+    }
     while (true) delay(1000);
 }
 
@@ -491,6 +501,7 @@ void configureIoModule(const AppContext& ctx, ModuleInstances& modules)
         def.bindingPort = spec->bindingPort;
         def.activeHigh = spec->activeHigh;
         def.initialOn = false;
+        def.retainOnWarmReboot = spec->retainOnWarmReboot;
         def.momentary = spec->momentary;
         def.pulseMs = spec->momentary ? spec->pulseMs : 0;
         requireSetup(modules.ioModule.defineDigitalOutput(def), "define digital output");

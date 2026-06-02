@@ -67,6 +67,8 @@ public:
         if (idx >= taskEntryCount) return nullptr;
         return &taskEntries[idx];
     }
+    /** @brief Remove a task entry after a self-deleting module task has ended. */
+    bool removeTaskEntry(TaskHandle_t handle);
 private:
     Module* modules[Limits::Core::Capacity::MaxModules]{};
     Module* modulesById[kModuleIdCount]{};

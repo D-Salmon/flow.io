@@ -62,8 +62,7 @@ public:
 #if defined(FLOW_PROFILE_SUPERVISOR) || defined(FLOW_PROFILE_MICRONOVA)
         return 4096;
 #elif defined(FLOW_PROFILE_FLOWIOS3)
-        // S3 profile runs AP+STA rescue flows and scan retries; keep extra stack margin.
-        return 4608;
+        return 3584;
 #else
         return 2816;
 #endif
@@ -130,6 +129,8 @@ private:
     uint32_t startupTransientLogUntilMs_ = 0;
     wifi_event_id_t wifiEventHandlerId_ = 0;
     uint32_t lastEmptySsidLogMs = 0;
+    uint32_t lastBeginMs_ = 0;
+    uint32_t beginBackoffMs_ = 1500U;
     char mdnsApplied[sizeof(cfgData.mdns)] = {0};
     char boardMdnsHost_[sizeof(cfgData.mdns)] = {0};
     volatile bool scanRequested_ = false;
@@ -198,7 +199,6 @@ private:
     static const char* wlStatusName_(wl_status_t st);
     bool isStartupTransientWindow_() const;
     void logConfigSummary_() const;
-    bool startConnectFallback_(bool transientBoot);
     void startConnect();
     void stopMdns_();
     void syncMdns_();

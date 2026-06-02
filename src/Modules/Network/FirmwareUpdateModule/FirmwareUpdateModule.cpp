@@ -38,16 +38,17 @@ const SupervisorBoardSpec& supervisorBoardSpec_(const BoardSpec& board)
             320,
             1,
             0,
-            33,
+            0,
             14,
             15,
             4,
             5,
-            19,
+            35,
             18,
-            true,
+            19,
             false,
-            40000000U,
+            true,
+            8000000U,
             80
         },
         {
@@ -569,6 +570,25 @@ bool FirmwareUpdateModule::checkManifestJsonStream_(Print& out, char* errOut, si
     return true;
 }
 
+bool FirmwareUpdateModule::manifestUrl_(char* out, size_t outLen, char* errOut, size_t errOutLen)
+{
+    if (!out || outLen == 0) return false;
+    out[0] = '\0';
+
+    bool isBusy = false;
+    bool hasPending = false;
+    portENTER_CRITICAL(&lock_);
+    isBusy = busy_;
+    hasPending = queuedJob_.pending;
+    portEXIT_CRITICAL(&lock_);
+    if (isBusy || hasPending) {
+        writeSimpleError_(errOut, errOutLen, "updater busy");
+        return false;
+    }
+
+    return resolveUpdateUrl_("manifest.json", out, outLen, errOut, errOutLen);
+}
+
 bool FirmwareUpdateModule::setConfig_(const char* updateHost,
                                       const char* updatePath,
                                       const char* flowioPath,
@@ -839,7 +859,7 @@ bool FirmwareUpdateModule::runSupervisorUpdate_(const char* url, char* errOut, s
     if (!Update.begin(beginSize, U_FLASH)) {
         snprintf(failMsg, sizeof(failMsg), "ota begin failed (%u)", (unsigned)Update.getError());
     } else {
-        WiFiClient* stream = http.getStreamPtr();
+        auto* stream = http.getStreamPtr();
         int32_t remaining = contentLength;
         uint8_t buf[Limits::FirmwareUpdate::Http::StreamChunkBytes];
         uint32_t lastReadMs = millis();
@@ -1072,7 +1092,7 @@ bool FirmwareUpdateModule::runSpiffsUpdate_(const char* url, char* errOut, size_
         snprintf(failMsg, sizeof(failMsg), "spiffs begin failed (%u)", (unsigned)Update.getError());
     }
 
-    WiFiClient* stream = http.getStreamPtr();
+    auto* stream = http.getStreamPtr();
     uint8_t buf[Limits::FirmwareUpdate::Http::StreamChunkBytes];
     int32_t remaining = contentLength;
     uint32_t lastReadMs = millis();

@@ -34,3 +34,12 @@ bool DigitalActuatorEndpoint::write(const IOEndpointValue& in)
     value_.timestampMs = in.timestampMs;
     return true;
 }
+
+bool DigitalActuatorEndpoint::syncFromHardware(bool on, bool valid, uint32_t timestampMs)
+{
+    value_.valueType = IO_EP_VALUE_BOOL;
+    value_.v.b = on;
+    value_.valid = valid;
+    value_.timestampMs = timestampMs;
+    return true;
+}

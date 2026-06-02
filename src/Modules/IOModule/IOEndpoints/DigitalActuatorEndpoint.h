@@ -18,6 +18,7 @@ public:
 
     bool read(IOEndpointValue& out) override;
     bool write(const IOEndpointValue& in) override;
+    bool syncFromHardware(bool on, bool valid, uint32_t timestampMs);
 
 private:
     const char* endpointId_ = nullptr;

@@ -129,6 +129,7 @@ struct IODigitalOutputDefinition {
     PhysicalPortId bindingPort = IO_PORT_INVALID;
     bool activeHigh = false;
     bool initialOn = false;
+    bool retainOnWarmReboot = false;
     bool momentary = false;
     uint16_t pulseMs = 500;
 };
@@ -138,6 +139,7 @@ struct IODigitalOutputSlotConfig {
     PhysicalPortId bindingPort = IO_PORT_INVALID;
     bool activeHigh = false;
     bool initialOn = false;
+    bool retainOnWarmReboot = false;
     bool momentary = false;
     int32_t pulseMs = 500;
 };

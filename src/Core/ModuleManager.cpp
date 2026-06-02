@@ -5,8 +5,7 @@
 #include "ModuleManager.h"
 #include <Arduino.h>
 #include <esp_heap_caps.h>
-#include "Board/BoardSerialMap.h"
-#include "Core/EventBus/EventBus.h"
+#include <freertos/idf_additions.h>
 #include "Core/Log.h"
 #include "Core/LogModuleIds.h"
 
@@ -16,6 +15,12 @@ namespace {
 constexpr uint8_t kStartupPreparedFlag = 0x01U;
 constexpr uint8_t kStartupActiveFlag = 0x02U;
 constexpr uint8_t kStartupFailedFlag = 0x04U;
+
+const char* stackCapsLabel_(UBaseType_t caps) {
+    if ((caps & MALLOC_CAP_SPIRAM) != 0U) return "SPIRAM";
+    if ((caps & MALLOC_CAP_INTERNAL) != 0U) return "INTERNAL";
+    return "DEFAULT";
+}
 }
 
 static void logRegisteredModules(Module* modules[], uint8_t count) {
@@ -26,19 +31,19 @@ static void logRegisteredModules(Module* modules[], uint8_t count) {
 }
 
 static void dbgDumpModules(Module* modules[], uint8_t count) {
-    Board::SerialMap::logSerial().printf("[MOD] Registered modules (%u):\r\n", count);
+    Log::debug(LOG_MODULE_ID, "registered modules count=%u", (unsigned)count);
     for (uint8_t i = 0; i < count; ++i) {
         if (!modules[i]) continue;
-        Board::SerialMap::logSerial().printf("  - %s deps=%u\r\n",
-                                             toString(modules[i]->moduleId()),
-                                             modules[i]->dependencyCount());
+        Log::debug(LOG_MODULE_ID, "module=%s deps=%u",
+                   toString(modules[i]->moduleId()),
+                   (unsigned)modules[i]->dependencyCount());
         for (uint8_t d = 0; d < modules[i]->dependencyCount(); ++d) {
             const ModuleId dep = modules[i]->dependency(d);
-            Board::SerialMap::logSerial().printf("      -> %s\r\n", toString(dep));
+            Log::debug(LOG_MODULE_ID, "module=%s needs=%s",
+                       toString(modules[i]->moduleId()),
+                       toString(dep));
         }
     }
-    Board::SerialMap::logSerial().flush();
-    delay(50);
 }
 
 static bool isValidTaskSpec(const ModuleTaskSpec& spec) {
@@ -101,10 +106,6 @@ bool ModuleManager::buildInitOrder() {
 
                 Module* dep = findById(depId);
                 if (!dep) {
-                    Board::SerialMap::logSerial().printf("[MOD][ERR] Missing dependency: module='%s' requires='%s'\r\n",
-                                                         toString(m->moduleId()), toString(depId));
-                    Board::SerialMap::logSerial().flush();
-                    delay(20);
                     Log::error(LOG_MODULE_ID, "missing dependency: module=%s requires=%s",
                                toString(m->moduleId()), toString(depId));
                     return false;
@@ -137,16 +138,12 @@ bool ModuleManager::buildInitOrder() {
         }
 
         if (!progress) {
-            Board::SerialMap::logSerial().print("[MOD][ERR] Cyclic deps detected (or unresolved deps)\r\n");
-            Board::SerialMap::logSerial().print("[MOD] Remaining not placed:\r\n");
+            Log::error(LOG_MODULE_ID, "cyclic or unresolved deps detected");
             for (uint8_t i = 0; i < count; ++i) {
                 if (modules[i] && !placed[i]) {
-                    Board::SerialMap::logSerial().printf("   * %s\r\n", toString(modules[i]->moduleId()));
+                    Log::error(LOG_MODULE_ID, "not placed module=%s", toString(modules[i]->moduleId()));
                 }
             }
-            Board::SerialMap::logSerial().flush();
-            delay(50);
-            Log::error(LOG_MODULE_ID, "cyclic or unresolved deps detected");
             return false;
         }
     }
@@ -243,6 +240,7 @@ bool ModuleManager::startModule_(uint8_t orderedIdx, ConfigStore& cfg, ServiceRe
     Module* module = ordered[orderedIdx];
     if (!module) return false;
     if (!dependenciesStarted_(*module)) return true;
+    if (!module->canStart(cfg, services)) return true;
 
     module->onStart(cfg, services);
 
@@ -272,6 +270,7 @@ bool ModuleManager::startModule_(uint8_t orderedIdx, ConfigStore& cfg, ServiceRe
             }
 
             TaskHandle_t handle = nullptr;
+            const UBaseType_t stackCaps = module->taskStackCaps();
             Log::debug(LOG_MODULE_ID, "startTask module=%s task=%s core=%ld prio=%u stack=%lu",
                        toString(module->moduleId()),
                        spec.name,
@@ -279,7 +278,35 @@ bool ModuleManager::startModule_(uint8_t orderedIdx, ConfigStore& cfg, ServiceRe
                        (unsigned)spec.priority,
                        (unsigned long)spec.stackSize);
 
-            const BaseType_t ok = xTaskCreatePinnedToCore(
+            BaseType_t ok = pdFAIL;
+            const bool useDefaultInternalCaps =
+                ((stackCaps & MALLOC_CAP_SPIRAM) == 0U) &&
+                ((stackCaps & MALLOC_CAP_INTERNAL) != 0U);
+#if (configSUPPORT_STATIC_ALLOCATION == 1)
+            if (!useDefaultInternalCaps) {
+                ok = xTaskCreatePinnedToCoreWithCaps(
+                    spec.entry,
+                    spec.name,
+                    spec.stackSize,
+                    spec.context,
+                    spec.priority,
+                    &handle,
+                    spec.coreId,
+                    stackCaps
+                );
+            } else {
+                ok = xTaskCreatePinnedToCore(
+                    spec.entry,
+                    spec.name,
+                    spec.stackSize,
+                    spec.context,
+                    spec.priority,
+                    &handle,
+                    spec.coreId
+                );
+            }
+#else
+            ok = xTaskCreatePinnedToCore(
                 spec.entry,
                 spec.name,
                 spec.stackSize,
@@ -288,23 +315,40 @@ bool ModuleManager::startModule_(uint8_t orderedIdx, ConfigStore& cfg, ServiceRe
                 &handle,
                 spec.coreId
             );
+#endif
             if (ok != pdPASS || !handle) {
                 const uint32_t free8 = heap_caps_get_free_size(MALLOC_CAP_8BIT);
                 const uint32_t largest8 = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
                 const uint32_t freeInternal = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
                 const uint32_t largestInternal = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
                 Log::error(LOG_MODULE_ID,
-                           "startTask failed module=%s task=%s err=%ld stack=%lu heap8=%lu largest8=%lu internal=%lu largest_internal=%lu",
+                           "startTask failed module=%s task=%s err=%ld stack=%lu caps=%s heap8=%lu largest8=%lu internal=%lu largest_internal=%lu",
                            toString(module->moduleId()),
                            spec.name,
                            (long)ok,
                            (unsigned long)spec.stackSize,
+                           stackCapsLabel_(stackCaps),
                            (unsigned long)free8,
                            (unsigned long)largest8,
                            (unsigned long)freeInternal,
                            (unsigned long)largestInternal);
                 return false;
             }
+
+            const uint32_t free8 = heap_caps_get_free_size(MALLOC_CAP_8BIT);
+            const uint32_t largest8 = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
+            const uint32_t freeInternal = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
+            const uint32_t largestInternal = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
+            Log::info(LOG_MODULE_ID,
+                      "startTask ok module=%s task=%s stack=%lu caps=%s heap8=%lu largest8=%lu internal=%lu largest_internal=%lu",
+                      toString(module->moduleId()),
+                      spec.name,
+                      (unsigned long)spec.stackSize,
+                      stackCapsLabel_(stackCaps),
+                      (unsigned long)free8,
+                      (unsigned long)largest8,
+                      (unsigned long)freeInternal,
+                      (unsigned long)largestInternal);
 
             module->setPrimaryTaskHandle_(handle);
             taskEntries[taskEntryCount++] = {
@@ -321,6 +365,27 @@ bool ModuleManager::startModule_(uint8_t orderedIdx, ConfigStore& cfg, ServiceRe
                (unsigned long)module->startDelayMs(),
                (unsigned)declaredTaskCount);
     return true;
+}
+
+bool ModuleManager::removeTaskEntry(TaskHandle_t handle)
+{
+    if (!handle) return false;
+    for (uint8_t i = 0; i < taskEntryCount; ++i) {
+        if (taskEntries[i].handle != handle) continue;
+
+        Module* module = taskEntries[i].module;
+        if (module && module->getTaskHandle() == handle) {
+            module->resetPrimaryTaskHandle_();
+        }
+
+        for (uint8_t j = i; (uint8_t)(j + 1U) < taskEntryCount; ++j) {
+            taskEntries[j] = taskEntries[j + 1U];
+        }
+        --taskEntryCount;
+        taskEntries[taskEntryCount] = {};
+        return true;
+    }
+    return false;
 }
 
 bool ModuleManager::tickStartup(ConfigStore& cfg, ServiceRegistry& services)
@@ -362,11 +427,6 @@ bool ModuleManager::tickStartup(ConfigStore& cfg, ServiceRegistry& services)
 
     if (allStarted) {
         startupFlags_ &= (uint8_t)~kStartupActiveFlag;
-        auto* ebService = services.get<EventBusService>(ServiceId::EventBus);
-        if (ebService && ebService->bus) {
-            (void)ebService->bus->post(EventId::StartupComplete, nullptr, 0, ModuleId::Unknown);
-        }
-        Log::info(LOG_MODULE_ID, "startup complete modules=%u", (unsigned)orderedCount);
     }
     return true;
 }

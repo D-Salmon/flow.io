@@ -155,20 +155,21 @@ struct DigitalOutputRoleDefault {
     DomainRole role; // Role fonctionnel de la sortie.
     PhysicalPortId bindingPort; // Port physique associe.
     bool activeHigh; // Polarite de commande logique.
+    bool retainOnWarmReboot; // Conserve le latch expander sur reboot ESP32 chaud.
     bool momentary; // True si sortie impulsionnelle.
     uint16_t pulseMs; // Duree d'impulsion en ms.
 };
 
 inline constexpr DigitalOutputRoleDefault kDigitalOutputRoleDefaults[] = {
-    // {role, bindingPort, activeHigh, momentary, pulseMs}
-    {DomainRole::FiltrationPump, PortRelay1, false, false, 0U}, // Pompe filtration.
-    {DomainRole::PhPump, PortRelay2, false, false, 0U}, // Pompe pH.
-    {DomainRole::ChlorinePump, PortRelay3, false, false, 0U}, // Pompe chlore.
-    {DomainRole::ChlorineGenerator, PortRelay4, false, BoardProfiles::kFlowIODINv1IoPoints[3].momentary, BoardProfiles::kFlowIODINv1IoPoints[3].pulseMs}, // Electrolyseur; utilise limites board (momentary/pulseMs).
-    {DomainRole::Robot, PortRelay5, false, false, 0U}, // Robot.
-    {DomainRole::Lights, PortRelay6, false, false, 0U}, // Eclairage.
-    {DomainRole::FillPump, PortRelay7, false, false, 0U}, // Pompe de remplissage.
-    {DomainRole::WaterHeater, PortRelay8, false, false, 0U}, // Chauffage.
+    // {role, bindingPort, activeHigh, retainOnWarmReboot, momentary, pulseMs}
+    {DomainRole::FiltrationPump, PortRelay1, false, true, false, 0U}, // Pompe filtration.
+    {DomainRole::PhPump, PortRelay2, false, false, false, 0U}, // Pompe pH.
+    {DomainRole::ChlorinePump, PortRelay3, false, false, false, 0U}, // Pompe chlore.
+    {DomainRole::ChlorineGenerator, PortRelay4, false, false, BoardProfiles::kFlowIODINv1IoPoints[3].momentary, BoardProfiles::kFlowIODINv1IoPoints[3].pulseMs}, // Electrolyseur; utilise limites board (momentary/pulseMs).
+    {DomainRole::Robot, PortRelay5, false, false, false, 0U}, // Robot.
+    {DomainRole::Lights, PortRelay6, false, false, false, 0U}, // Eclairage.
+    {DomainRole::FillPump, PortRelay7, false, false, false, 0U}, // Pompe de remplissage.
+    {DomainRole::WaterHeater, PortRelay8, false, false, false, 0U}, // Chauffage.
 };
 
 inline constexpr const AnalogRoleDefault* analogDefaultForRole(DomainRole role)

@@ -22,6 +22,7 @@ struct FirmwareUpdateService {
     bool (*isBusy)(void* ctx);
     bool (*configJson)(void* ctx, char* out, size_t outLen);
     bool (*checkManifestJsonStream)(void* ctx, Print& out, char* errOut, size_t errOutLen);
+    bool (*manifestUrl)(void* ctx, char* out, size_t outLen, char* errOut, size_t errOutLen);
     bool (*setConfig)(void* ctx,
                       const char* updateHost,
                       const char* updatePath,

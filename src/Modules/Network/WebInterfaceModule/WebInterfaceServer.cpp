@@ -38,9 +38,11 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <ArduinoJson.h>
+#include <HTTPClient.h>
 #include <SPIFFS.h>
 #include <FS.h>
 #include <esp_heap_caps.h>
+#include <memory>
 #include "Core/DataKeys.h"
 #include "Core/EventBus/EventPayloads.h"
 #include "Modules/Network/WifiModule/WifiRuntime.h"
@@ -162,6 +164,218 @@ void* gHttpActivityHookCtx = nullptr;
 portMUX_TYPE gAssetBuildMux = portMUX_INITIALIZER_UNLOCKED;
 volatile uint8_t gAssetBuildInFlight = 0U;
 volatile uint32_t gAssetBuildRejectCount = 0U;
+
+struct WebHeapCharBuffer {
+    explicit WebHeapCharBuffer(size_t requestedCapacity)
+        : capacity(requestedCapacity)
+    {
+        if (capacity == 0U) return;
+#if defined(FLOW_PROFILE_FLOWIOS3)
+        data = static_cast<char*>(
+            heap_caps_calloc(1, capacity, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)
+        );
+#endif
+        if (!data) {
+            data = static_cast<char*>(heap_caps_calloc(1, capacity, MALLOC_CAP_8BIT));
+        }
+    }
+
+    ~WebHeapCharBuffer()
+    {
+        if (data) heap_caps_free(data);
+    }
+
+    WebHeapCharBuffer(const WebHeapCharBuffer&) = delete;
+    WebHeapCharBuffer& operator=(const WebHeapCharBuffer&) = delete;
+
+    explicit operator bool() const { return data != nullptr; }
+
+    char* data = nullptr;
+    size_t capacity = 0;
+};
+
+struct FirmwareManifestChunkState {
+    static constexpr size_t kUrlLen = 192U;
+    static constexpr size_t kPrefixLen = 384U;
+
+    ~FirmwareManifestChunkState()
+    {
+        http.end();
+    }
+
+    bool begin(const char* manifestUrl, char* errOut, size_t errOutLen)
+    {
+        if (!manifestUrl || manifestUrl[0] == '\0') {
+            writeError(errOut, errOutLen, "manifest url missing");
+            return false;
+        }
+
+        char safeUrl[kUrlLen] = {0};
+        char current[48] = {0};
+        snprintf(safeUrl, sizeof(safeUrl), "%s", manifestUrl);
+        snprintf(current, sizeof(current), "%s", FirmwareVersion::Full);
+        sanitizeJsonString_(safeUrl);
+        sanitizeJsonString_(current);
+
+        const int prefixWritten = snprintf(prefix,
+                                           sizeof(prefix),
+                                           "{\"ok\":true,\"manifest_url\":\"%s\",\"current\":{\"supervisor\":\"%s\"},\"manifest\":",
+                                           safeUrl,
+                                           current);
+        if (prefixWritten <= 0 || (size_t)prefixWritten >= sizeof(prefix)) {
+            writeError(errOut, errOutLen, "manifest prefix too long");
+            return false;
+        }
+        prefixLen = (size_t)prefixWritten;
+
+        http.setReuse(false);
+        http.setConnectTimeout(Limits::FirmwareUpdate::Http::ConnectTimeoutMs);
+        http.setTimeout(Limits::FirmwareUpdate::Http::RequestTimeoutMs);
+        if (!http.begin(manifestUrl)) {
+            LOGE("HTTP begin failed resource=manifest url=%s", manifestUrl);
+            writeError(errOut, errOutLen, "serveur HTTP injoignable");
+            return false;
+        }
+
+        const int code = http.GET();
+        if (code != HTTP_CODE_OK) {
+            writeHttpCodeError(manifestUrl, code, errOut, errOutLen);
+            http.end();
+            return false;
+        }
+
+        remaining = http.getSize();
+        if (remaining == 0) {
+            writeError(errOut, errOutLen, "manifest empty");
+            http.end();
+            return false;
+        }
+
+        stream = http.getStreamPtr();
+        if (!stream) {
+            writeError(errOut, errOutLen, "manifest stream unavailable");
+            http.end();
+            return false;
+        }
+        lastReadMs = millis();
+        return true;
+    }
+
+    size_t fill(uint8_t* buffer, size_t maxLen)
+    {
+        if (!buffer || maxLen == 0U) return 0U;
+        if (suffixDone) return 0U;
+
+        size_t written = 0U;
+        copyStatic(prefix, prefixLen, prefixPos, buffer, maxLen, written);
+        if (written >= maxLen) return written;
+
+        while (!manifestDone && written < maxLen) {
+            if (!stream) {
+                manifestDone = true;
+                break;
+            }
+
+            const int available = stream->available();
+            if (available <= 0) {
+                if (remaining == 0) {
+                    manifestDone = true;
+                    break;
+                }
+                if (!http.connected()) {
+                    manifestDone = true;
+                    break;
+                }
+                if ((millis() - lastReadMs) > Limits::FirmwareUpdate::Http::StreamReadTimeoutMs) {
+                    manifestDone = true;
+                    break;
+                }
+                return written > 0U ? written : RESPONSE_TRY_AGAIN;
+            }
+
+            size_t wanted = maxLen - written;
+            if (remaining > 0 && wanted > (size_t)remaining) wanted = (size_t)remaining;
+            if (wanted > (size_t)available) wanted = (size_t)available;
+            if (wanted == 0U) {
+                manifestDone = true;
+                break;
+            }
+
+            const size_t got = stream->readBytes(buffer + written, wanted);
+            if (got == 0U) {
+                return written > 0U ? written : RESPONSE_TRY_AGAIN;
+            }
+            written += got;
+            manifestBytes += got;
+            lastReadMs = millis();
+            if (remaining > 0) {
+                remaining -= (int32_t)got;
+                if (remaining <= 0) manifestDone = true;
+            }
+        }
+
+        if (manifestDone && manifestBytes == 0U) {
+            copyStatic("null", 4U, nullPos, buffer, maxLen, written);
+            if (written >= maxLen) return written;
+        }
+
+        if (manifestDone) {
+            copyStatic("}", 1U, suffixPos, buffer, maxLen, written);
+            if (suffixPos >= 1U) suffixDone = true;
+        }
+        return written;
+    }
+
+    HTTPClient http;
+    Stream* stream = nullptr;
+    int32_t remaining = -1;
+    uint32_t lastReadMs = 0U;
+    char prefix[kPrefixLen] = {0};
+    size_t prefixLen = 0U;
+    size_t prefixPos = 0U;
+    size_t nullPos = 0U;
+    size_t suffixPos = 0U;
+    size_t manifestBytes = 0U;
+    bool manifestDone = false;
+    bool suffixDone = false;
+
+private:
+    static void writeError(char* out, size_t outLen, const char* msg)
+    {
+        if (!out || outLen == 0U) return;
+        snprintf(out, outLen, "%s", msg ? msg : "failed");
+    }
+
+    static void writeHttpCodeError(const char* url, int code, char* errOut, size_t errOutLen)
+    {
+        char msg[96] = {0};
+        if (code == 404) {
+            snprintf(msg, sizeof(msg), "manifest introuvable (404)");
+        } else if (code < 0) {
+            snprintf(msg, sizeof(msg), "serveur HTTP injoignable");
+        } else {
+            snprintf(msg, sizeof(msg), "erreur HTTP %d", code);
+        }
+        LOGE("HTTP request failed resource=manifest code=%d url=%s", code, url ? url : "-");
+        writeError(errOut, errOutLen, msg);
+    }
+
+    static void copyStatic(const char* src,
+                           size_t srcLen,
+                           size_t& pos,
+                           uint8_t* dest,
+                           size_t destLen,
+                           size_t& written)
+    {
+        if (!src || pos >= srcLen || written >= destLen) return;
+        const size_t room = destLen - written;
+        const size_t left = srcLen - pos;
+        const size_t count = left < room ? left : room;
+        memcpy(dest + written, src + pos, count);
+        written += count;
+        pos += count;
+    }
+};
 
 const char* httpMethodName_(uint32_t method);
 void addNoCacheHeaders_(AsyncWebServerResponse* response);
@@ -313,14 +527,19 @@ bool shouldRejectAssetByFreeHeap_(const char* assetPath,
                                   uint32_t* freeBytesOut = nullptr,
                                   uint32_t* largestBytesOut = nullptr)
 {
-    const uint32_t freeBytes = (uint32_t)heap_caps_get_free_size(MALLOC_CAP_8BIT);
-    const uint32_t largestBytes = (uint32_t)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
-    if (freeBytesOut) *freeBytesOut = freeBytes;
-    if (largestBytesOut) *largestBytesOut = largestBytes;
 #if defined(FLOW_PROFILE_FLOWIOS3)
     const uint32_t freeInternal = (uint32_t)heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     const uint32_t largestInternal =
         (uint32_t)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    if (freeBytesOut) *freeBytesOut = freeInternal;
+    if (largestBytesOut) *largestBytesOut = largestInternal;
+#else
+    const uint32_t freeBytes = (uint32_t)heap_caps_get_free_size(MALLOC_CAP_8BIT);
+    const uint32_t largestBytes = (uint32_t)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
+    if (freeBytesOut) *freeBytesOut = freeBytes;
+    if (largestBytesOut) *largestBytesOut = largestBytes;
+#endif
+#if defined(FLOW_PROFILE_FLOWIOS3)
     const uint32_t minInternalFreeBytes = isLightWebAssetPath_(assetPath)
         ? kHeapGuardAssetInternalFreeBytesLight
         : isMinorWebAssetPath_(assetPath)
@@ -2135,8 +2354,14 @@ struct HttpLatencyScope {
         if (elapsedMs < infoMs) return;
 
         const char* method = req ? httpMethodName_(req->method()) : "?";
+#if defined(FLOW_PROFILE_FLOWIOS3)
+        const uint32_t heapFree = (uint32_t)heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+        const uint32_t heapLargest =
+            (uint32_t)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+#else
         const uint32_t heapFree = (uint32_t)ESP.getFreeHeap();
         const uint32_t heapLargest = heapFree;
+#endif
         if (elapsedMs >= warnMs) {
             LOGW("HTTP slow %s %s latency=%lums heap=%lu largest=%lu",
                  method,
@@ -2713,7 +2938,7 @@ void WebInterfaceModule::init(ConfigStore& cfg, ServiceRegistry& services)
     health_.paused = uartPaused_;
     portEXIT_CRITICAL(&healthMux_);
 
-#if defined(FLOW_PROFILE_MICRONOVA)
+#if defined(FLOW_PROFILE_MICRONOVA) || defined(FLOW_PROFILE_FLOWIOS3)
     LOGI("WebInterface local runtime deferred (server deferred)");
 #else
     startLocalRuntime_();
@@ -2722,13 +2947,19 @@ void WebInterfaceModule::init(ConfigStore& cfg, ServiceRegistry& services)
 
 void WebInterfaceModule::onStart(ConfigStore&, ServiceRegistry&)
 {
-#if defined(FLOW_PROFILE_MICRONOVA)
+#if defined(FLOW_PROFILE_MICRONOVA) || defined(FLOW_PROFILE_FLOWIOS3)
     startLocalRuntime_();
 #endif
 }
 
 void WebInterfaceModule::startLocalRuntime_()
 {
+#if defined(FLOW_PROFILE_FLOWIOS3)
+    bridgeUartEnabled_ = false;
+    LOGI("WebInterface local log runtime disabled on FlowIOS3");
+    return;
+#endif
+
     if (!localLogQueue_) {
         localLogQueue_ = xQueueCreate(kLocalLogQueueLen, kLocalLogLineMax);
         if (!localLogQueue_) {
@@ -2789,13 +3020,15 @@ void WebInterfaceModule::startServer_()
 
     auto spiffsAssetExists = [this](const char* assetPath, const char* gzipOverridePath = nullptr) -> bool {
         if (!spiffsReady_ || !assetPath || assetPath[0] == '\0') return false;
-        if (SPIFFS.exists(assetPath)) return true;
         if (gzipOverridePath && gzipOverridePath[0] != '\0') {
             return SPIFFS.exists(gzipOverridePath);
         }
         char gzipPath[128] = {0};
         const int gzipPathLen = snprintf(gzipPath, sizeof(gzipPath), "%s.gz", assetPath);
-        return (gzipPathLen > 0) && ((size_t)gzipPathLen < sizeof(gzipPath)) && SPIFFS.exists(gzipPath);
+        if ((gzipPathLen > 0) && ((size_t)gzipPathLen < sizeof(gzipPath)) && SPIFFS.exists(gzipPath)) {
+            return true;
+        }
+        return SPIFFS.exists(assetPath);
     };
 
     auto beginSpiffsAssetResponse =
@@ -2846,19 +3079,25 @@ void WebInterfaceModule::startServer_()
         char gzipPath[128] = {0};
         const char* servedPath = assetPath;
         bool hasGzip = false;
+        bool servedExists = false;
         if (gzipOverridePath && gzipOverridePath[0] != '\0') {
             if (SPIFFS.exists(gzipOverridePath)) {
                 servedPath = gzipOverridePath;
                 hasGzip = true;
+                servedExists = true;
             }
         } else {
             const int gzipPathLen = snprintf(gzipPath, sizeof(gzipPath), "%s.gz", assetPath);
             if ((gzipPathLen > 0) && ((size_t)gzipPathLen < sizeof(gzipPath)) && SPIFFS.exists(gzipPath)) {
                 servedPath = gzipPath;
                 hasGzip = true;
+                servedExists = true;
+            } else if (SPIFFS.exists(assetPath)) {
+                servedPath = assetPath;
+                servedExists = true;
             }
         }
-        if (!SPIFFS.exists(servedPath)) return nullptr;
+        if (!servedExists) return nullptr;
 
 #if FLOW_WEB_HEAP_FORENSICS
         uint32_t servedSize = 0U;
@@ -2928,17 +3167,23 @@ void WebInterfaceModule::startServer_()
         request->send(response);
     };
 
-    auto lightUiAssetsAvailable = [spiffsAssetExists]() -> bool {
-        return spiffsAssetExists("/webinterface/light.html") &&
-               spiffsAssetExists("/webinterface/light.css") &&
-               spiffsAssetExists("/webinterface/light.js");
+    const bool lightUiAssetsReady =
+        spiffsAssetExists("/webinterface/light.html") &&
+        spiffsAssetExists("/webinterface/light.css") &&
+        spiffsAssetExists("/webinterface/light.js");
+
+    const bool fullUiAssetsReady =
+        spiffsAssetExists("/webinterface/index.html") &&
+        spiffsAssetExists("/webinterface/app-core.js") &&
+        spiffsAssetExists("/webinterface/app.js") &&
+        spiffsAssetExists("/webinterface/app-core.css");
+
+    auto lightUiAssetsAvailable = [lightUiAssetsReady]() -> bool {
+        return lightUiAssetsReady;
     };
 
-    auto fullUiAssetsAvailable = [spiffsAssetExists]() -> bool {
-        return spiffsAssetExists("/webinterface/index.html") &&
-               spiffsAssetExists("/webinterface/app-core.js") &&
-               spiffsAssetExists("/webinterface/app.js") &&
-               spiffsAssetExists("/webinterface/app-core.css");
+    auto fullUiAssetsAvailable = [fullUiAssetsReady]() -> bool {
+        return fullUiAssetsReady;
     };
 
     server_.on("/", HTTP_GET, [webInterfaceLandingUrl](AsyncWebServerRequest* request) {
@@ -3488,17 +3733,15 @@ void WebInterfaceModule::startServer_()
         if (!fwUpdateSvc_ && services_) {
             fwUpdateSvc_ = services_->get<FirmwareUpdateService>(ServiceId::FirmwareUpdate);
         }
-        if (!fwUpdateSvc_ || !fwUpdateSvc_->checkManifestJsonStream) {
+        if (!fwUpdateSvc_ || !fwUpdateSvc_->manifestUrl) {
             request->send(503, "application/json",
                           "{\"ok\":false,\"err\":{\"code\":\"NotReady\",\"where\":\"fwupdate.check\"}}");
             return;
         }
 
-        AsyncResponseStream* out = request->beginResponseStream("application/json");
-        addNoCacheHeaders_(out);
+        char url[FirmwareManifestChunkState::kUrlLen] = {0};
         char err[128] = {0};
-        if (!fwUpdateSvc_->checkManifestJsonStream(fwUpdateSvc_->ctx, *out, err, sizeof(err))) {
-            delete out;
+        if (!fwUpdateSvc_->manifestUrl(fwUpdateSvc_->ctx, url, sizeof(url), err, sizeof(err))) {
             sanitizeJsonString_(err);
             char msg[320] = {0};
             const int n = snprintf(msg,
@@ -3513,7 +3756,29 @@ void WebInterfaceModule::startServer_()
             return;
         }
 
-        request->send(out);
+        auto state = std::make_shared<FirmwareManifestChunkState>();
+        if (!state || !state->begin(url, err, sizeof(err))) {
+            sanitizeJsonString_(err);
+            char msg[320] = {0};
+            const int n = snprintf(msg,
+                                   sizeof(msg),
+                                   "{\"ok\":false,\"err\":{\"code\":\"Failed\",\"where\":\"fwupdate.check\",\"msg\":\"%s\"}}",
+                                   err[0] ? err : "failed");
+            request->send(409,
+                          "application/json",
+                          (n > 0 && (size_t)n < sizeof(msg))
+                              ? msg
+                              : "{\"ok\":false,\"err\":{\"code\":\"Failed\",\"where\":\"fwupdate.check\"}}");
+            return;
+        }
+
+        AsyncWebServerResponse* response =
+            request->beginChunkedResponse("application/json",
+                                          [state](uint8_t* buffer, size_t maxLen, size_t) -> size_t {
+                                              return state->fill(buffer, maxLen);
+                                          });
+        addNoCacheHeaders_(response);
+        request->send(response);
     });
 
     server_.on("/api/fwupdate/config", HTTP_POST, [this](AsyncWebServerRequest* request) {
@@ -4512,8 +4777,12 @@ void WebInterfaceModule::startServer_()
         sanitizeJsonString_(moduleName);
 
         bool truncated = false;
-        char moduleJson[Limits::Mqtt::Buffers::StateCfg] = {0};
-        if (!cfgStore_->toJsonModule(moduleStr, moduleJson, sizeof(moduleJson), &truncated)) {
+        WebHeapCharBuffer moduleJson(Limits::Mqtt::Buffers::StateCfg);
+        if (!moduleJson) {
+            sendTinyBusyJson_(request, "web_scratch_alloc");
+            return;
+        }
+        if (!cfgStore_->toJsonModule(moduleStr, moduleJson.data, moduleJson.capacity, &truncated)) {
             request->send(404, "application/json",
                           "{\"ok\":false,\"err\":{\"code\":\"NotFound\",\"where\":\"flowcfg.module.get\"}}");
             return;
@@ -4526,7 +4795,7 @@ void WebInterfaceModule::startServer_()
         response->print(",\"truncated\":");
         response->print(truncated ? "true" : "false");
         response->print(",\"data\":");
-        response->print(moduleJson);
+        response->print(moduleJson.data);
         response->print('}');
         request->send(response);
         return;
@@ -4558,11 +4827,15 @@ void WebInterfaceModule::startServer_()
         sanitizeJsonString_(moduleName);
 
         bool truncated = false;
-        char moduleJson[Limits::Mqtt::Buffers::StateCfg] = {0};
-        if (!flowCfgSvc_->getModuleJson(flowCfgSvc_->ctx, moduleStr, moduleJson, sizeof(moduleJson), &truncated)) {
-            if (moduleJson[0] != '\0') {
-                LOGW("flowcfg.module failed module=%s details=%s", moduleStr, moduleJson);
-                request->send(500, "application/json", moduleJson);
+        WebHeapCharBuffer moduleJson(Limits::Mqtt::Buffers::StateCfg);
+        if (!moduleJson) {
+            sendTinyBusyJson_(request, "web_scratch_alloc");
+            return;
+        }
+        if (!flowCfgSvc_->getModuleJson(flowCfgSvc_->ctx, moduleStr, moduleJson.data, moduleJson.capacity, &truncated)) {
+            if (moduleJson.data[0] != '\0') {
+                LOGW("flowcfg.module failed module=%s details=%s", moduleStr, moduleJson.data);
+                request->send(500, "application/json", moduleJson.data);
             } else {
                 request->send(500, "application/json",
                               "{\"ok\":false,\"err\":{\"code\":\"Failed\",\"where\":\"flowcfg.module.get\"}}");
@@ -4577,7 +4850,7 @@ void WebInterfaceModule::startServer_()
         response->print(",\"truncated\":");
         response->print(truncated ? "true" : "false");
         response->print(",\"data\":");
-        response->print(moduleJson);
+        response->print(moduleJson.data);
         response->print('}');
         request->send(response);
 #endif
@@ -4600,9 +4873,13 @@ void WebInterfaceModule::startServer_()
             return;
         }
 
-        char patchStr[Limits::Mqtt::Buffers::StateCfg] = {0};
-        copyRequestParamValue_(request, "patch", true, patchStr, sizeof(patchStr), "");
-        if (!cfgStore_->applyJson(patchStr)) {
+        WebHeapCharBuffer patchStr(Limits::Mqtt::Buffers::StateCfg);
+        if (!patchStr) {
+            sendTinyBusyJson_(request, "web_scratch_alloc");
+            return;
+        }
+        copyRequestParamValue_(request, "patch", true, patchStr.data, patchStr.capacity, "");
+        if (!cfgStore_->applyJson(patchStr.data)) {
             request->send(500, "application/json",
                           "{\"ok\":false,\"err\":{\"code\":\"Failed\",\"where\":\"flowcfg.apply.exec\"}}");
             return;
@@ -4624,10 +4901,14 @@ void WebInterfaceModule::startServer_()
             return;
         }
 
-        char patchStr[Limits::Mqtt::Buffers::StateCfg] = {0};
-        copyRequestParamValue_(request, "patch", true, patchStr, sizeof(patchStr), "");
+        WebHeapCharBuffer patchStr(Limits::Mqtt::Buffers::StateCfg);
+        if (!patchStr) {
+            sendTinyBusyJson_(request, "web_scratch_alloc");
+            return;
+        }
+        copyRequestParamValue_(request, "patch", true, patchStr.data, patchStr.capacity, "");
         char ack[Limits::Mqtt::Buffers::Ack] = {0};
-        if (!flowCfgSvc_->applyPatchJson(flowCfgSvc_->ctx, patchStr, ack, sizeof(ack))) {
+        if (!flowCfgSvc_->applyPatchJson(flowCfgSvc_->ctx, patchStr.data, ack, sizeof(ack))) {
             if (ack[0] != '\0') {
                 request->send(flowCfgApplyHttpStatus_(ack), "application/json", ack);
             } else {
@@ -4762,8 +5043,12 @@ void WebInterfaceModule::startServer_()
         sanitizeJsonString_(moduleName);
 
         bool truncated = false;
-        char moduleJson[Limits::Mqtt::Buffers::StateCfg] = {0};
-        if (!cfgStore_->toJsonModule(moduleStr, moduleJson, sizeof(moduleJson), &truncated)) {
+        WebHeapCharBuffer moduleJson(Limits::Mqtt::Buffers::StateCfg);
+        if (!moduleJson) {
+            sendTinyBusyJson_(request, "web_scratch_alloc");
+            return;
+        }
+        if (!cfgStore_->toJsonModule(moduleStr, moduleJson.data, moduleJson.capacity, &truncated)) {
             request->send(404, "application/json",
                           "{\"ok\":false,\"err\":{\"code\":\"NotFound\",\"where\":\"supervisorcfg.module.get\"}}");
             return;
@@ -4776,7 +5061,7 @@ void WebInterfaceModule::startServer_()
         response->print(",\"truncated\":");
         response->print(truncated ? "true" : "false");
         response->print(",\"data\":");
-        response->print(moduleJson);
+        response->print(moduleJson.data);
         response->print('}');
         request->send(response);
     });
@@ -4794,9 +5079,13 @@ void WebInterfaceModule::startServer_()
             return;
         }
 
-        char patchStr[Limits::Mqtt::Buffers::StateCfg] = {0};
-        copyRequestParamValue_(request, "patch", true, patchStr, sizeof(patchStr), "");
-        if (!cfgStore_->applyJson(patchStr)) {
+        WebHeapCharBuffer patchStr(Limits::Mqtt::Buffers::StateCfg);
+        if (!patchStr) {
+            sendTinyBusyJson_(request, "web_scratch_alloc");
+            return;
+        }
+        copyRequestParamValue_(request, "patch", true, patchStr.data, patchStr.capacity, "");
+        if (!cfgStore_->applyJson(patchStr.data)) {
             request->send(500, "application/json",
                           "{\"ok\":false,\"err\":{\"code\":\"Failed\",\"where\":\"supervisorcfg.apply.exec\"}}");
             return;
@@ -4997,6 +5286,41 @@ void WebInterfaceModule::startServer_()
     started_ = true;
     noteServerStarted_();
     LOGI("WebInterface server started, listening on 0.0.0.0:%d", kServerPort);
+
+    if (hmiSvc_ && hmiSvc_->setStatusLedState && hmiSvc_->setStatusLedAutoWifiMode) {
+        bool prevAutoMode = true;
+        if (hmiSvc_->isStatusLedAutoWifiMode) {
+            prevAutoMode = hmiSvc_->isStatusLedAutoWifiMode(hmiSvc_->ctx);
+        }
+        webStartLedPrevAutoMode_ = prevAutoMode;
+        webStartLedPrevAutoModeValid_ = true;
+
+        HmiStatusLedState webStartState{};
+        webStartState.enabled = true;
+        webStartState.blinkEnabled = true;
+        webStartState.red = 0;
+        webStartState.green = 255;
+        webStartState.blue = 0;
+        webStartState.brightness = 128;
+        webStartState.blinkOnMs = 60;
+        webStartState.blinkOffMs = 60;
+
+        const bool autoModeDisabled = hmiSvc_->setStatusLedAutoWifiMode(hmiSvc_->ctx, false);
+        const bool stateApplied = hmiSvc_->setStatusLedState(hmiSvc_->ctx, &webStartState);
+        if (autoModeDisabled && stateApplied) {
+            webStartLedPulseActive_ = true;
+            webStartLedPulseUntilMs_ = millis() + 2000U;
+            LOGI("Web start LED pulse active color=green duration_ms=2000");
+        } else {
+            if (autoModeDisabled && webStartLedPrevAutoModeValid_) {
+                hmiSvc_->setStatusLedAutoWifiMode(hmiSvc_->ctx, webStartLedPrevAutoMode_);
+            }
+            webStartLedPulseActive_ = false;
+            LOGW("Web start LED pulse failed auto_disabled=%d state_applied=%d",
+                 autoModeDisabled ? 1 : 0,
+                 stateApplied ? 1 : 0);
+        }
+    }
 
     char ip[16] = {0};
     NetworkAccessMode mode = NetworkAccessMode::None;

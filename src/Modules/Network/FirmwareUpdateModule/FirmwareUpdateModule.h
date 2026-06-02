@@ -19,9 +19,22 @@ public:
     ModuleId moduleId() const override { return ModuleId::FirmwareUpdate; }
     const char* taskName() const override { return "fwupdate"; }
     BaseType_t taskCore() const override { return 0; }
-    uint16_t taskStackSize() const override { return 8192; }
+    uint16_t taskStackSize() const override {
+#if defined(FLOW_PROFILE_FLOWIOS3)
+        return 6144;
+#else
+        return 8192;
+#endif
+    }
     uint8_t taskCount() const override { return 1; }
     const ModuleTaskSpec* taskSpecs() const override { return singleLoopTaskSpec(); }
+    uint32_t startDelayMs() const override {
+#if defined(FLOW_PROFILE_FLOWIOS3)
+        return 6000U;
+#else
+        return 0U;
+#endif
+    }
 
     uint8_t dependencyCount() const override { return 4; }
     ModuleId dependency(uint8_t i) const override {
@@ -137,6 +150,7 @@ private:
     bool isBusy_();
     bool configJson_(char* out, size_t outLen) const;
     bool checkManifestJsonStream_(Print& out, char* errOut, size_t errOutLen);
+    bool manifestUrl_(char* out, size_t outLen, char* errOut, size_t errOutLen);
     bool setConfig_(const char* updateHost,
                     const char* updatePath,
                     const char* flowioPath,
@@ -179,6 +193,7 @@ private:
         ServiceBinding::bind<&FirmwareUpdateModule::isBusy_>,
         ServiceBinding::bind<&FirmwareUpdateModule::configJson_>,
         ServiceBinding::bind<&FirmwareUpdateModule::checkManifestJsonStream_>,
+        ServiceBinding::bind<&FirmwareUpdateModule::manifestUrl_>,
         ServiceBinding::bind<&FirmwareUpdateModule::setConfig_>,
         this
     };

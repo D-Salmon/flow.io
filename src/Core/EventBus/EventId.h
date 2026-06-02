@@ -11,7 +11,6 @@ enum class EventId : uint16_t {
 
     // System lifecycle
     SystemStarted = 1,
-    StartupComplete = 2,
 
     // ✅ DataStore (runtime model changes)
     DataChanged = 50,

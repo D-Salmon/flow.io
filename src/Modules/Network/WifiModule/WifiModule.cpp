@@ -8,8 +8,7 @@
 #include "Core/ModuleLog.h"
 #include "Core/Runtime.h"
 #include <ArduinoJson.h>
-#include <esp_wifi.h>
-#include <esp_err.h>
+#include <esp_mac.h>
 #include <ctype.h>
 #include <string.h>
 
@@ -20,12 +19,6 @@ static constexpr uint8_t kWifiCfgBranch = 1;
 static constexpr MqttConfigRouteProducer::Route kWifiCfgRoutes[] = {
     {1, {(uint8_t)ConfigModuleId::Wifi, kWifiCfgBranch}, "wifi", "wifi", (uint8_t)MqttPublishPriority::Normal, nullptr},
 };
-
-const char* espErrName_(esp_err_t err)
-{
-    const char* n = esp_err_to_name(err);
-    return n ? n : "?";
-}
 
 bool isKnownDefaultMdnsHost_(const char* host)
 {
@@ -52,6 +45,17 @@ void formatStaMac_(char* out, size_t outLen)
              (unsigned)mac[3],
              (unsigned)mac[4],
              (unsigned)mac[5]);
+}
+
+const char* wifiModeName_(wifi_mode_t mode)
+{
+    switch (mode) {
+    case WIFI_MODE_NULL: return "NULL";
+    case WIFI_MODE_STA: return "STA";
+    case WIFI_MODE_AP: return "AP";
+    case WIFI_MODE_APSTA: return "APSTA";
+    default: return "?";
+    }
 }
 }
 
@@ -89,7 +93,11 @@ bool WifiModule::requestReconnect_()
         setWifiReady(*dataStore, false);
     }
 
-    WiFi.disconnect(false, false);
+    (void)WiFi.disconnect(false, false);
+    LOGD("requestReconnect: forced disconnect mode=%s wl=%s(%d)",
+         wifiModeName_(WiFi.getMode()),
+         wlStatusName_(WiFi.status()),
+         (int)WiFi.status());
     setState(WifiState::Idle);
     return true;
 }
@@ -108,10 +116,7 @@ bool WifiModule::setStaRetryEnabled_(bool enabled)
 
     if (!enabled) {
         reconnectKickSent_ = true;
-        if (!WiFi.isConnected()) {
-            WiFi.disconnect(false, false);
-            setState(WifiState::Idle);
-        }
+        setState(WifiState::Idle);
     } else if (state != WifiState::Connected && state != WifiState::Disabled) {
         setState(WifiState::Idle);
     }
@@ -157,14 +162,75 @@ void WifiModule::onWifiEventSys_(arduino_event_t* event)
     if (!self) return;
 
     switch (event->event_id) {
+    case ARDUINO_EVENT_WIFI_STA_START:
+        LOGI("WiFi event: STA_START mode=%s wl=%s(%d) state=%s",
+             wifiModeName_(WiFi.getMode()),
+             wlStatusName_(WiFi.status()),
+             (int)WiFi.status(),
+             stateName_(self->state));
+        break;
+    case ARDUINO_EVENT_WIFI_STA_STOP:
+        LOGI("WiFi event: STA_STOP mode=%s wl=%s(%d) state=%s",
+             wifiModeName_(WiFi.getMode()),
+             wlStatusName_(WiFi.status()),
+             (int)WiFi.status(),
+             stateName_(self->state));
+        break;
+    case ARDUINO_EVENT_WIFI_STA_CONNECTED:
+        LOGI("WiFi event: STA_CONNECTED mode=%s wl=%s(%d) state=%s",
+             wifiModeName_(WiFi.getMode()),
+             wlStatusName_(WiFi.status()),
+             (int)WiFi.status(),
+             stateName_(self->state));
+        break;
+    case ARDUINO_EVENT_WIFI_STA_GOT_IP:
+        LOGI("WiFi event: STA_GOT_IP mode=%s wl=%s(%d) state=%s",
+             wifiModeName_(WiFi.getMode()),
+             wlStatusName_(WiFi.status()),
+             (int)WiFi.status(),
+             stateName_(self->state));
+        break;
+    case ARDUINO_EVENT_WIFI_STA_LOST_IP:
+        LOGW("WiFi event: STA_LOST_IP mode=%s wl=%s(%d) state=%s",
+             wifiModeName_(WiFi.getMode()),
+             wlStatusName_(WiFi.status()),
+             (int)WiFi.status(),
+             stateName_(self->state));
+        break;
+    case ARDUINO_EVENT_WIFI_AP_START:
+        LOGI("WiFi event: AP_START mode=%s wl=%s(%d) state=%s",
+             wifiModeName_(WiFi.getMode()),
+             wlStatusName_(WiFi.status()),
+             (int)WiFi.status(),
+             stateName_(self->state));
+        break;
+    case ARDUINO_EVENT_WIFI_AP_STOP:
+        LOGI("WiFi event: AP_STOP mode=%s wl=%s(%d) state=%s",
+             wifiModeName_(WiFi.getMode()),
+             wlStatusName_(WiFi.status()),
+             (int)WiFi.status(),
+             stateName_(self->state));
+        break;
     case ARDUINO_EVENT_WIFI_STA_DISCONNECTED: {
         const uint8_t reason = (uint8_t)event->event_info.wifi_sta_disconnected.reason;
         self->lastDisconnectReason_ = reason;
         const char* reasonName = WiFi.disconnectReasonName((wifi_err_reason_t)reason);
         if (self->isStartupTransientWindow_()) {
-            LOGD("STA disconnected reason=%u(%s)", (unsigned)reason, reasonName ? reasonName : "?");
+            LOGD("STA disconnected reason=%u(%s) mode=%s wl=%s(%d) state=%s",
+                 (unsigned)reason,
+                 reasonName ? reasonName : "?",
+                 wifiModeName_(WiFi.getMode()),
+                 wlStatusName_(WiFi.status()),
+                 (int)WiFi.status(),
+                 stateName_(self->state));
         } else {
-            LOGW("STA disconnected reason=%u(%s)", (unsigned)reason, reasonName ? reasonName : "?");
+            LOGW("STA disconnected reason=%u(%s) mode=%s wl=%s(%d) state=%s",
+                 (unsigned)reason,
+                 reasonName ? reasonName : "?",
+                 wifiModeName_(WiFi.getMode()),
+                 wlStatusName_(WiFi.status()),
+                 (int)WiFi.status(),
+                 stateName_(self->state));
         }
         break;
     }
@@ -246,16 +312,18 @@ void WifiModule::logConfigSummary_() const
     const size_t mdnsLen = strnlen(cfgData.mdns, sizeof(cfgData.mdns));
 
     if (ssidLen == 0U) {
-        LOGW("WiFi config loaded enabled=%d ssid=<empty> pass_len=%u mdns='%s' mdns_len=%u",
+        LOGW("WiFi config loaded enabled=%d ethernet=%d ssid=<empty> pass_len=%u mdns='%s' mdns_len=%u",
              (int)cfgData.enabled,
+             (int)ethernetEnabled_,
              (unsigned)passLen,
              cfgData.mdns,
              (unsigned)mdnsLen);
         return;
     }
 
-    LOGD("WiFi config loaded enabled=%d ssid='%s' ssid_len=%u pass_len=%u mdns='%s' mdns_len=%u",
+    LOGI("WiFi config loaded enabled=%d ethernet=%d ssid='%s' ssid_len=%u pass_len=%u mdns='%s' mdns_len=%u",
          (int)cfgData.enabled,
+         (int)ethernetEnabled_,
          cfgData.ssid,
          (unsigned)ssidLen,
          (unsigned)passLen,
@@ -268,78 +336,17 @@ bool WifiModule::isStartupTransientWindow_() const
     return !hadSuccessfulConnection_ && startupTransientLogUntilMs_ != 0U && millis() < startupTransientLogUntilMs_;
 }
 
-bool WifiModule::startConnectFallback_(bool transientBoot)
-{
-    wifi_config_t conf;
-    memset(&conf, 0, sizeof(conf));
-
-    if (!WiFi.enableSTA(true)) {
-        if (transientBoot) {
-            LOGD("Fallback enableSTA not ready during boot");
-        } else {
-            LOGE("Fallback enableSTA failed");
-        }
-        return false;
-    }
-
-    const size_t ssidLen = strnlen(cfgData.ssid, sizeof(cfgData.ssid));
-    const size_t passLen = strnlen(cfgData.pass, sizeof(cfgData.pass));
-    if (ssidLen == 0U || ssidLen > 32U || passLen > 64U) {
-        LOGE("Fallback connect aborted invalid lens ssid=%u pass=%u",
-             (unsigned)ssidLen,
-             (unsigned)passLen);
-        return false;
-    }
-
-    memcpy(conf.sta.ssid, cfgData.ssid, ssidLen);
-    conf.sta.ssid[ssidLen] = '\0';
-    if (passLen > 0U) {
-        memcpy(conf.sta.password, cfgData.pass, passLen);
-        conf.sta.password[passLen] = '\0';
-        conf.sta.threshold.authmode = WIFI_AUTH_OPEN;
-    } else {
-        conf.sta.password[0] = '\0';
-        conf.sta.threshold.authmode = WIFI_AUTH_OPEN;
-    }
-    conf.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
-    conf.sta.sort_method = WIFI_CONNECT_AP_BY_SIGNAL;
-    conf.sta.pmf_cfg.capable = true;
-    conf.sta.pmf_cfg.required = false;
-    conf.sta.bssid_set = 0;
-
-    const esp_err_t derr = esp_wifi_disconnect();
-    if (derr != ESP_OK && derr != ESP_ERR_WIFI_NOT_CONNECT) {
-        if (transientBoot) {
-            LOGD("Fallback esp_wifi_disconnect failed err=%s(%d)", espErrName_(derr), (int)derr);
-        } else {
-            LOGW("Fallback esp_wifi_disconnect failed err=%s(%d)", espErrName_(derr), (int)derr);
-        }
-    }
-
-    const esp_err_t serr = esp_wifi_set_config((wifi_interface_t)ESP_IF_WIFI_STA, &conf);
-    if (serr != ESP_OK) {
-        LOGE("Fallback esp_wifi_set_config failed err=%s(%d)", espErrName_(serr), (int)serr);
-        return false;
-    }
-
-    const esp_err_t cerr = esp_wifi_connect();
-    if (cerr != ESP_OK) {
-        LOGE("Fallback esp_wifi_connect failed err=%s(%d)", espErrName_(cerr), (int)cerr);
-        return false;
-    }
-
-    if (transientBoot) {
-        LOGD("Fallback connect path armed (esp_wifi_set_config + esp_wifi_connect)");
-    } else {
-        LOGW("Fallback connect path armed (esp_wifi_set_config + esp_wifi_connect)");
-    }
-    return true;
-}
-
 void WifiModule::setState(WifiState s) {
     if (s == state) return;
+    const WifiState previous = state;
     state = s;
     stateTs = millis();
+    LOGD("State %s -> %s mode=%s wl=%s(%d)",
+         stateName_(previous),
+         stateName_(state),
+         wifiModeName_(WiFi.getMode()),
+         wlStatusName_(WiFi.status()),
+         (int)WiFi.status());
 
     if (state == WifiState::Connected) {
         hadSuccessfulConnection_ = true;
@@ -357,17 +364,36 @@ void WifiModule::setState(WifiState s) {
 
 void WifiModule::startConnect() {
     const bool transientBoot = isStartupTransientWindow_();
+    const uint32_t now = millis();
+    cfgData.ssid[sizeof(cfgData.ssid) - 1U] = '\0';
+    cfgData.pass[sizeof(cfgData.pass) - 1U] = '\0';
+
     const size_t ssidLen = strnlen(cfgData.ssid, sizeof(cfgData.ssid));
+    const size_t passLen = strnlen(cfgData.pass, sizeof(cfgData.pass));
+    if (ssidLen >= sizeof(cfgData.ssid) || passLen >= sizeof(cfgData.pass)) {
+        LOGE("Invalid WiFi credentials (missing null terminator) ssid_len=%u pass_len=%u",
+             (unsigned)ssidLen,
+             (unsigned)passLen);
+        setState(WifiState::ErrorWait);
+        return;
+    }
+
+    char ssidSafe[sizeof(cfgData.ssid)] = {0};
+    char passSafe[sizeof(cfgData.pass)] = {0};
+    memcpy(ssidSafe, cfgData.ssid, ssidLen);
+    ssidSafe[ssidLen] = '\0';
+    memcpy(passSafe, cfgData.pass, passLen);
+    passSafe[passLen] = '\0';
+
     bool ssidOnlySpaces = true;
     for (size_t i = 0; i < ssidLen; ++i) {
-        if (!isspace((unsigned char)cfgData.ssid[i])) {
+        if (!isspace((unsigned char)ssidSafe[i])) {
             ssidOnlySpaces = false;
             break;
         }
     }
 
     if (ssidLen == 0U || ssidOnlySpaces) {
-        const uint32_t now = millis();
         if ((now - lastEmptySsidLogMs) >= Limits::Wifi::Timing::EmptySsidLogIntervalMs) {
             lastEmptySsidLogMs = now;
             LOGW("SSID empty/blank, skipping connection (enabled=%d)", (int)cfgData.enabled);
@@ -376,11 +402,20 @@ void WifiModule::startConnect() {
         return;
     }
 
+    if (lastBeginMs_ != 0U && (now - lastBeginMs_) < beginBackoffMs_) {
+        LOGD("Begin throttled elapsed=%lu backoff=%lu mode=%s wl=%s(%d)",
+             (unsigned long)(now - lastBeginMs_),
+             (unsigned long)beginBackoffMs_,
+             wifiModeName_(WiFi.getMode()),
+             wlStatusName_(WiFi.status()),
+             (int)WiFi.status());
+        return;
+    }
+
     ++connectAttempt_;
-    const size_t passLen = strnlen(cfgData.pass, sizeof(cfgData.pass));
     LOGD("Connecting #%lu to ssid='%s' pass_len=%u",
          (unsigned long)connectAttempt_,
-         cfgData.ssid,
+         ssidSafe,
          (unsigned)passLen);
     reconnectKickSent_ = false;
     lastConnectStatus_ = WL_IDLE_STATUS;
@@ -407,20 +442,23 @@ void WifiModule::startConnect() {
     }
     WiFi.setSleep(false);               ///< ✅ important (stability)
 
-    if (connectAttempt_ > 1U) {
-        WiFi.disconnect(false, false);
-        delay(50);
-    }
+    // Avoid explicit disconnect/restart churn between attempts: the underlying
+    // WiFi stack is already auto-reconnect capable and this reduces race windows
+    // when AP is unavailable.
 
-    const wl_status_t beginStatus = WiFi.begin(cfgData.ssid, cfgData.pass);
+    const wl_status_t beginStatus = WiFi.begin(ssidSafe, passSafe);
+    lastBeginMs_ = now;
     if (beginStatus == WL_CONNECT_FAILED) {
+        beginBackoffMs_ = 8000U;
         if (transientBoot) {
-            LOGD("WiFi.begin returned CONNECT_FAILED during boot for ssid='%s'", cfgData.ssid);
+            LOGD("WiFi.begin returned CONNECT_FAILED during boot for ssid='%s'", ssidSafe);
         } else {
-            LOGW("WiFi.begin returned CONNECT_FAILED for ssid='%s'", cfgData.ssid);
+            LOGW("WiFi.begin returned CONNECT_FAILED for ssid='%s'", ssidSafe);
         }
-        (void)startConnectFallback_(transientBoot);
+        setState(WifiState::ErrorWait);
+        return;
     }
+    beginBackoffMs_ = 1500U;
 
     setState(WifiState::Connecting);
 }
@@ -598,6 +636,7 @@ void WifiModule::processScan_()
     }
 
     if (!scanRequested_) return;
+    if (state == WifiState::Connecting) return;
 
     const wifi_mode_t modeNow = WiFi.getMode();
     if (modeNow == WIFI_MODE_NULL) {
@@ -793,7 +832,8 @@ void WifiModule::init(ConfigStore& cfg,
 
     // Keep WiFi credentials managed by ConfigStore only (no duplicate driver persistence).
     WiFi.persistent(false);
-    WiFi.setAutoReconnect(true);
+    // Keep retries owned by WifiModule state machine (avoid overlap with internal auto-reconnect).
+    WiFi.setAutoReconnect(false);
     gWifiModuleInstance = this;
     hadSuccessfulConnection_ = false;
     initialConnectNotBeforeMs_ = millis() + kInitialConnectDelayMs;
@@ -824,16 +864,23 @@ void WifiModule::onConfigLoaded(ConfigStore& cfg, ServiceRegistry& services)
     registerHaEntities_(services);
 
     applyBoardMdnsHost_();
+    cfgData.ssid[sizeof(cfgData.ssid) - 1U] = '\0';
+    cfgData.pass[sizeof(cfgData.pass) - 1U] = '\0';
+    cfgData.mdns[sizeof(cfgData.mdns) - 1U] = '\0';
     logConfigSummary_();
     if (ethernetEnabled_) {
         LOGW("WiFi disabled because ethernet.enabled=true");
-        WiFi.disconnect(false, false);
+        if (WiFi.isConnected()) {
+            WiFi.disconnect(false, false);
+        }
         setState(WifiState::Disabled);
         return;
     }
     if (!cfgData.enabled) {
         LOGW("WiFi disabled in config, disconnecting STA");
-        WiFi.disconnect(false, false);
+        if (WiFi.isConnected()) {
+            WiFi.disconnect(false, false);
+        }
         setState(WifiState::Disabled);
         return;
     }
@@ -961,7 +1008,6 @@ void WifiModule::loop() {
     case WifiState::Connecting:
     {
         if (!staRetryEnabled_ && !WiFi.isConnected()) {
-            WiFi.disconnect(false, false);
             setState(WifiState::Idle);
             vTaskDelay(pdMS_TO_TICKS(Limits::Wifi::Timing::IdleConnectPollDelayMs));
             break;
@@ -986,11 +1032,8 @@ void WifiModule::loop() {
                  (unsigned long)(now - stateTs));
         }
 
-        if (!reconnectKickSent_ && (now - stateTs) > Limits::Wifi::Timing::ReconnectKickDelayMs &&
-            wl == WL_DISCONNECTED) {
-            reconnectKickSent_ = true;
-            WiFi.reconnect();
-        }
+        // Keep connection state machine simple under repeated "AP not found":
+        // rely on begin() + timeout retry cycle, avoid manual reconnect kicks.
 
         if (WiFi.isConnected()) {
             IPAddress ip = WiFi.localIP();
@@ -1011,7 +1054,6 @@ void WifiModule::loop() {
             } else {
                 LOGW("Connect timeout status=%s(%d)", wlName, (int)wl);
             }
-            WiFi.disconnect(false, false);
             setState(WifiState::ErrorWait);
         }
         vTaskDelay(pdMS_TO_TICKS(Limits::Wifi::Timing::ConnectingLoopDelayMs));

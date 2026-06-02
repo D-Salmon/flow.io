@@ -3,12 +3,15 @@
 
 #include <Arduino.h>
 #include <WiFi.h>
+#include <esp_mac.h>
 #include <esp_system.h>
 
 #include "App/AppContext.h"
 #include "Board/BoardSerialMap.h"
 #include "Core/ConfigMigrations.h"
 #include "Core/DataStore/DataStore.h"
+#include "Core/Log.h"
+#include "Core/LogModuleIds.h"
 #include "Core/MqttTopics.h"
 #include "Core/NvsKeys.h"
 #include "Core/SystemLimits.h"
@@ -41,7 +44,10 @@ struct MicronovaBootConfigState {
 void requireSetup(bool ok, const char* step)
 {
     if (ok) return;
-    Serial.printf("Micronova setup failure: %s\r\n", step ? step : "unknown");
+    Log::error((LogModuleId)LogModuleIdValue::Core, "micronova setup failure: %s", step ? step : "unknown");
+    if (!Log::hub()) {
+        Serial.printf("Micronova setup failure: %s\r\n", step ? step : "unknown");
+    }
     while (true) delay(1000);
 }
 

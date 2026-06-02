@@ -240,7 +240,7 @@ void IOModule::setBindingPorts(const IOBindingPortSpec* ports, uint8_t count)
 bool IOModule::ensureExtraAnalogCfgVars_()
 {
     if (extraAnalogCfgVars_) return true;
-    void* mem = heap_caps_malloc(sizeof(ExtraAnalogConfigVars), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    void* mem = heap_caps_malloc(sizeof(ExtraAnalogConfigVars), MALLOC_CAP_8BIT);
     if (!mem) return false;
     extraAnalogCfgVars_ = new (mem) ExtraAnalogConfigVars(analogCfg_);
     return true;
@@ -249,7 +249,7 @@ bool IOModule::ensureExtraAnalogCfgVars_()
 bool IOModule::ensureDigitalCounterCfgVars_()
 {
     if (extraDigitalCounterCfgVars_) return true;
-    void* mem = heap_caps_malloc(sizeof(ExtraDigitalCounterConfigVars), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    void* mem = heap_caps_malloc(sizeof(ExtraDigitalCounterConfigVars), MALLOC_CAP_8BIT);
     if (!mem) return false;
     extraDigitalCounterCfgVars_ = new (mem) ExtraDigitalCounterConfigVars(digitalInCfg_);
     return true;
@@ -258,7 +258,7 @@ bool IOModule::ensureDigitalCounterCfgVars_()
 bool IOModule::ensureDigitalInputModeCfgVars_()
 {
     if (extraDigitalInputModeCfgVars_) return true;
-    void* mem = heap_caps_malloc(sizeof(ExtraDigitalInputModeConfigVars), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    void* mem = heap_caps_malloc(sizeof(ExtraDigitalInputModeConfigVars), MALLOC_CAP_8BIT);
     if (!mem) return false;
     extraDigitalInputModeCfgVars_ = new (mem) ExtraDigitalInputModeConfigVars(digitalInCfg_);
     return true;
@@ -268,7 +268,7 @@ bool IOModule::ensureDigitalCounterConfigState_()
 {
     if (digitalCounterLastConfigTotals_) return true;
     digitalCounterLastConfigTotals_ = static_cast<float*>(
-        heap_caps_calloc(MAX_DIGITAL_INPUTS, sizeof(float), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)
+        heap_caps_calloc(MAX_DIGITAL_INPUTS, sizeof(float), MALLOC_CAP_8BIT)
     );
     return digitalCounterLastConfigTotals_ != nullptr;
 }
@@ -277,7 +277,7 @@ bool IOModule::ensureLastCycleState_()
 {
     if (lastCycle_) return true;
     lastCycle_ = static_cast<IoCycleInfo*>(
-        heap_caps_calloc(1, sizeof(IoCycleInfo), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)
+        heap_caps_calloc(1, sizeof(IoCycleInfo), MALLOC_CAP_8BIT)
     );
     return lastCycle_ != nullptr;
 }
@@ -286,7 +286,7 @@ bool IOModule::ensureAnalogPrecisionState_()
 {
     if (analogPrecisionLast_) return true;
     analogPrecisionLast_ = static_cast<int32_t*>(
-        heap_caps_calloc(ANALOG_CFG_SLOTS, sizeof(int32_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)
+        heap_caps_calloc(ANALOG_CFG_SLOTS, sizeof(int32_t), MALLOC_CAP_8BIT)
     );
     return analogPrecisionLast_ != nullptr;
 }
@@ -382,11 +382,13 @@ float* IOModule::counterConfigTotalState_(uint8_t logicalIdx)
 
 void IOModule::eraseLegacyCounterPersistedTotal_(uint8_t logicalIdx)
 {
-    if (!cfgStore_ || logicalIdx >= MAX_DIGITAL_INPUTS) return;
+    if (logicalIdx >= MAX_DIGITAL_INPUTS) return;
 
     char key[16];
     snprintf(key, sizeof(key), kLegacyCounterRuntimeKeyFmt, (unsigned)logicalIdx);
-    (void)cfgStore_->eraseKey(key);
+    if (cfgSvc_ && cfgSvc_->eraseKeyAsync) {
+        (void)cfgSvc_->eraseKeyAsync(cfgSvc_->ctx, key);
+    }
 }
 
 void IOModule::beginIoCycle_(uint32_t nowMs)
@@ -474,6 +476,7 @@ bool IOModule::defineDigitalOutput(const IODigitalOutputDefinition& def)
             digitalCfg_[cfgIdx].bindingPort = def.bindingPort;
             digitalCfg_[cfgIdx].activeHigh = def.activeHigh;
             digitalCfg_[cfgIdx].initialOn = def.initialOn;
+            digitalCfg_[cfgIdx].retainOnWarmReboot = def.retainOnWarmReboot;
             digitalCfg_[cfgIdx].momentary = def.momentary;
             digitalCfg_[cfgIdx].pulseMs = (int32_t)def.pulseMs;
         }
@@ -1795,15 +1798,18 @@ bool IOModule::resolveDsBusAddress_(OneWireBus* bus, const char* runtimeKey, uin
     bus->begin();
 
     size_t len = 0U;
-    if (cfgStore_ && cfgStore_->readRuntimeBlob(runtimeKey, outAddr, 8U, &len) && len == 8U) {
+    const bool readOk = cfgSvc_ && cfgSvc_->readRuntimeBlob
+        ? cfgSvc_->readRuntimeBlob(cfgSvc_->ctx, runtimeKey, outAddr, 8U, &len)
+        : (cfgStore_ && cfgStore_->readRuntimeBlob(runtimeKey, outAddr, 8U, &len));
+    if (readOk && len == 8U) {
         return true;
     }
 
     if (bus->deviceCount() != 1U) return false;
     if (!bus->getAddress(0, outAddr)) return false;
 
-    if (cfgStore_) {
-        (void)cfgStore_->writeRuntimeBlob(runtimeKey, outAddr, 8U);
+    if (cfgSvc_ && cfgSvc_->writeRuntimeBlobAsync) {
+        (void)cfgSvc_->writeRuntimeBlobAsync(cfgSvc_->ctx, runtimeKey, outAddr, 8U);
     }
     return true;
 }
@@ -1813,7 +1819,6 @@ bool IOModule::persistCounterTotalIfNeeded_(DigitalSlot& slot, int32_t rawCount,
     static constexpr int32_t kCounterPersistPulseDelta = 32;
     static constexpr uint32_t kCounterPersistPeriodMs = 180000U;
 
-    if (!cfgStore_) return false;
     if (slot.kind != DIGITAL_SLOT_INPUT || slot.inDef.mode != IO_DIGITAL_INPUT_COUNTER) return false;
     if (slot.counterScaledTotal == slot.counterLastPersistedTotal) return false;
 
@@ -1832,7 +1837,19 @@ bool IOModule::persistCounterTotalIfNeeded_(DigitalSlot& slot, int32_t rawCount,
     ConfigVariable<float,0>* totalVar = counterTotalVar_(slot.logicalIdx);
     if (!totalVar) return false;
 
-    if (!cfgStore_->set(*totalVar, slot.counterScaledTotal)) {
+    if (cfgSvc_ && cfgSvc_->persistFloatAsync) {
+        if (!totalVar->value || !totalVar->nvsKey) return false;
+        if (!cfgSvc_->persistFloatAsync(cfgSvc_->ctx,
+                                        totalVar->nvsKey,
+                                        slot.counterScaledTotal,
+                                        totalVar->moduleName,
+                                        totalVar->moduleId,
+                                        totalVar->localBranchId)) {
+            return false;
+        }
+        *(totalVar->value) = slot.counterScaledTotal;
+        totalVar->notify();
+    } else {
         return false;
     }
     if (float* lastConfigTotal = counterConfigTotalState_(slot.logicalIdx)) {
@@ -2038,6 +2055,7 @@ bool IOModule::configureRuntime_()
             s.outDef.bindingPort = digitalCfg_[cfgIdx].bindingPort;
             s.outDef.activeHigh = digitalCfg_[cfgIdx].activeHigh;
             s.outDef.initialOn = digitalCfg_[cfgIdx].initialOn;
+            s.outDef.retainOnWarmReboot = digitalCfg_[cfgIdx].retainOnWarmReboot;
             s.outDef.momentary = digitalCfg_[cfgIdx].momentary;
             int32_t p = digitalCfg_[cfgIdx].pulseMs;
             if (p <= 0) p = 500;
@@ -2063,6 +2081,9 @@ bool IOModule::configureRuntime_()
         }
         s.backend = backend;
         s.channel = channel;
+        if (s.outDef.retainOnWarmReboot && !usesTcaOut) {
+            LOGW("Digital output %s retain_on_warm_reboot ignored: backend is not TCA9554", s.endpointId);
+        }
 
         IDigitalPinDriver* driver = nullptr;
         if (usesPcfOut) {
@@ -2118,7 +2139,6 @@ bool IOModule::configureRuntime_()
 
         s.provider = makeDigitalProvider(driver);
         if (!s.provider.begin()) continue;
-        s.provider.write(s.outDef.initialOn);
         s.pulseArmed = false;
         s.pulseDeadlineMs = 0;
 
@@ -2129,6 +2149,26 @@ bool IOModule::configureRuntime_()
         ));
         if (!s.endpoint) continue;
         registry_.add(s.endpoint);
+
+        bool actualOn = s.outDef.initialOn;
+        const bool tcaColdPowerOn = usesTcaOut && tcaDriver_ && tcaDriver_->bootWasColdPowerOn();
+        const bool retainWarmTca = usesTcaOut && s.outDef.retainOnWarmReboot && !tcaColdPowerOn;
+        if (tcaColdPowerOn || retainWarmTca) {
+            (void)s.provider.read(actualOn);
+        } else {
+            (void)s.provider.write(s.outDef.initialOn);
+            actualOn = s.outDef.initialOn;
+        }
+
+        const uint32_t nowMs = millis();
+        static_cast<DigitalActuatorEndpoint*>(s.endpoint)->syncFromHardware(actualOn, true, nowMs);
+        if (dataStore_) {
+            uint8_t rtIdx = 0;
+            if (endpointIndexFromId_(s.endpointId, rtIdx)) {
+                (void)setIoEndpointBool(*dataStore_, rtIdx, actualOn, nowMs);
+            }
+        }
+        markIoCycleChanged_(s.ioId);
     }
 
     Ads1115DriverConfig adsInternalCfg{};
@@ -2439,7 +2479,7 @@ AnalogSensorEndpoint* IOModule::allocAnalogEndpoint_(const char* endpointId)
 {
     if (!analogEndpointPool_) {
         analogEndpointPool_ = static_cast<AnalogSensorEndpoint*>(
-            heap_caps_malloc(sizeof(AnalogSensorEndpoint) * MAX_ANALOG_ENDPOINTS, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)
+            heap_caps_malloc(sizeof(AnalogSensorEndpoint) * MAX_ANALOG_ENDPOINTS, MALLOC_CAP_8BIT)
         );
         if (!analogEndpointPool_) return nullptr;
     }
@@ -2527,7 +2567,7 @@ IAnalogSourceDriver* IOModule::allocIna226Driver_(const char* driverId, I2CBus* 
 IDigitalPinDriver* IOModule::allocPcfBitDriver_(const char* driverId, Pcf8574Driver* parent, uint8_t bit, bool activeHigh)
 {
     if (pcfBitDriverPoolUsed_ >= MAX_DIGITAL_OUTPUTS) return nullptr;
-    void* mem = heap_caps_malloc(sizeof(Pcf8574BitDriver), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    void* mem = heap_caps_malloc(sizeof(Pcf8574BitDriver), MALLOC_CAP_8BIT);
     if (!mem) return nullptr;
     ++pcfBitDriverPoolUsed_;
     return new (mem) Pcf8574BitDriver(driverId, parent, bit, activeHigh);
@@ -2536,7 +2576,7 @@ IDigitalPinDriver* IOModule::allocPcfBitDriver_(const char* driverId, Pcf8574Dri
 IDigitalPinDriver* IOModule::allocTcaBitDriver_(const char* driverId, Tca9554Driver* parent, uint8_t bit, bool activeHigh)
 {
     if (tcaBitDriverPoolUsed_ >= MAX_DIGITAL_OUTPUTS) return nullptr;
-    void* mem = heap_caps_malloc(sizeof(Tca9554BitDriver), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    void* mem = heap_caps_malloc(sizeof(Tca9554BitDriver), MALLOC_CAP_8BIT);
     if (!mem) return nullptr;
     ++tcaBitDriverPoolUsed_;
     return new (mem) Tca9554BitDriver(driverId, parent, bit, activeHigh);
@@ -2602,6 +2642,7 @@ void IOModule::init(ConfigStore& cfg, ServiceRegistry& services)
 {
     constexpr uint8_t kCfgModuleId = (uint8_t)ConfigModuleId::Io;
     cfgStore_ = &cfg;
+    cfgSvc_ = services.get<ConfigStoreService>(ServiceId::ConfigStore);
     logHub_ = services.get<LogHubService>(ServiceId::LogHub);
     const DataStoreService* dsSvc = services.get<DataStoreService>(ServiceId::DataStore);
     dataStore_ = dsSvc ? dsSvc->store : nullptr;
@@ -2744,6 +2785,7 @@ void IOModule::init(ConfigStore& cfg, ServiceRegistry& services)
 void IOModule::onConfigLoaded(ConfigStore& cfg, ServiceRegistry& services)
 {
     cfgStore_ = &cfg;
+    cfgSvc_ = services.get<ConfigStoreService>(ServiceId::ConfigStore);
     const bool sdaValid = (cfgData_.i2cSda >= 0) && digitalPinIsValid((uint8_t)cfgData_.i2cSda);
     const bool sclValid = (cfgData_.i2cScl >= 0) && digitalPinIsValid((uint8_t)cfgData_.i2cScl);
     if (!sdaValid || !sclValid) {
@@ -2752,9 +2794,9 @@ void IOModule::onConfigLoaded(ConfigStore& cfg, ServiceRegistry& services)
              (long)cfgData_.i2cScl,
              (long)boardDefaultI2cSda_,
              (long)boardDefaultI2cScl_);
-        if (cfgStore_) {
-            (void)cfgStore_->eraseKey(i2cSdaVar_.nvsKey);
-            (void)cfgStore_->eraseKey(i2cSclVar_.nvsKey);
+        if (cfgSvc_ && cfgSvc_->eraseKeyAsync) {
+            (void)cfgSvc_->eraseKeyAsync(cfgSvc_->ctx, i2cSdaVar_.nvsKey);
+            (void)cfgSvc_->eraseKeyAsync(cfgSvc_->ctx, i2cSclVar_.nvsKey);
         }
         cfgData_.i2cSda = boardDefaultI2cSda_;
         cfgData_.i2cScl = boardDefaultI2cScl_;

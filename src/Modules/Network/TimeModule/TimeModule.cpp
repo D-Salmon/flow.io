@@ -484,7 +484,7 @@ void TimeModule::serviceInternalRtcFallback_(uint32_t nowMs)
 
     if (!immediateFallback && nowMs < kInternalRtcFallbackDelayMs) return;
     if (lastInternalRtcReadAttemptMs_ != 0U &&
-        (uint32_t)(nowMs - lastInternalRtcReadAttemptMs_) < kInternalRtcFallbackRetryMs) {
+        (int32_t)(nowMs - lastInternalRtcReadAttemptMs_) < (int32_t)kInternalRtcFallbackRetryMs) {
         return;
     }
     lastInternalRtcReadAttemptMs_ = nowMs;
@@ -510,7 +510,7 @@ void TimeModule::serviceInternalRtcWriteBack_(uint32_t nowMs)
     const bool dayChanged = (dayStamp != lastInternalRtcWriteDayStamp_);
     if (!internalRtcWritePending_ && !dayChanged) return;
     if (lastInternalRtcWriteAttemptMs_ != 0U &&
-        (uint32_t)(nowMs - lastInternalRtcWriteAttemptMs_) < kInternalRtcWriteRetryMs) {
+        (int32_t)(nowMs - lastInternalRtcWriteAttemptMs_) < (int32_t)kInternalRtcWriteRetryMs) {
         return;
     }
     lastInternalRtcWriteAttemptMs_ = nowMs;
@@ -527,7 +527,7 @@ void TimeModule::serviceInternalRtcDailyResync_(uint32_t nowMs)
     if (!ensureInternalRtcInit_()) return;
     if (!syncedFromInternalRtc_ || state != TimeSyncState::Synced) return;
     if (lastInternalRtcResyncMs_ != 0U &&
-        (uint32_t)(nowMs - lastInternalRtcResyncMs_) < kInternalRtcDailyResyncMs) {
+        (int32_t)(nowMs - lastInternalRtcResyncMs_) < (int32_t)kInternalRtcDailyResyncMs) {
         return;
     }
     lastInternalRtcResyncMs_ = nowMs;
@@ -826,9 +826,12 @@ void TimeModule::loop() {
     }
 
 #if FLOW_RTC_PCF85063
-    serviceInternalRtcFallback_(nowMs);
-    serviceInternalRtcWriteBack_(nowMs);
-    serviceInternalRtcDailyResync_(nowMs);
+    // Refresh the tick before RTC services because fallback can update internal
+    // timestamps during the same loop iteration.
+    const uint32_t rtcNowMs = millis();
+    serviceInternalRtcFallback_(rtcNowMs);
+    serviceInternalRtcWriteBack_(rtcNowMs);
+    serviceInternalRtcDailyResync_(rtcNowMs);
 #endif
 
     tickScheduler_();

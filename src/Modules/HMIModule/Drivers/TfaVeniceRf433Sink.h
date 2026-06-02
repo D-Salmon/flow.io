@@ -7,7 +7,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include <driver/rmt.h>
+#include <driver/rmt_encoder.h>
+#include <driver/rmt_tx.h>
 
 #include "Core/Services/IIO.h"
 
@@ -44,5 +45,7 @@ private:
     bool started_ = false;
     uint32_t lastAttemptMs_ = 0U;
     uint8_t frameBytes_[kFrameByteCount]{};
-    rmt_item32_t* txItems_ = nullptr;
+    rmt_symbol_word_t* txItems_ = nullptr;
+    rmt_channel_handle_t txChannel_ = nullptr;
+    rmt_encoder_handle_t copyEncoder_ = nullptr;
 };

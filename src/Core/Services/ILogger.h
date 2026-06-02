@@ -14,7 +14,7 @@
 enum class LogLevel : uint8_t { Debug, Info, Warn, Error };
 
 // ===== LOG TYPES =====
-constexpr int LOG_MSG_MAX = 110;
+constexpr int LOG_MSG_MAX = 160;
 constexpr int LOG_MODULE_NAME_MAX = 24;
 
 /** @brief Fixed-size log entry. */

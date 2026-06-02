@@ -10,10 +10,9 @@
 #include "Core/Services/Services.h"
 #include "Board/BoardTypes.h"
 
-#include <driver/spi_master.h>
-#include <esp_eth.h>
-#include <esp_eth_netif_glue.h>
-#include <esp_netif.h>
+#include <ETH.h>
+#include <ESPmDNS.h>
+#include <NetworkEvents.h>
 
 enum class EthernetState : uint8_t {
     Disabled = 0,
@@ -35,7 +34,7 @@ public:
     ModuleId moduleId() const override { return ModuleId::Ethernet; }
     const char* taskName() const override { return "ethernet"; }
     BaseType_t taskCore() const override { return 0; }
-    uint16_t taskStackSize() const override { return 4096; }
+    uint16_t taskStackSize() const override { return 3584; }
     uint8_t taskCount() const override { return 1; }
     const ModuleTaskSpec* taskSpecs() const override { return singleLoopTaskSpec(); }
 
@@ -52,7 +51,6 @@ public:
 
 private:
     static constexpr uint32_t kErrorRetryMs = 3000U;
-    static constexpr spi_host_device_t kSpiHost_ = SPI2_HOST;
 
     EthernetConfig cfgData_{};
     EthernetState state_ = EthernetState::Disabled;
@@ -62,14 +60,15 @@ private:
     DataStore* dataStore_ = nullptr;
     ServiceRegistry* services_ = nullptr;
 
-    esp_eth_handle_t ethHandle_ = nullptr;
-    esp_eth_mac_t* mac_ = nullptr;
-    esp_eth_phy_t* phy_ = nullptr;
-    esp_netif_t* ethNetif_ = nullptr;
-    esp_eth_netif_glue_handle_t ethGlue_ = nullptr;
-    spi_device_handle_t spiHandle_ = nullptr;
-    bool spiBusInitialized_ = false;
     bool driverStarted_ = false;
+    bool spiStarted_ = false;
+    bool mdnsStarted_ = false;
+    uint8_t spiFreqMhz_ = 8;
+    network_event_handle_t networkEventHandle_ = 0;
+    uint32_t startAttempts_ = 0U;
+    uint32_t consecutiveStartFailures_ = 0U;
+    const char* lastStartFailureStage_ = "none";
+    int lastStartFailureErr_ = 0;
     EthernetW5500Spec ethCfg_{};
     bool hasEthPins_ = false;
 
@@ -84,16 +83,18 @@ private:
         ConfigType::Bool, &cfgData_.enabled, ConfigPersistence::Persistent, 0
     };
 
-    static void onEthEventStatic_(void* arg, esp_event_base_t eventBase, int32_t eventId, void* eventData);
-    static void onIpEventStatic_(void* arg, esp_event_base_t eventBase, int32_t eventId, void* eventData);
-    void onEthEvent_(esp_event_base_t eventBase, int32_t eventId, void* eventData);
-    void onIpEvent_(esp_event_base_t eventBase, int32_t eventId, void* eventData);
+    static void onNetworkEventStatic_(arduino_event_t* event);
+    void onNetworkEvent_(arduino_event_t* event);
 
     void setState_(EthernetState next);
     void resetRuntimeState_();
     bool ensureDriverStarted_();
     bool installDriver_();
-    bool startDhcpClient_();
+    void cleanupDriver_();
+    void noteStartFailure_(const char* stage, int err);
+    void logEthLinkInfo_() const;
+    void startMdns_();
+    void stopMdns_();
     void syncRuntimeState_();
 
     bool isWebReachable_() const;

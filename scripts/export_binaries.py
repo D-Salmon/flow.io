@@ -180,7 +180,7 @@ def _export_program_bin(source, target, env):
 
     if env_name == "FlowIO":
         _copy_if_exists(build_dir / "firmware.bin", f"flowio-{fw_version}.bin")
-    elif env_name == "Waveshare-ESP32-S3":
+    elif env_name == "Waveshare-ESP32-S3" or env_name == "FlowIOS3Wokwi":
         _copy_if_exists(build_dir / "firmware.bin", f"esp32s3-{fw_version}.bin")
     elif env_name == "Supervisor":
         _copy_if_exists(build_dir / "firmware.bin", f"supervisor-{fw_version}.bin")
@@ -195,7 +195,7 @@ def _export_spiffs_bin(source, target, env):
     if env_name == "Supervisor":
         _copy_if_exists(build_dir / "spiffs.bin", f"spiffs-supervisor-{fw_version}.bin")
         return
-    if env_name == "Waveshare-ESP32-S3":
+    if env_name == "Waveshare-ESP32-S3" or env_name == "FlowIOS3Wokwi":
         _copy_if_exists(build_dir / "spiffs.bin", f"esp32s3-spiffs-{fw_version}.bin")
         return
 

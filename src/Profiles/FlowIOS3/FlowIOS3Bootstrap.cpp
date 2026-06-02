@@ -3,6 +3,8 @@
 
 #include <Arduino.h>
 #include <WiFi.h>
+#include <esp_heap_caps.h>
+#include <esp_mac.h>
 #include <esp_system.h>
 #include <string.h>
 
@@ -11,6 +13,8 @@
 #include "Board/BoardSerialMap.h"
 #include "Core/ConfigMigrations.h"
 #include "Core/DataStore/DataStore.h"
+#include "Core/Log.h"
+#include "Core/LogModuleIds.h"
 #include "Core/NvsKeys.h"
 #include "Core/SnprintfCheck.h"
 #include "Core/SystemLimits.h"
@@ -28,6 +32,8 @@ namespace {
 
 using Profiles::FlowIOS3::ModuleInstances;
 
+constexpr size_t kFlowIos3PsramMallocAlwaysInternalBytes = 128U;
+
 const PoolDevicePreset* findPoolPresetByRole(const DomainSpec& domain, DomainRole role)
 {
     for (uint8_t i = 0; i < domain.poolDeviceCount; ++i) {
@@ -40,7 +46,10 @@ const PoolDevicePreset* findPoolPresetByRole(const DomainSpec& domain, DomainRol
 void requireSetup(bool ok, const char* step)
 {
     if (ok) return;
-    Board::SerialMap::logSerial().printf("Setup failure: %s\r\n", step ? step : "unknown");
+    Log::error((LogModuleId)LogModuleIdValue::Core, "setup failure: %s", step ? step : "unknown");
+    if (!Log::hub()) {
+        Board::SerialMap::logSerial().printf("Setup failure: %s\r\n", step ? step : "unknown");
+    }
     while (true) delay(1000);
 }
 
@@ -192,6 +201,15 @@ void setupProfile(AppContext& ctx)
 
     Serial.begin(Board::SerialMap::uart0Baud());
     delay(50);
+
+    if (psramFound()) {
+        heap_caps_malloc_extmem_enable(kFlowIos3PsramMallocAlwaysInternalBytes);
+        Board::SerialMap::logSerial().printf(
+            "[flowios3] PSRAM malloc policy threshold=%u internal_free=%lu psram_free=%lu\r\n",
+            (unsigned)kFlowIos3PsramMallocAlwaysInternalBytes,
+            (unsigned long)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
+            (unsigned long)heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
+    }
 
     ctx.preferences.begin(NvsKeys::StorageNamespace, false);
     ctx.registry.setPreferences(ctx.preferences);

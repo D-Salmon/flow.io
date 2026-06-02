@@ -87,6 +87,13 @@ public:
     bool writeRuntimeBlob(const char* key, const void* value, size_t len);
     /** @brief Remove one key guarded by the ConfigStore NVS exclusion. */
     bool eraseKey(const char* key);
+    /** @brief Persist one float key without mutating registered RAM state. */
+    bool persistFloatValue(const char* key, float value);
+    /** @brief Post a config-changed event for an already-mutated registered value. */
+    void notifyStoredValueChanged(const char* nvsKey,
+                                  const char* moduleName,
+                                  uint8_t moduleId,
+                                  uint8_t localBranchId);
 
     /** @brief Serialize all registered config to JSON. */
     void toJson(char* out, size_t outLen) const;

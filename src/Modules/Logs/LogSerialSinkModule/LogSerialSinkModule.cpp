@@ -4,6 +4,8 @@
  */
 #include "LogSerialSinkModule.h"
 #include <Arduino.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
 #include "Board/BoardSerialMap.h"
 #include "Core/SnprintfCheck.h"
 
@@ -19,6 +21,7 @@ struct SerialSinkCtx {
 
 static SerialSinkCtx gSerialSinkCtx{};
 static Stream* gLogSerial = &Serial;
+static SemaphoreHandle_t gSerialWriteMutex = nullptr;
 
 static const char* lvlStr(LogLevel lvl) {
     switch (lvl) {
@@ -31,16 +34,25 @@ static const char* lvlStr(LogLevel lvl) {
 }
 
 static const char* lvlColor(LogLevel lvl) {
+#if defined(FLOW_LOG_SERIAL_COLORS) && (FLOW_LOG_SERIAL_COLORS == 1)
     switch (lvl) {
         case LogLevel::Debug: return "\x1b[90m";
         case LogLevel::Info:  return "\x1b[32m";
         case LogLevel::Warn:  return "\x1b[33m";
         case LogLevel::Error: return "\x1b[31m";
     }
+#endif
+    (void)lvl;
     return "";
 }
 
-static const char* colorReset() { return "\x1b[0m"; }
+static const char* colorReset() {
+#if defined(FLOW_LOG_SERIAL_COLORS) && (FLOW_LOG_SERIAL_COLORS == 1)
+    return "\x1b[0m";
+#else
+    return "";
+#endif
+}
 
 static bool isSystemTimeValid()
 {
@@ -128,16 +140,32 @@ static void serialSinkWrite(void* ctx, const LogEntry& e) {
         formatUptime(ts, sizeof(ts), e.ts_ms);
     }
 
+    if (!gLogSerial) return;
+
     const char* color = lvlColor(e.lvl);
-    if (gLogSerial) {
-        gLogSerial->printf("[%s][%s][%s] %s%s%s\r\n",
-                           ts,
-                           lvlStr(e.lvl),
-                           moduleName,
-                           color,
-                           e.msg,
-                           colorReset());
+    char line[(size_t)LOG_MSG_MAX + 96U] = {0};
+    const int wrote = snprintf(line,
+                               sizeof(line),
+                               "[%s][%s][%s] %s%s%s\r\n",
+                               ts,
+                               lvlStr(e.lvl),
+                               moduleName,
+                               color,
+                               e.msg,
+                               colorReset());
+    if (wrote <= 0) return;
+    size_t len = (size_t)wrote;
+    if (len >= sizeof(line)) len = sizeof(line) - 1U;
+
+    if (gSerialWriteMutex) {
+        if (xSemaphoreTake(gSerialWriteMutex, pdMS_TO_TICKS(20)) == pdTRUE) {
+            (void)gLogSerial->write((const uint8_t*)line, len);
+            xSemaphoreGive(gSerialWriteMutex);
+            return;
+        }
     }
+
+    (void)gLogSerial->write((const uint8_t*)line, len);
 }
 
 void LogSerialSinkModule::init(ConfigStore& cfg, ServiceRegistry& services) {
@@ -145,6 +173,9 @@ void LogSerialSinkModule::init(ConfigStore& cfg, ServiceRegistry& services) {
 
     gLogSerial = &Board::SerialMap::logSerial();
     Board::SerialMap::beginLogSerial();
+    if (!gSerialWriteMutex) {
+        gSerialWriteMutex = xSemaphoreCreateMutex();
+    }
 
     auto sinks = services.get<LogSinkRegistryService>(ServiceId::LogSinks);
     if (!sinks) return;

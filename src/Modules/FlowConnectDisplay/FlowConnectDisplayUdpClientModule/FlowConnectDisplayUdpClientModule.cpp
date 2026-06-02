@@ -23,7 +23,7 @@ void FlowConnectDisplayUdpClientModule::init(ConfigStore& cfgStore, ServiceRegis
     cfg.serial = &Board::SerialMap::hmiSerial();
     cfg.rxPin = Board::SerialMap::hmiRxPin();
     cfg.txPin = Board::SerialMap::hmiTxPin();
-    cfg.baud = Board::SerialMap::HmiBaud;
+    cfg.baud = Board::SerialMap::hmiBaud();
     cfg.homePageId = 1U;
     cfg.configPageId = 2U;
     cfg.alarmPageId = 3U;

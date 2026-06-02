@@ -62,6 +62,9 @@ private:
     bool registerConfigVar_(ModuleRegistration& slot);
 
     QueueHandle_t q = nullptr;
+    StaticQueue_t qStatic_{};
+    uint8_t* qStorage_ = nullptr;
+    bool qStorageInPsram_ = false;
     uint16_t queueLen_ = Limits::LogQueueLen;
     mutable portMUX_TYPE statsMux_ = portMUX_INITIALIZER_UNLOCKED;
     uint16_t peakQueued_ = 0;

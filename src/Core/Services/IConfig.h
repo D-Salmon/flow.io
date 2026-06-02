@@ -18,5 +18,13 @@ struct ConfigStoreService {
     bool (*readRuntimeBlob)(void* ctx, const char* key, void* out, size_t outLen, size_t* actualLen);
     bool (*writeRuntimeBlob)(void* ctx, const char* key, const void* value, size_t len);
     bool (*eraseKey)(void* ctx, const char* key);
+    bool (*writeRuntimeBlobAsync)(void* ctx, const char* key, const void* value, size_t len);
+    bool (*eraseKeyAsync)(void* ctx, const char* key);
+    bool (*persistFloatAsync)(void* ctx,
+                              const char* key,
+                              float value,
+                              const char* moduleName,
+                              uint8_t moduleId,
+                              uint8_t localBranchId);
     void* ctx;
 };

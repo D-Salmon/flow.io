@@ -15,7 +15,9 @@
 #include <FS.h>
 #include <SPIFFS.h>
 #include <WiFi.h>
+#include <esp_heap_caps.h>
 #include <esp_system.h>
+#include <esp_wifi.h>
 
 #include <string.h>
 #include <strings.h>
@@ -23,6 +25,63 @@
 namespace {
 constexpr const char* kDefaultApPass = "flowio1234";
 WifiProvisioningModule* gWifiProvisioningInstance = nullptr;
+constexpr wifi_auth_mode_t kProvisioningApAuthMode = WIFI_AUTH_WPA2_PSK;
+constexpr wifi_cipher_type_t kProvisioningApCipher = WIFI_CIPHER_TYPE_CCMP;
+constexpr uint8_t kProvisioningApChannel = 1U;
+constexpr uint8_t kProvisioningApMaxConnections = 2U;
+
+const char* wifiModeName_(wifi_mode_t mode)
+{
+    switch (mode) {
+    case WIFI_MODE_NULL: return "NULL";
+    case WIFI_MODE_STA: return "STA";
+    case WIFI_MODE_AP: return "AP";
+    case WIFI_MODE_APSTA: return "APSTA";
+    default: return "?";
+    }
+}
+
+const char* wifiAuthName_(wifi_auth_mode_t mode)
+{
+    switch (mode) {
+    case WIFI_AUTH_OPEN: return "OPEN";
+    case WIFI_AUTH_WEP: return "WEP";
+    case WIFI_AUTH_WPA_PSK: return "WPA_PSK";
+    case WIFI_AUTH_WPA2_PSK: return "WPA2_PSK";
+    case WIFI_AUTH_WPA_WPA2_PSK: return "WPA_WPA2_PSK";
+#if defined(WIFI_AUTH_WPA2_ENTERPRISE)
+    case WIFI_AUTH_WPA2_ENTERPRISE: return "WPA2_ENTERPRISE";
+#endif
+#if defined(WIFI_AUTH_WPA3_PSK)
+    case WIFI_AUTH_WPA3_PSK: return "WPA3_PSK";
+#endif
+#if defined(WIFI_AUTH_WPA2_WPA3_PSK)
+    case WIFI_AUTH_WPA2_WPA3_PSK: return "WPA2_WPA3_PSK";
+#endif
+#if defined(WIFI_AUTH_WAPI_PSK)
+    case WIFI_AUTH_WAPI_PSK: return "WAPI_PSK";
+#endif
+    default: return "?";
+    }
+}
+
+const char* wifiCipherName_(wifi_cipher_type_t cipher)
+{
+    switch (cipher) {
+    case WIFI_CIPHER_TYPE_NONE: return "NONE";
+    case WIFI_CIPHER_TYPE_WEP40: return "WEP40";
+    case WIFI_CIPHER_TYPE_WEP104: return "WEP104";
+    case WIFI_CIPHER_TYPE_TKIP: return "TKIP";
+    case WIFI_CIPHER_TYPE_CCMP: return "CCMP";
+#if defined(WIFI_CIPHER_TYPE_TKIP_CCMP)
+    case WIFI_CIPHER_TYPE_TKIP_CCMP: return "TKIP_CCMP";
+#endif
+#if defined(WIFI_CIPHER_TYPE_AES_CMAC128)
+    case WIFI_CIPHER_TYPE_AES_CMAC128: return "AES_CMAC128";
+#endif
+    default: return "?";
+    }
+}
 }
 
 void WifiProvisioningModule::init(ConfigStore& cfg, ServiceRegistry& services)
@@ -53,10 +112,13 @@ void WifiProvisioningModule::onConfigLoaded(ConfigStore&, ServiceRegistry& servi
             LOGE("service registration failed: %s", toString(ServiceId::NetworkAccess));
         }
     }
-    LOGI("Provisioning config loaded: ethernet=%d wifi_enabled=%d wifi_configured=%d",
+    LOGI("Provisioning config loaded: ethernet=%d wifi_enabled=%d wifi_configured=%d ssid_len=%u pass_len=%u grace_ms=%lu",
          (int)ethernetEnabled_,
          (int)wifiEnabled_,
-         (int)wifiConfigured_);
+         (int)wifiConfigured_,
+         (unsigned)wifiSsidLen_,
+         (unsigned)wifiPassLen_,
+         (unsigned long)kConnectTimeoutMs);
     if (ethernetEnabled_) return;
 #if defined(FLOW_PROFILE_MICRONOVA)
     LOGI("Provisioning portal start deferred");
@@ -74,10 +136,21 @@ void WifiProvisioningModule::onStart(ConfigStore&, ServiceRegistry&)
 
 void WifiProvisioningModule::loop()
 {
-    const uint32_t now = millis();
-#if defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY)
+    uint32_t now = millis();
+    if (apRestartPending_) {
+        apRestartPending_ = false;
+        dns_.stop();
+#if defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY) || defined(FLOW_PROFILE_FLOWIOS3)
+        stopLightPortal_();
+#endif
+        apActive_ = false;
+        portalLatched_ = false;
+        apClientCount_ = 0;
+        nextApStartAttemptMs_ = millis() + kApStartRetryMs;
+    }
+#if defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY) || defined(FLOW_PROFILE_FLOWIOS3)
     if (portalRebootPending_ && (int32_t)(now - portalRebootAtMs_) >= 0) {
-        LOGI("Flow Connect Display provisioning reboot now");
+        LOGI("Provisioning reboot now");
         delay(20);
         esp_restart();
     }
@@ -108,9 +181,12 @@ void WifiProvisioningModule::loop()
     ensurePortalStarted_();
 
     if (apActive_) {
+        // Refresh timestamp after potential AP start delays to avoid stale-now
+        // wraparound in probe interval checks.
+        now = millis();
         handleStaProbePolicy_(now);
         dns_.processNextRequest();
-#if defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY)
+#if defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY) || defined(FLOW_PROFILE_FLOWIOS3)
         handleLightPortalClient_();
 #endif
     }
@@ -197,6 +273,8 @@ void WifiProvisioningModule::refreshWifiConfig_()
     if (ethernetEnabled_) {
         wifiConfigured_ = false;
         wifiEnabled_ = false;
+        wifiSsidLen_ = 0;
+        wifiPassLen_ = 0;
         return;
     }
 
@@ -204,6 +282,8 @@ void WifiProvisioningModule::refreshWifiConfig_()
     if (!cfgStore_->toJsonModule("wifi", wifiJson, sizeof(wifiJson), nullptr)) {
         wifiConfigured_ = false;
         wifiEnabled_ = true;
+        wifiSsidLen_ = 0;
+        wifiPassLen_ = 0;
         return;
     }
 
@@ -213,12 +293,17 @@ void WifiProvisioningModule::refreshWifiConfig_()
         LOGW("Cannot parse wifi config for provisioning");
         wifiConfigured_ = false;
         wifiEnabled_ = true;
+        wifiSsidLen_ = 0;
+        wifiPassLen_ = 0;
         return;
     }
 
     JsonObjectConst root = doc.as<JsonObjectConst>();
     const char* ssid = root["ssid"] | "";
+    const char* pass = root["pass"] | "";
     wifiEnabled_ = root["enabled"] | true;
+    wifiSsidLen_ = (uint8_t)strnlen(ssid ? ssid : "", 32U);
+    wifiPassLen_ = (uint8_t)strnlen(pass ? pass : "", 64U);
     wifiConfigured_ = wifiEnabled_ && ssid && ssid[0] != '\0';
 }
 
@@ -238,32 +323,157 @@ bool WifiProvisioningModule::startCaptivePortal_(PortalReason reason)
     if (apActive_) return true;
     if (ethernetEnabled_) return false;
 
+    const uint32_t now = millis();
+    if ((int32_t)(now - nextApStartAttemptMs_) < 0) {
+        return false;
+    }
+    const uint32_t internalFree = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
+    const uint32_t internalLargest = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
+    if ((now - lastApStartPrecheckLogMs_) >= kApStartLogIntervalMs) {
+        lastApStartPrecheckLogMs_ = now;
+        LOGI("Provisioning AP start precheck mode=%s wl=%d internal_free=%lu largest_internal=%lu",
+             wifiModeName_(WiFi.getMode()),
+             (int)WiFi.status(),
+             (unsigned long)internalFree,
+             (unsigned long)internalLargest);
+    }
+    const bool lowHeap = internalLargest < kApStartMinLargestInternalBytes;
+    if (lowHeap) {
+        ++apStartDeferredCount_;
+        const bool forcedAttempt = (apStartDeferredCount_ >= kApStartForceAfterDefers);
+        if (!forcedAttempt) {
+            nextApStartAttemptMs_ = now + kApStartRetryMs;
+        }
+        if ((now - lastApStartDeferredLogMs_) >= kApStartLogIntervalMs) {
+            lastApStartDeferredLogMs_ = now;
+            LOGE("Provisioning AP start deferred: internal heap too low largest=%lu threshold=%lu deferred=%u",
+                 (unsigned long)internalLargest,
+                 (unsigned long)kApStartMinLargestInternalBytes,
+                 (unsigned)apStartDeferredCount_);
+        }
+        if (!forcedAttempt) {
+            return false;
+        }
+        LOGW("Provisioning AP forcing low-heap start largest=%lu deferred=%u threshold=%lu",
+             (unsigned long)internalLargest,
+             (unsigned)apStartDeferredCount_,
+             (unsigned long)kApStartMinLargestInternalBytes);
+    } else {
+        apStartDeferredCount_ = 0;
+    }
+
     if (wifiSvc_ && wifiSvc_->setStaRetryEnabled) {
         (void)wifiSvc_->setStaRetryEnabled(wifiSvc_->ctx, false);
     }
+    if (wifiSvc_ && wifiSvc_->requestReconnect) {
+        (void)wifiSvc_->requestReconnect(wifiSvc_->ctx);
+    }
+    delay(80);
+    (void)WiFi.disconnect(false, false);
+    (void)WiFi.scanDelete();
 
-    WiFi.mode(WIFI_MODE_AP);
-    const bool ok = WiFi.softAP(apSsid_, apPass_);
+    // Force strict AP mode during provisioning: avoids STA scans/channel moves
+    // that can break client association on some phones.
+    (void)WiFi.enableSTA(false);
+    const uint32_t staStopWaitStartMs = millis();
+    while ((WiFi.getMode() & WIFI_MODE_STA) != 0 &&
+           (millis() - staStopWaitStartMs) < kStaStopWaitMs) {
+        delay(20);
+    }
+    if ((WiFi.getMode() & WIFI_MODE_STA) != 0) {
+        LOGW("Provisioning AP start: STA still enabled after wait mode=%s wl=%d",
+             wifiModeName_(WiFi.getMode()),
+             (int)WiFi.status());
+    }
+
+    // Reset WiFi mode cleanly before softAP start, then expose the AP only
+    // after Arduino/IDF have finished their setup events.
+    const wifi_mode_t modeBefore = WiFi.getMode();
+    if (modeBefore != WIFI_MODE_NULL) {
+        const bool nullOk = WiFi.mode(WIFI_MODE_NULL);
+        if (!nullOk) {
+            LOGW("Provisioning AP reset to NULL failed current=%s", wifiModeName_(WiFi.getMode()));
+        }
+        delay(kModeResetSettleMs);
+    }
+    apStarting_ = true;
+    const bool ok = WiFi.softAP(apSsid_,
+                                apPass_,
+                                kProvisioningApChannel,
+                                0,
+                                kProvisioningApMaxConnections,
+                                false,
+                                kProvisioningApAuthMode,
+                                kProvisioningApCipher);
     if (!ok) {
+        apStarting_ = false;
         LOGE("Cannot start AP portal");
+        nextApStartAttemptMs_ = millis() + kApStartRetryMs;
         return false;
     }
 
+    delay(kApStartStableDelayMs);
+    apStarting_ = false;
+    const wifi_mode_t modeAfterStart = WiFi.getMode();
+    if ((modeAfterStart & WIFI_MODE_AP) == 0) {
+        LOGE("Provisioning AP start unstable: AP mode missing after settle mode=%s wl=%d",
+             wifiModeName_(modeAfterStart),
+             (int)WiFi.status());
+        nextApStartAttemptMs_ = millis() + kApStartRetryMs;
+        return false;
+    }
+
+    wifi_config_t apCfg{};
+    const esp_err_t apCfgErr = esp_wifi_get_config(WIFI_IF_AP, &apCfg);
+    if (apCfgErr == ESP_OK) {
+        char appliedSsid[33] = {0};
+        const size_t apSsidLen = (size_t)((apCfg.ap.ssid_len <= 32U) ? apCfg.ap.ssid_len : 32U);
+        memcpy(appliedSsid, apCfg.ap.ssid, apSsidLen);
+        appliedSsid[apSsidLen] = '\0';
+        const size_t appliedPassLen = strnlen((const char*)apCfg.ap.password, sizeof(apCfg.ap.password));
+        LOGI("Provisioning AP config applied ssid='%s' ssid_len=%u pass_len=%u auth=%s(%u) cipher=%s(%u) ch=%u hidden=%u max_conn=%u",
+             appliedSsid,
+             (unsigned)apCfg.ap.ssid_len,
+             (unsigned)appliedPassLen,
+             wifiAuthName_(apCfg.ap.authmode),
+             (unsigned)apCfg.ap.authmode,
+             wifiCipherName_((wifi_cipher_type_t)apCfg.ap.pairwise_cipher),
+             (unsigned)apCfg.ap.pairwise_cipher,
+             (unsigned)apCfg.ap.channel,
+             (unsigned)apCfg.ap.ssid_hidden,
+             (unsigned)apCfg.ap.max_connection);
+    } else {
+        LOGE("Provisioning AP config read failed err=%d", (int)apCfgErr);
+    }
+
     const IPAddress apIp = WiFi.softAPIP();
+    if (apIp[0] == 0 && apIp[1] == 0 && apIp[2] == 0 && apIp[3] == 0) {
+        LOGE("Provisioning AP start unstable: AP IP is 0.0.0.0");
+        nextApStartAttemptMs_ = millis() + kApStartRetryMs;
+        return false;
+    }
     dns_.start(kDnsPort, "*", apIp);
-#if defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY)
+#if defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY) || defined(FLOW_PROFILE_FLOWIOS3)
     startLightPortal_();
     portalCredentialsSaved_ = false;
 #endif
     apActive_ = true;
     staProbeActive_ = false;
+    apClientEverSeen_ = false;
     lastStaProbeStartMs_ = millis();
+    nextApStartAttemptMs_ = 0;
+    apStartDeferredCount_ = 0;
     refreshApClientState_(lastStaProbeStartMs_, false);
 
     const char* reasonTxt = (reason == PortalReason::MissingCredentials) ? "missing credentials" : "connect timeout";
-    LOGW("Provisioning AP started (%s) SSID=%s IP=%u.%u.%u.%u",
+    LOGW("Provisioning AP started (%s) SSID=%s pass_len=%u auth=%s cipher=%s channel=%u max_conn=%u IP=%u.%u.%u.%u",
          reasonTxt,
          apSsid_,
+         (unsigned)strlen(apPass_),
+         wifiAuthName_(kProvisioningApAuthMode),
+         wifiCipherName_(kProvisioningApCipher),
+         (unsigned)kProvisioningApChannel,
+         (unsigned)kProvisioningApMaxConnections,
          apIp[0], apIp[1], apIp[2], apIp[3]);
     return true;
 }
@@ -276,7 +486,7 @@ void WifiProvisioningModule::stopCaptivePortal_()
     if (wifiSvc_ && wifiSvc_->setStaRetryEnabled) {
         (void)wifiSvc_->setStaRetryEnabled(wifiSvc_->ctx, true);
     }
-#if defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY)
+#if defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY) || defined(FLOW_PROFILE_FLOWIOS3)
     stopLightPortal_();
 #endif
     dns_.stop();
@@ -300,10 +510,48 @@ void WifiProvisioningModule::onWifiEvent_(arduino_event_t* event)
 {
     if (!event) return;
     switch (event->event_id) {
+    case ARDUINO_EVENT_WIFI_AP_START:
+        if (apStarting_) {
+            LOGD("Provisioning AP start event during setup mode=%s", wifiModeName_(WiFi.getMode()));
+        }
+        break;
+    case ARDUINO_EVENT_WIFI_AP_STOP:
+        if (apStarting_) {
+            LOGD("Provisioning AP stop event during setup mode=%s", wifiModeName_(WiFi.getMode()));
+        } else if (apActive_) {
+            LOGE("Provisioning AP stopped unexpectedly; scheduling restart mode=%s wl=%d",
+                 wifiModeName_(WiFi.getMode()),
+                 (int)WiFi.status());
+            apRestartPending_ = true;
+        }
+        break;
+    case ARDUINO_EVENT_WIFI_AP_PROBEREQRECVED: {
+        const uint32_t now = millis();
+        ++apProbeCount_;
+        if ((now - lastApProbeLogMs_) >= 2000U) {
+            lastApProbeLogMs_ = now;
+            const int rssi = (int)event->event_info.wifi_ap_probereqrecved.rssi;
+            LOGI("AP probe activity probes=%lu clients=%u rssi=%d",
+                 (unsigned long)apProbeCount_,
+                 (unsigned)WiFi.softAPgetStationNum(),
+                 rssi);
+        }
+        break;
+    }
     case ARDUINO_EVENT_WIFI_AP_STACONNECTED:
-    case ARDUINO_EVENT_WIFI_AP_STADISCONNECTED:
+        LOGI("AP client connected count=%u", (unsigned)WiFi.softAPgetStationNum());
         refreshApClientState_(millis(), true);
         break;
+    case ARDUINO_EVENT_WIFI_AP_STADISCONNECTED: {
+        const uint8_t reason = (uint8_t)event->event_info.wifi_ap_stadisconnected.reason;
+        const char* reasonName = WiFi.disconnectReasonName((wifi_err_reason_t)reason);
+        LOGW("AP client disconnected reason=%u(%s) count=%u",
+             (unsigned)reason,
+             reasonName ? reasonName : "?",
+             (unsigned)WiFi.softAPgetStationNum());
+        refreshApClientState_(millis(), true);
+        break;
+    }
     default:
         break;
     }
@@ -319,6 +567,7 @@ void WifiProvisioningModule::refreshApClientState_(uint32_t nowMs, bool fromEven
     const uint8_t count = WiFi.softAPgetStationNum();
     if (count > 0) {
         lastApClientSeenMs_ = nowMs;
+        apClientEverSeen_ = true;
     }
     if (count != apClientCount_) {
         apClientCount_ = count;
@@ -334,6 +583,7 @@ void WifiProvisioningModule::startStaProbe_(uint32_t nowMs)
 {
     if (staProbeActive_) return;
     if (!wifiEnabled_ || !wifiConfigured_) return;
+    if (!apClientEverSeen_) return;
 
     staProbeActive_ = true;
     lastStaProbeStartMs_ = nowMs;
@@ -357,7 +607,14 @@ void WifiProvisioningModule::stopStaProbe_(const char* reason)
         if (wifiSvc_ && wifiSvc_->setStaRetryEnabled) {
             (void)wifiSvc_->setStaRetryEnabled(wifiSvc_->ctx, false);
         }
+        if (wifiSvc_ && wifiSvc_->requestReconnect) {
+            (void)wifiSvc_->requestReconnect(wifiSvc_->ctx);
+        }
+        delay(120);
         if (apActive_ && WiFi.getMode() != WIFI_MODE_AP) {
+            LOGI("STA probe forcing AP mode from mode=%s wl=%d",
+                 wifiModeName_(WiFi.getMode()),
+                 (int)WiFi.status());
             (void)WiFi.mode(WIFI_MODE_AP);
         }
     }
@@ -368,43 +625,10 @@ void WifiProvisioningModule::stopStaProbe_(const char* reason)
 void WifiProvisioningModule::handleStaProbePolicy_(uint32_t nowMs)
 {
     if (!apActive_) return;
-
-    if ((nowMs - lastApClientPollMs_) >= kApClientPollMs) {
-        lastApClientPollMs_ = nowMs;
-        refreshApClientState_(nowMs, false);
-    }
-
-    const bool clientConnected = (apClientCount_ > 0U);
-    const bool clientSeenRecently = (lastApClientSeenMs_ != 0U) &&
-                                    ((nowMs - lastApClientSeenMs_) < kApClientGraceMs);
-#if defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY)
-    const bool holdForPortalClient = !portalCredentialsSaved_ && (clientConnected || clientSeenRecently);
-#else
-    const bool holdForPortalClient = clientConnected || clientSeenRecently;
-#endif
-    const bool holdApOnly = holdForPortalClient || !wifiEnabled_ || !wifiConfigured_;
-
-    if (staProbeActive_) {
-        if (holdApOnly) {
-            stopStaProbe_(clientConnected ? "ap client connected" : "ap client grace");
-            return;
-        }
-        if ((nowMs - lastStaProbeStartMs_) >= kStaProbeWindowMs) {
-            stopStaProbe_("window elapsed");
-        }
-        return;
-    }
-
-    if (holdApOnly) {
-        if (wifiSvc_ && wifiSvc_->setStaRetryEnabled) {
-            (void)wifiSvc_->setStaRetryEnabled(wifiSvc_->ctx, false);
-        }
-        return;
-    }
-
-    if ((nowMs - lastStaProbeStartMs_) >= kStaProbeIntervalMs) {
-        startStaProbe_(nowMs);
-    }
+    (void)nowMs;
+    // Keep provisioning AP in strict AP-only mode until user credentials are
+    // updated; do not probe STA in background.
+    return;
 }
 
 bool WifiProvisioningModule::isStaConnected_() const
@@ -435,17 +659,21 @@ bool WifiProvisioningModule::getApIp_(char* out, size_t len) const
     return true;
 }
 
-#if defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY)
+#if defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY) || defined(FLOW_PROFILE_FLOWIOS3)
 void WifiProvisioningModule::startLightPortal_()
 {
     if (portalHttpActive_) return;
+#if defined(FLOW_PROFILE_FLOWIOS3)
+    portalSpiffsReady_ = false;
+#else
     portalSpiffsReady_ = SPIFFS.begin(false);
     if (!portalSpiffsReady_) {
         LOGW("Flow Connect Display provisioning SPIFFS mount failed; fallback page will be used");
     }
+#endif
     portalServer_.begin();
     portalHttpActive_ = true;
-    LOGI("Flow Connect Display provisioning HTTP started on port 80 spiffs=%d", (int)portalSpiffsReady_);
+    LOGI("Provisioning light HTTP started on port 80 spiffs=%d", (int)portalSpiffsReady_);
 }
 
 void WifiProvisioningModule::stopLightPortal_()
@@ -459,7 +687,7 @@ void WifiProvisioningModule::handleLightPortalClient_()
 {
     if (!portalHttpActive_) return;
 
-    WiFiClient client = portalServer_.accept();
+    WiFiClient client = portalServer_.available();
     if (!client) return;
 
     client.setTimeout(250);
@@ -520,7 +748,7 @@ void WifiProvisioningModule::handleLightPortalClient_()
     }
 
     (void)handleLightPortalRequest_(client, portalMethod_, portalPath_, query, portalBody_);
-    client.clear();
+    client.flush();
     client.stop();
 }
 
@@ -674,13 +902,13 @@ void WifiProvisioningModule::sendPortalFallbackPage_(WiFiClient& client, const c
     sendHttpHeader_(client, "200 OK", "text/html; charset=utf-8");
     client.print(F("<!doctype html><html><head><meta charset=\"utf-8\">"
                    "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
-                   "<title>Flow Connect Display WiFi</title>"
+                   "<title>Flow.io WiFi</title>"
                    "<style>body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;margin:0;background:#f7f7f2;color:#17211c}"
                    "main{max-width:420px;margin:8vh auto;padding:24px}h1{font-size:24px;margin:0 0 8px}"
                    "p{line-height:1.45}.msg{padding:12px;border:1px solid #cbd5c8;background:#fff;margin:16px 0}"
                    "label{display:block;margin:14px 0 6px;font-weight:600}input{box-sizing:border-box;width:100%;font-size:18px;padding:12px;border:1px solid #9aa89d}"
                    "button{margin-top:18px;width:100%;font-size:18px;padding:12px;border:0;background:#166b52;color:#fff}</style></head><body><main>"
-                   "<h1>Flow Connect Display</h1><p>Connexion au reseau WiFi de la piscine.</p>"));
+                   "<h1>Flow.io</h1><p>Connexion au reseau WiFi de la piscine.</p>"));
     if (message && message[0] != '\0') {
         client.print(F("<div class=\"msg\" role=\"status\">"));
         client.print(message);
@@ -701,7 +929,7 @@ void WifiProvisioningModule::sendWebMetaJson_(WiFiClient& client)
     const int n = snprintf(out,
                            sizeof(out),
                            "{\"ok\":true,\"firmware_version\":\"%s\",\"profile\":\"%s\","
-                           "\"profile_name\":\"%s\",\"product_name\":\"Flow Connect Display\","
+                           "\"profile_name\":\"%s\",\"product_name\":\"Flow.io\","
                            "\"wifi_only\":true,\"mqtt_config_enabled\":false,"
                            "\"runtime_enabled\":false,\"config_browser_enabled\":false,"
                            "\"full_ui_enabled\":false,\"reboot_after_wifi_save\":true}",
@@ -808,7 +1036,7 @@ void WifiProvisioningModule::schedulePortalReboot_(uint32_t delayMs)
 {
     portalRebootPending_ = true;
     portalRebootAtMs_ = millis() + delayMs;
-    LOGI("Flow Connect Display provisioning reboot scheduled delay_ms=%lu", (unsigned long)delayMs);
+    LOGI("Provisioning reboot scheduled delay_ms=%lu", (unsigned long)delayMs);
 }
 
 bool WifiProvisioningModule::readRequestLine_(WiFiClient& client, char* out, size_t outLen)
@@ -927,7 +1155,7 @@ bool WifiProvisioningModule::handleSaveRequest_(const char* query)
         (void)notifyWifiConfigChanged_();
         startStaProbe_(millis());
         schedulePortalReboot_(1200U);
-        LOGI("Flow Connect Display provisioning credentials saved ssid_len=%u pass_len=%u",
+        LOGI("Provisioning credentials saved ssid_len=%u pass_len=%u",
              (unsigned)strnlen(portalSsid_, sizeof(portalSsid_)),
              (unsigned)strnlen(portalPass_, sizeof(portalPass_)));
     }

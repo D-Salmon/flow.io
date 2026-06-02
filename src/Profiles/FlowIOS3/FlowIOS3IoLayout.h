@@ -146,20 +146,21 @@ struct DigitalOutputRoleDefault {
     DomainRole role; // Role fonctionnel de la sortie.
     PhysicalPortId bindingPort; // Port physique associe.
     bool activeHigh; // Polarite de commande logique.
+    bool retainOnWarmReboot; // Conserve le latch expander sur reboot ESP32 chaud.
     bool momentary; // True si sortie impulsionnelle.
     uint16_t pulseMs; // Duree d'impulsion en ms.
 };
 
 inline constexpr DigitalOutputRoleDefault kDigitalOutputRoleDefaults[] = {
-    // {role, bindingPort, activeHigh, momentary, pulseMs}
-    {DomainRole::FiltrationPump, PortExio1, true, false, 0U}, // Pompe filtration.
-    {DomainRole::PhPump, PortExio2, true, false, 0U}, // Pompe pH.
-    {DomainRole::ChlorinePump, PortExio3, true, false, 0U}, // Pompe chlore.
-    {DomainRole::Robot, PortExio4, true, false, 0U}, // Robot.
-    {DomainRole::FillPump, PortExio5, true, false, 0U}, // Pompe de remplissage.
-    {DomainRole::ChlorineGenerator, PortExio6, true, false, 0U}, // Electrolyseur.
-    {DomainRole::Lights, PortExio7, true, false, 0U}, // Eclairage.
-    {DomainRole::WaterHeater, PortExio8, true, false, 0U}, // Chauffage.
+    // {role, bindingPort, activeHigh, retainOnWarmReboot, momentary, pulseMs}
+    {DomainRole::FiltrationPump, PortExio1, true, true, false, 0U}, // Pompe filtration.
+    {DomainRole::PhPump, PortExio2, true, false, false, 0U}, // Pompe pH.
+    {DomainRole::ChlorinePump, PortExio3, true, false, false, 0U}, // Pompe chlore.
+    {DomainRole::Robot, PortExio4, true, false, false, 0U}, // Robot.
+    {DomainRole::FillPump, PortExio5, true, false, false, 0U}, // Pompe de remplissage.
+    {DomainRole::ChlorineGenerator, PortExio6, true, false, false, 0U}, // Electrolyseur.
+    {DomainRole::Lights, PortExio7, true, false, false, 0U}, // Eclairage.
+    {DomainRole::WaterHeater, PortExio8, true, false, false, 0U}, // Chauffage.
 };
 
 inline constexpr const AnalogRoleDefault* analogDefaultForRole(DomainRole role)

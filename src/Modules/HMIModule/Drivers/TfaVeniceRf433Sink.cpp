@@ -15,7 +15,9 @@
 
 namespace {
 
-static constexpr rmt_channel_t kRmtChannel = RMT_CHANNEL_0;
+static constexpr uint32_t kRmtResolutionHz = 1000000U;
+static constexpr size_t kRmtMemBlockSymbols = 256U;
+static constexpr int kRmtTxDoneTimeoutMs = 1000;
 static constexpr uint8_t kModelId = 0x46U;
 static constexpr uint8_t kHumidityPct = 50U;
 static constexpr uint16_t kManchesterClockUs = 976U;
@@ -54,8 +56,25 @@ uint8_t TfaVeniceRf433Sink::sanitizeChannel_(uint8_t channel)
 
 void TfaVeniceRf433Sink::shutdown_()
 {
-    if (started_) {
-        (void)rmt_driver_uninstall(kRmtChannel);
+    if (txChannel_) {
+        const esp_err_t disableErr = rmt_disable(txChannel_);
+        if (disableErr != ESP_OK && disableErr != ESP_ERR_INVALID_STATE) {
+            LOGW("Venice RF433 rmt_disable failed err=%d", (int)disableErr);
+        }
+    }
+    if (copyEncoder_) {
+        const esp_err_t delEncErr = rmt_del_encoder(copyEncoder_);
+        if (delEncErr != ESP_OK) {
+            LOGW("Venice RF433 rmt_del_encoder failed err=%d", (int)delEncErr);
+        }
+        copyEncoder_ = nullptr;
+    }
+    if (txChannel_) {
+        const esp_err_t delChanErr = rmt_del_channel(txChannel_);
+        if (delChanErr != ESP_OK) {
+            LOGW("Venice RF433 rmt_del_channel failed err=%d", (int)delChanErr);
+        }
+        txChannel_ = nullptr;
     }
     started_ = false;
     if (txItems_) {
@@ -76,8 +95,8 @@ bool TfaVeniceRf433Sink::ensureReady_()
 
     shutdown_();
 
-    txItems_ = static_cast<rmt_item32_t*>(
-        heap_caps_calloc(kFrameBitCount, sizeof(rmt_item32_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)
+    txItems_ = static_cast<decltype(txItems_)>(
+        heap_caps_calloc(kFrameBitCount, sizeof(*txItems_), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)
     );
     if (!txItems_) {
         LOGE("Venice RF433 buffer allocation failed");
@@ -87,20 +106,33 @@ bool TfaVeniceRf433Sink::ensureReady_()
     pinMode(cfg_.txPin, OUTPUT);
     digitalWrite(cfg_.txPin, LOW);
 
-    rmt_config_t config = RMT_DEFAULT_CONFIG_TX((gpio_num_t)cfg_.txPin, kRmtChannel);
-    config.clk_div = 80;
-    config.tx_config.loop_en = false;
-    config.tx_config.idle_output_en = true;
-    config.tx_config.idle_level = RMT_IDLE_LEVEL_LOW;
+    rmt_tx_channel_config_t config{};
+    config.gpio_num = (gpio_num_t)cfg_.txPin;
+    config.clk_src = RMT_CLK_SRC_DEFAULT;
+    config.resolution_hz = kRmtResolutionHz;
+    config.mem_block_symbols = kRmtMemBlockSymbols;
+    config.trans_queue_depth = 1;
+    config.flags.init_level = 0;
 
-    esp_err_t err = rmt_config(&config);
-    if (err != ESP_OK) {
-        LOGE("Venice RF433 rmt_config failed gpio=%d err=%d", (int)cfg_.txPin, (int)err);
+    esp_err_t err = rmt_new_tx_channel(&config, &txChannel_);
+    if (err != ESP_OK || !txChannel_) {
+        LOGE("Venice RF433 rmt_new_tx_channel failed gpio=%d err=%d", (int)cfg_.txPin, (int)err);
+        shutdown_();
         return false;
     }
-    err = rmt_driver_install(config.channel, 0, 0);
-    if (err != ESP_OK) {
-        LOGE("Venice RF433 rmt_driver_install failed gpio=%d err=%d", (int)cfg_.txPin, (int)err);
+
+    rmt_copy_encoder_config_t encoderConfig{};
+    err = rmt_new_copy_encoder(&encoderConfig, &copyEncoder_);
+    if (err != ESP_OK || !copyEncoder_) {
+        LOGE("Venice RF433 rmt_new_copy_encoder failed gpio=%d err=%d", (int)cfg_.txPin, (int)err);
+        shutdown_();
+        return false;
+    }
+
+    err = rmt_enable(txChannel_);
+    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+        LOGE("Venice RF433 rmt_enable failed gpio=%d err=%d", (int)cfg_.txPin, (int)err);
+        shutdown_();
         return false;
     }
 
@@ -209,7 +241,28 @@ bool TfaVeniceRf433Sink::sendFrameForTemp_(float waterTempC)
     bitPos = (uint16_t)(bitPos + kSequenceBits);
 
     encodeManchester_(frameBytes_, bitPos);
-    return txItems_ && rmt_write_items(kRmtChannel, txItems_, bitPos, true) == ESP_OK;
+    if (!txItems_ || !txChannel_ || !copyEncoder_) return false;
+    rmt_transmit_config_t txConfig{};
+    txConfig.loop_count = 0;
+    txConfig.flags.eot_level = 0;
+    txConfig.flags.queue_nonblocking = 0;
+    esp_err_t err = rmt_transmit(
+        txChannel_,
+        copyEncoder_,
+        txItems_,
+        (size_t)bitPos * sizeof(*txItems_),
+        &txConfig
+    );
+    if (err != ESP_OK) {
+        LOGW("Venice RF433 rmt_transmit failed err=%d", (int)err);
+        return false;
+    }
+    err = rmt_tx_wait_all_done(txChannel_, kRmtTxDoneTimeoutMs);
+    if (err != ESP_OK) {
+        LOGW("Venice RF433 rmt_tx_wait_all_done failed err=%d", (int)err);
+        return false;
+    }
+    return true;
 }
 
 void TfaVeniceRf433Sink::tick(uint32_t nowMs, const IOServiceV2* ioSvc, IoId waterTempIoId)

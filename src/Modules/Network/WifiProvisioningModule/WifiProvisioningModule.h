@@ -20,7 +20,7 @@ public:
 #if defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY)
         return 5120;
 #else
-        return 4096;
+        return 3072;
 #endif
     }
     uint8_t taskCount() const override { return 1; }
@@ -48,6 +48,10 @@ private:
 
 #if defined(FLOW_PROFILE_MICRONOVA)
     static constexpr uint32_t kConnectTimeoutMs = 8000U;
+#elif defined(FLOW_PROFILE_FLOWIOS3)
+    // Leave enough time for several STA retry cycles before AP provisioning
+    // takes over. A single WPA 4-way timeout can otherwise force STA_STOP.
+    static constexpr uint32_t kConnectTimeoutMs = 65000U;
 #else
     static constexpr uint32_t kConnectTimeoutMs = 25000U;
 #endif
@@ -57,6 +61,13 @@ private:
     static constexpr uint32_t kApClientGraceMs = 120000U;
     static constexpr uint32_t kStaProbeIntervalMs = 30000U;
     static constexpr uint32_t kStaProbeWindowMs = 6000U;
+    static constexpr uint32_t kApStartLogIntervalMs = 5000U;
+    static constexpr uint32_t kApStartRetryMs = 2000U;
+    static constexpr uint32_t kApStartMinLargestInternalBytes = 24576U;
+    static constexpr uint8_t kApStartForceAfterDefers = 4U;
+    static constexpr uint32_t kStaStopWaitMs = 700U;
+    static constexpr uint32_t kModeResetSettleMs = 120U;
+    static constexpr uint32_t kApStartStableDelayMs = 450U;
 
     ConfigStore* cfgStore_ = nullptr;
     const WifiService* wifiSvc_ = nullptr;
@@ -66,19 +77,30 @@ private:
     bool wifiConfigured_ = false;
     bool wifiEnabled_ = true;
     bool ethernetEnabled_ = false;
+    uint8_t wifiSsidLen_ = 0;
+    uint8_t wifiPassLen_ = 0;
     bool configDirty_ = false;
     bool portalLatched_ = false;
     bool staProbeActive_ = false;
+    bool apStarting_ = false;
+    volatile bool apRestartPending_ = false;
+    bool apClientEverSeen_ = false;
     uint8_t apClientCount_ = 0;
     uint32_t lastApClientSeenMs_ = 0;
     uint32_t lastApClientPollMs_ = 0;
     uint32_t lastStaProbeStartMs_ = 0;
     uint32_t bootMs_ = 0;
     uint32_t lastCfgPollMs_ = 0;
+    uint32_t lastApStartPrecheckLogMs_ = 0;
+    uint32_t lastApStartDeferredLogMs_ = 0;
+    uint32_t lastApProbeLogMs_ = 0;
+    uint32_t nextApStartAttemptMs_ = 0;
+    uint32_t apProbeCount_ = 0;
+    uint8_t apStartDeferredCount_ = 0;
     wifi_event_id_t wifiEventHandlerId_ = 0;
     char apSsid_[40] = {0};
     char apPass_[32] = {0};
-#if defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY)
+#if defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY) || defined(FLOW_PROFILE_FLOWIOS3)
     WiFiServer portalServer_{80};
     bool portalHttpActive_ = false;
     bool portalCredentialsSaved_ = false;
@@ -118,7 +140,7 @@ private:
     bool isStaConnected_() const;
     bool getStaIp_(char* out, size_t len) const;
     bool getApIp_(char* out, size_t len) const;
-#if defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY)
+#if defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY) || defined(FLOW_PROFILE_FLOWIOS3)
     void startLightPortal_();
     void stopLightPortal_();
     void handleLightPortalClient_();

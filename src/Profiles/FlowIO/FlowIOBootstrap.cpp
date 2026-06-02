@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <WiFi.h>
+#include <esp_mac.h>
 #include <esp_system.h>
 #include <string.h>
 
@@ -11,6 +12,8 @@
 #include "Board/BoardSerialMap.h"
 #include "Core/ConfigMigrations.h"
 #include "Core/DataStore/DataStore.h"
+#include "Core/Log.h"
+#include "Core/LogModuleIds.h"
 #include "Core/NvsKeys.h"
 #include "Core/SnprintfCheck.h"
 #include "Core/SystemLimits.h"
@@ -41,7 +44,10 @@ const PoolDevicePreset* findPoolPresetByRole(const DomainSpec& domain, DomainRol
 void requireSetup(bool ok, const char* step)
 {
     if (ok) return;
-    Board::SerialMap::logSerial().printf("Setup failure: %s\r\n", step ? step : "unknown");
+    Log::error((LogModuleId)LogModuleIdValue::Core, "setup failure: %s", step ? step : "unknown");
+    if (!Log::hub()) {
+        Board::SerialMap::logSerial().printf("Setup failure: %s\r\n", step ? step : "unknown");
+    }
     while (true) delay(1000);
 }
 

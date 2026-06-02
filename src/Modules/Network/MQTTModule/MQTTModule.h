@@ -57,10 +57,31 @@ public:
 
     void init(ConfigStore& cfg, ServiceRegistry& services) override;
     void onConfigLoaded(ConfigStore& cfg, ServiceRegistry& services) override;
+    bool canStart(ConfigStore&, ServiceRegistry& services) override {
+#if defined(FLOW_PROFILE_FLOWIOS3)
+        const NetworkAccessService* net = services.get<NetworkAccessService>(ServiceId::NetworkAccess);
+        return net && net->mode && net->mode(net->ctx) == NetworkAccessMode::Station;
+#else
+        (void)services;
+        return true;
+#endif
+    }
     void onStart(ConfigStore& cfg, ServiceRegistry& services) override;
     void loop() override;
-    uint16_t taskStackSize() const override { return Limits::Mqtt::TaskStackSize; }
-    uint32_t startDelayMs() const override { return Limits::Boot::MqttStartDelayMs; }
+    uint16_t taskStackSize() const override {
+#if defined(FLOW_PROFILE_FLOWIOS3)
+        return 5120;
+#else
+        return Limits::Mqtt::TaskStackSize;
+#endif
+    }
+    uint32_t startDelayMs() const override {
+#if defined(FLOW_PROFILE_FLOWIOS3)
+        return 4000U;
+#else
+        return Limits::Boot::MqttStartDelayMs;
+#endif
+    }
 
     bool addRuntimePublisher(const char* topic,
                              uint32_t periodMs,

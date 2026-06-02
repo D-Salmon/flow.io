@@ -33,8 +33,8 @@ constexpr size_t MaxConfigVars = 400;
 /** @brief Maximum NVS key length (without null terminator) enforced by `ConfigTypes::NVS_KEY`. */
 constexpr size_t MaxNvsKeyLen = 15;
 /** @brief FreeRTOS log queue length used by `LogHub` (`LogHubModule::init`).
- *  Increased moderately to absorb boot-time log bursts before log dispatcher task starts. */
-constexpr uint8_t LogQueueLen = 64;
+ *  Sized for high boot/runtime bursts on ESP32-S3 + Arduino 3.x while keeping bounded memory usage. */
+constexpr uint16_t LogQueueLen = 256;
 /** @brief FreeRTOS event queue length used by `EventBus` (`EventBus::QUEUE_LENGTH`).
  *  Sized to absorb startup bursts while limiting DRAM usage. */
 constexpr uint8_t EventQueueLen = 40;
@@ -315,7 +315,7 @@ static_assert(MaxDiscoveryCleanups > 0, "HA cleanup capacity must be at least 1"
 
 namespace Timing {
 /** @brief Delay in ms between each HA discovery entity publish in `HAModule`. */
-constexpr uint32_t DiscoveryStepMs = 100;
+constexpr uint32_t DiscoveryStepMs = 200;
 }  // namespace Timing
 }  // namespace Ha
 
@@ -353,6 +353,12 @@ constexpr uint32_t PoolLogicStartDelayMs = 10000;
 
 /** @brief Firmware update networking limits shared by the update module. */
 namespace FirmwareUpdate {
+namespace Buffers {
+/** @brief JSON document capacity used to validate downloaded firmware manifests. */
+constexpr size_t ManifestParseJson = 8192U;
+/** @brief API response buffer for manifest checks (`/api/fwupdate/check`). */
+constexpr size_t ManifestResponseJson = 8192U;
+}  // namespace Buffers
 namespace Http {
 /** @brief HTTP connect timeout used for firmware and cfgdocs downloads. */
 constexpr uint16_t ConnectTimeoutMs = 15000U;

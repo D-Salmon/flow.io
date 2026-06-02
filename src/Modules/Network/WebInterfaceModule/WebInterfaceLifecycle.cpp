@@ -146,6 +146,15 @@ void WebInterfaceModule::onEvent_(const Event& e)
 
 void WebInterfaceModule::loop()
 {
+    if (webStartLedPulseActive_ && (int32_t)(millis() - webStartLedPulseUntilMs_) >= 0) {
+        if (hmiSvc_ && hmiSvc_->setStatusLedAutoWifiMode && webStartLedPrevAutoModeValid_) {
+            hmiSvc_->setStatusLedAutoWifiMode(hmiSvc_->ctx, webStartLedPrevAutoMode_);
+        }
+        webStartLedPulseActive_ = false;
+        webStartLedPrevAutoModeValid_ = false;
+        LOGI("Web start LED pulse completed");
+    }
+
     if (rebootPending_ && (int32_t)(millis() - rebootAtMs_) >= 0) {
         LOGW("Web rebooting now reason=%s", rebootReason_);
         delay(80);
@@ -166,6 +175,18 @@ void WebInterfaceModule::loop()
             return;
         }
 
+#if defined(FLOW_PROFILE_FLOWIOS3)
+        if (mode == NetworkAccessMode::AccessPoint) {
+            static bool apDeferredLogged = false;
+            if (!apDeferredLogged) {
+                apDeferredLogged = true;
+                LOGI("Web startup deferred in AP mode; provisioning light portal owns port 80");
+            }
+            vTaskDelay(pdMS_TO_TICKS(1000));
+            return;
+        }
+#endif
+
         const bool bootNetworkReady = (mode == NetworkAccessMode::AccessPoint) ? true : netReady_;
         if (!bootNetworkReady) {
             vTaskDelay(pdMS_TO_TICKS(100));
@@ -175,13 +196,24 @@ void WebInterfaceModule::loop()
         const char* modeText = (mode == NetworkAccessMode::AccessPoint) ? "ap" : "station";
         LOGI("Web startup release mode=%s ip=%s starting server", modeText, ip);
         const uint32_t minHeapBeforeStart = (uint32_t)heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT);
+        const uint32_t internalBeforeStart = (uint32_t)heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
+        const uint32_t largestInternalBeforeStart =
+            (uint32_t)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
         startServer_();
         const uint32_t minHeapAfterStart = (uint32_t)heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT);
+        const uint32_t internalAfterStart = (uint32_t)heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
+        const uint32_t largestInternalAfterStart =
+            (uint32_t)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
         const long minHeapDelta = (long)minHeapAfterStart - (long)minHeapBeforeStart;
-        LOGI("Web heap min around startup: before=%lu after=%lu delta=%ld",
+        LOGI("Web heap around startup: min8_before=%lu min8_after=%lu min8_delta=%ld "
+             "internal_before=%lu internal_after=%lu largest_internal_before=%lu largest_internal_after=%lu",
              (unsigned long)minHeapBeforeStart,
              (unsigned long)minHeapAfterStart,
-             minHeapDelta);
+             minHeapDelta,
+             (unsigned long)internalBeforeStart,
+             (unsigned long)internalAfterStart,
+             (unsigned long)largestInternalBeforeStart,
+             (unsigned long)largestInternalAfterStart);
     }
 
     if (uartPaused_) {

@@ -7,7 +7,7 @@
 #include <stdint.h>
 
 struct Ws2812StatusLedState {
-    bool enabled = true;
+    bool enabled = false;
     bool blinkEnabled = false;
     bool breatheEnabled = false;
     uint8_t red = 0;
@@ -16,7 +16,7 @@ struct Ws2812StatusLedState {
     uint8_t brightness = 96;
     uint16_t blinkOnMs = 250;
     uint16_t blinkOffMs = 250;
-    uint16_t breathePeriodMs = 2200;
+    uint16_t breathePeriodMs = 900;
 };
 
 class Ws2812StatusLedDriver {
@@ -36,6 +36,7 @@ public:
     bool setColor(uint8_t red, uint8_t green, uint8_t blue);
     bool setBrightness(uint8_t brightness);
     bool setBlink(bool enabled, uint16_t onMs, uint16_t offMs);
+    bool setBreathe(bool enabled, uint16_t periodMs);
 
     bool isReady() const { return ready_; }
     bool isConfigured() const { return cfg_.enabled && cfg_.gpio >= 0; }
@@ -49,9 +50,8 @@ private:
     bool ready_ = false;
     bool blinkPhaseOn_ = true;
     uint32_t blinkPhaseSinceMs_ = 0U;
+    uint32_t breatheSinceMs_ = 0U;
     bool lastWriteValid_ = false;
-    uint32_t breathePhaseSinceMs_ = 0U;
-    uint32_t lastBreatheApplyMs_ = 0U;
     uint8_t lastWriteR_ = 0U;
     uint8_t lastWriteG_ = 0U;
     uint8_t lastWriteB_ = 0U;

@@ -8,6 +8,7 @@
 #include "Core/LogModuleIds.h"
 #include "Core/WokwiDefaultOverrides.h"
 #include <Arduino.h>
+#include <esp_heap_caps.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -130,7 +131,33 @@ bool LogHub::registerConfigVar_(ModuleRegistration& slot)
 
 void LogHub::init(int queueLen) {
     queueLen_ = (queueLen > 0) ? (uint16_t)queueLen : Limits::LogQueueLen;
-    q = xQueueCreate(queueLen, sizeof(LogEntry));
+    if (q) {
+        vQueueDelete(q);
+        q = nullptr;
+    }
+    if (qStorageInPsram_ && qStorage_) {
+        heap_caps_free(qStorage_);
+    }
+    qStorage_ = nullptr;
+    qStorageInPsram_ = false;
+
+#if defined(FLOW_PROFILE_FLOWIOS3)
+    const size_t storageBytes = (size_t)queueLen_ * sizeof(LogEntry);
+    qStorage_ = static_cast<uint8_t*>(
+        heap_caps_malloc(storageBytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)
+    );
+    if (qStorage_) {
+        q = xQueueCreateStatic(queueLen_, sizeof(LogEntry), qStorage_, &qStatic_);
+        qStorageInPsram_ = (q != nullptr);
+        if (!qStorageInPsram_) {
+            heap_caps_free(qStorage_);
+            qStorage_ = nullptr;
+        }
+    }
+#endif
+    if (!q) {
+        q = xQueueCreate(queueLen_, sizeof(LogEntry));
+    }
     portENTER_CRITICAL(&statsMux_);
     peakQueued_ = 0;
     enqueuedCount_ = 0;

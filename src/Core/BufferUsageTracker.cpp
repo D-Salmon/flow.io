@@ -21,7 +21,7 @@ static portMUX_TYPE gTrackedBufferMux = portMUX_INITIALIZER_UNLOCKED;
 static TrackedBufferEntry gTrackedBuffers[] = {
     {"cfg.meta", "315", 0, 0, {0}},
     {"cfg.apply.doc", "1", 0, 0, {0}},
-    {"loghub.queue", "64", 0, 0, {0}},
+    {"loghub.queue", "256", 0, 0, {0}},
     {"loghub.modules", "40", 0, 0, {0}},
     {"eventbus.runtime", "50+32", 0, 0, {0}},
     {"mqtt.rx.queue", "8", 0, 0, {0}},

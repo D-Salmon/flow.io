@@ -205,9 +205,23 @@ bool ConfigStore::eraseKey(const char* key)
 {
     if (!_prefs || !key) return false;
     if (!lockPrefs_()) return false;
-    const bool ok = _prefs->remove(key);
+    const bool existed = _prefs->isKey(key);
+    const bool ok = !existed || _prefs->remove(key);
     unlockPrefs_();
     return ok;
+}
+
+bool ConfigStore::persistFloatValue(const char* key, float value)
+{
+    return putFloat_(key, value);
+}
+
+void ConfigStore::notifyStoredValueChanged(const char* nvsKey,
+                                           const char* moduleName,
+                                           uint8_t moduleId,
+                                           uint8_t localBranchId)
+{
+    notifyChanged(nvsKey, moduleName, moduleId, localBranchId);
 }
 
 void ConfigStore::logNvsWriteSummaryIfDue(uint32_t nowMs, uint32_t periodMs)

@@ -20,11 +20,11 @@ public:
     bool readMask(uint8_t& mask) const override;
     bool writePin(uint8_t pin, bool on);
     bool readShadow(uint8_t pin, bool& on) const;
+    bool bootWasColdPowerOn() const { return bootWasColdPowerOn_; }
 
 private:
     bool writeReg_(uint8_t reg, uint8_t value);
     bool readReg_(uint8_t reg, uint8_t& value) const;
-    bool ensureStateSynced_();
 
     static constexpr uint8_t kRegOutputPort = 0x01;
     static constexpr uint8_t kRegPolarityInversion = 0x02;
@@ -33,6 +33,6 @@ private:
     const char* driverId_ = nullptr;
     I2CBus* bus_ = nullptr;
     uint8_t address_ = 0x20;
-    uint8_t state_ = 0xFF;
-    bool stateKnown_ = false;
+    uint8_t state_ = 0x00;
+    bool bootWasColdPowerOn_ = false;
 };

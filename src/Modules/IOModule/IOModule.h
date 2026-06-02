@@ -52,12 +52,20 @@ public:
     uint16_t taskStackSize() const override { return 2560; }
     uint8_t taskCount() const override { return 1; }
     const ModuleTaskSpec* taskSpecs() const override { return singleLoopTaskSpec(); }
+    UBaseType_t taskStackCaps() const override {
+#if defined(FLOW_PROFILE_FLOWIOS3)
+        return MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT;
+#else
+        return Module::taskStackCaps();
+#endif
+    }
 
 #if defined(FLOW_PROFILE_SUPERVISOR)
-    uint8_t dependencyCount() const override { return 2; }
+    uint8_t dependencyCount() const override { return 3; }
     ModuleId dependency(uint8_t i) const override {
         if (i == 0) return ModuleId::LogHub;
         if (i == 1) return ModuleId::DataStore;
+        if (i == 2) return ModuleId::ConfigStore;
         return ModuleId::Unknown;
     }
 #else
@@ -65,7 +73,7 @@ public:
     ModuleId dependency(uint8_t i) const override {
         if (i == 0) return ModuleId::LogHub;
         if (i == 1) return ModuleId::DataStore;
-        if (i == 2) return ModuleId::Mqtt;
+        if (i == 2) return ModuleId::ConfigStore;
         return ModuleId::Unknown;
     }
 #endif
@@ -447,6 +455,7 @@ private:
     uint8_t bindingPortCount_ = 0;
 
     ConfigStore* cfgStore_ = nullptr;
+    const ConfigStoreService* cfgSvc_ = nullptr;
     const LogHubService* logHub_ = nullptr;
     DataStore* dataStore_ = nullptr;
     MqttConfigRouteProducer cfgMqttPub_{};

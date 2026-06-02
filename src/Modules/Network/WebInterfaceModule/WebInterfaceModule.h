@@ -36,7 +36,7 @@ public:
     BaseType_t taskCore() const override { return 0; }
     uint16_t taskStackSize() const override {
 #if defined(FLOW_PROFILE_FLOWIOS3)
-        return 8192;
+        return 4096;
 #else
         return 4096;
 #endif
@@ -45,7 +45,10 @@ public:
     const ModuleTaskSpec* taskSpecs() const override { return singleLoopTaskSpec(); }
 
     uint8_t dependencyCount() const override {
-#if defined(FLOW_PROFILE_MICRONOVA) || defined(FLOW_PROFILE_FLOWIOS3)
+#if defined(FLOW_PROFILE_FLOWIOS3)
+        // Keep AP provisioning web startup independent from heavy app modules.
+        return 2;
+#elif defined(FLOW_PROFILE_MICRONOVA)
         return 6;
 #else
         return 7;
@@ -54,6 +57,9 @@ public:
     ModuleId dependency(uint8_t i) const override {
         if (i == 0) return ModuleId::LogHub;
         if (i == 1) return ModuleId::Wifi;
+#if defined(FLOW_PROFILE_FLOWIOS3)
+        return ModuleId::Unknown;
+#else
         if (i == 2) return ModuleId::EventBus;
         if (i == 3) return ModuleId::DataStore;
         if (i == 4) return ModuleId::Command;
@@ -62,12 +68,26 @@ public:
         if (i == 6) return ModuleId::I2cCfgClient;
 #endif
         return ModuleId::Unknown;
+#endif
     }
 
     void init(ConfigStore& cfg, ServiceRegistry& services) override;
+    bool canStart(ConfigStore&, ServiceRegistry& services) override {
+#if defined(FLOW_PROFILE_FLOWIOS3)
+        const NetworkAccessService* net = services.get<NetworkAccessService>(ServiceId::NetworkAccess);
+        return net && net->mode && net->mode(net->ctx) == NetworkAccessMode::Station;
+#else
+        (void)services;
+        return true;
+#endif
+    }
     void onStart(ConfigStore& cfg, ServiceRegistry& services) override;
     uint32_t startDelayMs() const override {
+#if defined(FLOW_PROFILE_FLOWIOS3)
+        return 3000U;
+#else
         return Limits::Boot::WebInterfaceStartDelayMs;
+#endif
     }
     void loop() override;
     void setProvisioningOnly(bool enabled) { provisioningOnly_ = enabled; }
@@ -170,6 +190,10 @@ private:
     bool rebootPending_ = false;
     uint32_t rebootAtMs_ = 0;
     char rebootReason_[24] = {0};
+    bool webStartLedPulseActive_ = false;
+    uint32_t webStartLedPulseUntilMs_ = 0U;
+    bool webStartLedPrevAutoMode_ = true;
+    bool webStartLedPrevAutoModeValid_ = false;
 
 #if defined(FLOW_PROFILE_MICRONOVA)
     static constexpr UBaseType_t kLocalLogQueueLen = 6;

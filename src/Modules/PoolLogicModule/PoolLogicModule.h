@@ -30,23 +30,29 @@ public:
     uint8_t taskCount() const override { return 1; }
     const ModuleTaskSpec* taskSpecs() const override { return singleLoopTaskSpec(); }
 
-    uint8_t dependencyCount() const override { return 8; }
+    uint8_t dependencyCount() const override { return 7; }
     ModuleId dependency(uint8_t i) const override {
         if (i == 0) return ModuleId::LogHub;
         if (i == 1) return ModuleId::EventBus;
         if (i == 2) return ModuleId::Time;
         if (i == 3) return ModuleId::Io;
         if (i == 4) return ModuleId::PoolDevice;
-        if (i == 5) return ModuleId::Ha;
-        if (i == 6) return ModuleId::Command;
-        if (i == 7) return ModuleId::Alarm;
+        if (i == 5) return ModuleId::Command;
+        if (i == 6) return ModuleId::Alarm;
         return ModuleId::Unknown;
     }
 
     void init(ConfigStore& cfg, ServiceRegistry& services) override;
     void onConfigLoaded(ConfigStore& cfg, ServiceRegistry& services) override;
     void loop() override;
-    uint32_t startDelayMs() const override { return Limits::Boot::PoolLogicStartDelayMs; }
+    uint16_t taskStackSize() const override { return 2560; }
+    uint32_t startDelayMs() const override {
+#if defined(FLOW_PROFILE_FLOWIOS3)
+        return 8000U;
+#else
+        return Limits::Boot::PoolLogicStartDelayMs;
+#endif
+    }
     uint8_t runtimeSnapshotCount() const override;
     const char* runtimeSnapshotSuffix(uint8_t idx) const override;
     RuntimeRouteClass runtimeSnapshotClass(uint8_t idx) const override;

@@ -316,6 +316,7 @@ void SystemMonitorModule::logTaskStacks() {
     uint8_t tasksOnLine = 0;
     bool hasTask = false;
     uint16_t skippedInvalidHandles = 0;
+    uint16_t removedEndedTasks = 0;
 
 #if defined(configUSE_TRACE_FACILITY) && (configUSE_TRACE_FACILITY == 1)
     UBaseType_t liveTaskCount = uxTaskGetNumberOfTasks();
@@ -346,7 +347,7 @@ void SystemMonitorModule::logTaskStacks() {
     return;
 #endif
 
-    const uint8_t n = moduleManager->getTaskEntryCount();
+    uint8_t n = moduleManager->getTaskEntryCount();
     for (uint8_t i = 0; i < n; ++i) {
         const ModuleManager::TaskEntry* task = moduleManager->getTaskEntry(i);
         if (!task || !task->module) continue;
@@ -355,10 +356,6 @@ void SystemMonitorModule::logTaskStacks() {
         // clears/replaces it between validation and the watermark query.
         const TaskHandle_t taskHandle = task->handle;
         if (!taskHandle) {
-            ++skippedInvalidHandles;
-            continue;
-        }
-        if (!isLikelyValidTaskHandle_(taskHandle)) {
             ++skippedInvalidHandles;
             continue;
         }
@@ -378,6 +375,16 @@ void SystemMonitorModule::logTaskStacks() {
             }
         }
         if (!liveTask) {
+            if (moduleManager->removeTaskEntry(taskHandle)) {
+                ++removedEndedTasks;
+                --n;
+                --i;
+            } else {
+                ++skippedInvalidHandles;
+            }
+            continue;
+        }
+        if (!isLikelyValidTaskHandle_(taskHandle)) {
             ++skippedInvalidHandles;
             continue;
         }
@@ -435,6 +442,9 @@ void SystemMonitorModule::logTaskStacks() {
         if (skippedInvalidHandles > 0U) {
             LOGW("Stack skipped invalid handles=%u", (unsigned)skippedInvalidHandles);
         }
+        if (removedEndedTasks > 0U) {
+            LOGD("Stack pruned ended tasks=%u", (unsigned)removedEndedTasks);
+        }
 #if defined(configUSE_TRACE_FACILITY) && (configUSE_TRACE_FACILITY == 1)
         vPortFree(liveTasks);
 #endif
@@ -446,6 +456,9 @@ void SystemMonitorModule::logTaskStacks() {
     }
     if (skippedInvalidHandles > 0U) {
         LOGW("Stack skipped invalid handles=%u", (unsigned)skippedInvalidHandles);
+    }
+    if (removedEndedTasks > 0U) {
+        LOGD("Stack pruned ended tasks=%u", (unsigned)removedEndedTasks);
     }
 #if defined(configUSE_TRACE_FACILITY) && (configUSE_TRACE_FACILITY == 1)
     vPortFree(liveTasks);
@@ -876,12 +889,22 @@ void SystemMonitorModule::pollWebWatchdog_(uint32_t now)
     const bool clientsStale =
         (activeClients > 0U) && ((lastClientActivityMs == 0U) || (clientIdleMs > (staleMs * kWebWatchdogClientIdleFactor)));
 
-    if (!loopStale && !clientsStale) {
+    // A connected but idle WS/HTTP client is normal (dashboard open, no user action).
+    // Reboot escalation must only happen when the web loop itself stops progressing.
+    if (!loopStale) {
         if (webWatchdogConsecutiveFailures_ > 0U) {
             LOGI("Web watchdog recovered failures=%u loop_age=%lu clients=%u",
                  (unsigned)webWatchdogConsecutiveFailures_,
                  (unsigned long)loopAgeMs,
                  (unsigned)activeClients);
+        }
+        if (clientsStale) {
+            LOGD("Web watchdog client idle (non-fatal) loop_age=%lu clients=%u client_idle=%lu ws_ms=%lu http_ms=%lu",
+                 (unsigned long)loopAgeMs,
+                 (unsigned)activeClients,
+                 (unsigned long)clientIdleMs,
+                 (unsigned long)health.lastWsActivityMs,
+                 (unsigned long)health.lastHttpActivityMs);
         }
         webWatchdogConsecutiveFailures_ = 0U;
         webWatchdogRebootIssued_ = false;

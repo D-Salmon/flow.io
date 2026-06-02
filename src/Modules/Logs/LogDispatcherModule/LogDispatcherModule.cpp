@@ -18,8 +18,8 @@ const ModuleTaskSpec* LogDispatcherModule::taskSpecs() const {
     if (!_hub || !_sinkReg) return nullptr;
     spec = {
         "LogDispatch",
-        3072,
-        1,
+        4096,
+        3,
         1,
         &LogDispatcherModule::taskFn,
         &g_ctx

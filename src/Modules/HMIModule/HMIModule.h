@@ -24,7 +24,7 @@ public:
     ModuleId moduleId() const override { return ModuleId::Hmi; }
     const char* taskName() const override { return "HMI"; }
     BaseType_t taskCore() const override { return 1; }
-    uint16_t taskStackSize() const override { return 4096; }
+    uint16_t taskStackSize() const override { return 3584; }
     uint8_t taskCount() const override { return 1; }
     const ModuleTaskSpec* taskSpecs() const override { return singleLoopTaskSpec(); }
     uint32_t startDelayMs() const override {
@@ -35,13 +35,7 @@ public:
 #endif
     }
 
-    uint8_t dependencyCount() const override {
-#if FLOW_BUILD_IS_FLOWIOS3
-        return 11;
-#else
-        return 10;
-#endif
-    }
+    uint8_t dependencyCount() const override { return 10; }
     ModuleId dependency(uint8_t i) const override {
         if (i == 0) return ModuleId::LogHub;
         if (i == 1) return ModuleId::ConfigStore;
@@ -53,9 +47,6 @@ public:
         if (i == 7) return ModuleId::Time;
         if (i == 8) return ModuleId::Wifi;
         if (i == 9) return ModuleId::HmiUdpServer;
-#if FLOW_BUILD_IS_FLOWIOS3
-        if (i == 10) return ModuleId::WifiProvisioning;
-#endif
         return ModuleId::Unknown;
     }
 
@@ -106,9 +97,10 @@ private:
     const CommandService* cmdSvc_ = nullptr;
     const TimeService* timeSvc_ = nullptr;
     const WifiService* wifiSvc_ = nullptr;
-    const NetworkAccessService* netAccessSvc_ = nullptr;
     const LocaleService* localeSvc_ = nullptr;
     const StatusLedsService* statusLedsSvc_ = nullptr;
+    const NetworkAccessService* netAccessSvc_ = nullptr;
+    ServiceRegistry* services_ = nullptr;
     EventBus* eventBus_ = nullptr;
 
     ConfigMenuModel menu_;
@@ -139,10 +131,9 @@ private:
     bool ws2812AutoWifiConnectedLast_ = false;
     bool ws2812AutoWifiMqttLast_ = false;
     bool ws2812AutoWifiApModeLast_ = false;
+    bool ws2812AutoWifiNormalLast_ = false;
     bool ws2812AutoWifiAlarmActiveLast_ = false;
     bool ws2812AutoWifiAlarmRedPhaseLast_ = false;
-    bool ws2812StartupComplete_ = false;
-    bool ws2812AutoStartupCompleteLast_ = false;
     uint32_t homePublishMask_ = 0U;
     portMUX_TYPE homePublishMux_ = portMUX_INITIALIZER_UNLOCKED;
     IoId phIoId_ = PoolBinding::kSensorBindings[PoolBinding::kSensorSlotPh].ioId;

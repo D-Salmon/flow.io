@@ -22,6 +22,12 @@ inline constexpr UartSpec kFlowIODINv1Uarts[] = {
     {"hmi", 2, 16, 17, 115200, false, -1}, // HMI link on UART2 (RX=GPIO16, TX=GPIO17).
 };
 
+inline constexpr UartSpec kFlowIOS3Uarts[] = {
+    // {name, uartIndex, rxPin, txPin, baud, primary, enableRxPin}
+    {"log", 0, -1, -1, 115200, true, -1}, // USB serial console (UART0 default pins).
+    {"hmi", 2, 44, 43, 115200, false, -1}, // HMI link on UART2 (RX=GPIO44, TX=GPIO43).
+};
+
 inline constexpr I2cBusSpec kFlowIODINv1I2c[] = {
     // {name, sdaPin, sclPin, frequencyHz}
     {"io", 21, 22, kFlowIODINv1IoI2cHz}, // Primary IO I2C bus (GPIO21/22, 400 kHz).
@@ -52,7 +58,8 @@ inline constexpr OneWireBusSpec kFlowIOS3OneWire[] = {
     {"temp_probe_2", BoardSignal::TempProbe2, 2}, // Air temperature probe bus on GPIO2.
 };
 
-inline constexpr EthernetW5500Spec kFlowIOS3EthernetW5500{
+// Waveshare industrial 8DI/8RO variants route W5500 on GPIO13/14/15/16 + INT12 + RST39.
+inline constexpr EthernetW5500Spec kFlowIOS3EthernetW5500_8di8ro{
     true,       // enabled: board exposes W5500 Ethernet.
     13,         // mosiPin: ETH_MOSI.
     14,         // misoPin: ETH_MISO.
@@ -63,6 +70,25 @@ inline constexpr EthernetW5500Spec kFlowIOS3EthernetW5500{
     1,          // phyAddr: W5500 PHY address.
     8000000U    // spiClockHz: conservative SPI clock for reliable DHCP bring-up.
 };
+
+// Waveshare ESP32-S3-ETH dev board routes W5500 on GPIO11/12/13/14 + INT10 + RST9.
+inline constexpr EthernetW5500Spec kFlowIOS3EthernetW5500_s3eth{
+    true,       // enabled: board exposes W5500 Ethernet.
+    11,         // mosiPin: ETH_MOSI.
+    12,         // misoPin: ETH_MISO.
+    13,         // sclkPin: ETH_SCLK.
+    14,         // csPin: ETH_CS.
+    10,         // intPin: ETH_INT.
+    9,          // rstPin: ETH_RST.
+    1,          // phyAddr: W5500 PHY address.
+    8000000U    // spiClockHz: conservative SPI clock for reliable DHCP bring-up.
+};
+
+#if defined(FLOW_ETH_WAVESHARE_S3_ETH)
+inline constexpr auto& kFlowIOS3EthernetW5500 = kFlowIOS3EthernetW5500_s3eth;
+#else
+inline constexpr auto& kFlowIOS3EthernetW5500 = kFlowIOS3EthernetW5500_8di8ro;
+#endif
 
 inline constexpr IoPointSpec kFlowIODINv1IoPoints[] = {
     // {name, capability, signal, pin, momentary, pulseMs}
@@ -84,6 +110,29 @@ inline constexpr IoPointSpec kFlowIODINv1IoPoints[] = {
     {"analog_in4", IoCapability::AnalogIn, BoardSignal::AnalogIn4, 3, false, 0}, // ADS1115 internal channel 3.
     {"temp_probe_1", IoCapability::OneWireTemp, BoardSignal::TempProbe1, 19, false, 0}, // Water probe on GPIO19.
     {"temp_probe_2", IoCapability::OneWireTemp, BoardSignal::TempProbe2, 18, false, 0}, // Air probe on GPIO18.
+};
+
+inline constexpr IoPointSpec kFlowIOS3IoPoints[] = {
+    // FlowIOS3 digital outputs are exposed through the TCA9554 expander (EXIO1..EXIO8), not direct GPIO relays.
+    // pin field below uses logical EXIO index (0..7) for board metadata readability.
+    {"exio1", IoCapability::DigitalOut, BoardSignal::Relay1, 0, false, 0},
+    {"exio2", IoCapability::DigitalOut, BoardSignal::Relay2, 1, false, 0},
+    {"exio3", IoCapability::DigitalOut, BoardSignal::Relay3, 2, false, 0},
+    {"exio4", IoCapability::DigitalOut, BoardSignal::Relay4, 3, false, 0},
+    {"exio5", IoCapability::DigitalOut, BoardSignal::Relay5, 4, false, 0},
+    {"exio6", IoCapability::DigitalOut, BoardSignal::Relay6, 5, false, 0},
+    {"exio7", IoCapability::DigitalOut, BoardSignal::Relay7, 6, false, 0},
+    {"exio8", IoCapability::DigitalOut, BoardSignal::Relay8, 7, false, 0},
+    {"digital_in1", IoCapability::DigitalIn, BoardSignal::DigitalIn1, 4, false, 0},
+    {"digital_in2", IoCapability::DigitalIn, BoardSignal::DigitalIn2, 5, false, 0},
+    {"digital_in3", IoCapability::DigitalIn, BoardSignal::DigitalIn3, 6, false, 0},
+    {"digital_in4", IoCapability::DigitalIn, BoardSignal::DigitalIn4, 7, false, 0},
+    {"analog_in1", IoCapability::AnalogIn, BoardSignal::AnalogIn1, 0, false, 0},
+    {"analog_in2", IoCapability::AnalogIn, BoardSignal::AnalogIn2, 1, false, 0},
+    {"analog_in3", IoCapability::AnalogIn, BoardSignal::AnalogIn3, 2, false, 0},
+    {"analog_in4", IoCapability::AnalogIn, BoardSignal::AnalogIn4, 3, false, 0},
+    {"temp_probe_1", IoCapability::OneWireTemp, BoardSignal::TempProbe1, 3, false, 0},
+    {"temp_probe_2", IoCapability::OneWireTemp, BoardSignal::TempProbe2, 2, false, 0},
 };
 
 inline constexpr BoardSpec kFlowIODINv1{
@@ -148,14 +197,14 @@ inline constexpr BoardSpec kFlowIODINv1S3{
 inline constexpr BoardSpec kFlowIOS3{
     "FlowIOS3",
     "flowio",
-    kFlowIODINv1Uarts,
-    (uint8_t)(sizeof(kFlowIODINv1Uarts) / sizeof(kFlowIODINv1Uarts[0])),
+    kFlowIOS3Uarts,
+    (uint8_t)(sizeof(kFlowIOS3Uarts) / sizeof(kFlowIOS3Uarts[0])),
     kFlowIOS3I2c,
     (uint8_t)(sizeof(kFlowIOS3I2c) / sizeof(kFlowIOS3I2c[0])),
     kFlowIOS3OneWire,
     (uint8_t)(sizeof(kFlowIOS3OneWire) / sizeof(kFlowIOS3OneWire[0])),
-    kFlowIODINv1IoPoints,
-    (uint8_t)(sizeof(kFlowIODINv1IoPoints) / sizeof(kFlowIODINv1IoPoints[0])),
+    kFlowIOS3IoPoints,
+    (uint8_t)(sizeof(kFlowIOS3IoPoints) / sizeof(kFlowIOS3IoPoints[0])),
     kFlowIOS3IoCapacity,
     kFlowIODINMqttCapacity,
     kFlowIODINMqttBuffers,

@@ -117,20 +117,20 @@ static constexpr uint8_t kWs2812T0BlueRed = 0U;
 static constexpr uint8_t kWs2812T0BlueGreen = 0U;
 static constexpr uint8_t kWs2812T0BlueBlue = 255U;
 static constexpr uint8_t kWs2812T0BlueBrightness = 128U;
-static constexpr uint16_t kWs2812StartupBreathePeriodMs = 2200U;
-static constexpr uint8_t kWs2812ApOrangeRed = 255U;
-static constexpr uint8_t kWs2812ApOrangeGreen = 96U;
-static constexpr uint8_t kWs2812ApOrangeBlue = 0U;
-static constexpr uint8_t kWs2812ApOrangeBrightness = 128U;
-static constexpr uint16_t kWs2812ApBreathePeriodMs = 2200U;
 static constexpr uint8_t kWs2812AlarmRedRed = 255U;
 static constexpr uint8_t kWs2812AlarmRedGreen = 0U;
 static constexpr uint8_t kWs2812AlarmRedBlue = 0U;
 static constexpr uint8_t kWs2812AlarmRedBrightness = 128U;
+static constexpr uint8_t kWs2812ProvisioningRed = 255U;
+static constexpr uint8_t kWs2812ProvisioningGreen = 96U;
+static constexpr uint8_t kWs2812ProvisioningBlue = 0U;
+static constexpr uint8_t kWs2812ProvisioningBrightness = 160U;
 static constexpr uint16_t kWs2812NetSlowBlinkOnMs = 750U;
 static constexpr uint16_t kWs2812NetSlowBlinkOffMs = 750U;
 static constexpr uint16_t kWs2812NetFastBlinkOnMs = 150U;
 static constexpr uint16_t kWs2812NetFastBlinkOffMs = 150U;
+static constexpr uint16_t kWs2812NormalBreathePeriodMs = 900U;
+static constexpr uint16_t kWs2812ProvisioningBreathePeriodMs = 700U;
 static constexpr uint32_t kWs2812AlarmAlternationMs = 2000U;
 
 static bool isSupportedNextionDisplayVersion_(uint32_t version)
@@ -421,9 +421,16 @@ static const ConfigMenuHint kHints[] = {
 void HMIModule::applyOutputConfig_()
 {
     IHmiDriver* wantedDriver = nullptr;
+    const bool nextionUartConfigured = (Board::SerialMap::hmiRxPin() >= 0) && (Board::SerialMap::hmiTxPin() >= 0);
+    const bool hmiUartBlockedByNativeUsb = Board::SerialMap::hmiUartBlockedByNativeUsb();
+    if (cfgData_.nextionEnabled && !cfgData_.remoteUdpEnabled && hmiUartBlockedByNativeUsb) {
+        LOGW("Nextion disabled: HMI UART pins overlap native USB CDC (set FLOW_ALLOW_HMI_ON_NATIVE_USB_PINS=1 to override)");
+    } else if (cfgData_.nextionEnabled && !cfgData_.remoteUdpEnabled && !nextionUartConfigured) {
+        LOGW("Nextion disabled: no local HMI UART configured on active board");
+    }
     if (cfgData_.remoteUdpEnabled) {
         wantedDriver = static_cast<IHmiDriver*>(&remoteUdp_);
-    } else if (cfgData_.nextionEnabled && !nextionDisabledByVersion_) {
+    } else if (cfgData_.nextionEnabled && nextionUartConfigured && !nextionDisabledByVersion_) {
         wantedDriver = static_cast<IHmiDriver*>(&nextion_);
     }
     if (driver_ != wantedDriver) {
@@ -513,14 +520,13 @@ bool HMIModule::setStatusLedState_(const HmiStatusLedState* state)
     Ws2812StatusLedState next{};
     next.enabled = state->enabled;
     next.blinkEnabled = state->blinkEnabled;
-    next.breatheEnabled = state->breatheEnabled;
     next.red = state->red;
     next.green = state->green;
     next.blue = state->blue;
     next.brightness = state->brightness;
     next.blinkOnMs = state->blinkOnMs;
     next.blinkOffMs = state->blinkOffMs;
-    next.breathePeriodMs = state->breathePeriodMs;
+    next.breatheEnabled = false;
     ws2812AutoWifiMode_ = false;
     ws2812AutoWifiApplied_ = false;
     return ws2812StatusLed_.setState(next);
@@ -532,15 +538,13 @@ bool HMIModule::getStatusLedState_(HmiStatusLedState* out) const
     Ws2812StatusLedState current{};
     if (!ws2812StatusLed_.getState(current)) return false;
     out->enabled = current.enabled;
-    out->blinkEnabled = current.blinkEnabled;
-    out->breatheEnabled = current.breatheEnabled;
+    out->blinkEnabled = current.blinkEnabled || current.breatheEnabled;
     out->red = current.red;
     out->green = current.green;
     out->blue = current.blue;
     out->brightness = current.brightness;
     out->blinkOnMs = current.blinkOnMs;
     out->blinkOffMs = current.blinkOffMs;
-    out->breathePeriodMs = current.breathePeriodMs;
     return true;
 }
 
@@ -559,6 +563,7 @@ bool HMIModule::isStatusLedAutoWifiMode_() const
 
 void HMIModule::init(ConfigStore& cfg, ServiceRegistry& services)
 {
+    services_ = &services;
     cfg.registerVar(ledsEnabledVar_);
     cfg.registerVar(nextionEnabledVar_);
     cfg.registerVar(remoteUdpEnabledVar_);
@@ -573,9 +578,9 @@ void HMIModule::init(ConfigStore& cfg, ServiceRegistry& services)
     cmdSvc_ = services.get<CommandService>(ServiceId::Command);
     timeSvc_ = services.get<TimeService>(ServiceId::Time);
     wifiSvc_ = services.get<WifiService>(ServiceId::Wifi);
-    netAccessSvc_ = services.get<NetworkAccessService>(ServiceId::NetworkAccess);
     localeSvc_ = services.get<LocaleService>(ServiceId::Locale);
     statusLedsSvc_ = services.get<StatusLedsService>(ServiceId::StatusLeds);
+    netAccessSvc_ = services.get<NetworkAccessService>(ServiceId::NetworkAccess);
     auto* ebSvc = services.get<EventBusService>(ServiceId::EventBus);
     eventBus_ = ebSvc ? ebSvc->bus : nullptr;
 
@@ -599,7 +604,6 @@ void HMIModule::init(ConfigStore& cfg, ServiceRegistry& services)
         eventBus_->subscribe(EventId::DataChanged, &HMIModule::onEventStatic_, this);
         eventBus_->subscribe(EventId::AlarmRaised, &HMIModule::onEventStatic_, this);
         eventBus_->subscribe(EventId::AlarmCleared, &HMIModule::onEventStatic_, this);
-        eventBus_->subscribe(EventId::StartupComplete, &HMIModule::onEventStatic_, this);
     }
 
     if (!services.add(ServiceId::Hmi, &hmiSvc_)) {
@@ -610,7 +614,7 @@ void HMIModule::init(ConfigStore& cfg, ServiceRegistry& services)
     dcfg.serial = &Board::SerialMap::hmiSerial();
     dcfg.rxPin = Board::SerialMap::hmiRxPin();
     dcfg.txPin = Board::SerialMap::hmiTxPin();
-    dcfg.baud = Board::SerialMap::HmiBaud;
+    dcfg.baud = Board::SerialMap::hmiBaud();
     dcfg.homePageId = kNextionHomePagePrimary;
     dcfg.homePageAliasId = kNextionHomePageAlias;
     dcfg.configPageId = kNextionConfigPagePrimary;
@@ -641,10 +645,9 @@ void HMIModule::init(ConfigStore& cfg, ServiceRegistry& services)
     ws2812AutoWifiConnectedLast_ = false;
     ws2812AutoWifiMqttLast_ = false;
     ws2812AutoWifiApModeLast_ = false;
+    ws2812AutoWifiNormalLast_ = false;
     ws2812AutoWifiAlarmActiveLast_ = false;
     ws2812AutoWifiAlarmRedPhaseLast_ = false;
-    ws2812StartupComplete_ = false;
-    ws2812AutoStartupCompleteLast_ = false;
     lastLedApplyTryMs_ = 0;
     lastLedPageToggleMs_ = millis();
     lastWifiBlinkToggleMs_ = millis();
@@ -696,9 +699,8 @@ void HMIModule::init(ConfigStore& cfg, ServiceRegistry& services)
          ws2812Ready ? "on" : "off");
 }
 
-void HMIModule::onConfigLoaded(ConfigStore&, ServiceRegistry& services)
+void HMIModule::onConfigLoaded(ConfigStore&, ServiceRegistry&)
 {
-    netAccessSvc_ = services.get<NetworkAccessService>(ServiceId::NetworkAccess);
     refreshLocale_();
     applyOutputConfig_();
     refreshHomeBindings_();
@@ -1470,13 +1472,17 @@ void HMIModule::applyWs2812AutoWifiProfile_()
 {
     if (!ws2812AutoWifiMode_) return;
 
+    if (!netAccessSvc_ && services_) {
+        netAccessSvc_ = services_->get<NetworkAccessService>(ServiceId::NetworkAccess);
+    }
+
     bool networkConnected = false;
     bool mqttConnected = false;
     networkConnected = isNetworkConnected_(dsSvc_);
     if (dsSvc_ && dsSvc_->store) mqttConnected = mqttReady(*dsSvc_->store);
-    const bool apMode = netAccessSvc_ &&
-                        netAccessSvc_->mode &&
+    const bool apMode = netAccessSvc_ && netAccessSvc_->mode &&
                         netAccessSvc_->mode(netAccessSvc_->ctx) == NetworkAccessMode::AccessPoint;
+    const bool normalRun = mqttConnected && (driverReady_ || driver_ == nullptr);
     bool alarmActive = false;
     if (alarmSvc_ && alarmSvc_->activeCount) {
         alarmActive = (alarmSvc_->activeCount(alarmSvc_->ctx) > 0U);
@@ -1488,30 +1494,29 @@ void HMIModule::applyWs2812AutoWifiProfile_()
         ws2812AutoWifiConnectedLast_ == networkConnected &&
         ws2812AutoWifiMqttLast_ == mqttConnected &&
         ws2812AutoWifiApModeLast_ == apMode &&
+        ws2812AutoWifiNormalLast_ == normalRun &&
         ws2812AutoWifiAlarmActiveLast_ == alarmActive &&
-        ws2812AutoWifiAlarmRedPhaseLast_ == alarmRedPhase &&
-        ws2812AutoStartupCompleteLast_ == ws2812StartupComplete_) {
+        ws2812AutoWifiAlarmRedPhaseLast_ == alarmRedPhase) {
         return;
     }
 
     Ws2812StatusLedState state{};
     state.enabled = true;
-    if (alarmRedPhase) {
+    if (apMode) {
         state.blinkEnabled = false;
+        state.breatheEnabled = true;
+        state.red = kWs2812ProvisioningRed;
+        state.green = kWs2812ProvisioningGreen;
+        state.blue = kWs2812ProvisioningBlue;
+        state.brightness = kWs2812ProvisioningBrightness;
+        state.breathePeriodMs = kWs2812ProvisioningBreathePeriodMs;
+    } else if (alarmRedPhase) {
+        state.blinkEnabled = false;
+        state.breatheEnabled = false;
         state.red = kWs2812AlarmRedRed;
         state.green = kWs2812AlarmRedGreen;
         state.blue = kWs2812AlarmRedBlue;
         state.brightness = kWs2812AlarmRedBrightness;
-        state.blinkOnMs = kWs2812NetFastBlinkOnMs;
-        state.blinkOffMs = kWs2812NetFastBlinkOffMs;
-    } else if (apMode) {
-        state.blinkEnabled = false;
-        state.breatheEnabled = true;
-        state.red = kWs2812ApOrangeRed;
-        state.green = kWs2812ApOrangeGreen;
-        state.blue = kWs2812ApOrangeBlue;
-        state.brightness = kWs2812ApOrangeBrightness;
-        state.breathePeriodMs = kWs2812ApBreathePeriodMs;
         state.blinkOnMs = kWs2812NetFastBlinkOnMs;
         state.blinkOffMs = kWs2812NetFastBlinkOffMs;
     } else {
@@ -1519,22 +1524,25 @@ void HMIModule::applyWs2812AutoWifiProfile_()
         state.green = kWs2812T0BlueGreen;
         state.blue = kWs2812T0BlueBlue;
         state.brightness = kWs2812T0BlueBrightness;
-        if (ws2812StartupComplete_) {
+        if (normalRun) {
             state.blinkEnabled = false;
             state.breatheEnabled = true;
-            state.breathePeriodMs = kWs2812StartupBreathePeriodMs;
+            state.breathePeriodMs = kWs2812NormalBreathePeriodMs;
             state.blinkOnMs = kWs2812NetFastBlinkOnMs;
             state.blinkOffMs = kWs2812NetFastBlinkOffMs;
         } else if (networkConnected && mqttConnected) {
             state.blinkEnabled = false;
+            state.breatheEnabled = false;
             state.blinkOnMs = kWs2812NetFastBlinkOnMs;
             state.blinkOffMs = kWs2812NetFastBlinkOffMs;
         } else if (networkConnected) {
             state.blinkEnabled = true;
+            state.breatheEnabled = false;
             state.blinkOnMs = kWs2812NetFastBlinkOnMs;
             state.blinkOffMs = kWs2812NetFastBlinkOffMs;
         } else {
             state.blinkEnabled = true;
+            state.breatheEnabled = false;
             state.blinkOnMs = kWs2812NetSlowBlinkOnMs;
             state.blinkOffMs = kWs2812NetSlowBlinkOffMs;
         }
@@ -1543,9 +1551,9 @@ void HMIModule::applyWs2812AutoWifiProfile_()
     ws2812AutoWifiConnectedLast_ = networkConnected;
     ws2812AutoWifiMqttLast_ = mqttConnected;
     ws2812AutoWifiApModeLast_ = apMode;
+    ws2812AutoWifiNormalLast_ = normalRun;
     ws2812AutoWifiAlarmActiveLast_ = alarmActive;
     ws2812AutoWifiAlarmRedPhaseLast_ = alarmRedPhase;
-    ws2812AutoStartupCompleteLast_ = ws2812StartupComplete_;
     ws2812AutoWifiApplied_ = true;
 }
 
@@ -1646,13 +1654,6 @@ void HMIModule::onEvent_(const Event& e)
 {
     bool ledDirty = false;
     uint32_t homePublishMask = 0U;
-
-    if (e.id == EventId::StartupComplete) {
-        ws2812StartupComplete_ = true;
-        ws2812AutoWifiApplied_ = false;
-        applyWs2812AutoWifiProfile_();
-        return;
-    }
 
     if (e.id == EventId::ConfigChanged && e.payload && e.len >= sizeof(ConfigChangedPayload)) {
         const ConfigChangedPayload* p = static_cast<const ConfigChangedPayload*>(e.payload);

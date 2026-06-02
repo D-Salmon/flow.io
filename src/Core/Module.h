@@ -8,6 +8,7 @@
 #include "Core/SystemLimits.h"
 #include "Runtime.h"
 #include "ServiceRegistry.h"
+#include "esp_heap_caps.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
@@ -42,6 +43,8 @@ public:
     virtual void init(ConfigStore& cfg, ServiceRegistry& services) = 0;
     /** @brief Called once all persistent config values are loaded. */
     virtual void onConfigLoaded(ConfigStore&, ServiceRegistry&) {}
+    /** @brief Return whether the startup sequencer may release the module now. */
+    virtual bool canStart(ConfigStore&, ServiceRegistry&) { return true; }
     /** @brief Called when the startup sequencer releases the module. */
     virtual void onStart(ConfigStore&, ServiceRegistry&) {}
     /** @brief Main module loop called from the module task. */
@@ -56,6 +59,8 @@ public:
     virtual uint16_t taskStackSize() const { return Limits::Core::Task::DefaultStackSize; }
     /** @brief Task priority for the FreeRTOS task. */
     virtual UBaseType_t taskPriority() const { return 1; }
+    /** @brief Memory capability flags used for the task stack allocation. */
+    virtual UBaseType_t taskStackCaps() const { return MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT; }
     /** @brief CPU core affinity for the FreeRTOS task (`0` or `1` on ESP32). */
     virtual BaseType_t taskCore() const { return 1; }
     /** @brief Relative startup delay in ms applied by `ModuleManager` before `onStart`. */

@@ -7,12 +7,9 @@
 #include "Modules/Network/WifiModule/WifiRuntime.h"
 
 #include <Arduino.h>
-#include <driver/spi_master.h>
-#include <esp_event.h>
-#include <esp_eth_mac.h>
-#include <esp_eth_phy.h>
+#include <SPI.h>
+#include <esp_err.h>
 #include <esp_netif_ip_addr.h>
-#include <string.h>
 
 namespace {
 const char* stateName(EthernetState s)
@@ -25,6 +22,17 @@ const char* stateName(EthernetState s)
         case EthernetState::ErrorWait: return "ErrorWait";
         default: return "Unknown";
     }
+}
+
+EthernetModule* gEthernetInstance = nullptr;
+
+uint8_t toSpiFreqMhz_(uint32_t hz)
+{
+    if (hz == 0U) return 8U;
+    uint32_t mhz = (hz + 500000U) / 1000000U;
+    if (mhz < 1U) mhz = 1U;
+    if (mhz > 80U) mhz = 80U;
+    return (uint8_t)mhz;
 }
 }  // namespace
 
@@ -40,6 +48,7 @@ EthernetModule::EthernetModule(const BoardSpec& board)
                       ethCfg_.csPin >= 0 &&
                       ethCfg_.intPin >= 0 &&
                       ethCfg_.rstPin >= 0;
+        spiFreqMhz_ = toSpiFreqMhz_(ethCfg_.spiClockHz);
     }
 }
 
@@ -53,6 +62,8 @@ void EthernetModule::init(ConfigStore& cfg, ServiceRegistry& services)
     const DataStoreService* dsSvc = services.get<DataStoreService>(ServiceId::DataStore);
     dataStore_ = dsSvc ? dsSvc->store : nullptr;
 
+    gEthernetInstance = this;
+    cleanupDriver_();
     setState_(EthernetState::Disabled);
     resetRuntimeState_();
 }
@@ -73,8 +84,10 @@ void EthernetModule::onConfigLoaded(ConfigStore&, ServiceRegistry& services)
             }
         }
         setState_(EthernetState::Starting);
-        LOGI("Ethernet enabled (W5500 DHCP)");
+        LOGI("Ethernet enabled (W5500 DHCP via ETH.begin)");
     } else {
+        cleanupDriver_();
+        resetRuntimeState_();
         setState_(EthernetState::Disabled);
         LOGI("Ethernet disabled");
     }
@@ -116,6 +129,12 @@ void EthernetModule::loop()
 
         case EthernetState::ErrorWait:
             if ((millis() - stateTs_) >= kErrorRetryMs) {
+                LOGW("Retrying Ethernet start (attempt=%lu, consecutive_failures=%lu, last_stage=%s, last_err=%d:%s)",
+                     (unsigned long)startAttempts_,
+                     (unsigned long)consecutiveStartFailures_,
+                     lastStartFailureStage_ ? lastStartFailureStage_ : "none",
+                     lastStartFailureErr_,
+                     esp_err_to_name((esp_err_t)lastStartFailureErr_));
                 setState_(EthernetState::Starting);
             }
             vTaskDelay(pdMS_TO_TICKS(200));
@@ -123,66 +142,73 @@ void EthernetModule::loop()
     }
 }
 
-void EthernetModule::onEthEventStatic_(void* arg, esp_event_base_t eventBase, int32_t eventId, void* eventData)
+void EthernetModule::onNetworkEventStatic_(arduino_event_t* event)
 {
-    EthernetModule* self = static_cast<EthernetModule*>(arg);
-    if (self) self->onEthEvent_(eventBase, eventId, eventData);
+    if (!event) return;
+    EthernetModule* self = gEthernetInstance;
+    if (!self) return;
+    self->onNetworkEvent_(event);
 }
 
-void EthernetModule::onIpEventStatic_(void* arg, esp_event_base_t eventBase, int32_t eventId, void* eventData)
+void EthernetModule::onNetworkEvent_(arduino_event_t* event)
 {
-    EthernetModule* self = static_cast<EthernetModule*>(arg);
-    if (self) self->onIpEvent_(eventBase, eventId, eventData);
-}
+    if (!event) return;
 
-void EthernetModule::onEthEvent_(esp_event_base_t eventBase, int32_t eventId, void* eventData)
-{
-    (void)eventBase;
-    (void)eventData;
-    switch (eventId) {
-        case ETHERNET_EVENT_CONNECTED:
+    switch (event->event_id) {
+        case ARDUINO_EVENT_ETH_START:
+            LOGI("ETH event: started");
+            (void)ETH.setHostname("flowio-eth0");
+            break;
+
+        case ARDUINO_EVENT_ETH_CONNECTED:
             linkUp_ = true;
             linkDirty_ = true;
             LOGI("ETH link up");
-            (void)startDhcpClient_();
+            logEthLinkInfo_();
             break;
-        case ETHERNET_EVENT_DISCONNECTED:
+
+        case ARDUINO_EVENT_ETH_GOT_IP: {
+            const ip_event_got_ip_t* got = &event->event_info.got_ip;
+            ipAddr_ = got->ip_info.ip.addr;
+            gotIp_ = true;
+            ipDirty_ = true;
+            linkUp_ = true;
+            linkDirty_ = true;
+            LOGI("ETH got IP " IPSTR, IP2STR(&got->ip_info.ip));
+            startMdns_();
+            break;
+        }
+
+        case ARDUINO_EVENT_ETH_LOST_IP:
+            gotIp_ = false;
+            ipAddr_ = 0U;
+            ipDirty_ = true;
+            LOGW("ETH lost IP");
+            stopMdns_();
+            break;
+
+        case ARDUINO_EVENT_ETH_DISCONNECTED:
             linkUp_ = false;
             gotIp_ = false;
             ipAddr_ = 0U;
             linkDirty_ = true;
             ipDirty_ = true;
             LOGW("ETH link down");
+            stopMdns_();
             break;
+
+        case ARDUINO_EVENT_ETH_STOP:
+            linkUp_ = false;
+            gotIp_ = false;
+            ipAddr_ = 0U;
+            linkDirty_ = true;
+            ipDirty_ = true;
+            LOGI("ETH event: stopped");
+            stopMdns_();
+            break;
+
         default:
             break;
-    }
-}
-
-void EthernetModule::onIpEvent_(esp_event_base_t eventBase, int32_t eventId, void* eventData)
-{
-    (void)eventBase;
-    if (eventId == IP_EVENT_ETH_GOT_IP) {
-        const ip_event_got_ip_t* got = static_cast<const ip_event_got_ip_t*>(eventData);
-        if (!got) return;
-        ipAddr_ = got->ip_info.ip.addr;
-        gotIp_ = true;
-        ipDirty_ = true;
-        linkUp_ = true;
-        linkDirty_ = true;
-        LOGI("ETH got IP " IPSTR, IP2STR(&got->ip_info.ip));
-        char ipBuf[16] = {0};
-        snprintf(ipBuf, sizeof(ipBuf), IPSTR, IP2STR(&got->ip_info.ip));
-        LOGI("Network connected via Ethernet ip=%s", ipBuf);
-        return;
-    }
-
-    if (eventId == IP_EVENT_ETH_LOST_IP) {
-        gotIp_ = false;
-        ipAddr_ = 0U;
-        ipDirty_ = true;
-        LOGW("ETH lost IP");
-        LOGW("Network disconnected on Ethernet");
     }
 }
 
@@ -209,156 +235,117 @@ void EthernetModule::resetRuntimeState_()
 
 bool EthernetModule::installDriver_()
 {
-    esp_err_t err = esp_netif_init();
-    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
-        LOGE("esp_netif_init failed err=%d", (int)err);
-        return false;
-    }
+    cleanupDriver_();
+    ++startAttempts_;
 
-    err = esp_event_loop_create_default();
-    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
-        LOGE("esp_event_loop_create_default failed err=%d", (int)err);
-        return false;
-    }
-
-    spi_bus_config_t buscfg{};
-    buscfg.miso_io_num = ethCfg_.misoPin;
-    buscfg.mosi_io_num = ethCfg_.mosiPin;
-    buscfg.sclk_io_num = ethCfg_.sclkPin;
-    buscfg.quadwp_io_num = -1;
-    buscfg.quadhd_io_num = -1;
-    buscfg.max_transfer_sz = 0;
-    err = spi_bus_initialize(kSpiHost_, &buscfg, SPI_DMA_CH_AUTO);
-    if (err == ESP_OK) {
-        spiBusInitialized_ = true;
-    } else if (err != ESP_ERR_INVALID_STATE) {
-        LOGE("spi_bus_initialize failed err=%d", (int)err);
-        return false;
-    }
-
-    spi_device_interface_config_t devcfg{};
-    devcfg.command_bits = 16;
-    devcfg.address_bits = 8;
-    devcfg.mode = 0;
-    devcfg.clock_speed_hz = (int)ethCfg_.spiClockHz;
-    devcfg.spics_io_num = ethCfg_.csPin;
-    devcfg.queue_size = 20;
-    err = spi_bus_add_device(kSpiHost_, &devcfg, &spiHandle_);
-    if (err != ESP_OK || !spiHandle_) {
-        LOGE("spi_bus_add_device failed err=%d", (int)err);
-        return false;
-    }
-
-    eth_w5500_config_t w5500Config = ETH_W5500_DEFAULT_CONFIG(spiHandle_);
-    w5500Config.int_gpio_num = ethCfg_.intPin;
-
-    eth_mac_config_t macConfig = ETH_MAC_DEFAULT_CONFIG();
-    macConfig.sw_reset_timeout_ms = 1000;
-    mac_ = esp_eth_mac_new_w5500(&w5500Config, &macConfig);
-    if (!mac_) {
-        LOGE("esp_eth_mac_new_w5500 failed");
-        return false;
-    }
-
-    eth_phy_config_t phyConfig = ETH_PHY_DEFAULT_CONFIG();
-    phyConfig.reset_gpio_num = ethCfg_.rstPin;
-    phyConfig.phy_addr = ethCfg_.phyAddr;
-    phy_ = esp_eth_phy_new_w5500(&phyConfig);
-    if (!phy_) {
-        LOGE("esp_eth_phy_new_w5500 failed");
-        return false;
-    }
-
-    esp_eth_config_t ethConfig = ETH_DEFAULT_CONFIG(mac_, phy_);
-    err = esp_eth_driver_install(&ethConfig, &ethHandle_);
-    if (err != ESP_OK || !ethHandle_) {
-        LOGE("esp_eth_driver_install failed err=%d", (int)err);
-        return false;
-    }
-
-    esp_netif_config_t netifCfg = ESP_NETIF_DEFAULT_ETH();
-    ethNetif_ = esp_netif_new(&netifCfg);
-    if (!ethNetif_) {
-        LOGE("esp_netif_new failed");
-        return false;
-    }
-
-    ethGlue_ = esp_eth_new_netif_glue(ethHandle_);
-    if (!ethGlue_) {
-        LOGE("esp_eth_new_netif_glue failed");
-        return false;
-    }
-
-    err = esp_netif_attach(ethNetif_, ethGlue_);
-    if (err != ESP_OK) {
-        LOGE("esp_netif_attach failed err=%d", (int)err);
-        return false;
-    }
-
-    (void)startDhcpClient_();
-
-    err = esp_event_handler_register(ETH_EVENT, ESP_EVENT_ANY_ID, &EthernetModule::onEthEventStatic_, this);
-    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
-        LOGE("ETH event register failed err=%d", (int)err);
-        return false;
-    }
-
-    err = esp_event_handler_register(IP_EVENT, IP_EVENT_ETH_GOT_IP, &EthernetModule::onIpEventStatic_, this);
-    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
-        LOGE("IP_EVENT_ETH_GOT_IP register failed err=%d", (int)err);
-        return false;
-    }
-    err = esp_event_handler_register(IP_EVENT, IP_EVENT_ETH_LOST_IP, &EthernetModule::onIpEventStatic_, this);
-    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
-        LOGE("IP_EVENT_ETH_LOST_IP register failed err=%d", (int)err);
-        return false;
-    }
-
-    err = esp_eth_start(ethHandle_);
-    if (err != ESP_OK) {
-        LOGE("esp_eth_start failed err=%d", (int)err);
-        return false;
-    }
-
-    driverStarted_ = true;
-    LOGI("Ethernet driver started host=%d mosi=%d miso=%d sclk=%d cs=%d int=%d rst=%d",
-         (int)kSpiHost_,
+    LOGI("ETH begin attempt=%lu phy=%d phy_addr=%u spi_clk=%luHz mosi=%d miso=%d sclk=%d cs=%d irq=%d rst=%d",
+         (unsigned long)startAttempts_,
+         (int)ETH_PHY_W5500,
+         (unsigned)ethCfg_.phyAddr,
+         (unsigned long)ethCfg_.spiClockHz,
          (int)ethCfg_.mosiPin,
          (int)ethCfg_.misoPin,
          (int)ethCfg_.sclkPin,
          (int)ethCfg_.csPin,
          (int)ethCfg_.intPin,
          (int)ethCfg_.rstPin);
+
+    if (networkEventHandle_ == 0) {
+        networkEventHandle_ = Network.onEvent(EthernetModule::onNetworkEventStatic_);
+    }
+
+    SPI.begin(ethCfg_.sclkPin, ethCfg_.misoPin, ethCfg_.mosiPin);
+    spiStarted_ = true;
+
+    const bool ok = ETH.begin(ETH_PHY_W5500,
+                              (int32_t)ethCfg_.phyAddr,
+                              ethCfg_.csPin,
+                              ethCfg_.intPin,
+                              ethCfg_.rstPin,
+                              SPI,
+                              spiFreqMhz_);
+    if (!ok) {
+        noteStartFailure_("ETH.begin", (int)ESP_FAIL);
+        cleanupDriver_();
+        return false;
+    }
+
+    driverStarted_ = true;
+    consecutiveStartFailures_ = 0U;
+    lastStartFailureStage_ = "none";
+    lastStartFailureErr_ = ESP_OK;
+
+    const String mac = ETH.macAddress();
+    LOGI("Ethernet driver started freq_mhz=%u mac=%s", (unsigned)spiFreqMhz_, mac.c_str());
     return true;
 }
 
 bool EthernetModule::ensureDriverStarted_()
 {
-    if (!hasEthPins_) return false;
+    if (!hasEthPins_) {
+        noteStartFailure_("invalid_board_pin_mapping", (int)ESP_ERR_INVALID_ARG);
+        return false;
+    }
     if (driverStarted_) return true;
     return installDriver_();
 }
 
-bool EthernetModule::startDhcpClient_()
+void EthernetModule::cleanupDriver_()
 {
-    if (!ethNetif_) return false;
+    stopMdns_();
 
-    esp_netif_dhcp_status_t dhcpStatus = ESP_NETIF_DHCP_INIT;
-    const esp_err_t statusErr = esp_netif_dhcpc_get_status(ethNetif_, &dhcpStatus);
-    if (statusErr == ESP_OK) {
-        LOGI("ETH DHCP status before start=%d", (int)dhcpStatus);
-    } else {
-        LOGW("esp_netif_dhcpc_get_status failed err=%d", (int)statusErr);
+    if (networkEventHandle_ != 0) {
+        Network.removeEvent(networkEventHandle_);
+        networkEventHandle_ = 0;
     }
 
-    const esp_err_t err = esp_netif_dhcpc_start(ethNetif_);
-    if (err == ESP_OK || err == ESP_ERR_ESP_NETIF_DHCP_ALREADY_STARTED) {
-        LOGI("ETH DHCP client active err=%d", (int)err);
-        return true;
+    if (driverStarted_) {
+        ETH.end();
     }
 
-    LOGE("esp_netif_dhcpc_start failed err=%d", (int)err);
-    return false;
+    driverStarted_ = false;
+    spiStarted_ = false;
+}
+
+void EthernetModule::noteStartFailure_(const char* stage, int err)
+{
+    ++consecutiveStartFailures_;
+    lastStartFailureStage_ = stage ? stage : "unknown";
+    lastStartFailureErr_ = err;
+    LOGE("ETH start failed stage=%s err=%d:%s consecutive_failures=%lu",
+         lastStartFailureStage_,
+         lastStartFailureErr_,
+         esp_err_to_name((esp_err_t)lastStartFailureErr_),
+         (unsigned long)consecutiveStartFailures_);
+}
+
+void EthernetModule::logEthLinkInfo_() const
+{
+    const String mac = ETH.macAddress();
+    LOGI("ETH hwaddr=%s", mac.c_str());
+    LOGI("ETH speed=%uM", (unsigned)ETH.linkSpeed());
+    LOGI("ETH duplex=%s", ETH.fullDuplex() ? "full" : "half");
+}
+
+void EthernetModule::startMdns_()
+{
+    if (mdnsStarted_) return;
+    if (!gotIp_) return;
+
+    if (!MDNS.begin("flowio")) {
+        LOGW("mDNS start failed host=flowio on Ethernet");
+        return;
+    }
+    mdnsStarted_ = true;
+    LOGI("mDNS started host=flowio.local (Ethernet)");
+}
+
+void EthernetModule::stopMdns_()
+{
+    if (!mdnsStarted_) return;
+    MDNS.end();
+    mdnsStarted_ = false;
+    LOGI("mDNS stopped (Ethernet)");
 }
 
 void EthernetModule::syncRuntimeState_()
