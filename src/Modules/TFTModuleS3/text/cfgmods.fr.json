@@ -8,8 +8,11 @@
     "hmi/tft": {
       "label_t": "cfgmods.hmi.tft.label"
     },
-    "hmi/tft/slots": {
-      "label_t": "cfgmods.hmi.tft.slots.label"
+    "hmi/tft/sensors": {
+      "label_t": "cfgmods.hmi.tft.sensors.label"
+    },
+    "hmi/tft/alarms": {
+      "label_t": "cfgmods.hmi.tft.alarms.label"
     }
   },
   "meta": {
@@ -258,6 +261,36 @@
         {
           "value": 1003,
           "label_t": "cfgmods_meta.tftmodules3.enum_sets.tft_s3_dashboard_runtime_ui.29.label"
+        }
+      ],
+      "tft_s3_alarm_id": [
+        {
+          "value": 1000,
+          "label_t": "cfgmods_meta.tftmodules3.enum_sets.tft_s3_alarm_id.0.label"
+        },
+        {
+          "value": 1001,
+          "label_t": "cfgmods_meta.tftmodules3.enum_sets.tft_s3_alarm_id.1.label"
+        },
+        {
+          "value": 1002,
+          "label_t": "cfgmods_meta.tftmodules3.enum_sets.tft_s3_alarm_id.2.label"
+        },
+        {
+          "value": 1003,
+          "label_t": "cfgmods_meta.tftmodules3.enum_sets.tft_s3_alarm_id.3.label"
+        },
+        {
+          "value": 1004,
+          "label_t": "cfgmods_meta.tftmodules3.enum_sets.tft_s3_alarm_id.4.label"
+        },
+        {
+          "value": 1005,
+          "label_t": "cfgmods_meta.tftmodules3.enum_sets.tft_s3_alarm_id.5.label"
+        },
+        {
+          "value": 1006,
+          "label_t": "cfgmods_meta.tftmodules3.enum_sets.tft_s3_alarm_id.6.label"
         }
       ]
     }

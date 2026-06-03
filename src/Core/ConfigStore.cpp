@@ -10,6 +10,7 @@
 #include "Core/SnprintfCheck.h"
 #include <Arduino.h>
 #include <ArduinoJson.h>
+#include <esp_heap_caps.h>
 #include <stdio.h>
 
 #define LOG_MODULE_ID ((LogModuleId)LogModuleIdValue::CoreConfigStore)
@@ -58,6 +59,42 @@ void reportApplyJsonDocPeak_(size_t usedBytes, size_t capacityBytes)
                (unsigned long)capacityBytes);
 }
 }  // namespace
+
+bool ConfigStore::ensureMetaStorage_()
+{
+    if (_meta) return true;
+
+    const size_t bytes = MAX_CONFIG_VARS * sizeof(ConfigMeta);
+    void* mem = nullptr;
+#if defined(FLOW_PROFILE_FLOWIOS3)
+    if (psramFound()) {
+        mem = heap_caps_calloc(MAX_CONFIG_VARS, sizeof(ConfigMeta), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        if (mem) {
+            Log::info(LOG_MODULE_ID,
+                      "Config meta table allocated in PSRAM bytes=%lu vars=%u",
+                      (unsigned long)bytes,
+                      (unsigned)MAX_CONFIG_VARS);
+        }
+    }
+#endif
+    if (!mem) {
+        mem = heap_caps_calloc(MAX_CONFIG_VARS, sizeof(ConfigMeta), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+        if (mem) {
+            Log::info(LOG_MODULE_ID,
+                      "Config meta table allocated in internal heap bytes=%lu vars=%u",
+                      (unsigned long)bytes,
+                      (unsigned)MAX_CONFIG_VARS);
+        }
+    }
+    _meta = static_cast<ConfigMeta*>(mem);
+    if (!_meta) {
+        Log::error(LOG_MODULE_ID,
+                   "Config meta table allocation failed bytes=%lu vars=%u",
+                   (unsigned long)bytes,
+                   (unsigned)MAX_CONFIG_VARS);
+    }
+    return _meta != nullptr;
+}
 
 void ConfigStore::ensureMutex_()
 {

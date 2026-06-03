@@ -117,10 +117,11 @@ public:
 private:
     Preferences* _prefs = nullptr;
     EventBus* _eventBus = nullptr;
-    ConfigMeta _meta[MAX_CONFIG_VARS];
+    ConfigMeta* _meta = nullptr;
     uint16_t _metaCount = 0;
     bool _metaNearCapacityWarned = false;
 
+    bool ensureMetaStorage_();
     void notifyChanged(const char* nvsKey, const char* moduleName, uint8_t moduleId, uint8_t localBranchId);
     bool writePersistent(const ConfigMeta& m);
     void recordNvsWrite_(size_t bytesWritten);
@@ -152,6 +153,13 @@ private:
 template<typename T, size_t H>
 void ConfigStore::registerVar(ConfigVariable<T, H>& var)
 {
+    if (!ensureMetaStorage_()) {
+        Log::error((LogModuleId)LogModuleIdValue::CoreConfigStore,
+                   "Config meta storage unavailable, dropping module='%s' key='%s'",
+                   var.moduleName ? var.moduleName : "?",
+                   var.nvsKey ? var.nvsKey : "?");
+        return;
+    }
     if (_metaCount >= MAX_CONFIG_VARS) {
         Log::error((LogModuleId)LogModuleIdValue::CoreConfigStore,
                    "Config var capacity reached (%u), dropping module='%s' key='%s'",
@@ -169,7 +177,7 @@ void ConfigStore::registerVar(ConfigVariable<T, H>& var)
     ConfigMeta& m = _meta[_metaCount++];
     BufferUsageTracker::note(TrackedBufferId::ConfigMetaTable,
                              (size_t)_metaCount * sizeof(ConfigMeta),
-                             sizeof(_meta),
+                             MAX_CONFIG_VARS * sizeof(ConfigMeta),
                              var.moduleName,
                              var.jsonName);
 

@@ -2186,7 +2186,7 @@ void flowios3LoadDashboardSlotConfig_(ConfigStore* cfgStore, uint8_t slot, Flowi
     if (!cfgStore || slot >= kFlowios3DashboardSlotCount) return;
 
     char moduleName[32] = {0};
-    snprintf(moduleName, sizeof(moduleName), "tft/s3/slots/slot%02u", (unsigned)slot);
+    snprintf(moduleName, sizeof(moduleName), "tft/s3/sensors/slot%02u", (unsigned)slot);
     char moduleJson[384] = {0};
     bool truncated = false;
     if (!cfgStore->toJsonModule(moduleName, moduleJson, sizeof(moduleJson), &truncated, true) || truncated) return;
