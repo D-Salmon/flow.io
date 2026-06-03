@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <WiFi.h>
+#include <Preferences.h>
 #include <esp_heap_caps.h>
 #include <esp_mac.h>
 #include <esp_system.h>
@@ -53,6 +54,10 @@ void requireSetup(bool ok, const char* step)
     while (true) delay(1000);
 }
 
+bool mqttEnabledInPreferences(Preferences& prefs)
+{
+    return prefs.getBool(NvsKeys::Mqtt::Enabled, false);
+}
 
 bool buildNetworkSnapshot(MQTTModule* mqtt, char* out, size_t len)
 {
@@ -142,7 +147,9 @@ void registerModules(AppContext& ctx, ModuleInstances& modules)
     ctx.moduleManager.add(&modules.firmwareUpdateModule);
     ctx.moduleManager.add(&modules.timeModule);
     ctx.moduleManager.add(&modules.mqttModule);
-    ctx.moduleManager.add(&modules.haModule);
+    if (mqttEnabledInPreferences(ctx.preferences)) {
+        ctx.moduleManager.add(&modules.haModule);
+    }
     ctx.moduleManager.add(&modules.systemModule);
     ctx.moduleManager.add(&modules.ioModule);
     ctx.moduleManager.add(&modules.poolLogicModule);
@@ -186,6 +193,11 @@ void postInit(AppContext& ctx, ModuleInstances& modules)
     const DataStoreService* dsSvc = ctx.services.get<DataStoreService>(ServiceId::DataStore);
     modules.ioDataStore = dsSvc ? dsSvc->store : nullptr;
 
+    if (!mqttEnabledInPreferences(ctx.preferences)) {
+        modules.haService = nullptr;
+        return;
+    }
+
     modules.mqttModule.formatTopic(modules.topicNetworkState, sizeof(modules.topicNetworkState), "rt/network/state");
     modules.mqttModule.formatTopic(modules.topicSystemState, sizeof(modules.topicSystemState), "rt/system/state");
     modules.mqttModule.addRuntimePublisher(modules.topicNetworkState, 60000, 0, false, buildNetworkSnapshot);
@@ -225,9 +237,11 @@ void setupProfile(AppContext& ctx)
 
     // Keep PoolLogic runtime snapshots first so HA-critical state (including
     // heat_assist reason) stays available even when runtime route capacity is reached.
-    requireSetup(modules.mqttModule.registerRuntimeProvider(&modules.poolLogicModule), "register runtime provider poollogic");
-    requireSetup(modules.mqttModule.registerRuntimeProvider(&modules.ioModule), "register runtime provider io");
-    requireSetup(modules.mqttModule.registerRuntimeProvider(&modules.poolDeviceModule), "register runtime provider pooldev");
+    if (mqttEnabledInPreferences(ctx.preferences)) {
+        requireSetup(modules.mqttModule.registerRuntimeProvider(&modules.poolLogicModule), "register runtime provider poollogic");
+        requireSetup(modules.mqttModule.registerRuntimeProvider(&modules.ioModule), "register runtime provider io");
+        requireSetup(modules.mqttModule.registerRuntimeProvider(&modules.poolDeviceModule), "register runtime provider pooldev");
+    }
 
     requireSetup(ctx.moduleManager.initAll(ctx.registry, ctx.services), "init modules");
     postInit(ctx, modules);
@@ -236,8 +250,10 @@ void setupProfile(AppContext& ctx)
 void loopProfile(AppContext&)
 {
     ModuleInstances& modules = moduleInstances();
-    releaseIoHomeAssistantDiscoveryHeapIfDone(modules);
-    refreshIoHomeAssistantIfNeeded(modules);
+    if (modules.haService) {
+        releaseIoHomeAssistantDiscoveryHeapIfDone(modules);
+        refreshIoHomeAssistantIfNeeded(modules);
+    }
     delay(20);
 }
 

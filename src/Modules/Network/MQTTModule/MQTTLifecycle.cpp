@@ -396,6 +396,15 @@ void MQTTModule::onStart(ConfigStore&, ServiceRegistry&)
 
 void MQTTModule::loop()
 {
+    if (!cfgData_.enabled) {
+        if (state_ != MQTTState::Disabled) {
+            stopClient_(true);
+            setState_(MQTTState::Disabled);
+        }
+        vTaskDelay(pdMS_TO_TICKS(Limits::Mqtt::Timing::DisabledDelayMs));
+        return;
+    }
+
     if (!scratch_ && !allocateScratchBuffers_()) {
         vTaskDelay(pdMS_TO_TICKS(Limits::Mqtt::Timing::DisabledDelayMs));
         return;
@@ -408,15 +417,6 @@ void MQTTModule::loop()
     const uint32_t nowMs = millis();
     updateAndReportQueueOccupancy_(nowMs);
     tickProducers_(nowMs);
-
-    if (!cfgData_.enabled) {
-        if (state_ != MQTTState::Disabled) {
-            stopClient_(true);
-            setState_(MQTTState::Disabled);
-        }
-        vTaskDelay(pdMS_TO_TICKS(Limits::Mqtt::Timing::DisabledDelayMs));
-        return;
-    }
 
     switch (state_) {
         case MQTTState::Disabled:

@@ -134,6 +134,12 @@ private:
     bool ws2812AutoWifiNormalLast_ = false;
     bool ws2812AutoWifiAlarmActiveLast_ = false;
     bool ws2812AutoWifiAlarmRedPhaseLast_ = false;
+    bool mqttEnabled_ =
+#if FLOW_BUILD_IS_FLOWIOS3
+        false;
+#else
+        true;
+#endif
     uint32_t homePublishMask_ = 0U;
     portMUX_TYPE homePublishMux_ = portMUX_INITIALIZER_UNLOCKED;
     IoId phIoId_ = PoolBinding::kSensorBindings[PoolBinding::kSensorSlotPh].ioId;
@@ -242,6 +248,7 @@ private:
     bool prevAlarmPage_();
     bool isAlarmPageId_(uint8_t pageId) const;
     bool isDisplaySleeping_() const;
+    void refreshMqttConfig_();
     void applyWs2812AutoWifiProfile_();
     void applyOutputConfig_();
     void applyLedMask_(bool force = false);

@@ -31,6 +31,17 @@ bool isKnownDefaultMdnsHost_(const char* host)
            strcmp(host, "flowio-micronova") == 0;
 }
 
+bool isBlank_(const char* text, size_t maxLen)
+{
+    if (!text) return true;
+    const size_t len = strnlen(text, maxLen);
+    if (len == 0U || len >= maxLen) return true;
+    for (size_t i = 0; i < len; ++i) {
+        if (!isspace((unsigned char)text[i])) return false;
+    }
+    return true;
+}
+
 void formatStaMac_(char* out, size_t outLen)
 {
     if (!out || outLen == 0U) return;
@@ -836,7 +847,9 @@ void WifiModule::init(ConfigStore& cfg,
     WiFi.setAutoReconnect(false);
     gWifiModuleInstance = this;
     hadSuccessfulConnection_ = false;
-    initialConnectNotBeforeMs_ = millis() + kInitialConnectDelayMs;
+    initialConnectNotBeforeMs_ = isBlank_(cfgData.ssid, sizeof(cfgData.ssid))
+        ? 0U
+        : millis() + kInitialConnectDelayMs;
     startupTransientLogUntilMs_ = millis() + kStartupTransientLogWindowMs;
     if (wifiEventHandlerId_ != 0U) {
         WiFi.removeEvent(wifiEventHandlerId_);
@@ -884,7 +897,9 @@ void WifiModule::onConfigLoaded(ConfigStore& cfg, ServiceRegistry& services)
         setState(WifiState::Disabled);
         return;
     }
-    initialConnectNotBeforeMs_ = millis() + kInitialConnectDelayMs;
+    initialConnectNotBeforeMs_ = isBlank_(cfgData.ssid, sizeof(cfgData.ssid))
+        ? 0U
+        : millis() + kInitialConnectDelayMs;
     startupTransientLogUntilMs_ = millis() + kStartupTransientLogWindowMs;
     setState(WifiState::Idle);
 }

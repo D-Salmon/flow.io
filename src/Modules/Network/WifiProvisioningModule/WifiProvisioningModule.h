@@ -37,7 +37,13 @@ public:
     void onConfigLoaded(ConfigStore& cfg, ServiceRegistry& services) override;
     void onStart(ConfigStore& cfg, ServiceRegistry& services) override;
     void loop() override;
-    uint32_t startDelayMs() const override { return Limits::Boot::WifiProvisioningStartDelayMs; }
+    uint32_t startDelayMs() const override {
+#if defined(FLOW_PROFILE_FLOWIOS3)
+        return fastPortalStart_ ? 0U : Limits::Boot::WifiProvisioningStartDelayMs;
+#else
+        return Limits::Boot::WifiProvisioningStartDelayMs;
+#endif
+    }
 
 private:
     enum class PortalReason : uint8_t {
@@ -80,6 +86,7 @@ private:
     uint8_t wifiSsidLen_ = 0;
     uint8_t wifiPassLen_ = 0;
     bool configDirty_ = false;
+    bool fastPortalStart_ = false;
     bool portalLatched_ = false;
     bool staProbeActive_ = false;
     bool apStarting_ = false;

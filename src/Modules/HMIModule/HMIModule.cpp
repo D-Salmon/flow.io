@@ -701,6 +701,7 @@ void HMIModule::init(ConfigStore& cfg, ServiceRegistry& services)
 
 void HMIModule::onConfigLoaded(ConfigStore&, ServiceRegistry&)
 {
+    refreshMqttConfig_();
     refreshLocale_();
     applyOutputConfig_();
     refreshHomeBindings_();
@@ -708,6 +709,22 @@ void HMIModule::onConfigLoaded(ConfigStore&, ServiceRegistry&)
     applyLedMask_(true);
     ws2812AutoWifiApplied_ = false;
     applyWs2812AutoWifiProfile_();
+}
+
+void HMIModule::refreshMqttConfig_()
+{
+    bool enabled =
+#if FLOW_BUILD_IS_FLOWIOS3
+        false;
+#else
+        true;
+#endif
+    char mqttJson[160] = {0};
+    if (cfgSvc_ && cfgSvc_->toJsonModule &&
+        cfgSvc_->toJsonModule(cfgSvc_->ctx, "mqtt", mqttJson, sizeof(mqttJson), nullptr)) {
+        (void)findJsonBool_(mqttJson, "enabled", enabled);
+    }
+    mqttEnabled_ = enabled;
 }
 
 void HMIModule::onEventStatic_(const Event& e, void* user)
@@ -1482,7 +1499,8 @@ void HMIModule::applyWs2812AutoWifiProfile_()
     if (dsSvc_ && dsSvc_->store) mqttConnected = mqttReady(*dsSvc_->store);
     const bool apMode = netAccessSvc_ && netAccessSvc_->mode &&
                         netAccessSvc_->mode(netAccessSvc_->ctx) == NetworkAccessMode::AccessPoint;
-    const bool normalRun = mqttConnected && (driverReady_ || driver_ == nullptr);
+    const bool normalRun = networkConnected && (!mqttEnabled_ || mqttConnected) &&
+                           (driverReady_ || driver_ == nullptr);
     bool alarmActive = false;
     if (alarmSvc_ && alarmSvc_->activeCount) {
         alarmActive = (alarmSvc_->activeCount(alarmSvc_->ctx) > 0U);
@@ -1577,7 +1595,7 @@ void HMIModule::applyLedMask_(bool force)
     const bool chlorinePumpRuntimeAlarm = isAlarmActive_(AlarmId::PoolChlorinePumpMaxUptime);
 
     uint8_t mask = 0U;
-    if (networkConnected && (mqttConnected || wifiBlinkOn_)) {
+    if (networkConnected && (!mqttEnabled_ || mqttConnected || wifiBlinkOn_)) {
         mask |= (uint8_t)(1U << kLedBitMqttConnected);
     }
 
@@ -1682,6 +1700,12 @@ void HMIModule::onEvent_(const Event& e)
             if (cfgData_.nextionEnabled || cfgData_.remoteUdpEnabled) {
                 homePublishMask |= kHomePublishAll;
             }
+        }
+        if ((p->module[0] && strcmp(p->module, "mqtt") == 0) ||
+            strcmp(p->nvsKey, NvsKeys::Mqtt::Enabled) == 0) {
+            refreshMqttConfig_();
+            ledDirty = true;
+            homePublishMask |= kHomePublishStateBits;
         }
         if ((p->moduleId == (uint8_t)ConfigModuleId::System &&
              strcmp(p->nvsKey, NvsKeys::System::Language) == 0) ||
@@ -2789,7 +2813,7 @@ void HMIModule::loop()
         networkConnected = isNetworkConnected_(dsSvc_);
         if (dsSvc_ && dsSvc_->store) mqttConnected = mqttReady(*dsSvc_->store);
 
-        if (networkConnected && !mqttConnected) {
+        if (networkConnected && mqttEnabled_ && !mqttConnected) {
             if ((uint32_t)(now - lastWifiBlinkToggleMs_) >= kWifiBlinkPeriodMs) {
                 lastWifiBlinkToggleMs_ = now;
                 wifiBlinkOn_ = !wifiBlinkOn_;

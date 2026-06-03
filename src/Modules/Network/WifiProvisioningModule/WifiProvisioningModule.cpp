@@ -275,6 +275,9 @@ void WifiProvisioningModule::refreshWifiConfig_()
         wifiEnabled_ = false;
         wifiSsidLen_ = 0;
         wifiPassLen_ = 0;
+#if defined(FLOW_PROFILE_FLOWIOS3)
+        fastPortalStart_ = false;
+#endif
         return;
     }
 
@@ -284,6 +287,9 @@ void WifiProvisioningModule::refreshWifiConfig_()
         wifiEnabled_ = true;
         wifiSsidLen_ = 0;
         wifiPassLen_ = 0;
+#if defined(FLOW_PROFILE_FLOWIOS3)
+        fastPortalStart_ = true;
+#endif
         return;
     }
 
@@ -295,6 +301,9 @@ void WifiProvisioningModule::refreshWifiConfig_()
         wifiEnabled_ = true;
         wifiSsidLen_ = 0;
         wifiPassLen_ = 0;
+#if defined(FLOW_PROFILE_FLOWIOS3)
+        fastPortalStart_ = true;
+#endif
         return;
     }
 
@@ -305,6 +314,9 @@ void WifiProvisioningModule::refreshWifiConfig_()
     wifiSsidLen_ = (uint8_t)strnlen(ssid ? ssid : "", 32U);
     wifiPassLen_ = (uint8_t)strnlen(pass ? pass : "", 64U);
     wifiConfigured_ = wifiEnabled_ && ssid && ssid[0] != '\0';
+#if defined(FLOW_PROFILE_FLOWIOS3)
+    fastPortalStart_ = wifiEnabled_ && !wifiConfigured_;
+#endif
 }
 
 WifiProvisioningModule::PortalReason WifiProvisioningModule::evaluatePortalReason_() const

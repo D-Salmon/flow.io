@@ -23,7 +23,11 @@
 
 /** @brief MQTT configuration values. */
 struct MQTTConfig {
+#if defined(FLOW_PROFILE_FLOWIOS3)
+    bool enabled = false;
+#else
     bool enabled = FLOW_WIRDEF_MQ_EN;
+#endif
     char host[Limits::Mqtt::Buffers::Host] = FLOW_WIRDEF_MQ_HOST;
     int32_t port = FLOW_WIRDEF_MQ_PORT;
     char user[Limits::Mqtt::Buffers::User] = FLOW_WIRDEF_MQ_USER;
@@ -59,6 +63,7 @@ public:
     void onConfigLoaded(ConfigStore& cfg, ServiceRegistry& services) override;
     bool canStart(ConfigStore&, ServiceRegistry& services) override {
 #if defined(FLOW_PROFILE_FLOWIOS3)
+        if (!cfgData_.enabled) return true;
         const NetworkAccessService* net = services.get<NetworkAccessService>(ServiceId::NetworkAccess);
         return net && net->mode && net->mode(net->ctx) == NetworkAccessMode::Station;
 #else
