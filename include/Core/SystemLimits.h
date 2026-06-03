@@ -198,8 +198,8 @@ constexpr uint8_t JitterPct = 15;
 }  // namespace Backoff
 
 }  // namespace Mqtt
-/** @brief Maximum number of runtime MQTT routes stored in the runtime mux (`main.cpp`). */
-constexpr uint8_t MaxRuntimeRoutes = 36;
+/** @brief Maximum number of runtime MQTT routes stored in the runtime mux (`RuntimeProducer`). */
+constexpr uint8_t MaxRuntimeRoutes = 56;
 /** @brief Default momentary digital output pulse duration in ms (`IOModule`). */
 constexpr uint16_t MomentaryPulseMs = 500;
 /** @brief Default periodic trace interval for ORP/pH/PSI calc logs (`IOModule`, `trace_period_ms`). */

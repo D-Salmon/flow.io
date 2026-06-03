@@ -189,7 +189,7 @@ Les valeurs ci-dessous correspondent à l'implémentation actuelle du profil `Fl
 | Switches Home Assistant | 14 | `HAModule::MAX_HA_SWITCHES` |
 | Numbers Home Assistant | 14 | `HAModule::MAX_HA_NUMBERS` |
 | Buttons Home Assistant | 24 | `HAModule::MAX_HA_BUTTONS` |
-| Routes runtime MQTT* | 36 | `Limits::MaxRuntimeRoutes` |
+| Routes runtime MQTT* | 56 | `Limits::MaxRuntimeRoutes` |
 | EventBus queue | 40 | `Limits::EventQueueLen` |
 | Variables de configuration | 380 | `Limits::MaxConfigVars` |
 
