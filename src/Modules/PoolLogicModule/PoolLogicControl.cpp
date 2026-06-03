@@ -430,9 +430,18 @@ void PoolLogicModule::runControlLoop_(uint32_t nowMs)
         orpPidEnabled_ = false;
         resetTemporalPidState_(phPidState_, nowMs);
         resetTemporalPidState_(orpPidState_, nowMs);
+        portENTER_CRITICAL(&pendingMux_);
+        robotManualOverride_ = false;
+        robotManualDesired_ = false;
+        portEXIT_CRITICAL(&pendingMux_);
     }
     if (robotStopped) {
         cleaningDone_ = true;
+        portENTER_CRITICAL(&pendingMux_);
+        if (robotManualOverride_ && !robotManualDesired_) {
+            robotManualOverride_ = false;
+        }
+        portEXIT_CRITICAL(&pendingMux_);
     }
 
     float psi = 0.0f;
@@ -587,9 +596,16 @@ void PoolLogicModule::runControlLoop_(uint32_t nowMs)
     }
     bool filtrationDesired = filtrationDesiredBase;
 
-    // Robot and SWG remain pure derived outputs in auto mode; manual mode keeps
-    // the current state untouched unless another safety rule overrides it.
+    // Robot and SWG remain derived outputs in auto mode. A manual robot request
+    // is still arbitrated here so PoolLogic, not the HMI or PoolDeviceModule,
+    // owns interlocks and duration limits.
     bool robotDesired = robotFsm_.on;
+    bool robotManualOverride = false;
+    bool robotManualDesired = false;
+    portENTER_CRITICAL(&pendingMux_);
+    robotManualOverride = robotManualOverride_;
+    robotManualDesired = robotManualDesired_;
+    portEXIT_CRITICAL(&pendingMux_);
     if (autoMode_) {
         robotDesired = false;
         if (filtrationFsm_.on && !cleaningDone_) {
@@ -601,6 +617,33 @@ void PoolLogicModule::runControlLoop_(uint32_t nowMs)
             if (robotRunMin >= robotDurationMin_) robotDesired = false;
         }
         if (!filtrationFsm_.on) robotDesired = false;
+    }
+    if (robotManualOverride) {
+        if (!filtrationFsm_.on) {
+            robotDesired = false;
+            portENTER_CRITICAL(&pendingMux_);
+            robotManualOverride_ = false;
+            robotManualDesired_ = false;
+            portEXIT_CRITICAL(&pendingMux_);
+        } else {
+            robotDesired = robotManualDesired;
+            if (robotManualDesired && robotFsm_.on) {
+                const uint32_t robotRunMin = stateUptimeSec_(robotFsm_, nowMs) / 60U;
+                if (robotRunMin >= robotDurationMin_) {
+                    robotDesired = false;
+                    cleaningDone_ = true;
+                    portENTER_CRITICAL(&pendingMux_);
+                    robotManualOverride_ = false;
+                    robotManualDesired_ = false;
+                    portEXIT_CRITICAL(&pendingMux_);
+                }
+            }
+            if (!robotManualDesired && !robotFsm_.on) {
+                portENTER_CRITICAL(&pendingMux_);
+                robotManualOverride_ = false;
+                portEXIT_CRITICAL(&pendingMux_);
+            }
+        }
     }
 
     bool swgDesired = swgFsm_.on;

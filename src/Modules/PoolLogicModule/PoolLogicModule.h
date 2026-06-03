@@ -218,6 +218,8 @@ private:
     bool phTankLowError_ = false;
     bool chlorineTankLowError_ = false;
     bool cleaningDone_ = false;
+    bool robotManualOverride_ = false;
+    bool robotManualDesired_ = false;
     bool phPidEnabled_ = false;
     bool orpPidEnabled_ = false;
 

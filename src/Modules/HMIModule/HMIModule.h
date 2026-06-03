@@ -29,7 +29,7 @@ public:
     ModuleId moduleId() const override { return ModuleId::Hmi; }
     const char* taskName() const override { return "HMI"; }
     BaseType_t taskCore() const override { return 1; }
-    uint16_t taskStackSize() const override { return 3584; }
+    uint16_t taskStackSize() const override { return 6144; }
     uint8_t taskCount() const override { return 1; }
     const ModuleTaskSpec* taskSpecs() const override { return singleLoopTaskSpec(); }
     uint32_t startDelayMs() const override {
@@ -182,6 +182,8 @@ private:
     bool rtcPushPending_ = false;
     bool nextionVersionDetected_ = false;
     uint32_t nextionVersion_ = 0U;
+    bool homeBindingsRefreshPending_ = false;
+    bool mqttConfigRefreshPending_ = false;
     char homeErrorMessage_[96]{};
     uint32_t activeConfigContextToken_ = 0U;
     uint32_t nextConfigContextToken_ = 1U;

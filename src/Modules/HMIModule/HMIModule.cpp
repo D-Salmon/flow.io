@@ -1693,13 +1693,18 @@ void HMIModule::onEvent_(const Event& e)
 #endif
         const bool poolLogicChangedByName =
             p->module[0] && strncmp(p->module, "poollogic/", 10) == 0;
+        const bool poolLogicBindingsChanged =
+            strcmp(p->module, kPoolLogicSensorsModule) == 0 ||
+            strcmp(p->module, kPoolLogicDeviceModule) == 0;
         if (p->moduleId == (uint8_t)ConfigModuleId::PoolLogic && !poolLogicChangedByName) {
             LOGW("HMI ignored non-branched PoolLogic config module=%s key=%s",
                  p->module[0] ? p->module : "<empty>",
                  p->nvsKey[0] ? p->nvsKey : "<none>");
         }
+        if (poolLogicBindingsChanged) {
+            homeBindingsRefreshPending_ = true;
+        }
         if (poolLogicChangedByName) {
-            refreshHomeBindings_();
             ledDirty = true;
             homePublishMask |= kHomePublishAll;
         }
@@ -1712,7 +1717,7 @@ void HMIModule::onEvent_(const Event& e)
         }
         if ((p->module[0] && strcmp(p->module, "mqtt") == 0) ||
             strcmp(p->nvsKey, NvsKeys::Mqtt::Enabled) == 0) {
-            refreshMqttConfig_();
+            mqttConfigRefreshPending_ = true;
             ledDirty = true;
             homePublishMask |= kHomePublishStateBits;
         }
@@ -2125,9 +2130,6 @@ void HMIModule::setHomeErrorMessage_(const char* message, bool forceStateRefresh
     uint32_t mask = kHomePublishErrorMessage;
     if (forceStateRefresh) mask |= kHomePublishStateBits;
     queueHomePublish_(mask);
-    if (driverReady_) {
-        flushHomePublish_();
-    }
 }
 
 void HMIModule::reportCommandError_(const char* operation, const char* reply)
@@ -2227,7 +2229,7 @@ bool HMIModule::executeHmiCommand_(HmiCommandId command, uint8_t value)
                 setHomeErrorMessage_("ReadStateFailed", true);
                 return false;
             }
-            return executePoolDeviceWrite_(robotDeviceSlot_, !current);
+            return executeCommandBool_("poollogic.robot.write", !current);
 
         case HmiCommandId::DisplayWifiFactoryReset:
             setHomeErrorMessage_("DisplayOnly", true);
@@ -2765,6 +2767,14 @@ void HMIModule::loop()
     }
 
     const uint32_t now = millis();
+    if (homeBindingsRefreshPending_) {
+        homeBindingsRefreshPending_ = false;
+        refreshHomeBindings_();
+    }
+    if (mqttConfigRefreshPending_) {
+        mqttConfigRefreshPending_ = false;
+        refreshMqttConfig_();
+    }
     const bool displaySleeping = isDisplaySleeping_();
     if (driverReady_ &&
         driver_ == static_cast<IHmiDriver*>(&nextion_) &&

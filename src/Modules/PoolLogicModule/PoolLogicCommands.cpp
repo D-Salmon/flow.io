@@ -13,6 +13,9 @@
 #include <cstring>
 #include <stdio.h>
 
+#define LOG_MODULE_ID ((LogModuleId)LogModuleIdValue::PoolLogicModule)
+#include "Core/ModuleLog.h"
+
 namespace {
 // Commands may send either a compact args JSON or a full root payload with an
 // "args" object. This helper accepts both shapes to preserve compatibility.
@@ -346,6 +349,66 @@ bool PoolLogicModule::cmdMqttControl_(const CommandRequest& req, char* reply, si
         return writeDeviceValue(where, slot, !current, forceManualAutoMode, clearDosingModeKey);
     };
 
+    auto queueRobotManualValue = [&](const char* where, bool requested) -> bool {
+        if (!poolSvc_ || !poolSvc_->readActualOn) {
+            writeCmdError_(reply, replyLen, where, ErrorCode::NotReady);
+            return false;
+        }
+        if (requested) {
+            bool filtrationOn = false;
+            if (!readDeviceActualOn_(filtrationDeviceSlot_, filtrationOn)) {
+                writeCmdError_(reply, replyLen, where, ErrorCode::NotReady);
+                return false;
+            }
+            if (!filtrationOn) {
+                writeCmdError_(reply, replyLen, where, ErrorCode::InterlockBlocked);
+                return false;
+            }
+        }
+
+        portENTER_CRITICAL(&pendingMux_);
+        robotManualOverride_ = true;
+        robotManualDesired_ = requested;
+        robotFsm_.lastCmdMs = 0U;
+        robotFsm_.lastDesired = !requested;
+        portEXIT_CRITICAL(&pendingMux_);
+
+        LOGI("Robot manual request value=%u queued for PoolLogic arbitration", requested ? 1U : 0U);
+        snprintf(reply,
+                 replyLen,
+                 "{\"ok\":true,\"slot\":%u,\"value\":%s,\"queued\":true}",
+                 (unsigned)robotDeviceSlot_,
+                 requested ? "true" : "false");
+        return true;
+    };
+
+    auto queueRobotManualFromArgs = [&](const char* where) -> bool {
+        JsonObjectConst args;
+        if (!parseCmdArgsObject_(req, args)) {
+            writeCmdError_(reply, replyLen, where, ErrorCode::MissingArgs);
+            return false;
+        }
+        if (!args.containsKey("value")) {
+            writeCmdError_(reply, replyLen, where, ErrorCode::MissingValue);
+            return false;
+        }
+        bool requested = false;
+        if (!parseBoolValue_(args["value"], requested)) {
+            writeCmdError_(reply, replyLen, where, ErrorCode::MissingValue);
+            return false;
+        }
+        return queueRobotManualValue(where, requested);
+    };
+
+    auto toggleRobotManualValue = [&](const char* where) -> bool {
+        bool current = false;
+        if (!readDeviceActualOn_(robotDeviceSlot_, current)) {
+            writeCmdError_(reply, replyLen, where, ErrorCode::NotReady);
+            return false;
+        }
+        return queueRobotManualValue(where, !current);
+    };
+
     if (strcmp(cmdName, "poollogic.auto_mode.toggle") == 0) {
         return toggleModeValue("poollogic.auto_mode.toggle", autoModeVar_, autoMode_);
     }
@@ -395,10 +458,10 @@ bool PoolLogicModule::cmdMqttControl_(const CommandRequest& req, char* reply, si
         return toggleDeviceValue("poollogic.lights.toggle", PoolBinding::kDeviceSlotLights, false, nullptr);
     }
     if (strcmp(cmdName, "poollogic.robot.write") == 0) {
-        return writeDeviceFromArgs("poollogic.robot.write", robotDeviceSlot_, false, nullptr);
+        return queueRobotManualFromArgs("poollogic.robot.write");
     }
     if (strcmp(cmdName, "poollogic.robot.toggle") == 0) {
-        return toggleDeviceValue("poollogic.robot.toggle", robotDeviceSlot_, false, nullptr);
+        return toggleRobotManualValue("poollogic.robot.toggle");
     }
     if (strcmp(cmdName, "poollogic.heater.write") == 0) {
         return writeDeviceFromArgs("poollogic.heater.write", heaterDeviceSlot_, false, nullptr);

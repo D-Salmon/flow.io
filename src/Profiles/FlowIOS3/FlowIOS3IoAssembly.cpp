@@ -217,6 +217,19 @@ void applyDigitalDefaultsForRole(DomainRole role, IODigitalInputDefinition& def)
     def.counterDebounceUs = spec->debounceUs;
 }
 
+#if defined(FLOW_BOARD_WAVESHARE_ESP32_S3)
+const char* waveshareDigitalInputNameForRole(DomainRole role)
+{
+    switch (role) {
+        case DomainRole::PoolLevelSensor: return "Pool Level";
+        case DomainRole::PhLevelSensor: return "pH Level";
+        case DomainRole::ChlorineLevelSensor: return "Chlorine Level";
+        case DomainRole::WaterCounterSensor: return "Water Meter";
+        default: return nullptr;
+    }
+}
+#endif
+
 void buildAnalogValueTemplate(const IOModule& ioModule, uint8_t analogIdx, char* out, size_t outLen)
 {
     if (!out || outLen == 0) return;
@@ -445,10 +458,16 @@ void configureIoModule(const AppContext& ctx, ModuleInstances& modules)
             def.activeHigh = false;
             def.pullMode = IO_PULL_UP;
             applyDigitalDefaultsForRole(preset.role, def);
+#if defined(FLOW_BOARD_WAVESHARE_ESP32_S3)
+            if (const char* defaultName = waveshareDigitalInputNameForRole(preset.role)) {
+                snprintf(def.id, sizeof(def.id), "%s", defaultName);
+            }
+#else
             const uint8_t diOrdinal = digitalInputOrdinalFromPort(def.bindingPort);
             if (diOrdinal != 0U) {
                 snprintf(def.id, sizeof(def.id), "DI Pin %u", (unsigned)diOrdinal);
             }
+#endif
             requireSetup(modules.ioModule.defineDigitalInput(def), "define digital input");
             continue;
         }

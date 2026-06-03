@@ -5922,9 +5922,11 @@
     function cfgTreeNodeRefInfo(pathValue) {
       const cleanPath = nettoyerNomFlowCfg(pathValue);
       if (!cleanPath) return null;
-      const matchIo = cleanPath.match(/^io\/(input|output)\/((?:a|i|d)\d{2})$/i);
+      const matchIo = cleanPath.match(/^io\/input\/(?:analog\/)?(a\d{2})$/i)
+        || cleanPath.match(/^io\/input\/(?:digital\/)?(i\d{2})$/i)
+        || cleanPath.match(/^io\/output\/(d\d{2})$/i);
       if (matchIo) {
-        const ref = String(matchIo[2] || '').toLowerCase();
+        const ref = String(matchIo[1] || '').toLowerCase();
         if (!ref) return null;
         return {
           type: 'io',

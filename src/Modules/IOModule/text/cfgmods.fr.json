@@ -26,6 +26,15 @@
     "io/drivers/sht40/address": {
       "display_format": "hex"
     },
+    "io/input": {
+      "label_t": "cfgmods.io.input.label"
+    },
+    "io/input/analog": {
+      "label_t": "cfgmods.io.input.analog.label"
+    },
+    "io/input/digital": {
+      "label_t": "cfgmods.io.input.digital.label"
+    },
     "io/input/a00/a00_source": {
       "enum_set": "io_analog_source"
     },
@@ -88,9 +97,191 @@
       "label_t": "cfgmods.io.input.i04.mode.label",
       "help_t": "cfgmods.io.input.i04.mode.help",
       "enum_set": "flowio_digital_input_mode"
+    },
+    "io/input/i05/i05_pull_mode": {
+      "type": "UInt8",
+      "label_t": "cfgdocs.io.input.i05.i05_pull_mode.label",
+      "help_t": "cfgdocs.io.input.i05.i05_pull_mode.help",
+      "enum_set": "io_digital_pull_mode"
+    },
+    "io/input/i05/mode": {
+      "type": "UInt8",
+      "label_t": "cfgmods.io.input.i05.mode.label",
+      "help_t": "cfgmods.io.input.i05.mode.help",
+      "enum_set": "flowio_digital_input_mode"
+    },
+    "io/input/i06/i06_pull_mode": {
+      "type": "UInt8",
+      "label_t": "cfgdocs.io.input.i06.i06_pull_mode.label",
+      "help_t": "cfgdocs.io.input.i06.i06_pull_mode.help",
+      "enum_set": "io_digital_pull_mode"
+    },
+    "io/input/i06/mode": {
+      "type": "UInt8",
+      "label_t": "cfgmods.io.input.i06.mode.label",
+      "help_t": "cfgmods.io.input.i06.mode.help",
+      "enum_set": "flowio_digital_input_mode"
+    },
+    "io/input/i07/i07_pull_mode": {
+      "type": "UInt8",
+      "label_t": "cfgdocs.io.input.i07.i07_pull_mode.label",
+      "help_t": "cfgdocs.io.input.i07.i07_pull_mode.help",
+      "enum_set": "io_digital_pull_mode"
+    },
+    "io/input/i07/mode": {
+      "type": "UInt8",
+      "label_t": "cfgmods.io.input.i07.mode.label",
+      "help_t": "cfgmods.io.input.i07.mode.help",
+      "enum_set": "flowio_digital_input_mode"
     }
   },
   "meta": {
+    "cfg_tree_aliases": [
+      {
+        "display": "io/input/analog/a00",
+        "store": "io/input/a00"
+      },
+      {
+        "display": "io/input/analog/a01",
+        "store": "io/input/a01"
+      },
+      {
+        "display": "io/input/analog/a02",
+        "store": "io/input/a02"
+      },
+      {
+        "display": "io/input/analog/a03",
+        "store": "io/input/a03"
+      },
+      {
+        "display": "io/input/analog/a04",
+        "store": "io/input/a04"
+      },
+      {
+        "display": "io/input/analog/a05",
+        "store": "io/input/a05"
+      },
+      {
+        "display": "io/input/analog/a06",
+        "store": "io/input/a06"
+      },
+      {
+        "display": "io/input/analog/a07",
+        "store": "io/input/a07"
+      },
+      {
+        "display": "io/input/analog/a08",
+        "store": "io/input/a08"
+      },
+      {
+        "display": "io/input/analog/a09",
+        "store": "io/input/a09"
+      },
+      {
+        "display": "io/input/analog/a10",
+        "store": "io/input/a10"
+      },
+      {
+        "display": "io/input/analog/a11",
+        "store": "io/input/a11"
+      },
+      {
+        "display": "io/input/analog/a12",
+        "store": "io/input/a12"
+      },
+      {
+        "display": "io/input/analog/a13",
+        "store": "io/input/a13"
+      },
+      {
+        "display": "io/input/analog/a14",
+        "store": "io/input/a14"
+      },
+      {
+        "display": "io/input/analog/a15",
+        "store": "io/input/a15"
+      },
+      {
+        "display": "io/input/analog/a16",
+        "store": "io/input/a16"
+      },
+      {
+        "display": "io/input/digital/i00",
+        "store": "io/input/i00"
+      },
+      {
+        "display": "io/input/digital/i01",
+        "store": "io/input/i01"
+      },
+      {
+        "display": "io/input/digital/i02",
+        "store": "io/input/i02"
+      },
+      {
+        "display": "io/input/digital/i03",
+        "store": "io/input/i03"
+      },
+      {
+        "display": "io/input/digital/i04",
+        "store": "io/input/i04"
+      },
+      {
+        "display": "io/input/digital/i05",
+        "store": "io/input/i05"
+      },
+      {
+        "display": "io/input/digital/i06",
+        "store": "io/input/i06"
+      },
+      {
+        "display": "io/input/digital/i07",
+        "store": "io/input/i07"
+      }
+    ],
+    "cfg_tree_virtual_branches": [
+      {
+        "display": "io/input",
+        "children": [
+          "analog",
+          "digital"
+        ]
+      },
+      {
+        "display": "io/input/analog",
+        "children": [
+          "a00",
+          "a01",
+          "a02",
+          "a03",
+          "a04",
+          "a05",
+          "a06",
+          "a07",
+          "a08",
+          "a09",
+          "a10",
+          "a11",
+          "a12",
+          "a13",
+          "a14",
+          "a15",
+          "a16"
+        ]
+      },
+      {
+        "display": "io/input/digital",
+        "children": [
+          "i00",
+          "i01",
+          "i02",
+          "i03",
+          "i04",
+          "i05",
+          "i06",
+          "i07"
+        ]
+      }
+    ],
     "enum_sets": {
       "flowio_digital_input_mode": [
         {
