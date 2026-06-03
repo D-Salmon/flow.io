@@ -8,6 +8,7 @@ namespace FlowIO {
 ModuleInstances::ModuleInstances(const BoardSpec& board)
     : wifiModule(board),
       i2cCfgServerModule(board),
+      hmiModule(board),
       ioModule(board)
 {
 }

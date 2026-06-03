@@ -49,7 +49,7 @@ struct ModuleInstances {
     EventBusModule eventBusModule{};
     AlarmModule alarmModule{};
     HmiUdpServerModule hmiUdpServerModule{};
-    HMIModule hmiModule{};
+    HMIModule hmiModule;
     IOModule ioModule;
     PoolDeviceModule poolDeviceModule{};
     PoolLogicModule poolLogicModule{};

@@ -145,6 +145,9 @@ void registerModules(AppContext& ctx, ModuleInstances& modules)
     ctx.moduleManager.add(&modules.wifiProvisioningModule);
     ctx.moduleManager.add(&modules.webInterfaceModule);
     ctx.moduleManager.add(&modules.firmwareUpdateModule);
+#if defined(FLOW_ENABLE_LOCAL_TFT_HMI) && (FLOW_ENABLE_LOCAL_TFT_HMI != 0)
+    ctx.moduleManager.add(&modules.supervisorHMIModule);
+#endif
     ctx.moduleManager.add(&modules.timeModule);
     ctx.moduleManager.add(&modules.mqttModule);
     if (mqttEnabledInPreferences(ctx.preferences)) {

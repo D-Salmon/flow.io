@@ -30,7 +30,8 @@ enum class BoardSignal : uint8_t {
     AnalogIn3, // Analog input channel 3.
     AnalogIn4, // Analog input channel 4.
     TempProbe1, // 1-Wire temperature probe 1.
-    TempProbe2  // 1-Wire temperature probe 2.
+    TempProbe2, // 1-Wire temperature probe 2.
+    Tx433       // 433 MHz transmitter output.
 };
 
 struct UartSpec {

@@ -460,6 +460,7 @@ void configureIoModule(const AppContext& ctx, ModuleInstances& modules)
         requireSetup(modules.ioModule.defineAnalogInput(def), "define analog input");
     }
 
+#if !defined(FLOW_BOARD_WAVESHARE_ESP32_S3)
     for (uint8_t i = 4; i < 8; ++i) {
         IODigitalInputDefinition def{};
         snprintf(def.id, sizeof(def.id), "DI Pin %u", (unsigned)(i + 1));
@@ -475,6 +476,7 @@ void configureIoModule(const AppContext& ctx, ModuleInstances& modules)
                                     FlowIoLayout::PortDigitalIn8;
         requireSetup(modules.ioModule.defineDigitalInput(def), "define extra digital input");
     }
+#endif
 
     for (uint8_t i = 6; i < 11; ++i) {
         IOAnalogDefinition def{};

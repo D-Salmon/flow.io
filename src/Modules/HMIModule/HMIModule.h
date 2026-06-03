@@ -19,8 +19,13 @@
 #include "Modules/HMIModule/Drivers/Ws2812StatusLedDriver.h"
 #include "Modules/Network/HmiUdpServerModule/HmiUdpServerModule.h"
 
+struct BoardSpec;
+
 class HMIModule : public Module {
 public:
+    HMIModule() = default;
+    explicit HMIModule(const BoardSpec& board);
+
     ModuleId moduleId() const override { return ModuleId::Hmi; }
     const char* taskName() const override { return "HMI"; }
     BaseType_t taskCore() const override { return 1; }

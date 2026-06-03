@@ -6,6 +6,7 @@
 #include "Modules/HMIModule/HMIModule.h"
 
 #include "App/BuildFlags.h"
+#include "Board/BoardSpec.h"
 #include "Board/BoardSerialMap.h"
 #include "Core/ConfigStore.h"
 #include "Core/EventBus/EventPayloads.h"
@@ -559,6 +560,14 @@ bool HMIModule::setStatusLedAutoWifiMode_(bool enabled)
 bool HMIModule::isStatusLedAutoWifiMode_() const
 {
     return ws2812AutoWifiMode_;
+}
+
+HMIModule::HMIModule(const BoardSpec& board)
+{
+    const IoPointSpec* tx433 = boardFindIoPoint(board, BoardSignal::Tx433);
+    if (tx433) {
+        cfgData_.veniceTxGpio = tx433->pin;
+    }
 }
 
 void HMIModule::init(ConfigStore& cfg, ServiceRegistry& services)

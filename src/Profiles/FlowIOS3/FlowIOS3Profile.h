@@ -27,6 +27,9 @@
 #include "Modules/PoolLogicModule/PoolLogicModule.h"
 #include "Modules/Stores/ConfigStoreModule/ConfigStoreModule.h"
 #include "Modules/Stores/DataStoreModule/DataStoreModule.h"
+#if defined(FLOW_ENABLE_LOCAL_TFT_HMI) && (FLOW_ENABLE_LOCAL_TFT_HMI != 0)
+#include "Modules/SupervisorHMIModule/SupervisorHMIModule.h"
+#endif
 #include "Modules/System/SystemModule/SystemModule.h"
 #include "Modules/System/SystemMonitorModule/SystemMonitorModule.h"
 
@@ -45,6 +48,9 @@ struct ModuleInstances {
     WifiProvisioningModule wifiProvisioningModule{};
     WebInterfaceModule webInterfaceModule;
     FirmwareUpdateModule firmwareUpdateModule;
+#if defined(FLOW_ENABLE_LOCAL_TFT_HMI) && (FLOW_ENABLE_LOCAL_TFT_HMI != 0)
+    SupervisorHMIModule supervisorHMIModule;
+#endif
     CommandModule commandModule{};
     ConfigStoreModule configStoreModule{};
     DataStoreModule dataStoreModule{};
@@ -61,12 +67,12 @@ struct ModuleInstances {
     EventBusModule eventBusModule{};
     AlarmModule alarmModule{};
     HmiUdpServerModule hmiUdpServerModule{};
-    HMIModule hmiModule{};
+    HMIModule hmiModule;
     IOModule ioModule;
     PoolDeviceModule poolDeviceModule{};
     PoolLogicModule poolLogicModule{};
-    OneWireBus oneWireWater{3};
-    OneWireBus oneWireAir{2};
+    OneWireBus oneWireWater;
+    OneWireBus oneWireAir;
     DataStore* ioDataStore = nullptr;
     const HAService* haService = nullptr;
     char topicNetworkState[Limits::TopicBuf] = {0};

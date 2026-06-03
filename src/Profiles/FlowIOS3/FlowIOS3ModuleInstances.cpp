@@ -1,16 +1,42 @@
 #include "Profiles/FlowIOS3/FlowIOS3Profile.h"
 
 #include "Board/BoardCatalog.h"
+#include "Board/BoardSpec.h"
 
 namespace Profiles {
 namespace FlowIOS3 {
+
+#if defined(FLOW_ENABLE_LOCAL_TFT_HMI) && (FLOW_ENABLE_LOCAL_TFT_HMI != 0)
+namespace {
+static constexpr SupervisorRuntimeOptions kLocalTftRuntimeOptions{
+    60000U,
+    5000U
+};
+}  // namespace
+#endif
+
+namespace {
+
+int oneWirePinForSignal(const BoardSpec& board, BoardSignal signal, int fallbackPin)
+{
+    const OneWireBusSpec* spec = boardFindOneWire(board, signal);
+    return spec ? spec->pin : fallbackPin;
+}
+
+}  // namespace
 
 ModuleInstances::ModuleInstances(const BoardSpec& board)
     : ethernetModule(board),
       wifiModule(board),
       webInterfaceModule(board),
       firmwareUpdateModule(board),
-      ioModule(board)
+#if defined(FLOW_ENABLE_LOCAL_TFT_HMI) && (FLOW_ENABLE_LOCAL_TFT_HMI != 0)
+      supervisorHMIModule(board, kLocalTftRuntimeOptions),
+#endif
+      hmiModule(board),
+      ioModule(board),
+      oneWireWater(oneWirePinForSignal(board, BoardSignal::TempProbe1, 3)),
+      oneWireAir(oneWirePinForSignal(board, BoardSignal::TempProbe2, 2))
 {
 }
 
