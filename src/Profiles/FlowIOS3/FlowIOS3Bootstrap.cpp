@@ -148,6 +148,9 @@ void registerModules(AppContext& ctx, ModuleInstances& modules)
 #if defined(FLOW_ENABLE_LOCAL_TFT_HMI) && (FLOW_ENABLE_LOCAL_TFT_HMI != 0)
     ctx.moduleManager.add(&modules.supervisorHMIModule);
 #endif
+#if defined(FLOW_ENABLE_TFT_S3) && (FLOW_ENABLE_TFT_S3 != 0)
+    ctx.moduleManager.add(&modules.tftModuleS3);
+#endif
     ctx.moduleManager.add(&modules.timeModule);
     ctx.moduleManager.add(&modules.mqttModule);
     if (mqttEnabledInPreferences(ctx.preferences)) {

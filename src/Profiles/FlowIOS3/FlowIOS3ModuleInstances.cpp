@@ -33,6 +33,9 @@ ModuleInstances::ModuleInstances(const BoardSpec& board)
 #if defined(FLOW_ENABLE_LOCAL_TFT_HMI) && (FLOW_ENABLE_LOCAL_TFT_HMI != 0)
       supervisorHMIModule(board, kLocalTftRuntimeOptions),
 #endif
+#if defined(FLOW_ENABLE_TFT_S3) && (FLOW_ENABLE_TFT_S3 != 0)
+      tftModuleS3(board),
+#endif
       hmiModule(board),
       ioModule(board),
       oneWireWater(oneWirePinForSignal(board, BoardSignal::TempProbe1, 3)),

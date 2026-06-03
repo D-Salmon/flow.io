@@ -2080,85 +2080,487 @@ bool sendFlowios3StatusCompactResponse_(AsyncWebServerRequest* request,
     return true;
 }
 
-bool flowios3ReadDashboardSlotValue_(DataStore* dataStore, RuntimeUiId runtimeId, float& valueOut)
+struct Flowios3DashboardSlotConfig {
+    bool enabled = true;
+    RuntimeUiId runtimeUiId = 0U;
+    char label[24] = {0};
+    uint8_t colorId = 0U;
+};
+
+struct Flowios3DashboardRuntimeValue {
+    bool available = false;
+    RuntimeUiWireType wireType = RuntimeUiWireType::Unavailable;
+    bool boolValue = false;
+    int32_t i32Value = 0;
+    uint32_t u32Value = 0U;
+    float f32Value = 0.0f;
+    char stringValue[64] = {0};
+};
+
+constexpr uint8_t kFlowios3DashboardSlotCount = 8U;
+constexpr RuntimeUiId kFlowios3DashboardDefaultRuntimeUiIds[kFlowios3DashboardSlotCount] = {
+    makeRuntimeUiId(ModuleId::Io, 1),
+    makeRuntimeUiId(ModuleId::Io, 2),
+    makeRuntimeUiId(ModuleId::Io, 3),
+    makeRuntimeUiId(ModuleId::Io, 4),
+    makeRuntimeUiId(ModuleId::Io, 5),
+    makeRuntimeUiId(ModuleId::Io, 8),
+    makeRuntimeUiId(ModuleId::Io, 7),
+    makeRuntimeUiId(ModuleId::Io, 6),
+};
+constexpr const char* kFlowios3DashboardDefaultLabels[kFlowios3DashboardSlotCount] = {
+    "Eau",
+    "Air",
+    "pH",
+    "ORP",
+    "Compteur",
+    "BME680",
+    "BMP280",
+    "PSI",
+};
+constexpr uint8_t kFlowios3DashboardDefaultColorIds[kFlowios3DashboardSlotCount] = {
+    0U,
+    1U,
+    2U,
+    3U,
+    4U,
+    5U,
+    6U,
+    7U,
+};
+constexpr const char* kFlowios3DashboardColorHex[] = {
+    "#E6EFFF", "#E5F8FC", "#E8FAEF", "#F0EAFE", "#E4F6FA", "#E3F7FE", "#EAF8FD",
+    "#FEF0E8", "#FCE7EF", "#FFF0E1", "#FFF7D9", "#EDF8E7", "#F0FAE6", "#F5EEFF",
+    "#EBEEFF", "#EEF7FF", "#F4FADE", "#FFE9E4", "#F9EEE8", "#F1F4F8", "#FFFFFF",
+};
+
+const char* flowios3DashboardColorHex_(uint8_t colorId, uint8_t slot)
+{
+    const uint8_t colorCount = (uint8_t)(sizeof(kFlowios3DashboardColorHex) / sizeof(kFlowios3DashboardColorHex[0]));
+    if (colorId < colorCount) return kFlowios3DashboardColorHex[colorId];
+    if (slot < kFlowios3DashboardSlotCount) {
+        const uint8_t fallbackId = kFlowios3DashboardDefaultColorIds[slot];
+        if (fallbackId < colorCount) return kFlowios3DashboardColorHex[fallbackId];
+    }
+    return "#FFFFFF";
+}
+
+void flowios3DashboardFallbackLabel_(RuntimeUiId id, char* out, size_t outLen)
+{
+    if (!out || outLen == 0U) return;
+    out[0] = '\0';
+    const RuntimeUiManifestItem* item = findRuntimeUiManifestItem(id);
+    const char* key = (item && item->key) ? item->key : "";
+    const char* src = strrchr(key, '.');
+    src = src ? (src + 1) : key;
+    if (!src || src[0] == '\0') {
+        snprintf(out, outLen, "Mesure");
+        return;
+    }
+
+    bool upperNext = true;
+    size_t j = 0U;
+    for (size_t i = 0U; src[i] != '\0' && (j + 1U) < outLen; ++i) {
+        char ch = src[i];
+        if (ch == '_' || ch == '-') {
+            out[j++] = ' ';
+            upperNext = true;
+            continue;
+        }
+        if (upperNext && ch >= 'a' && ch <= 'z') ch = (char)(ch - ('a' - 'A'));
+        out[j++] = ch;
+        upperNext = false;
+    }
+    out[j] = '\0';
+}
+
+void flowios3LoadDashboardSlotConfig_(ConfigStore* cfgStore, uint8_t slot, Flowios3DashboardSlotConfig& out)
+{
+    out.enabled = true;
+    out.runtimeUiId = (slot < kFlowios3DashboardSlotCount) ? kFlowios3DashboardDefaultRuntimeUiIds[slot] : 0U;
+    out.colorId = (slot < kFlowios3DashboardSlotCount) ? kFlowios3DashboardDefaultColorIds[slot] : 0U;
+    snprintf(out.label,
+             sizeof(out.label),
+             "%s",
+             (slot < kFlowios3DashboardSlotCount) ? kFlowios3DashboardDefaultLabels[slot] : "Mesure");
+    if (!cfgStore || slot >= kFlowios3DashboardSlotCount) return;
+
+    char moduleName[32] = {0};
+    snprintf(moduleName, sizeof(moduleName), "tft/s3/slots/slot%02u", (unsigned)slot);
+    char moduleJson[384] = {0};
+    bool truncated = false;
+    if (!cfgStore->toJsonModule(moduleName, moduleJson, sizeof(moduleJson), &truncated, true) || truncated) return;
+
+    StaticJsonDocument<448> doc;
+    if (deserializeJson(doc, moduleJson)) return;
+    if (doc.containsKey("enabled")) out.enabled = doc["enabled"].as<bool>();
+    if (doc.containsKey("runtime_ui_id")) out.runtimeUiId = (RuntimeUiId)(doc["runtime_ui_id"].as<uint32_t>() & 0xFFFFU);
+    if (doc.containsKey("color_id")) out.colorId = (uint8_t)(doc["color_id"].as<uint32_t>() & 0xFFU);
+    if (doc.containsKey("label")) {
+        const char* label = doc["label"].as<const char*>();
+        snprintf(out.label, sizeof(out.label), "%s", label ? label : "");
+    }
+}
+
+bool flowios3SetDashboardRuntimeFromIoValue_(const IoValue& value, Flowios3DashboardRuntimeValue& out)
+{
+    if (!value.valid) return false;
+    out.available = true;
+    if (value.type == IO_VAL_BOOL) {
+        out.wireType = RuntimeUiWireType::Bool;
+        out.boolValue = value.v.b != 0U;
+        return true;
+    }
+    if (value.type == IO_VAL_INT32) {
+        out.wireType = RuntimeUiWireType::Int32;
+        out.i32Value = value.v.i32;
+        return true;
+    }
+    out.wireType = RuntimeUiWireType::Float32;
+    out.f32Value = value.v.f;
+    return true;
+}
+
+bool flowios3ReadDashboardIoValue_(const IOServiceV2* ioSvc, IoId ioId, Flowios3DashboardRuntimeValue& out)
+{
+    if (!ioSvc || !ioSvc->readValue) return false;
+    IoValue value{};
+    if (ioSvc->readValue(ioSvc->ctx, ioId, &value) != IO_OK) return false;
+    return flowios3SetDashboardRuntimeFromIoValue_(value, out);
+}
+
+bool flowios3ReadDashboardIoBackendValue_(const IOServiceV2* ioSvc,
+                                          uint8_t backend,
+                                          uint8_t channel,
+                                          Flowios3DashboardRuntimeValue& out)
+{
+    if (!ioSvc || !ioSvc->count || !ioSvc->idAt || !ioSvc->meta) return false;
+    const uint8_t count = ioSvc->count(ioSvc->ctx);
+    for (uint8_t i = 0U; i < count; ++i) {
+        IoId ioId = IO_ID_INVALID;
+        if (ioSvc->idAt(ioSvc->ctx, i, &ioId) != IO_OK) continue;
+        IoEndpointMeta meta{};
+        if (ioSvc->meta(ioSvc->ctx, ioId, &meta) != IO_OK) continue;
+        if (meta.backend == backend && meta.channel == channel) {
+            return flowios3ReadDashboardIoValue_(ioSvc, ioId, out);
+        }
+    }
+    return false;
+}
+
+bool flowios3ReadDashboardPoolSensorDataStore_(DataStore* dataStore,
+                                               uint8_t valueId,
+                                               Flowios3DashboardRuntimeValue& out)
 {
     if (!dataStore) return false;
-    switch (runtimeId) {
-        case 2101:
-            return ioEndpointFloat(*dataStore, PoolBinding::kSensorBindings[PoolBinding::kSensorSlotWaterTemp].runtimeIndex, valueOut);
-        case 2102:
-            return ioEndpointFloat(*dataStore, PoolBinding::kSensorBindings[PoolBinding::kSensorSlotAirTemp].runtimeIndex, valueOut);
-        case 2103:
-            return ioEndpointFloat(*dataStore, PoolBinding::kSensorBindings[PoolBinding::kSensorSlotPh].runtimeIndex, valueOut);
-        case 2104:
-            return ioEndpointFloat(*dataStore, PoolBinding::kSensorBindings[PoolBinding::kSensorSlotOrp].runtimeIndex, valueOut);
-        case 2105: {
-            if (ioEndpointFloat(*dataStore, PoolBinding::kSensorBindings[PoolBinding::kSensorSlotWaterCounter].runtimeIndex, valueOut)) return true;
-            int32_t counterInt = 0;
-            if (!ioEndpointInt(*dataStore, PoolBinding::kSensorBindings[PoolBinding::kSensorSlotWaterCounter].runtimeIndex, counterInt)) return false;
-            valueOut = (float)counterInt;
+
+    uint8_t runtimeIndex = PoolBinding::kSensorBindings[PoolBinding::kSensorSlotWaterTemp].runtimeIndex;
+    if (valueId == 2U) {
+        runtimeIndex = PoolBinding::kSensorBindings[PoolBinding::kSensorSlotAirTemp].runtimeIndex;
+    } else if (valueId == 3U) {
+        runtimeIndex = PoolBinding::kSensorBindings[PoolBinding::kSensorSlotPh].runtimeIndex;
+    } else if (valueId == 4U) {
+        runtimeIndex = PoolBinding::kSensorBindings[PoolBinding::kSensorSlotOrp].runtimeIndex;
+    } else if (valueId == 5U) {
+        runtimeIndex = PoolBinding::kSensorBindings[PoolBinding::kSensorSlotWaterCounter].runtimeIndex;
+    } else if (valueId == 6U) {
+        runtimeIndex = PoolBinding::kSensorBindings[PoolBinding::kSensorSlotPsi].runtimeIndex;
+    } else if (valueId != 1U) {
+        return false;
+    }
+
+    float value = 0.0f;
+    if (ioEndpointFloat(*dataStore, runtimeIndex, value)) {
+        out.available = true;
+        out.wireType = RuntimeUiWireType::Float32;
+        out.f32Value = value;
+        return true;
+    }
+    if (valueId == 5U) {
+        int32_t counterInt = 0;
+        if (ioEndpointInt(*dataStore, runtimeIndex, counterInt)) {
+            out.available = true;
+            out.wireType = RuntimeUiWireType::Float32;
+            out.f32Value = (float)counterInt;
             return true;
         }
-        case 2106:
-            return ioEndpointFloat(*dataStore, PoolBinding::kSensorBindings[PoolBinding::kSensorSlotPsi].runtimeIndex, valueOut);
+    }
+    return false;
+}
+
+bool flowios3ReadDashboardRuntimeValue_(DataStore* dataStore,
+                                        ConfigStore* cfgStore,
+                                        const AlarmService* alarmSvc,
+                                        const IOServiceV2* ioSvc,
+                                        RuntimeUiId id,
+                                        Flowios3DashboardRuntimeValue& out,
+                                        Flowios3RuntimeContext& ctx)
+{
+    if (!findRuntimeUiManifestItem(id)) return false;
+
+    const ModuleId module = (ModuleId)runtimeUiModuleId(id);
+    const uint8_t valueId = runtimeUiValueId(id);
+    switch (module) {
+        case ModuleId::Alarm:
+            flowios3EnsureAlarmMasks_(ctx, alarmSvc);
+            out.available = true;
+            out.wireType = RuntimeUiWireType::UInt32;
+            if (valueId == 1U) out.u32Value = ctx.alarmActiveMask;
+            else if (valueId == 2U) out.u32Value = ctx.alarmResettableMask;
+            else if (valueId == 3U) out.u32Value = ctx.alarmConditionMask;
+            else return false;
+            return true;
+
+        case ModuleId::PoolLogic:
+            flowios3EnsurePoolMode_(ctx, cfgStore);
+            if (!ctx.poolModeAvailable) return false;
+            out.available = true;
+            out.wireType = RuntimeUiWireType::Bool;
+            if (valueId == 1U) out.boolValue = ctx.poolAutoMode;
+            else if (valueId == 2U) out.boolValue = ctx.poolWinterMode;
+            else if (valueId == 3U) out.boolValue = ctx.poolPhAutoMode;
+            else if (valueId == 4U) out.boolValue = ctx.poolOrpAutoMode;
+            else return false;
+            return true;
+
+        case ModuleId::PoolDevice: {
+            if (!dataStore) return false;
+            uint8_t deviceSlot = 0xFFU;
+            if (valueId == 1U) deviceSlot = PoolBinding::kDeviceSlotFiltrationPump;
+            else if (valueId == 2U) deviceSlot = PoolBinding::kDeviceSlotPhPump;
+            else if (valueId == 3U) deviceSlot = PoolBinding::kDeviceSlotChlorinePump;
+            else if (valueId == 4U) deviceSlot = PoolBinding::kDeviceSlotRobot;
+            else return false;
+
+            PoolDeviceRuntimeStateEntry state{};
+            if (!poolDeviceRuntimeState(*dataStore, deviceSlot, state)) return false;
+            out.available = true;
+            out.wireType = RuntimeUiWireType::Bool;
+            out.boolValue = state.actualOn;
+            return true;
+        }
+
+        case ModuleId::Mqtt:
+            if (!dataStore) return false;
+            out.available = true;
+            if (valueId == 1U) {
+                out.wireType = RuntimeUiWireType::Bool;
+                out.boolValue = mqttReady(*dataStore);
+                return true;
+            }
+            if (valueId == 2U) {
+                flowios3EnsureMqttServer_(ctx, cfgStore);
+                if (ctx.mqttServer[0] == '\0') return false;
+                out.wireType = RuntimeUiWireType::String;
+                snprintf(out.stringValue, sizeof(out.stringValue), "%s", ctx.mqttServer);
+                return true;
+            }
+            out.wireType = RuntimeUiWireType::UInt32;
+            if (valueId == 3U) out.u32Value = mqttRxDrop(*dataStore);
+            else if (valueId == 4U) out.u32Value = mqttParseFail(*dataStore);
+            else if (valueId == 5U) out.u32Value = mqttHandlerFail(*dataStore);
+            else if (valueId == 6U) out.u32Value = mqttOversizeDrop(*dataStore);
+            else return false;
+            return true;
+
+        case ModuleId::Io:
+            if (valueId >= 1U && valueId <= 6U) {
+                IoId ioId = PoolBinding::kSensorBindings[PoolBinding::kSensorSlotWaterTemp].ioId;
+                if (valueId == 2U) ioId = PoolBinding::kSensorBindings[PoolBinding::kSensorSlotAirTemp].ioId;
+                else if (valueId == 3U) ioId = PoolBinding::kSensorBindings[PoolBinding::kSensorSlotPh].ioId;
+                else if (valueId == 4U) ioId = PoolBinding::kSensorBindings[PoolBinding::kSensorSlotOrp].ioId;
+                else if (valueId == 5U) ioId = PoolBinding::kSensorBindings[PoolBinding::kSensorSlotWaterCounter].ioId;
+                else if (valueId == 6U) ioId = PoolBinding::kSensorBindings[PoolBinding::kSensorSlotPsi].ioId;
+                return flowios3ReadDashboardIoValue_(ioSvc, ioId, out) ||
+                       flowios3ReadDashboardPoolSensorDataStore_(dataStore, valueId, out);
+            }
+            if (valueId == 7U) return flowios3ReadDashboardIoBackendValue_(ioSvc, IO_BACKEND_BMP280, 0U, out);
+            if (valueId == 8U) return flowios3ReadDashboardIoBackendValue_(ioSvc, IO_BACKEND_BME680, 0U, out);
+            if (valueId == 9U) return flowios3ReadDashboardIoBackendValue_(ioSvc, IO_BACKEND_BMP280, 1U, out);
+            if (valueId == 10U) return flowios3ReadDashboardIoBackendValue_(ioSvc, IO_BACKEND_SHT40, 0U, out);
+            if (valueId == 11U) return flowios3ReadDashboardIoBackendValue_(ioSvc, IO_BACKEND_SHT40, 1U, out);
+            if (valueId == 12U) return flowios3ReadDashboardIoBackendValue_(ioSvc, IO_BACKEND_BME680, 1U, out);
+            if (valueId == 13U) return flowios3ReadDashboardIoBackendValue_(ioSvc, IO_BACKEND_BME680, 2U, out);
+            if (valueId == 14U) return flowios3ReadDashboardIoBackendValue_(ioSvc, IO_BACKEND_BME680, 3U, out);
+            return false;
+
+        case ModuleId::System:
+            out.available = true;
+            if (valueId == 1U) {
+                out.wireType = RuntimeUiWireType::String;
+                snprintf(out.stringValue, sizeof(out.stringValue), "%s", FirmwareVersion::Full);
+                return true;
+            }
+            flowios3EnsureSystemStats_(ctx);
+            out.wireType = RuntimeUiWireType::UInt32;
+            if (valueId == 2U) out.u32Value = (uint32_t)ctx.systemStats.uptimeMs;
+            else if (valueId == 3U) out.u32Value = ctx.systemStats.heap.freeBytes;
+            else if (valueId == 4U) out.u32Value = ctx.systemStats.heap.minFreeBytes;
+            else return false;
+            return true;
+
+        case ModuleId::Wifi:
+            if (!dataStore) return false;
+            out.available = true;
+            if (valueId == 1U) {
+                out.wireType = RuntimeUiWireType::Bool;
+                out.boolValue = networkReady(*dataStore);
+                return true;
+            }
+            if (valueId == 2U) {
+                const IpV4 ip = networkIp(*dataStore);
+                out.wireType = RuntimeUiWireType::String;
+                snprintf(out.stringValue,
+                         sizeof(out.stringValue),
+                         "%u.%u.%u.%u",
+                         (unsigned)ip.b[0],
+                         (unsigned)ip.b[1],
+                         (unsigned)ip.b[2],
+                         (unsigned)ip.b[3]);
+                return true;
+            }
+            if (valueId == 3U) {
+                if (!WiFi.isConnected()) return false;
+                out.wireType = RuntimeUiWireType::Int32;
+                out.i32Value = (int32_t)WiFi.RSSI();
+                return true;
+            }
+            return false;
+
         default:
             return false;
     }
 }
 
-void sendFlowios3DashboardSlotsResponse_(AsyncResponseStream& response, bool& firstSlot, DataStore* dataStore)
+void flowios3TrimDashboardSlotFloat_(char* text)
 {
-    struct SlotDef {
-        RuntimeUiId id;
-        const char* label;
-        uint8_t decimals;
-        const char* bgColor;
-    };
-    static const SlotDef kSlots[8] = {
-        {2101, "Temperature eau", 1U, "#E6EFFF"},
-        {2102, "Temperature air", 1U, "#E5F8FC"},
-        {2103, "pH", 2U, "#E8FAEF"},
-        {2104, "ORP", 0U, "#F0EAFE"},
-        {2105, "Volume eau", 1U, "#E4F6FA"},
-        {2106, "Pression pompe", 2U, "#E3F7FE"},
-        {2107, "Temperature BMP280", 1U, "#EAF8FD"},
-        {2108, "Temperature BME680", 1U, "#FEF0E8"},
-    };
+    if (!text) return;
+    char* dot = strchr(text, '.');
+    if (!dot) return;
+    char* end = text + strlen(text);
+    while (end > dot && end[-1] == '0') --end;
+    if (end > dot && end[-1] == '.') --end;
+    *end = '\0';
+    if (strcmp(text, "-0") == 0) snprintf(text, 4, "0");
+}
 
-    for (uint8_t i = 0U; i < 8U; ++i) {
-        const SlotDef& slot = kSlots[i];
-        float value = 0.0f;
-        const bool available = flowios3ReadDashboardSlotValue_(dataStore, slot.id, value);
-        const RuntimeUiManifestItem* item = findRuntimeUiManifestItem(slot.id);
-        const char* unit = (item && item->unit) ? item->unit : "";
-        char valueText[32] = {0};
-        if (available) {
-            if (slot.decimals > 0U) {
-                snprintf(valueText, sizeof(valueText), "%.*f", (int)slot.decimals, (double)value);
+uint8_t flowios3DashboardSlotDecimals_(RuntimeUiId id, RuntimeUiWireType type)
+{
+    if (type != RuntimeUiWireType::Float32) return 0U;
+    if (id == makeRuntimeUiId(ModuleId::Io, 3)) return 2U;
+    if (id == makeRuntimeUiId(ModuleId::Io, 6)) return 2U;
+    const RuntimeUiManifestItem* item = findRuntimeUiManifestItem(id);
+    const char* unit = (item && item->unit) ? item->unit : "";
+    if (unit && strcmp(unit, "mV") == 0) return 0U;
+    return 1U;
+}
+
+void flowios3FormatDashboardRuntimeValue_(RuntimeUiId id,
+                                          const Flowios3DashboardRuntimeValue& value,
+                                          char* valueOut,
+                                          size_t valueOutLen,
+                                          char* unitOut,
+                                          size_t unitOutLen)
+{
+    if (valueOut && valueOutLen > 0U) valueOut[0] = '\0';
+    if (unitOut && unitOutLen > 0U) unitOut[0] = '\0';
+    if (!valueOut || valueOutLen == 0U || !unitOut || unitOutLen == 0U || !value.available) {
+        if (valueOut && valueOutLen > 0U) snprintf(valueOut, valueOutLen, "Indisponible");
+        return;
+    }
+
+    const RuntimeUiManifestItem* item = findRuntimeUiManifestItem(id);
+    const char* unit = (item && item->unit) ? item->unit : "";
+    if (unit && unit[0] != '\0') {
+        snprintf(unitOut, unitOutLen, "%s", dashboardSlotDegreeCUnit_(unit) ? "\xC2\xB0""C" : unit);
+    }
+
+    switch (value.wireType) {
+        case RuntimeUiWireType::Bool:
+            unitOut[0] = '\0';
+            snprintf(valueOut, valueOutLen, "%s", value.boolValue ? "Actif" : "Arret");
+            return;
+        case RuntimeUiWireType::Int32:
+            snprintf(valueOut, valueOutLen, "%ld", (long)value.i32Value);
+            return;
+        case RuntimeUiWireType::UInt32:
+        case RuntimeUiWireType::Enum:
+            snprintf(valueOut, valueOutLen, "%lu", (unsigned long)value.u32Value);
+            return;
+        case RuntimeUiWireType::Float32: {
+            const uint8_t decimals = flowios3DashboardSlotDecimals_(id, value.wireType);
+            if (decimals > 0U) {
+                snprintf(valueOut, valueOutLen, "%.*f", (int)decimals, (double)value.f32Value);
+                flowios3TrimDashboardSlotFloat_(valueOut);
             } else {
-                snprintf(valueText, sizeof(valueText), "%ld", lroundf(value));
+                snprintf(valueOut, valueOutLen, "%ld", lroundf(value.f32Value));
             }
-        } else {
-            snprintf(valueText, sizeof(valueText), "Indisponible");
+            return;
         }
+        case RuntimeUiWireType::String:
+            unitOut[0] = '\0';
+            snprintf(valueOut, valueOutLen, "%s", value.stringValue);
+            return;
+        case RuntimeUiWireType::NotFound:
+        case RuntimeUiWireType::Unavailable:
+        default:
+            unitOut[0] = '\0';
+            snprintf(valueOut, valueOutLen, "Indisponible");
+            return;
+    }
+}
+
+void sendFlowios3DashboardSlotsResponse_(AsyncResponseStream& response,
+                                         bool& firstSlot,
+                                         DataStore* dataStore,
+                                         ConfigStore* cfgStore,
+                                         const AlarmService* alarmSvc,
+                                         const IOServiceV2* ioSvc)
+{
+    Flowios3RuntimeContext ctx{};
+    for (uint8_t i = 0U; i < kFlowios3DashboardSlotCount; ++i) {
+        Flowios3DashboardSlotConfig slot{};
+        flowios3LoadDashboardSlotConfig_(cfgStore, i, slot);
+
+        char label[32] = {0};
+        snprintf(label, sizeof(label), "%s", slot.label);
+        if (label[0] == '\0') flowios3DashboardFallbackLabel_(slot.runtimeUiId, label, sizeof(label));
+
+        Flowios3DashboardRuntimeValue runtimeValue{};
+        const bool available = slot.enabled &&
+                               flowios3ReadDashboardRuntimeValue_(dataStore,
+                                                                  cfgStore,
+                                                                  alarmSvc,
+                                                                  ioSvc,
+                                                                  slot.runtimeUiId,
+                                                                  runtimeValue,
+                                                                  ctx);
+        runtimeValue.available = available;
+
+        char valueText[40] = {0};
+        char unitText[12] = {0};
+        flowios3FormatDashboardRuntimeValue_(slot.runtimeUiId,
+                                             runtimeValue,
+                                             valueText,
+                                             sizeof(valueText),
+                                             unitText,
+                                             sizeof(unitText));
 
         if (!firstSlot) response.print(',');
         response.print("{\"slot\":");
         response.print((unsigned)i);
+        response.print(",\"enabled\":");
+        response.print(slot.enabled ? "true" : "false");
         response.print(",\"runtime_ui_id\":");
-        response.print((unsigned long)slot.id);
+        response.print((unsigned long)slot.runtimeUiId);
         response.print(",\"label\":");
-        printJsonEscaped_(response, slot.label);
+        printJsonEscaped_(response, label[0] != '\0' ? label : "Mesure");
         response.print(",\"value\":");
         printJsonEscaped_(response, valueText);
         response.print(",\"unit\":");
-        if (unit && unit[0] != '\0') {
-            printJsonEscaped_(response, dashboardSlotDegreeCUnit_(unit) ? "\xC2\xB0""C" : unit);
-        } else {
-            printJsonEscaped_(response, "");
-        }
+        printJsonEscaped_(response, unitText);
         response.print(",\"bg_color\":");
-        printJsonEscaped_(response, slot.bgColor);
+        printJsonEscaped_(response, flowios3DashboardColorHex_(slot.colorId, i));
         response.print(",\"available\":");
         response.print(available ? "true" : "false");
         response.print("}");
@@ -2524,10 +2926,6 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
       <input id="host" placeholder="192.168.1.10:8000" autocomplete="off" />
       <label for="basePath">Chemin de base</label>
       <input id="basePath" placeholder="/binary" autocomplete="off" />
-      <label for="supPath">Firmware Supervisor</label>
-      <input id="supPath" placeholder="/firmware-supervisor.bin" autocomplete="off" />
-      <label for="spiffsPath">Image SPIFFS Supervisor</label>
-      <input id="spiffsPath" placeholder="/spiffs-supervisor.bin" autocomplete="off" />
       <div class="row">
         <button id="saveFwCfg" type="button">Enregistrer</button>
         <button class="secondary" id="checkManifest" type="button">Manifest</button>
@@ -2537,7 +2935,7 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
 
     <section class="wide">
       <h2>Upgrade de secours</h2>
-      <p>Si une URL explicite est vide, l'updater utilise le serveur et les chemins configures ci-dessus.</p>
+      <p>Renseigner une URL explicite vers l'image a installer.</p>
       <label for="supUrl">URL explicite firmware Supervisor</label>
       <input id="supUrl" placeholder="http://serveur/binary/firmware-supervisor.bin" autocomplete="off" />
       <label for="spiffsUrl">URL explicite image SPIFFS Supervisor</label>
@@ -2601,8 +2999,6 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
       if (fw.ok !== false) {
         $("host").value = fw.update_host || "";
         $("basePath").value = fw.update_path || "";
-        $("supPath").value = fw.supervisor_path || "";
-        $("spiffsPath").value = fw.spiffs_path || fw.cfgdocs_path || "";
       }
       put(status, { web: meta, network: net, updater: fwst }, "ok");
     } catch (e) {
@@ -2672,9 +3068,7 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
         method: "POST",
         body: formBody({
           update_host: $("host").value.trim(),
-          update_path: $("basePath").value.trim(),
-          supervisor_path: $("supPath").value.trim(),
-          spiffs_path: $("spiffsPath").value.trim()
+          update_path: $("basePath").value.trim()
         })
       });
       put(fwCfgMsg, out, "ok");
@@ -3246,6 +3640,7 @@ void WebInterfaceModule::init(ConfigStore& cfg, ServiceRegistry& services)
     hmiSvc_ = services.get<HmiService>(ServiceId::Hmi);
     flowCfgSvc_ = services.get<FlowCfgRemoteService>(ServiceId::FlowCfg);
     netAccessSvc_ = services.get<NetworkAccessService>(ServiceId::NetworkAccess);
+    ioSvc_ = services.get<IOServiceV2>(ServiceId::Io);
     const DataStoreService* dsSvc = services.get<DataStoreService>(ServiceId::DataStore);
     dataStore_ = dsSvc ? dsSvc->store : nullptr;
     auto* ebSvc = services.get<EventBusService>(ServiceId::EventBus);
@@ -4226,32 +4621,14 @@ void WebInterfaceModule::startServer_()
 
         char hostStr[192] = {0};
         char updatePathStr[192] = {0};
-        char flowStr[192] = {0};
-        char supStr[192] = {0};
-        char nxStr[192] = {0};
-        char spiffsStr[192] = {0};
         const bool hasHost = copyRequestParamValue_(request, "update_host", true, hostStr, sizeof(hostStr), "");
         const bool hasUpdatePath =
             copyRequestParamValue_(request, "update_path", true, updatePathStr, sizeof(updatePathStr), "");
-        const bool hasFlow = copyRequestParamValue_(request, "flowio_path", true, flowStr, sizeof(flowStr), "");
-        const bool hasSupervisor =
-            copyRequestParamValue_(request, "supervisor_path", true, supStr, sizeof(supStr), "");
-        const bool hasNextion = copyRequestParamValue_(request, "nextion_path", true, nxStr, sizeof(nxStr), "");
-        bool hasSpiffs = false;
-        if (request->hasParam("spiffs_path", true)) {
-            hasSpiffs = copyRequestParamValue_(request, "spiffs_path", true, spiffsStr, sizeof(spiffsStr), "");
-        } else if (request->hasParam("cfgdocs_path", true)) {
-            hasSpiffs = copyRequestParamValue_(request, "cfgdocs_path", true, spiffsStr, sizeof(spiffsStr), "");
-        }
 
         char err[96] = {0};
         if (!fwUpdateSvc_->setConfig(fwUpdateSvc_->ctx,
                                      hasHost ? hostStr : nullptr,
                                      hasUpdatePath ? updatePathStr : nullptr,
-                                     hasFlow ? flowStr : nullptr,
-                                     hasSupervisor ? supStr : nullptr,
-                                     hasNextion ? nxStr : nullptr,
-                                     hasSpiffs ? spiffsStr : nullptr,
                                      err,
                                      sizeof(err))) {
             sanitizeJsonString_(err);
@@ -4853,7 +5230,13 @@ void WebInterfaceModule::startServer_()
         response->print("{\"ok\":true,\"slots\":[");
         bool first = true;
 #if defined(FLOW_PROFILE_FLOWIOS3)
-        sendFlowios3DashboardSlotsResponse_(*response, first, dataStore_);
+        if (!ioSvc_ && services_) {
+            ioSvc_ = services_->get<IOServiceV2>(ServiceId::Io);
+        }
+        {
+            const AlarmService* alarmSvc = services_ ? services_->get<AlarmService>(ServiceId::Alarm) : nullptr;
+            sendFlowios3DashboardSlotsResponse_(*response, first, dataStore_, cfgStore_, alarmSvc, ioSvc_);
+        }
 #elif !defined(FLOW_PROFILE_MICRONOVA)
         if (dataStore_) {
             const FlowRemoteRuntimeData& flow = flowRemoteRuntime(*dataStore_);

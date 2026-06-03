@@ -1,0 +1,200 @@
+{
+  "_meta": {
+    "generated": true,
+    "locale": "fr",
+    "version": 1
+  },
+  "docs": {
+    "tft/s3/enabled": {
+      "type": "Bool",
+      "label_t": "cfgdocs.tft.s3.enabled.label",
+      "help_t": "cfgdocs.tft.s3.enabled.help"
+    },
+    "tft/s3/auto_off_60s": {
+      "type": "Bool",
+      "label_t": "cfgdocs.tft.s3.auto_off_60s.label",
+      "help_t": "cfgdocs.tft.s3.auto_off_60s.help"
+    },
+    "tft/s3/motion_gpio": {
+      "type": "Int32",
+      "label_t": "cfgdocs.tft.s3.motion_gpio.label",
+      "help_t": "cfgdocs.tft.s3.motion_gpio.help"
+    },
+    "tft/s3/slots/slot00/color_id": {
+      "type": "UInt8",
+      "label_t": "cfgdocs.tft.s3.slots.slot00.color_id.label",
+      "help_t": "cfgdocs.tft.s3.slots.slot00.color_id.help",
+      "enum_set": "tft_s3_dashboard_color"
+    },
+    "tft/s3/slots/slot00/enabled": {
+      "type": "Bool",
+      "label_t": "cfgdocs.tft.s3.slots.slot00.enabled.label",
+      "help_t": "cfgdocs.tft.s3.slots.slot00.enabled.help"
+    },
+    "tft/s3/slots/slot00/label": {
+      "type": "CharArray",
+      "label_t": "cfgdocs.tft.s3.slots.slot00.label.label",
+      "help_t": "cfgdocs.tft.s3.slots.slot00.label.help"
+    },
+    "tft/s3/slots/slot00/runtime_ui_id": {
+      "type": "UInt16",
+      "label_t": "cfgdocs.tft.s3.slots.slot00.runtime_ui_id.label",
+      "help_t": "cfgdocs.tft.s3.slots.slot00.runtime_ui_id.help",
+      "enum_set": "tft_s3_dashboard_runtime_ui"
+    },
+    "tft/s3/slots/slot01/color_id": {
+      "type": "UInt8",
+      "label_t": "cfgdocs.tft.s3.slots.slot01.color_id.label",
+      "help_t": "cfgdocs.tft.s3.slots.slot01.color_id.help",
+      "enum_set": "tft_s3_dashboard_color"
+    },
+    "tft/s3/slots/slot01/enabled": {
+      "type": "Bool",
+      "label_t": "cfgdocs.tft.s3.slots.slot01.enabled.label",
+      "help_t": "cfgdocs.tft.s3.slots.slot01.enabled.help"
+    },
+    "tft/s3/slots/slot01/label": {
+      "type": "CharArray",
+      "label_t": "cfgdocs.tft.s3.slots.slot01.label.label",
+      "help_t": "cfgdocs.tft.s3.slots.slot01.label.help"
+    },
+    "tft/s3/slots/slot01/runtime_ui_id": {
+      "type": "UInt16",
+      "label_t": "cfgdocs.tft.s3.slots.slot01.runtime_ui_id.label",
+      "help_t": "cfgdocs.tft.s3.slots.slot01.runtime_ui_id.help",
+      "enum_set": "tft_s3_dashboard_runtime_ui"
+    },
+    "tft/s3/slots/slot02/color_id": {
+      "type": "UInt8",
+      "label_t": "cfgdocs.tft.s3.slots.slot02.color_id.label",
+      "help_t": "cfgdocs.tft.s3.slots.slot02.color_id.help",
+      "enum_set": "tft_s3_dashboard_color"
+    },
+    "tft/s3/slots/slot02/enabled": {
+      "type": "Bool",
+      "label_t": "cfgdocs.tft.s3.slots.slot02.enabled.label",
+      "help_t": "cfgdocs.tft.s3.slots.slot02.enabled.help"
+    },
+    "tft/s3/slots/slot02/label": {
+      "type": "CharArray",
+      "label_t": "cfgdocs.tft.s3.slots.slot02.label.label",
+      "help_t": "cfgdocs.tft.s3.slots.slot02.label.help"
+    },
+    "tft/s3/slots/slot02/runtime_ui_id": {
+      "type": "UInt16",
+      "label_t": "cfgdocs.tft.s3.slots.slot02.runtime_ui_id.label",
+      "help_t": "cfgdocs.tft.s3.slots.slot02.runtime_ui_id.help",
+      "enum_set": "tft_s3_dashboard_runtime_ui"
+    },
+    "tft/s3/slots/slot03/color_id": {
+      "type": "UInt8",
+      "label_t": "cfgdocs.tft.s3.slots.slot03.color_id.label",
+      "help_t": "cfgdocs.tft.s3.slots.slot03.color_id.help",
+      "enum_set": "tft_s3_dashboard_color"
+    },
+    "tft/s3/slots/slot03/enabled": {
+      "type": "Bool",
+      "label_t": "cfgdocs.tft.s3.slots.slot03.enabled.label",
+      "help_t": "cfgdocs.tft.s3.slots.slot03.enabled.help"
+    },
+    "tft/s3/slots/slot03/label": {
+      "type": "CharArray",
+      "label_t": "cfgdocs.tft.s3.slots.slot03.label.label",
+      "help_t": "cfgdocs.tft.s3.slots.slot03.label.help"
+    },
+    "tft/s3/slots/slot03/runtime_ui_id": {
+      "type": "UInt16",
+      "label_t": "cfgdocs.tft.s3.slots.slot03.runtime_ui_id.label",
+      "help_t": "cfgdocs.tft.s3.slots.slot03.runtime_ui_id.help",
+      "enum_set": "tft_s3_dashboard_runtime_ui"
+    },
+    "tft/s3/slots/slot04/color_id": {
+      "type": "UInt8",
+      "label_t": "cfgdocs.tft.s3.slots.slot04.color_id.label",
+      "help_t": "cfgdocs.tft.s3.slots.slot04.color_id.help",
+      "enum_set": "tft_s3_dashboard_color"
+    },
+    "tft/s3/slots/slot04/enabled": {
+      "type": "Bool",
+      "label_t": "cfgdocs.tft.s3.slots.slot04.enabled.label",
+      "help_t": "cfgdocs.tft.s3.slots.slot04.enabled.help"
+    },
+    "tft/s3/slots/slot04/label": {
+      "type": "CharArray",
+      "label_t": "cfgdocs.tft.s3.slots.slot04.label.label",
+      "help_t": "cfgdocs.tft.s3.slots.slot04.label.help"
+    },
+    "tft/s3/slots/slot04/runtime_ui_id": {
+      "type": "UInt16",
+      "label_t": "cfgdocs.tft.s3.slots.slot04.runtime_ui_id.label",
+      "help_t": "cfgdocs.tft.s3.slots.slot04.runtime_ui_id.help",
+      "enum_set": "tft_s3_dashboard_runtime_ui"
+    },
+    "tft/s3/slots/slot05/color_id": {
+      "type": "UInt8",
+      "label_t": "cfgdocs.tft.s3.slots.slot05.color_id.label",
+      "help_t": "cfgdocs.tft.s3.slots.slot05.color_id.help",
+      "enum_set": "tft_s3_dashboard_color"
+    },
+    "tft/s3/slots/slot05/enabled": {
+      "type": "Bool",
+      "label_t": "cfgdocs.tft.s3.slots.slot05.enabled.label",
+      "help_t": "cfgdocs.tft.s3.slots.slot05.enabled.help"
+    },
+    "tft/s3/slots/slot05/label": {
+      "type": "CharArray",
+      "label_t": "cfgdocs.tft.s3.slots.slot05.label.label",
+      "help_t": "cfgdocs.tft.s3.slots.slot05.label.help"
+    },
+    "tft/s3/slots/slot05/runtime_ui_id": {
+      "type": "UInt16",
+      "label_t": "cfgdocs.tft.s3.slots.slot05.runtime_ui_id.label",
+      "help_t": "cfgdocs.tft.s3.slots.slot05.runtime_ui_id.help",
+      "enum_set": "tft_s3_dashboard_runtime_ui"
+    },
+    "tft/s3/slots/slot06/color_id": {
+      "type": "UInt8",
+      "label_t": "cfgdocs.tft.s3.slots.slot06.color_id.label",
+      "help_t": "cfgdocs.tft.s3.slots.slot06.color_id.help",
+      "enum_set": "tft_s3_dashboard_color"
+    },
+    "tft/s3/slots/slot06/enabled": {
+      "type": "Bool",
+      "label_t": "cfgdocs.tft.s3.slots.slot06.enabled.label",
+      "help_t": "cfgdocs.tft.s3.slots.slot06.enabled.help"
+    },
+    "tft/s3/slots/slot06/label": {
+      "type": "CharArray",
+      "label_t": "cfgdocs.tft.s3.slots.slot06.label.label",
+      "help_t": "cfgdocs.tft.s3.slots.slot06.label.help"
+    },
+    "tft/s3/slots/slot06/runtime_ui_id": {
+      "type": "UInt16",
+      "label_t": "cfgdocs.tft.s3.slots.slot06.runtime_ui_id.label",
+      "help_t": "cfgdocs.tft.s3.slots.slot06.runtime_ui_id.help",
+      "enum_set": "tft_s3_dashboard_runtime_ui"
+    },
+    "tft/s3/slots/slot07/color_id": {
+      "type": "UInt8",
+      "label_t": "cfgdocs.tft.s3.slots.slot07.color_id.label",
+      "help_t": "cfgdocs.tft.s3.slots.slot07.color_id.help",
+      "enum_set": "tft_s3_dashboard_color"
+    },
+    "tft/s3/slots/slot07/enabled": {
+      "type": "Bool",
+      "label_t": "cfgdocs.tft.s3.slots.slot07.enabled.label",
+      "help_t": "cfgdocs.tft.s3.slots.slot07.enabled.help"
+    },
+    "tft/s3/slots/slot07/label": {
+      "type": "CharArray",
+      "label_t": "cfgdocs.tft.s3.slots.slot07.label.label",
+      "help_t": "cfgdocs.tft.s3.slots.slot07.label.help"
+    },
+    "tft/s3/slots/slot07/runtime_ui_id": {
+      "type": "UInt16",
+      "label_t": "cfgdocs.tft.s3.slots.slot07.runtime_ui_id.label",
+      "help_t": "cfgdocs.tft.s3.slots.slot07.runtime_ui_id.help",
+      "enum_set": "tft_s3_dashboard_runtime_ui"
+    }
+  }
+}

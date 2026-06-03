@@ -327,34 +327,9 @@ bool FirmwareUpdateModule::resolveUrl_(FirmwareUpdateTarget target,
         return true;
     }
 
-    if (cfgData_.updateHost[0] == '\0') {
-        writeSimpleError_(errOut, errOutLen, "update_host empty");
-        return false;
-    }
-
-    const char* path = nullptr;
-    switch (target) {
-        case FirmwareUpdateTarget::FlowIO:
-            path = cfgData_.flowioPath;
-            break;
-        case FirmwareUpdateTarget::Supervisor:
-            path = cfgData_.supervisorPath;
-            break;
-        case FirmwareUpdateTarget::Nextion:
-            path = cfgData_.nextionPath;
-            break;
-        case FirmwareUpdateTarget::Spiffs:
-            path = cfgData_.spiffsPath;
-            break;
-        default:
-            break;
-    }
-    if (!path || path[0] == '\0') {
-        writeSimpleError_(errOut, errOutLen, "path empty");
-        return false;
-    }
-
-    return resolveUpdateUrl_(path, out, outLen, errOut, errOutLen);
+    (void)target;
+    writeSimpleError_(errOut, errOutLen, "url required");
+    return false;
 }
 
 bool FirmwareUpdateModule::resolveUpdateUrl_(const char* path,
@@ -473,35 +448,16 @@ bool FirmwareUpdateModule::configJson_(char* out, size_t outLen) const
 
     char host[sizeof(cfgData_.updateHost)] = {0};
     char updatePath[sizeof(cfgData_.updatePath)] = {0};
-    char flowPath[sizeof(cfgData_.flowioPath)] = {0};
-    char supPath[sizeof(cfgData_.supervisorPath)] = {0};
-    char nxPath[sizeof(cfgData_.nextionPath)] = {0};
-    char spiffsPath[sizeof(cfgData_.spiffsPath)] = {0};
     snprintf(host, sizeof(host), "%s", cfgData_.updateHost);
     snprintf(updatePath, sizeof(updatePath), "%s", cfgData_.updatePath);
-    snprintf(flowPath, sizeof(flowPath), "%s", cfgData_.flowioPath);
-    snprintf(supPath, sizeof(supPath), "%s", cfgData_.supervisorPath);
-    snprintf(nxPath, sizeof(nxPath), "%s", cfgData_.nextionPath);
-    snprintf(spiffsPath, sizeof(spiffsPath), "%s", cfgData_.spiffsPath);
     sanitizeJsonString_(host);
     sanitizeJsonString_(updatePath);
-    sanitizeJsonString_(flowPath);
-    sanitizeJsonString_(supPath);
-    sanitizeJsonString_(nxPath);
-    sanitizeJsonString_(spiffsPath);
 
     const int n = snprintf(out,
                            outLen,
-                           "{\"ok\":true,\"update_host\":\"%s\",\"update_path\":\"%s\",\"flowio_path\":\"%s\","
-                           "\"supervisor_path\":\"%s\",\"nextion_path\":\"%s\","
-                           "\"spiffs_path\":\"%s\",\"cfgdocs_path\":\"%s\"}",
+                           "{\"ok\":true,\"update_host\":\"%s\",\"update_path\":\"%s\"}",
                            host,
-                           updatePath,
-                           flowPath,
-                           supPath,
-                           nxPath,
-                           spiffsPath,
-                           spiffsPath);
+                           updatePath);
     return n > 0 && (size_t)n < outLen;
 }
 
@@ -591,10 +547,6 @@ bool FirmwareUpdateModule::manifestUrl_(char* out, size_t outLen, char* errOut, 
 
 bool FirmwareUpdateModule::setConfig_(const char* updateHost,
                                       const char* updatePath,
-                                      const char* flowioPath,
-                                      const char* supervisorPath,
-                                      const char* nextionPath,
-                                      const char* spiffsPath,
                                       char* errOut,
                                       size_t errOutLen)
 {
@@ -623,30 +575,6 @@ bool FirmwareUpdateModule::setConfig_(const char* updateHost,
     if (updatePath) {
         if (!cfgStore_->set(updatePathVar_, updatePath)) {
             writeSimpleError_(errOut, errOutLen, "set update_path failed");
-            return false;
-        }
-    }
-    if (flowioPath) {
-        if (!cfgStore_->set(flowioPathVar_, flowioPath)) {
-            writeSimpleError_(errOut, errOutLen, "set flowio_path failed");
-            return false;
-        }
-    }
-    if (supervisorPath) {
-        if (!cfgStore_->set(supervisorPathVar_, supervisorPath)) {
-            writeSimpleError_(errOut, errOutLen, "set supervisor_path failed");
-            return false;
-        }
-    }
-    if (nextionPath) {
-        if (!cfgStore_->set(nextionPathVar_, nextionPath)) {
-            writeSimpleError_(errOut, errOutLen, "set nextion_path failed");
-            return false;
-        }
-    }
-    if (spiffsPath) {
-        if (!cfgStore_->set(spiffsPathVar_, spiffsPath)) {
-            writeSimpleError_(errOut, errOutLen, "set spiffs_path failed");
             return false;
         }
     }
@@ -1353,10 +1281,6 @@ void FirmwareUpdateModule::init(ConfigStore& cfg, ServiceRegistry& services)
 
     cfg.registerVar(updateHostVar_);
     cfg.registerVar(updatePathVar_);
-    cfg.registerVar(flowioPathVar_);
-    cfg.registerVar(supervisorPathVar_);
-    cfg.registerVar(nextionPathVar_);
-    cfg.registerVar(spiffsPathVar_);
 
     if (!services.add(ServiceId::FirmwareUpdate, &firmwareUpdateSvc_)) {
         LOGE("service registration failed: %s", toString(ServiceId::FirmwareUpdate));

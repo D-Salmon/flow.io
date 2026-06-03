@@ -1807,7 +1807,7 @@
       esp32s3: { manifestKey: 'esp32s3', target: 'esp32s3', endpoint: '/fwupdate/flowio', label: 'ESP32-S3', order: 11 },
       'esp32s3-spiffs': { manifestKey: 'esp32s3-spiffs', target: 'spiffs', endpoint: '/fwupdate/spiffs', label: 'Assets ESP32-S3', order: 12 },
       supervisor: { manifestKey: 'supervisor', target: 'supervisor', endpoint: '/fwupdate/supervisor', label: 'Supervisor', order: 20 },
-      nextion: { manifestKey: 'nextion', target: 'nextion', endpoint: '/fwupdate/nextion', label: 'Nextion 800x480', order: 30 },
+      nextion: { manifestKey: 'nextion', target: 'nextion', endpoint: '/fwupdate/nextion', label: 'Nextion', order: 30 },
       spiffs: { manifestKey: 'spiffs', target: 'spiffs', endpoint: '/fwupdate/spiffs', label: 'Assets Supervisor', order: 40 },
       cfgdocs: { manifestKey: 'cfgdocs', target: 'spiffs', endpoint: '/fwupdate/spiffs', label: 'Assets Supervisor', order: 41 }
     };
@@ -2709,7 +2709,7 @@
         return key === 'supervisor' || key === 'spiffs' || key === 'cfgdocs' || key === 'nextion';
       }
       if (isFlowIOS3Profile()) {
-        return key === 'esp32s3' || key === 'esp32s3-spiffs';
+        return key === 'esp32s3' || key === 'esp32s3-spiffs' || key === 'nextion';
       }
       if (isFlowIOProfile()) {
         return key === 'flowio';
@@ -4195,7 +4195,7 @@
       const data = await fetchOkJson(
         '/api/runtime/dashboard_slots',
         { cache: 'no-store' },
-        'lecture sondes supervisor indisponible'
+        'lecture slots sondes indisponible'
       );
       const slots = Array.isArray(data && data.slots) ? data.slots : [];
       return slots
@@ -4207,6 +4207,7 @@
             value: String(slot && slot.value ? slot.value : '').trim(),
             unit: String(slot && slot.unit ? slot.unit : '').trim(),
             bgColor: String(slot && slot.bg_color ? slot.bg_color : '').trim(),
+            enabled: slot && slot.enabled !== false,
             available: !!(slot && slot.available)
           };
         })
@@ -4251,7 +4252,13 @@
     }
 
     function buildPoolSondeSlotsGrid(slots) {
-      const cleanSlots = Array.isArray(slots) ? slots.slice(0, 8) : [];
+      const cleanSlots = Array(8).fill(null);
+      if (Array.isArray(slots)) {
+        slots.forEach((slot) => {
+          const idx = Number(slot && slot.slot);
+          if (Number.isInteger(idx) && idx >= 0 && idx < 8) cleanSlots[idx] = slot;
+        });
+      }
       const grid = document.createElement('div');
       grid.className = 'status-sonde-slot-grid';
 
@@ -4259,7 +4266,7 @@
         const slot = cleanSlots[i] || null;
         const tile = document.createElement('div');
         tile.className = 'status-sonde-slot';
-        const available = !!(slot && slot.available);
+        const available = !!(slot && slot.enabled !== false && slot.available);
         if (!available) tile.classList.add('is-empty');
 
         const bgColor = slot && isValidHexColor(slot.bgColor) ? slot.bgColor : '';
@@ -5892,6 +5899,18 @@
       return null;
     }
 
+    function cfgIsAliasStoreShadowPath(pathValue) {
+      const cleanPath = nettoyerNomFlowCfg(pathValue);
+      if (!cleanPath) return false;
+      for (const alias of cfgTreeAliases) {
+        const inStoreBranch = cfgPathHasPrefix(cleanPath, alias.store) || cfgPathHasPrefix(alias.store, cleanPath);
+        if (!inStoreBranch) continue;
+        const inDisplayBranch = cfgPathHasPrefix(cleanPath, alias.display) || cfgPathHasPrefix(alias.display, cleanPath);
+        if (!inDisplayBranch) return true;
+      }
+      return false;
+    }
+
     function cfgChildTokenForDisplayPath(parentPath, childPath) {
       const cleanParent = nettoyerNomFlowCfg(parentPath);
       const cleanChild = nettoyerNomFlowCfg(childPath);
@@ -6022,7 +6041,10 @@
       const node = cfgChildrenCacheForSource(source)[cfgCacheKey(p)];
       if (!node || !Array.isArray(node.children)) return [];
       return node.children
-        .filter((name) => !isConfigPathHidden(p ? (p + '/' + name) : name))
+        .filter((name) => {
+          const childPath = p ? (p + '/' + name) : name;
+          return !isConfigPathHidden(childPath) && !cfgIsAliasStoreShadowPath(childPath);
+        })
         .slice();
     }
 
@@ -6056,7 +6078,10 @@
         const node = {
           prefix: p,
           hasExact: false,
-          children: virtualChildren.filter((name) => !isConfigPathHidden(p ? (p + '/' + name) : name))
+          children: virtualChildren.filter((name) => {
+            const childPath = p ? (p + '/' + name) : name;
+            return !isConfigPathHidden(childPath) && !cfgIsAliasStoreShadowPath(childPath);
+          })
         };
         cache[key] = node;
         return node;
@@ -6087,7 +6112,10 @@
         })
         .map((displayChildPath) => cfgChildTokenForDisplayPath(p, displayChildPath))
         .filter((name) => name.length > 0)
-        .filter((name) => !isConfigPathHidden(p ? (p + '/' + name) : name));
+        .filter((name) => {
+          const childPath = p ? (p + '/' + name) : name;
+          return !isConfigPathHidden(childPath) && !cfgIsAliasStoreShadowPath(childPath);
+        });
 
       const node = {
         prefix: p,

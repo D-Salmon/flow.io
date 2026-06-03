@@ -26,7 +26,8 @@ enum class ConfigModuleId : uint8_t {
     Alarms,
     Log,
     Micronova,
-    System
+    System,
+    TftS3
 };
 
 /** @brief Payload for ConfigChanged events. */

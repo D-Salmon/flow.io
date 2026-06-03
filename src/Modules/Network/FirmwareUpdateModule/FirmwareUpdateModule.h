@@ -79,10 +79,6 @@ private:
     struct ConfigData {
         char updateHost[64] = "";
         char updatePath[64] = "/binary";
-        char flowioPath[64] = "/firmware-flowio.bin";
-        char supervisorPath[64] = "/firmware-supervisor.bin";
-        char nextionPath[64] = "/Nextion_Flowio_Intelligent_800x480.tft";
-        char spiffsPath[64] = "/spiffs-supervisor.bin";
     } cfgData_{};
 
     ConfigVariable<char, 2> updateHostVar_{
@@ -93,23 +89,6 @@ private:
         NVS_KEY("up_base_path"), "update_path", "fwupdate",
         ConfigType::CharArray, cfgData_.updatePath, ConfigPersistence::Persistent, sizeof(cfgData_.updatePath)
     };
-    ConfigVariable<char, 2> flowioPathVar_{
-        NVS_KEY("up_flow_path"), "flowio_path", "fwupdate",
-        ConfigType::CharArray, cfgData_.flowioPath, ConfigPersistence::Persistent, sizeof(cfgData_.flowioPath)
-    };
-    ConfigVariable<char, 2> supervisorPathVar_{
-        NVS_KEY("up_sup_path"), "supervisor_path", "fwupdate",
-        ConfigType::CharArray, cfgData_.supervisorPath, ConfigPersistence::Persistent, sizeof(cfgData_.supervisorPath)
-    };
-    ConfigVariable<char, 2> nextionPathVar_{
-        NVS_KEY("up_nx_path"), "nextion_path", "fwupdate",
-        ConfigType::CharArray, cfgData_.nextionPath, ConfigPersistence::Persistent, sizeof(cfgData_.nextionPath)
-    };
-    ConfigVariable<char, 2> spiffsPathVar_{
-        NVS_KEY("up_cfgdocs_path"), "cfgdocs_path", "fwupdate",
-        ConfigType::CharArray, cfgData_.spiffsPath, ConfigPersistence::Persistent, sizeof(cfgData_.spiffsPath)
-    };
-
     ServiceRegistry* services_ = nullptr;
     ConfigStore* cfgStore_ = nullptr;
     const LogHubService* logHub_ = nullptr;
@@ -153,10 +132,6 @@ private:
     bool manifestUrl_(char* out, size_t outLen, char* errOut, size_t errOutLen);
     bool setConfig_(const char* updateHost,
                     const char* updatePath,
-                    const char* flowioPath,
-                    const char* supervisorPath,
-                    const char* nextionPath,
-                    const char* spiffsPath,
                     char* errOut,
                     size_t errOutLen);
     bool runJob_(const UpdateJob& job);

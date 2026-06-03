@@ -190,6 +190,7 @@ private:
     const HmiService* hmiSvc_ = nullptr;
     const FlowCfgRemoteService* flowCfgSvc_ = nullptr;
     const NetworkAccessService* netAccessSvc_ = nullptr;
+    const IOServiceV2* ioSvc_ = nullptr;
     DataStore* dataStore_ = nullptr;
     ConfigStore* cfgStore_ = nullptr;
     EventBus* eventBus_ = nullptr;

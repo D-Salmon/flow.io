@@ -1,0 +1,1 @@
+{"ok":true,"module":"hmi/tft","docs":{"hmi/tft":{"label_t":"cfgmods.hmi.tft.label","label":"TFT local","label_i18n":"cfgmods.hmi.tft.label"},"hmi/tft/slots":{"label_t":"cfgmods.hmi.tft.slots.label","label":"Slots","label_i18n":"cfgmods.hmi.tft.slots.label"}},"meta":{}}

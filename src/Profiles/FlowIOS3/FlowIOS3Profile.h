@@ -30,6 +30,9 @@
 #if defined(FLOW_ENABLE_LOCAL_TFT_HMI) && (FLOW_ENABLE_LOCAL_TFT_HMI != 0)
 #include "Modules/SupervisorHMIModule/SupervisorHMIModule.h"
 #endif
+#if defined(FLOW_ENABLE_TFT_S3) && (FLOW_ENABLE_TFT_S3 != 0)
+#include "Modules/TFTModuleS3/TFTModuleS3.h"
+#endif
 #include "Modules/System/SystemModule/SystemModule.h"
 #include "Modules/System/SystemMonitorModule/SystemMonitorModule.h"
 
@@ -50,6 +53,9 @@ struct ModuleInstances {
     FirmwareUpdateModule firmwareUpdateModule;
 #if defined(FLOW_ENABLE_LOCAL_TFT_HMI) && (FLOW_ENABLE_LOCAL_TFT_HMI != 0)
     SupervisorHMIModule supervisorHMIModule;
+#endif
+#if defined(FLOW_ENABLE_TFT_S3) && (FLOW_ENABLE_TFT_S3 != 0)
+    TFTModuleS3 tftModuleS3;
 #endif
     CommandModule commandModule{};
     ConfigStoreModule configStoreModule{};

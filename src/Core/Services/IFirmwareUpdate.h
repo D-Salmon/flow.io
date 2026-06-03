@@ -26,10 +26,6 @@ struct FirmwareUpdateService {
     bool (*setConfig)(void* ctx,
                       const char* updateHost,
                       const char* updatePath,
-                      const char* flowioPath,
-                      const char* supervisorPath,
-                      const char* nextionPath,
-                      const char* spiffsPath,
                       char* errOut,
                       size_t errOutLen);
     void* ctx;

@@ -1,6 +1,6 @@
 {
   "schema": "flowio.firmware-manifest.v1",
-  "generated_at": "2026-06-03T20:18:21+02:00",
+  "generated_at": "2026-06-03T22:55:44+02:00",
   "release": "2026.06.03",
   "artifacts": {
     "nextion": [
@@ -8,7 +8,7 @@
         "title": "Flowio_Enhanced_480x320",
         "label": "Flowio_Enhanced_480x320",
         "version": "6.0.0",
-        "build_date": "2026-05-22T15:49:49+02:00",
+        "build_date": "2026-06-03T22:49:27+02:00",
         "target": "nextion",
         "path": "Flowio_Enhanced_480x320-6.0.0.tft",
         "kind": "nextion-tft",
@@ -19,7 +19,7 @@
         "title": "Flowio_Intelligent_800x480",
         "label": "Flowio_Intelligent_800x480",
         "version": "6.0.0",
-        "build_date": "2026-05-22T15:49:49+02:00",
+        "build_date": "2026-06-03T22:49:53+02:00",
         "target": "nextion",
         "path": "Flowio_Intelligent_800x480-6.0.0.tft",
         "kind": "nextion-tft",
@@ -43,12 +43,12 @@
         "title": "esp32s3",
         "label": "esp32s3",
         "version": "1.0.3",
-        "build_date": "2026-06-03T20:18:21+02:00",
+        "build_date": "2026-06-03T22:55:44+02:00",
         "target": "esp32s3",
         "path": "esp32s3-1.0.3.bin",
         "kind": "esp32-firmware",
         "route": "/fwupdate/flowio",
-        "size": 1893808
+        "size": 1911280
       }
     ],
     "esp32s3-spiffs": [
@@ -67,7 +67,7 @@
         "title": "esp32s3-spiffs",
         "label": "esp32s3-spiffs",
         "version": "1.0.3",
-        "build_date": "2026-06-03T19:15:59+02:00",
+        "build_date": "2026-06-03T22:42:45+02:00",
         "target": "spiffs",
         "path": "esp32s3-spiffs-1.0.3.bin",
         "kind": "esp32-spiffs",

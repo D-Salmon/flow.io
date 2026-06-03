@@ -87,6 +87,7 @@ static inline LogModuleId logModuleIdFromModuleId(ModuleId moduleId)
         case ModuleId::BootLogCapture: return (LogModuleId)LogModuleIdValue::BootLogCaptureModule;
         case ModuleId::Hmi:
         case ModuleId::SupervisorHmi:
+        case ModuleId::TftS3:
             return (LogModuleId)LogModuleIdValue::HMIModule;
         case ModuleId::Unknown:
         case ModuleId::Count:
