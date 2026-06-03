@@ -68,6 +68,8 @@ if src_dir.exists():
         Path("webinterface/light.html"): Path("webinterface/light.html.gz"),
         Path("webinterface/light.css"): Path("webinterface/light.css.gz"),
         Path("webinterface/light.js"): Path("webinterface/light.js.gz"),
+        Path("webinterface/prov.html"): Path("webinterface/prov.html.gz"),
+        Path("webinterface/prov.js"): Path("webinterface/prov.js.gz"),
         Path("webinterface/runtimeui.json"): Path("webinterface/runtimeui.json.gz"),
     }
     cfgdoc_dir = src_dir / "wc"

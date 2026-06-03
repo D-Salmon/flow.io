@@ -492,7 +492,9 @@ bool isMinorWebAssetPath_(const char* path)
 
 bool isLightWebAssetPath_(const char* path)
 {
-    return path && strstr(path, "/webinterface/light.") != nullptr;
+    return path &&
+           (strstr(path, "/webinterface/light.") != nullptr ||
+            strstr(path, "/webinterface/prov.") != nullptr);
 }
 
 uint32_t fnv1a32_(const char* text)
@@ -3511,12 +3513,21 @@ void WebInterfaceModule::startServer_()
         spiffsAssetExists("/webinterface/app.js") &&
         spiffsAssetExists("/webinterface/app-core.css");
 
+    const bool provisioningUiAssetsReady =
+        spiffsAssetExists("/webinterface/prov.html") &&
+        spiffsAssetExists("/webinterface/prov.js") &&
+        spiffsAssetExists("/webinterface/app-core.css");
+
     auto lightUiAssetsAvailable = [lightUiAssetsReady]() -> bool {
         return lightUiAssetsReady;
     };
 
     auto fullUiAssetsAvailable = [fullUiAssetsReady]() -> bool {
         return fullUiAssetsReady;
+    };
+
+    auto provisioningUiAssetsAvailable = [provisioningUiAssetsReady]() -> bool {
+        return provisioningUiAssetsReady;
     };
 
     server_.on("/", HTTP_GET, [webInterfaceLandingUrl](AsyncWebServerRequest* request) {
@@ -3680,6 +3691,39 @@ void WebInterfaceModule::startServer_()
         }
         sendPreparedAssetResponse(request, response, &forensicMeta);
     });
+    server_.on("/webinterface/prov.html", HTTP_GET, [this, beginSpiffsAssetResponse, sendPreparedAssetResponse](AsyncWebServerRequest* request) {
+        SpiffsAssetForensicMeta forensicMeta{};
+        bool heapRejected = false;
+        bool buildBusy = false;
+        AsyncWebServerResponse* response =
+            beginSpiffsAssetResponse(request, "/webinterface/prov.html", "text/html", true, nullptr, &forensicMeta, &heapRejected, &buildBusy);
+        if (!response) {
+            if (heapRejected || buildBusy) {
+                sendTinyBusyJson_(request, heapRejected ? "low_memory" : "asset_build_busy");
+                return;
+            }
+            request->send(404, "text/plain", "Not found");
+            return;
+        }
+        sendPreparedAssetResponse(request, response, &forensicMeta);
+    });
+    server_.on("/webinterface/prov.js", HTTP_GET, [this, beginSpiffsAssetResponse, sendPreparedAssetResponse](AsyncWebServerRequest* request) {
+        SpiffsAssetForensicMeta forensicMeta{};
+        bool heapRejected = false;
+        bool buildBusy = false;
+        AsyncWebServerResponse* response =
+            beginSpiffsAssetResponse(
+                request, "/webinterface/prov.js", "application/javascript", true, nullptr, &forensicMeta, &heapRejected, &buildBusy);
+        if (!response) {
+            if (heapRejected || buildBusy) {
+                sendTinyBusyJson_(request, heapRejected ? "low_memory" : "asset_build_busy");
+                return;
+            }
+            request->send(404, "text/plain", "Not found");
+            return;
+        }
+        sendPreparedAssetResponse(request, response, &forensicMeta);
+    });
     server_.on("/webinterface/runtimeui.json", HTTP_GET, [this, beginSpiffsAssetResponse, sendPreparedAssetResponse](AsyncWebServerRequest* request) {
         SpiffsAssetForensicMeta forensicMeta{};
         bool heapRejected = false;
@@ -3826,7 +3870,7 @@ void WebInterfaceModule::startServer_()
     });
     server_.on("/api/web/meta", HTTP_GET, [this](AsyncWebServerRequest* request) {
         HttpLatencyScope latency(request, "/api/web/meta");
-        StaticJsonDocument<576> doc;
+        StaticJsonDocument<768> doc;
         NetworkAccessMode mode = NetworkAccessMode::None;
         if (!netAccessSvc_ && services_) {
             netAccessSvc_ = services_->get<NetworkAccessService>(ServiceId::NetworkAccess);
@@ -3847,6 +3891,9 @@ void WebInterfaceModule::startServer_()
         doc["profile_name"] = FLOW_BUILD_PROFILE_NAME;
         doc["network_mode"] = modeTxt;
         doc["is_ap_portal"] = (mode == NetworkAccessMode::AccessPoint);
+        doc["provisioning_only"] = provisioningOnly_;
+        doc["full_ui_enabled"] = !provisioningOnly_;
+        doc["reboot_after_wifi_save"] = provisioningOnly_ || (mode == NetworkAccessMode::AccessPoint);
 #if defined(FLOW_PROFILE_MICRONOVA)
         doc["local_runtime"] = true;
         doc["local_config_label"] = "Config Store Micronova";
@@ -3871,7 +3918,7 @@ void WebInterfaceModule::startServer_()
         heap["largest"] = snap.heap.largestFreeBlock;
         heap["frag"] = snap.heap.fragPercent;
 
-        char out[640] = {0};
+        char out[768] = {0};
         const size_t n = serializeJson(doc, out, sizeof(out));
         if (n == 0 || n >= sizeof(out)) {
             request->send(500, "application/json",
@@ -3889,7 +3936,8 @@ void WebInterfaceModule::startServer_()
                                            sendPreparedAssetResponse,
                                            sendRescuePage,
                                            lightUiAssetsAvailable,
-                                           fullUiAssetsAvailable](AsyncWebServerRequest* request) {
+                                           fullUiAssetsAvailable,
+                                           provisioningUiAssetsAvailable](AsyncWebServerRequest* request) {
         HttpLatencyScope latency(request, "/webinterface");
         NetworkAccessMode mode = NetworkAccessMode::None;
         if (!netAccessSvc_ && services_) {
@@ -3907,6 +3955,31 @@ void WebInterfaceModule::startServer_()
              || true
 #endif
             );
+#if defined(FLOW_PROFILE_FLOWIOS3)
+        if (mode == NetworkAccessMode::AccessPoint && !request->hasParam("full")) {
+            if (provisioningUiAssetsAvailable()) {
+                SpiffsAssetForensicMeta forensicMeta{};
+                bool heapRejected = false;
+                bool buildBusy = false;
+                AsyncWebServerResponse* response =
+                    beginSpiffsAssetResponse(
+                        request, "/webinterface/prov.html", "text/html", true, nullptr, &forensicMeta, &heapRejected, &buildBusy);
+                if (!response) {
+                    if (heapRejected || buildBusy) {
+                        sendTinyBusyJson_(request, heapRejected ? "low_memory" : "asset_build_busy");
+                        return;
+                    }
+                    request->send(500, "text/plain", "Failed to load provisioning web interface");
+                    return;
+                }
+                sendPreparedAssetResponse(request, response, &forensicMeta);
+                return;
+            }
+            LOGW("Provisioning web assets missing; serving PROGMEM rescue UI");
+            sendRescuePage(request);
+            return;
+        }
+#endif
         if (useLightUi) {
             if (lightUiAssetsAvailable()) {
                 SpiffsAssetForensicMeta forensicMeta{};
@@ -4457,6 +4530,14 @@ void WebInterfaceModule::startServer_()
         } else if (flowRebootAttempted) {
             LOGW("Flow.io reboot request failed err=%s", flowRebootErr[0] ? flowRebootErr : "unknown");
         }
+
+#if defined(FLOW_PROFILE_FLOWIOS3)
+        if (wasApProvisioning) {
+            scheduleReboot_(1200U, "prov.done.wifi");
+            request->send(200, "application/json", "{\"ok\":true,\"reboot_scheduled\":true}");
+            return;
+        }
+#endif
 
         char out[384] = {0};
         const int n = snprintf(out,

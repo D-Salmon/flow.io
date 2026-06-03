@@ -140,7 +140,7 @@ void WifiProvisioningModule::loop()
     if (apRestartPending_) {
         apRestartPending_ = false;
         dns_.stop();
-#if defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY) || defined(FLOW_PROFILE_FLOWIOS3)
+#if defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY)
         stopLightPortal_();
 #endif
         apActive_ = false;
@@ -148,7 +148,7 @@ void WifiProvisioningModule::loop()
         apClientCount_ = 0;
         nextApStartAttemptMs_ = millis() + kApStartRetryMs;
     }
-#if defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY) || defined(FLOW_PROFILE_FLOWIOS3)
+#if defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY)
     if (portalRebootPending_ && (int32_t)(now - portalRebootAtMs_) >= 0) {
         LOGI("Provisioning reboot now");
         delay(20);
@@ -186,7 +186,7 @@ void WifiProvisioningModule::loop()
         now = millis();
         handleStaProbePolicy_(now);
         dns_.processNextRequest();
-#if defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY) || defined(FLOW_PROFILE_FLOWIOS3)
+#if defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY)
         handleLightPortalClient_();
 #endif
     }
@@ -453,7 +453,7 @@ bool WifiProvisioningModule::startCaptivePortal_(PortalReason reason)
         return false;
     }
     dns_.start(kDnsPort, "*", apIp);
-#if defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY) || defined(FLOW_PROFILE_FLOWIOS3)
+#if defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY)
     startLightPortal_();
     portalCredentialsSaved_ = false;
 #endif
@@ -486,7 +486,7 @@ void WifiProvisioningModule::stopCaptivePortal_()
     if (wifiSvc_ && wifiSvc_->setStaRetryEnabled) {
         (void)wifiSvc_->setStaRetryEnabled(wifiSvc_->ctx, true);
     }
-#if defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY) || defined(FLOW_PROFILE_FLOWIOS3)
+#if defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY)
     stopLightPortal_();
 #endif
     dns_.stop();
@@ -659,18 +659,14 @@ bool WifiProvisioningModule::getApIp_(char* out, size_t len) const
     return true;
 }
 
-#if defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY) || defined(FLOW_PROFILE_FLOWIOS3)
+#if defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY)
 void WifiProvisioningModule::startLightPortal_()
 {
     if (portalHttpActive_) return;
-#if defined(FLOW_PROFILE_FLOWIOS3)
-    portalSpiffsReady_ = false;
-#else
     portalSpiffsReady_ = SPIFFS.begin(false);
     if (!portalSpiffsReady_) {
         LOGW("Flow Connect Display provisioning SPIFFS mount failed; fallback page will be used");
     }
-#endif
     portalServer_.begin();
     portalHttpActive_ = true;
     LOGI("Provisioning light HTTP started on port 80 spiffs=%d", (int)portalSpiffsReady_);

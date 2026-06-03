@@ -177,13 +177,8 @@ void WebInterfaceModule::loop()
 
 #if defined(FLOW_PROFILE_FLOWIOS3)
         if (mode == NetworkAccessMode::AccessPoint) {
-            static bool apDeferredLogged = false;
-            if (!apDeferredLogged) {
-                apDeferredLogged = true;
-                LOGI("Web startup deferred in AP mode; provisioning light portal owns port 80");
-            }
-            vTaskDelay(pdMS_TO_TICKS(1000));
-            return;
+            provisioningOnly_ = true;
+            LOGI("Web startup in FlowIOS3 AP provisioning mode");
         }
 #endif
 

@@ -75,7 +75,9 @@ public:
     bool canStart(ConfigStore&, ServiceRegistry& services) override {
 #if defined(FLOW_PROFILE_FLOWIOS3)
         const NetworkAccessService* net = services.get<NetworkAccessService>(ServiceId::NetworkAccess);
-        return net && net->mode && net->mode(net->ctx) == NetworkAccessMode::Station;
+        if (!net || !net->mode) return false;
+        const NetworkAccessMode mode = net->mode(net->ctx);
+        return mode == NetworkAccessMode::Station || mode == NetworkAccessMode::AccessPoint;
 #else
         (void)services;
         return true;

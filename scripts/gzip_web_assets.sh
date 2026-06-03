@@ -22,6 +22,8 @@ assets=(
   "data/webinterface/light.html"
   "data/webinterface/light.css"
   "data/webinterface/light.js"
+  "data/webinterface/prov.html"
+  "data/webinterface/prov.js"
   "data/webinterface/runtimeui.json"
 )
 

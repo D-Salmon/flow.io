@@ -100,7 +100,7 @@ private:
     wifi_event_id_t wifiEventHandlerId_ = 0;
     char apSsid_[40] = {0};
     char apPass_[32] = {0};
-#if defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY) || defined(FLOW_PROFILE_FLOWIOS3)
+#if defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY)
     WiFiServer portalServer_{80};
     bool portalHttpActive_ = false;
     bool portalCredentialsSaved_ = false;
@@ -140,7 +140,7 @@ private:
     bool isStaConnected_() const;
     bool getStaIp_(char* out, size_t len) const;
     bool getApIp_(char* out, size_t len) const;
-#if defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY) || defined(FLOW_PROFILE_FLOWIOS3)
+#if defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY)
     void startLightPortal_();
     void stopLightPortal_();
     void handleLightPortalClient_();
