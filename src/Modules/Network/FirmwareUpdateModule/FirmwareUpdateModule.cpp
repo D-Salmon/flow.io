@@ -644,7 +644,7 @@ bool FirmwareUpdateModule::queueFlowIoHardwareReboot_(char* errOut, size_t errOu
     flowIoHardwareRebootQueued_ = true;
     portEXIT_CRITICAL(&lock_);
 
-    LOGI("FlowIO hardware reboot queued");
+    LOGI("flow.io hardware reboot queued");
     return true;
 }
 
@@ -730,7 +730,7 @@ bool FirmwareUpdateModule::runFlowIoUpdate_(const char* url, char* errOut, size_
     http.end();
     if (!ok) return false;
 
-    setStatus_(UpdateState::Done, FirmwareUpdateTarget::FlowIO, 100, "flowio update complete");
+    setStatus_(UpdateState::Done, FirmwareUpdateTarget::FlowIO, 100, "flow.io update complete");
     return true;
 }
 
@@ -960,7 +960,7 @@ bool FirmwareUpdateModule::runFlowIoHardwareReboot_(char* errOut, size_t errOutL
         return false;
     }
 
-    setStatus_(UpdateState::Rebooting, FirmwareUpdateTarget::FlowIO, 0, "flowio hardware reboot");
+    setStatus_(UpdateState::Rebooting, FirmwareUpdateTarget::FlowIO, 0, "flow.io hardware reboot");
 
     if (flowIoBootPin_ >= 0) {
         pinMode(flowIoBootPin_, OUTPUT);
@@ -979,8 +979,8 @@ bool FirmwareUpdateModule::runFlowIoHardwareReboot_(char* errOut, size_t errOutL
     }
     pinMode(flowIoEnablePin_, INPUT);
 
-    setStatus_(UpdateState::Done, FirmwareUpdateTarget::FlowIO, 100, "flowio hardware reboot done");
-    LOGI("FlowIO hardware reboot pulse completed en=%d boot=%d", (int)flowIoEnablePin_, (int)flowIoBootPin_);
+    setStatus_(UpdateState::Done, FirmwareUpdateTarget::FlowIO, 100, "flow.io hardware reboot done");
+    LOGI("flow.io hardware reboot pulse completed en=%d boot=%d", (int)flowIoEnablePin_, (int)flowIoBootPin_);
     return true;
 }
 
@@ -1158,7 +1158,7 @@ bool FirmwareUpdateModule::cmdFlowIo_(void* userCtx, const CommandRequest& req, 
     char err[120] = {0};
     FirmwareUpdateTarget target = FirmwareUpdateTarget::FlowIO;
 #if FLOW_BUILD_IS_FLOWIOS3
-    // FlowIOS3 is a local single-device build: route this command to local OTA update.
+    // flow.io is a local single-device build: route this command to local OTA update.
     target = FirmwareUpdateTarget::Supervisor;
 #endif
     if (!self->startUpdate_(target, explicitUrl, err, sizeof(err))) {
@@ -1342,10 +1342,10 @@ void FirmwareUpdateModule::loop()
     } else if (runFlowIoHardwareReboot) {
         char err[128] = {0};
         if (!runFlowIoHardwareReboot_(err, sizeof(err))) {
-            LOGE("FlowIO hardware reboot failed reason=%s", err[0] ? err : "unknown");
-            setError_(FirmwareUpdateTarget::FlowIO, err[0] ? err : "flowio hardware reboot failed");
+            LOGE("flow.io hardware reboot failed reason=%s", err[0] ? err : "unknown");
+            setError_(FirmwareUpdateTarget::FlowIO, err[0] ? err : "flow.io hardware reboot failed");
         } else {
-            LOGI("FlowIO hardware reboot done");
+            LOGI("flow.io hardware reboot done");
         }
     } else {
         runJob_(job);

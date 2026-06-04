@@ -3,10 +3,12 @@
     const menuToggles = Array.from(document.querySelectorAll('[data-menu-toggle]'));
     const menuItems = Array.from(document.querySelectorAll('.menu-item'));
     const pages = Array.from(document.querySelectorAll('.page'));
-    const appMeta = document.querySelector('.app-meta');
-    const appRuntimeMeta = document.getElementById('appRuntimeMeta');
-    const appHeapSummary = document.getElementById('appHeapSummary');
     const mobileTopbarTitle = document.getElementById('mobileTopbarTitle');
+    const desktopPageTitle = document.getElementById('desktopPageTitle');
+    const headerWifiDot = document.getElementById('headerWifiDot');
+    const headerWifiStatus = document.getElementById('headerWifiStatus');
+    const headerDeviceStatus = document.getElementById('headerDeviceStatus');
+    const headerClockStatus = document.getElementById('headerClockStatus');
     const flowWebAssetVersionStorageKey = 'flow_web_asset_version';
     const deferredVisualAssetsStateKey = 'flow_web_deferred_visual_assets';
     const upgradeUiSessionStorageKey = 'flow_upgrade_ui_session';
@@ -27,7 +29,7 @@
       'icon-measures': 'water_damage',
       'icon-calibration': 'science',
       'icon-terminal': 'list_alt',
-      'icon-system': 'cloud_upload',
+      'icon-system': 'system_update_alt',
       'icon-flowcfg': 'settings',
       'icon-info': 'info'
     };
@@ -40,6 +42,7 @@
     let webAssetVersion = '';
     let loadedWebAssetVersion = '';
     let supervisorFirmwareVersion = '-';
+    let nextionDisplayVersion = '';
     let supervisorUptimeMs = 0;
     let supervisorHeap = {};
     let webProfileName = 'Supervisor';
@@ -61,6 +64,7 @@
     let useRemoteMenuIcons = false;
     let remoteMenuIconFontReady = false;
     let remoteMenuIconFontPromise = null;
+    let appHeaderClockTimer = null;
     const pendingSystemActionCountdowns = new Map();
     let activeColorPickerPopover = null;
     let webUiLocale = 'fr';
@@ -343,10 +347,7 @@
     function applyMenuIconSourcePreference(useRemote) {
       useRemoteMenuIcons = !!useRemote;
       document.body.classList.toggle('menu-icons-remote', useRemoteMenuIcons);
-      document.body.classList.toggle(
-        'menu-icons-letter-fallback',
-        !disableWebIcons && !isAccessPointMode() && !useRemoteMenuIcons
-      );
+      document.body.classList.toggle('menu-icons-letter-fallback', false);
       syncMenuIconFallbacks();
     }
 
@@ -453,10 +454,7 @@
     function applyIconUsagePreference(disabled) {
       disableWebIcons = !!disabled;
       document.body.classList.toggle('web-icons-disabled', disableWebIcons);
-      document.body.classList.toggle(
-        'menu-icons-letter-fallback',
-        !disableWebIcons && !isAccessPointMode() && !useRemoteMenuIcons
-      );
+      document.body.classList.toggle('menu-icons-letter-fallback', false);
       fieldApplyCheckIcon = iconCheckText();
       syncMenuIconFallbacks();
       syncRenderedCheckFallbacks();
@@ -472,19 +470,6 @@
     }
 
     function resolveSupervisorFirmwareVersion() {
-      if (appMeta) {
-        const raw = (appMeta.textContent || '').trim();
-        const match = raw.match(/^Supervisor\s+(.+)$/i);
-        if (match && match[1]) {
-          const version = match[1].trim();
-          if (version && version !== '-') {
-            return version;
-          }
-        }
-        if (raw && raw !== '-') {
-          return raw;
-        }
-      }
       return '-';
     }
 
@@ -509,7 +494,7 @@
         poolMeasureDomainState.micronova.active = true;
       }
       if (webLocalRuntime && !isMicronovaProfile()) {
-        logSourceMeta.supervisor.label = 'Flow.io';
+        logSourceMeta.supervisor.label = 'flow.io';
       } else {
         logSourceMeta.supervisor.label = 'Supervisor';
       }
@@ -522,8 +507,8 @@
     async function applyMenuIconModeFromMeta(data) {
       const mode = normalizeNetworkMode(data && data.network_mode);
       networkMode = mode;
-      await ensureRemoteMenuIconFontLoaded().catch(() => false);
-      applyMenuIconSourcePreference(true);
+      const remoteReady = await ensureRemoteMenuIconFontLoaded().catch(() => false);
+      applyMenuIconSourcePreference(remoteReady);
     }
 
     function isMicronovaProfile() {
@@ -610,8 +595,8 @@
       if (rebootDeviceTargetSelect) {
         const labelsByTarget = {
           supervisor: isMicronovaProfile() ? 'Micronova' : 'Supervisor',
-          flow_soft: 'Flow.io soft',
-          flow_hard: 'Flow.io hard',
+          flow_soft: 'flow.io soft',
+          flow_hard: 'flow.io hard',
           nextion: 'Nextion',
           factory_reset: 'Init Usine'
         };
@@ -633,6 +618,10 @@
           const fallbackOption = Array.from(rebootDeviceTargetSelect.options || [])
             .find((option) => option && !option.disabled && !option.hidden);
           rebootDeviceTargetSelect.value = fallbackOption ? fallbackOption.value : 'supervisor';
+        }
+        if (factoryResetDeviceActionBtn) {
+          factoryResetDeviceActionBtn.hidden = blockValues.has('factory_reset');
+          factoryResetDeviceActionBtn.disabled = blockValues.has('factory_reset');
         }
       }
     }
@@ -915,7 +904,6 @@
     }
 
     async function loadWebMeta(options) {
-      const opts = options || {};
       try {
         const data = await fetchOkJson('/api/web/meta', { cache: 'no-store' }, 'meta web indisponible');
         const currentUpgradeSession = readUpgradeUiSession();
@@ -970,11 +958,16 @@
             supervisorFirmwareVersion = trimmed;
           }
         }
+        if (Object.prototype.hasOwnProperty.call(data, 'nextion_display_version')) {
+          const rawNextionVersion = String(data.nextion_display_version || '').trim();
+          if (rawNextionVersion && rawNextionVersion !== '0') {
+            nextionDisplayVersion = rawNextionVersion;
+          }
+        }
         supervisorUptimeMs = Number(data.upms) || 0;
         supervisorHeap = (data.heap && typeof data.heap === 'object') ? data.heap : {};
-        if (!opts.skipDrawerRuntimeRender) {
-          renderDrawerRuntimeMeta();
-        }
+        renderUpgradeCatalog();
+        refreshAppHeader(getActivePageId());
         if (isPageActive('page-status')) {
           refreshFlowStatus(false).catch(() => {});
         }
@@ -994,10 +987,82 @@
       return String(label && label.textContent ? label.textContent : '').trim();
     }
 
+    function formatHeaderNetworkStatus() {
+      try {
+        const wifiDomain = (flowStatusDomainCache.wifi && flowStatusDomainCache.wifi.data && flowStatusDomainCache.wifi.data.ok === true)
+          ? flowStatusDomainCache.wifi.data
+          : null;
+        const wifi = (wifiDomain && wifiDomain.wifi && typeof wifiDomain.wifi === 'object') ? wifiDomain.wifi : null;
+        if (wifi) {
+          if (typeof wifi.rdy === 'boolean') {
+            return wifi.rdy ? tr('info.state.connected', 'Connecté') : tr('info.state.disconnected', 'Déconnecté');
+          }
+          const type = formatInfoNetworkType(wifi.typ);
+          if (type && type !== '-') return type;
+        }
+      } catch (err) {
+      }
+      const mode = normalizeNetworkMode(networkMode);
+      if (mode === 'ap') return 'AP';
+      if (mode === 'sta') return tr('info.netType.wifi', 'Wifi');
+      if (mode === 'ethernet') return tr('info.netType.ethernet', 'Ethernet');
+      return '-';
+    }
+
+    function isHeaderWifiConnected() {
+      try {
+        const wifiDomain = (flowStatusDomainCache.wifi && flowStatusDomainCache.wifi.data && flowStatusDomainCache.wifi.data.ok === true)
+          ? flowStatusDomainCache.wifi.data
+          : null;
+        const wifi = (wifiDomain && wifiDomain.wifi && typeof wifiDomain.wifi === 'object') ? wifiDomain.wifi : null;
+        if (wifi && typeof wifi.rdy === 'boolean') return wifi.rdy;
+      } catch (err) {
+      }
+      const mode = normalizeNetworkMode(networkMode);
+      return mode === 'sta' || mode === 'ethernet';
+    }
+
+    function refreshAppHeader(pageId) {
+      const activePage = pageId || getActivePageId();
+      const label = resolvePageMenuLabel(activePage) || webProfileName || 'flow.io';
+      if (desktopPageTitle) {
+        desktopPageTitle.textContent = label;
+      }
+      if (headerWifiStatus) {
+        headerWifiStatus.textContent = formatHeaderNetworkStatus();
+      }
+      if (headerWifiDot) {
+        headerWifiDot.classList.toggle('is-connected', isHeaderWifiConnected());
+      }
+      if (headerDeviceStatus) {
+        headerDeviceStatus.textContent = webProfileName || '-';
+      }
+    }
+
+    function refreshAppHeaderClock() {
+      if (!headerClockStatus) return;
+      headerClockStatus.textContent = new Date().toLocaleTimeString(currentWebLocaleTag());
+    }
+
+    function startAppHeaderClock() {
+      refreshAppHeaderClock();
+      if (appHeaderClockTimer || !headerClockStatus) return;
+      appHeaderClockTimer = setInterval(refreshAppHeaderClock, 1000);
+    }
+
+    async function refreshAppHeaderWifi(forceRefresh) {
+      try {
+        await fetchFlowStatusDomain('wifi', !!forceRefresh, 'header');
+      } catch (err) {
+      }
+      refreshAppHeader(getActivePageId());
+    }
+
     function syncMobileTopbarTitle(pageId) {
       if (!mobileTopbarTitle) return;
       const label = resolvePageMenuLabel(pageId) || webProfileName;
       mobileTopbarTitle.textContent = label;
+      refreshAppHeader(pageId);
     }
 
     function formatInfoBytes(value) {
@@ -1016,7 +1081,7 @@
       const h = Math.floor((totalSec % 86400) / 3600);
       const m = Math.floor((totalSec % 3600) / 60);
       const s = totalSec % 60;
-      if (d > 0) return d + 'j ' + h + 'h';
+      if (d > 0) return d + 'j ' + h + 'h ' + m + 'm';
       if (h > 0) return h + 'h ' + m + 'm';
       if (m > 0) return m + 'm ' + s + 's';
       return s + 's';
@@ -1039,12 +1104,46 @@
     }
 
     function buildInfoMetricRow(title, value) {
+      const esc = (input) => String(input || '-')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
       return (
         '<div class="info-row">' +
-          '<span class="info-row-key">' + String(title || '') + '</span>' +
-          '<span class="info-row-value">' + String(value || '-') + '</span>' +
+          '<span class="info-row-key">' + esc(title || '') + '</span>' +
+          '<span class="info-row-value">' + esc(value || '-') + '</span>' +
         '</div>'
       );
+    }
+
+    function splitInfoFirmwareVersion(fullVersion) {
+      const raw = String(fullVersion || '').trim();
+      if (!raw || raw === '-') return { version: '-', build: '-' };
+      const plusIndex = raw.indexOf('+');
+      if (plusIndex < 0) return { version: raw, build: '-' };
+      return {
+        version: raw.slice(0, plusIndex).trim() || '-',
+        build: formatInfoBuildStamp(raw.slice(plusIndex + 1))
+      };
+    }
+
+    function formatInfoBuildStamp(stamp) {
+      const raw = String(stamp || '').trim();
+      const match = raw.match(/^(\d{4})(\d{2})(\d{2})[._-]?(\d{2})(\d{2})(\d{2})?$/);
+      if (match) return match[1] + '.' + match[2] + '.' + match[3] + '-' + match[4] + match[5];
+      return raw || '-';
+    }
+
+    function normalizeInfoMac(mac) {
+      const raw = String(mac || '').trim();
+      return raw ? raw.toUpperCase() : '-';
+    }
+
+    function formatInfoDeviceId(mac) {
+      const normalized = String(mac || '').replace(/[^a-fA-F0-9]/g, '').toLowerCase();
+      return normalized ? ('flow.io-' + normalized) : '-';
     }
 
     function setInfoFlowDomainLoading(domainKey, loading) {
@@ -1059,9 +1158,9 @@
     }
 
     function infoFlowDomainLabel(domainKey) {
-      if (domainKey === 'system') return tr('info.flowSystem', 'Système Flow.io');
-      if (domainKey === 'wifi') return tr('info.flowNetwork', tr('info.flowWifi', 'Réseau Flow.io'));
-      if (domainKey === 'mqtt') return tr('info.flowMqtt', 'MQTT Flow.io');
+      if (domainKey === 'system') return tr('info.flowSystem', 'Système flow.io');
+      if (domainKey === 'wifi') return tr('info.flowNetwork', tr('info.flowWifi', 'Réseau flow.io'));
+      if (domainKey === 'mqtt') return tr('info.flowMqtt', 'MQTT flow.io');
       return formatRuntimeDomainLabel(domainKey);
     }
 
@@ -1253,62 +1352,44 @@
     }
 
     function renderInfoPanel() {
-      const heap = (supervisorHeap && typeof supervisorHeap === 'object') ? supervisorHeap : {};
-      const pressure = deriveInfoPressure(heap);
-      const frag = Number(heap.frag);
-      const supervisorRows = [
-        [tr('info.row.firmware', 'Firmware'), supervisorFirmwareVersion || '-'],
-        [tr('info.row.pressure', 'Pression'), tr('info.pressure.' + pressure, pressure)],
-        [tr('info.row.uptime', 'Temps de fonctionnement'), formatInfoUptime(supervisorUptimeMs)],
-        [tr('info.row.heapFree', 'Heap libre'), formatInfoBytes(heap.free)],
-        [tr('info.row.heapMin', 'Heap minimum'), formatInfoBytes(heap.min_free)],
-        [tr('info.row.heapLargest', 'Plus grand bloc'), formatInfoBytes(heap.largest)],
-        [tr('info.row.fragmentation', 'Fragmentation'), Number.isFinite(frag) ? (String(Math.trunc(frag)) + ' %') : '-']
-      ];
-      renderInfoMetricRows(infoGrid, supervisorRows);
-
       const systemDomain = (flowStatusDomainCache.system && flowStatusDomainCache.system.data && flowStatusDomainCache.system.data.ok === true)
         ? flowStatusDomainCache.system.data
         : null;
       const flowHeap = (systemDomain && systemDomain.heap && typeof systemDomain.heap === 'object') ? systemDomain.heap : {};
-      const systemRows = [
-        [tr('info.row.state', 'Etat'), systemDomain ? tr('info.state.available', 'Disponible') : tr('info.state.unavailable', 'Indisponible')],
-        [tr('info.row.firmware', 'Firmware'), systemDomain ? fmtFlowStatusVal(systemDomain.fw) : '-'],
-        [tr('info.row.uptime', 'Uptime'), systemDomain ? formatInfoUptime(systemDomain.upms) : '-'],
-        [tr('info.row.heapFree', 'Heap libre'), systemDomain ? formatInfoBytes(flowHeap.free) : '-'],
-        [tr('info.row.heapMin', 'Heap minimum'), systemDomain ? formatInfoBytes(flowHeap.min_free) : '-']
-      ];
-      renderInfoMetricRows(infoSystemGrid, systemRows);
 
       const wifiDomain = (flowStatusDomainCache.wifi && flowStatusDomainCache.wifi.data && flowStatusDomainCache.wifi.data.ok === true)
         ? flowStatusDomainCache.wifi.data
         : null;
       const wifi = (wifiDomain && wifiDomain.wifi && typeof wifiDomain.wifi === 'object') ? wifiDomain.wifi : {};
-      const wifiRows = [
-        [tr('info.row.state', 'Etat'), wifiDomain ? formatInfoBoolean(!!wifi.rdy, tr('info.state.connected', 'Connecté'), tr('info.state.disconnected', 'Déconnecté')) : '-'],
-        [tr('info.row.type', 'Type'), wifiDomain ? formatInfoNetworkType(wifi.typ) : '-'],
-        [tr('info.row.ip', 'Adresse IP'), wifiDomain ? normalizeIpValue(wifi.ip) : '-'],
-        [tr('info.row.signal', 'Signal'), (wifiDomain && wifi.hrss) ? formatInfoDbm(wifi.rssi) : '-']
-      ];
-      renderInfoMetricRows(infoWifiGrid, wifiRows);
 
       const mqttDomain = (flowStatusDomainCache.mqtt && flowStatusDomainCache.mqtt.data && flowStatusDomainCache.mqtt.data.ok === true)
         ? flowStatusDomainCache.mqtt.data
         : null;
       const mqtt = (mqttDomain && mqttDomain.mqtt && typeof mqttDomain.mqtt === 'object') ? mqttDomain.mqtt : {};
-      const mqttRows = [
-        [tr('info.row.state', 'Etat'), mqttDomain ? formatInfoBoolean(!!mqtt.rdy, tr('info.state.connected', 'Connecté'), tr('info.state.disconnected', 'Déconnecté')) : '-'],
-        [tr('info.row.server', 'Serveur'), mqttDomain ? fmtFlowStatusVal(mqtt.srv) : '-'],
-        [tr('info.row.rxDrop', 'Messages ignorés'), mqttDomain ? formatInfoCount(mqtt.rxdrp) : '-'],
-        [tr('info.row.parseErrors', 'Erreurs parse'), mqttDomain ? formatInfoCount(mqtt.prsf) : '-'],
-        [tr('info.row.handlerErrors', 'Erreurs traitement'), mqttDomain ? formatInfoCount(mqtt.hndf) : '-'],
-        [tr('info.row.oversize', 'Messages trop grands'), mqttDomain ? formatInfoCount(mqtt.ovr) : '-']
+      const fullFirmware = systemDomain ? fmtFlowStatusVal(systemDomain.fw) : (supervisorFirmwareVersion || '-');
+      const firmwareParts = splitInfoFirmwareVersion(fullFirmware);
+      const mac = wifiDomain ? normalizeInfoMac(wifi.mac) : '-';
+      const infoRows = [
+        [tr('info.row.deviceName', 'Nom de l’appareil'), 'flow.io'],
+        [tr('info.row.firmwareVersion', 'Version firmware'), firmwareParts.version],
+        [tr('info.row.buildVersion', 'Version build'), firmwareParts.build],
+        [tr('info.row.uptime', 'Uptime'), systemDomain ? formatInfoUptime(systemDomain.upms) : formatInfoUptime(supervisorUptimeMs)],
+        [tr('info.row.ip', 'Adresse IP'), wifiDomain ? normalizeIpValue(wifi.ip) : '-'],
+        [tr('info.row.mac', 'Adresse MAC'), mac],
+        [tr('info.row.deviceId', 'ID appareil'), formatInfoDeviceId(mac)],
+        [tr('info.row.networkType', 'Type réseau'), wifiDomain ? formatInfoNetworkType(wifi.typ) : '-'],
+        [tr('info.row.signal', 'Signal'), (wifiDomain && wifi.hrss) ? formatInfoDbm(wifi.rssi) : '-'],
+        [tr('info.row.mqtt', 'MQTT'), mqttDomain ? formatInfoBoolean(!!mqtt.rdy, tr('info.state.connected', 'Connecté'), tr('info.state.disconnected', 'Déconnecté')) : '-']
       ];
-      renderInfoMetricRows(infoMqttGrid, mqttRows);
+      if (systemDomain) {
+        infoRows.push([tr('info.row.heapFree', 'Heap libre'), formatInfoBytes(flowHeap.free)]);
+      }
+      renderInfoMetricRows(infoGrid, infoRows);
 
       if (infoStatusChip) {
         infoStatusChip.textContent = tr('info.updatedAt', 'Mise à jour') + ': ' + new Date().toLocaleTimeString(currentWebLocaleTag());
       }
+      refreshAppHeader(getActivePageId());
     }
 
     function isDrawerExpanded() {
@@ -1320,9 +1401,6 @@
     function setMobileDrawerOpen(open) {
       drawer.classList.toggle('mobile-open', open);
       overlay.classList.toggle('visible', open);
-      if (open) {
-        refreshDrawerRuntimeMeta(true).catch(() => {});
-      }
     }
 
     function closeMobileDrawer() {
@@ -1545,7 +1623,6 @@
       } else {
         if (hideMenuSvg) return;
         drawer.classList.toggle('collapsed');
-        refreshDrawerRuntimeMeta(isDrawerExpanded()).catch(() => {});
       }
     }));
 
@@ -1554,7 +1631,6 @@
       if (!isMobileLayout()) {
         setMobileDrawerOpen(false);
       }
-      refreshDrawerRuntimeMeta(isDrawerExpanded()).catch(() => {});
     });
 
     const term = document.getElementById('term');
@@ -1569,6 +1645,7 @@
     const applyUpdateServerPathBtn = document.getElementById('applyUpdateServerPath');
     const checkUpdatesBtn = document.getElementById('checkUpdates');
     const upgradeCards = document.getElementById('upgradeCards');
+    const upgradeTableBody = document.getElementById('upgradeTableBody');
     const upgradeProgressBar = document.getElementById('upgradeProgressBar');
     const upgradePct = document.getElementById('upgradePct');
     const upgradeJourneyLabel = document.getElementById('upgradeJourneyLabel');
@@ -1587,6 +1664,7 @@
     const wifiConfigStatus = document.getElementById('wifiConfigStatus');
     const rebootDeviceTargetSelect = document.getElementById('rebootDeviceTarget');
     const rebootDeviceActionBtn = document.getElementById('rebootDeviceAction');
+    const factoryResetDeviceActionBtn = document.getElementById('factoryResetDeviceAction');
     const systemStatusText = document.getElementById('systemStatusText');
     const infoStatusChip = document.getElementById('infoStatusChip');
     const infoGrid = document.getElementById('infoGrid');
@@ -1815,7 +1893,7 @@
       }
     ];
     const upgradeTargetDefs = {
-      flowio: { manifestKey: 'flowio', target: 'flowio', endpoint: '/fwupdate/flowio', label: 'Flow.io', order: 10 },
+      flowio: { manifestKey: 'flowio', target: 'flowio', endpoint: '/fwupdate/flowio', label: 'flow.io', order: 10 },
       esp32s3: { manifestKey: 'esp32s3', target: 'esp32s3', endpoint: '/fwupdate/flowio', label: 'ESP32-S3', order: 11 },
       'esp32s3-spiffs': { manifestKey: 'esp32s3-spiffs', target: 'spiffs', endpoint: '/fwupdate/spiffs', label: 'Assets ESP32-S3', order: 12 },
       supervisor: { manifestKey: 'supervisor', target: 'supervisor', endpoint: '/fwupdate/supervisor', label: 'Supervisor', order: 20 },
@@ -1823,12 +1901,41 @@
       spiffs: { manifestKey: 'spiffs', target: 'spiffs', endpoint: '/fwupdate/spiffs', label: 'Assets Supervisor', order: 40 },
       cfgdocs: { manifestKey: 'cfgdocs', target: 'spiffs', endpoint: '/fwupdate/spiffs', label: 'Assets Supervisor', order: 41 }
     };
+    const upgradeComponentDefs = [
+      {
+        key: 'flowio',
+        title: 'flow.io',
+        subtitle: 'Firmware',
+        icon: 'layers',
+        tone: 'blue',
+        commentsAvailable: 'Ajout de nouvelles fonctionnalités et améliorations système',
+        commentsCurrent: 'Firmware système actuel'
+      },
+      {
+        key: 'spiffs',
+        title: 'SPIFFS',
+        subtitle: 'Fichiers système',
+        icon: 'memory',
+        tone: 'green',
+        commentsAvailable: 'Nouveaux fichiers de configuration et ressources',
+        commentsCurrent: 'Fichiers système actuels'
+      },
+      {
+        key: 'nextion',
+        title: 'Nextion',
+        subtitle: 'Interface',
+        icon: 'tab',
+        tone: 'orange',
+        commentsAvailable: 'Interface utilisateur disponible',
+        commentsCurrent: 'Interface utilisateur actuelle'
+      }
+    ];
 
     const wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
     const logSocketPath = '/wslog';
     const logSourceMeta = {
       supervisor: { cmd: 'src:supervisor', label: 'Supervisor', statusBusy: 'occupé (1 terminal max)' },
-      flowio: { cmd: 'src:flowio', label: 'Flow.io', statusBusy: 'occupé (1 terminal max)' }
+      flowio: { cmd: 'src:flowio', label: 'flow.io', statusBusy: 'occupé (1 terminal max)' }
     };
     let logSource = 'supervisor';
     let logSocket = null;
@@ -1842,10 +1949,6 @@
       if (getActivePageId() !== 'page-pool-measures' || document.hidden) return;
       return refreshPoolMeasures(false);
     }, 10000);
-    const drawerRuntimePoller = createIntervalRunner(() => {
-      if (document.hidden || !isDrawerRuntimeMetaVisible()) return;
-      return loadWebMeta();
-    }, 15000);
     const wifiScanPoller = createTimeoutRunner(() => refreshWifiScanStatus(false));
 
     function activeLogSourceMeta() {
@@ -2131,7 +2234,7 @@
 
     function upgradeTargetLabel(target) {
       const key = String(target || '').trim().toLowerCase();
-      if (key === 'flowio') return 'Flow.io';
+      if (key === 'flowio') return 'flow.io';
       if (key === 'esp32s3') return 'ESP32-S3';
       if (key === 'supervisor') return isMicronovaProfile() ? 'Micronova' : 'Superviseur';
       if (key === 'nextion') return 'Nextion';
@@ -2602,7 +2705,7 @@
         if (updateServerPath) {
           updateServerPath.value = composeUpgradeServerPath(data.update_host || '', data.update_path || '');
         }
-        resetUpgradeManifestSelections(tr('updates.empty', 'Cliquez sur « Rechercher les mises à jour ».'));
+        resetUpgradeManifestSelections(tr('updates.empty', 'Cliquez sur « Vérifier les mises à jour ».'));
         syncUpgradeConfigFieldInitialValues();
       } catch (err) {
         setUpgradeMessage('Échec du chargement de la configuration : ' + err);
@@ -2796,110 +2899,326 @@
     }
 
     function setUpgradeCardsEmpty(text) {
-      if (!upgradeCards) return;
-      upgradeCards.innerHTML = '';
-      upgradeCards.classList.remove('has-error');
-      const empty = document.createElement('div');
-      empty.className = 'upgrade-empty';
-      empty.textContent = text || tr('updates.empty', 'Cliquez sur « Rechercher les mises à jour ».');
-      upgradeCards.appendChild(empty);
+      renderUpgradeCatalog();
+      if (text) setUpgradeMessage(text);
     }
 
     function setUpgradeCardsError(detail) {
-      if (!upgradeCards) return;
-      upgradeCards.innerHTML = '';
-      upgradeCards.classList.add('has-error');
-      const box = document.createElement('div');
-      box.className = 'upgrade-empty upgrade-error';
-      box.setAttribute('role', 'alert');
-
-      const icon = document.createElement('span');
-      icon.className = 'ui-msr upgrade-error-icon';
-      icon.setAttribute('aria-hidden', 'true');
-      icon.textContent = 'error';
-      box.appendChild(icon);
-
-      const title = document.createElement('strong');
-      title.className = 'upgrade-error-title';
-      title.textContent = tr('updates.err.checkTitle', 'Impossible de vérifier les mises à jour');
-      box.appendChild(title);
-
-      const text = document.createElement('span');
-      text.className = 'upgrade-error-detail';
-      text.textContent = detail || tr('updates.err.checkGeneric', 'Échec de la vérification.');
-      box.appendChild(text);
-
-      upgradeCards.appendChild(box);
+      renderUpgradeCatalog({ error: detail || tr('updates.err.checkGeneric', 'Échec de la vérification.') });
     }
 
-    function appendUpgradeCardField(parent, iconName, value) {
-      const field = document.createElement('div');
-      field.className = 'upgrade-card-field';
-
-      const icon = document.createElement('span');
-      icon.className = 'ui-msr upgrade-card-field-icon';
-      icon.setAttribute('aria-hidden', 'true');
-      icon.textContent = iconName || 'info';
-
-      const span = document.createElement('span');
-      span.textContent = value || '-';
-      field.appendChild(icon);
-      field.appendChild(span);
-      parent.appendChild(field);
+    function splitUpgradeVersionStamp(rawVersion, fallbackBuildDate) {
+      const raw = String(rawVersion || '').trim();
+      const plusIndex = raw.indexOf('+');
+      const main = (plusIndex >= 0 ? raw.slice(0, plusIndex) : raw).trim();
+      const plusBuild = plusIndex >= 0 ? raw.slice(plusIndex + 1).trim() : '';
+      return {
+        version: main || '-',
+        build: formatUpgradeBuildStamp(plusBuild || fallbackBuildDate || '')
+      };
     }
 
-    function renderUpgradeCards(entries) {
+    function formatUpgradeBuildStamp(rawValue) {
+      const raw = String(rawValue || '').trim();
+      if (!raw || raw === '-') return '-';
+      const compact = raw.match(/^(\d{4})(\d{2})(\d{2})[._-]?(\d{2})(\d{2})(\d{2})$/);
+      if (compact) {
+        return compact[3] + '/' + compact[2] + '/' + compact[1] + ' ' + compact[4] + ':' + compact[5] + ':' + compact[6];
+      }
+      const parsed = Date.parse(raw);
+      if (Number.isFinite(parsed)) {
+        const d = new Date(parsed);
+        return d.toLocaleDateString(currentWebLocaleTag()) + ' ' + d.toLocaleTimeString(currentWebLocaleTag(), {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        });
+      }
+      return raw;
+    }
+
+    function upgradeBuildStampValue(rawValue) {
+      const raw = String(rawValue || '').trim();
+      if (!raw || raw === '-') return 0;
+      const compact = raw.match(/^(\d{4})(\d{2})(\d{2})[._-]?(\d{2})(\d{2})(\d{2})$/);
+      if (compact) {
+        return Number(compact[1] + compact[2] + compact[3] + compact[4] + compact[5] + compact[6]);
+      }
+      const parsed = Date.parse(raw);
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    function compareUpgradeArtifacts(a, b) {
+      const versionCompare = compareFirmwareVersions(String(a && a.version ? a.version : ''), String(b && b.version ? b.version : ''));
+      if (versionCompare !== 0) return versionCompare;
+      const aStamp = splitUpgradeVersionStamp(a && a.version, formatManifestBuildDate(a)).build;
+      const bStamp = splitUpgradeVersionStamp(b && b.version, formatManifestBuildDate(b)).build;
+      const dateCompare = upgradeBuildStampValue(aStamp) - upgradeBuildStampValue(bStamp);
+      if (dateCompare > 0) return 1;
+      if (dateCompare < 0) return -1;
+      return 0;
+    }
+
+    function upgradeManifestKeysForComponent(componentKey) {
+      const key = String(componentKey || '').trim().toLowerCase();
+      if (key === 'flowio') {
+        if (isFlowIOS3Profile()) return ['esp32s3', 'flowio'];
+        if (isMicronovaProfile() || isSupervisorProfile()) return ['supervisor'];
+        return ['flowio', 'esp32s3', 'supervisor'];
+      }
+      if (key === 'spiffs') {
+        if (isFlowIOS3Profile()) return ['esp32s3-spiffs', 'spiffs'];
+        return ['spiffs', 'cfgdocs', 'esp32s3-spiffs'];
+      }
+      if (key === 'nextion') return ['nextion'];
+      return [key];
+    }
+
+    function latestUpgradeEntryForComponent(componentKey, manifest, manifestUrl) {
+      if (!manifest || typeof manifest !== 'object') return null;
+      const baseUrl = manifestBaseUrl(manifestUrl);
+      const entries = [];
+      upgradeManifestKeysForComponent(componentKey).forEach((category) => {
+        manifestArtifactList(manifest, category)
+          .filter((artifact) => joinManifestArtifactUrl(baseUrl, artifact))
+          .forEach((artifact) => {
+            const target = resolveArtifactTarget(category, artifact);
+            const split = splitUpgradeVersionStamp(artifact.version, formatManifestBuildDate(artifact));
+            entries.push({
+              category: category,
+              artifact: artifact,
+              title: formatManifestArtifactTitle(category, artifact),
+              version: split.version,
+              buildDate: split.build,
+              notes: String(artifact.notes || artifact.release_notes || '').trim(),
+              url: joinManifestArtifactUrl(baseUrl, artifact),
+              target: target,
+              endpoint: resolveArtifactEndpoint(category, artifact, target)
+            });
+          });
+      });
+      if (!entries.length) return null;
+      entries.sort((a, b) => compareUpgradeArtifacts(b.artifact, a.artifact));
+      return entries[0];
+    }
+
+    function formatDetectedNextionVersion(rawValue) {
+      const raw = String(rawValue || '').trim();
+      if (!raw || raw === '0') return '-';
+      if (raw.indexOf('.') >= 0) return raw;
+      const n = Number.parseInt(raw, 10);
+      if (!Number.isFinite(n) || n <= 0) return raw;
+      if (n >= 100) {
+        return Math.floor(n / 100) + '.' + (Math.floor(n / 10) % 10) + '.' + (n % 10);
+      }
+      return raw;
+    }
+
+    function currentUpgradeVersionForComponent(componentKey) {
+      const key = String(componentKey || '').trim().toLowerCase();
+      if (key === 'nextion') {
+        return splitUpgradeVersionStamp(formatDetectedNextionVersion(nextionDisplayVersion), '');
+      }
+      const supervisor = String(supervisorFirmwareVersion || '').trim();
+      const flow = String(window.__flowIoFirmwareVersion || '').trim();
+      const firmware = supervisor && supervisor !== '-' ? supervisor : flow;
+      return splitUpgradeVersionStamp(firmware && firmware !== '-' ? firmware : '-', '');
+    }
+
+    function buildUpgradeComponentRows() {
+      const manifest = upgradeManifestState && upgradeManifestState.manifest;
+      const manifestUrl = upgradeManifestState && upgradeManifestState.manifestUrl;
+      return upgradeComponentDefs.map((def) => {
+        const current = currentUpgradeVersionForComponent(def.key);
+        const latest = latestUpgradeEntryForComponent(def.key, manifest, manifestUrl);
+        const available = latest
+          ? { version: latest.version, build: latest.buildDate }
+          : { version: '-', build: '-' };
+        const comparableCurrent = current.version && current.version !== '-';
+        const comparableAvailable = available.version && available.version !== '-';
+        const updateAvailable = comparableAvailable && (!comparableCurrent || compareFirmwareVersions(available.version, current.version) > 0);
+        return Object.assign({}, def, {
+          current: current,
+          available: available,
+          updateAvailable: updateAvailable,
+          entry: latest,
+          comments: latest && latest.notes
+            ? latest.notes
+            : (updateAvailable ? def.commentsAvailable : def.commentsCurrent)
+        });
+      });
+    }
+
+    function appendUpgradeVersionCell(parent, versionInfo) {
+      const wrap = document.createElement('div');
+      wrap.className = 'update-version-stack';
+      const version = document.createElement('strong');
+      version.textContent = (versionInfo && versionInfo.version) || '-';
+      const build = document.createElement('span');
+      build.textContent = (versionInfo && versionInfo.build) || '-';
+      wrap.appendChild(version);
+      wrap.appendChild(build);
+      parent.appendChild(wrap);
+    }
+
+    function createUpgradeComponentBadge(row, sizeClass) {
+      const badge = document.createElement('span');
+      badge.className = 'update-component-badge update-component-' + row.tone + (sizeClass ? ' ' + sizeClass : '');
+      const icon = document.createElement('span');
+      icon.className = 'ui-msr';
+      icon.setAttribute('aria-hidden', 'true');
+      icon.textContent = row.icon;
+      badge.appendChild(icon);
+      return badge;
+    }
+
+    function createUpgradeStatusBadge(updateAvailable) {
+      const badge = document.createElement('span');
+      badge.className = 'update-status-badge ' + (updateAvailable ? 'is-available' : 'is-current');
+      badge.textContent = updateAvailable
+        ? tr('updates.status.available', 'Mise à jour disponible')
+        : tr('updates.status.current', 'À jour');
+      return badge;
+    }
+
+    function createUpgradeActionButton(row) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'update-action-btn';
+      const icon = document.createElement('span');
+      icon.className = 'ui-msr';
+      icon.setAttribute('aria-hidden', 'true');
+      icon.textContent = 'system_update_alt';
+      const label = document.createElement('span');
+      label.textContent = tr('updates.updateButton', 'Mettre à jour');
+      button.appendChild(icon);
+      button.appendChild(label);
+      const entry = row && row.entry;
+      button.disabled = !(entry && entry.endpoint && entry.url);
+      button.title = button.disabled
+        ? tr('updates.checkRequired', 'Vérifiez les mises à jour avant de lancer cette action.')
+        : tr('updates.updateButton', 'Mettre à jour');
+      bindClickAction(button, () => {
+        if (!entry) return;
+        if (!confirmUpgradeLaunch(entry)) return;
+        return startUpgrade(entry.target, entry.url, entry.endpoint);
+      });
+      return button;
+    }
+
+    function renderUpgradeSummaryCards(rows) {
       if (!upgradeCards) return;
       upgradeCards.innerHTML = '';
       upgradeCards.classList.remove('has-error');
-      if (!Array.isArray(entries) || entries.length === 0) {
-        setUpgradeCardsEmpty(tr('updates.noneInManifest', 'Aucune mise à jour disponible dans le manifest.'));
-        return;
-      }
-      entries.forEach((entry) => {
+      rows.forEach((row) => {
         const card = document.createElement('article');
-        card.className = 'upgrade-card';
+        card.className = 'update-summary-card update-summary-' + row.tone;
+        card.appendChild(createUpgradeComponentBadge(row, 'update-component-badge-lg'));
 
-        const head = document.createElement('div');
-        head.className = 'upgrade-card-head';
-
+        const body = document.createElement('div');
+        body.className = 'update-summary-body';
         const title = document.createElement('h3');
-        title.textContent = entry.title;
-        head.appendChild(title);
+        title.textContent = row.title + ' ';
+        const subtitle = document.createElement('span');
+        subtitle.textContent = '(' + row.subtitle + ')';
+        title.appendChild(subtitle);
+        body.appendChild(title);
 
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'upgrade-card-install';
-        button.setAttribute('aria-label', 'Installer ' + entry.title + ' ' + entry.version);
-        button.title = 'Installer ' + entry.title + ' ' + entry.version;
-        button.disabled = !entry.endpoint || !entry.url;
-        if (button.disabled) button.title = 'Route de mise à jour indisponible';
-        const icon = document.createElement('span');
-        icon.className = 'ui-msr';
-        icon.setAttribute('aria-hidden', 'true');
-        icon.textContent = 'upload';
-        button.appendChild(icon);
-        bindClickAction(button, () => {
-          if (!confirmUpgradeLaunch(entry)) return;
-          return startUpgrade(entry.target, entry.url, entry.endpoint);
-        });
-        head.appendChild(button);
-        card.appendChild(head);
+        const currentLine = document.createElement('div');
+        currentLine.className = 'update-summary-line';
+        currentLine.appendChild(document.createTextNode(tr('updates.currentVersion', 'Version actuelle')));
+        const currentPill = document.createElement('b');
+        currentPill.textContent = row.current.version || '-';
+        currentLine.appendChild(currentPill);
+        body.appendChild(currentLine);
 
-        const fields = document.createElement('div');
-        fields.className = 'upgrade-card-fields';
-        appendUpgradeCardField(fields, 'deployed_code', 'Version ' + entry.version);
-        appendUpgradeCardField(fields, 'event', entry.buildDate);
-        appendUpgradeCardField(fields, 'description', entry.notes);
-        card.appendChild(fields);
+        const availableLine = document.createElement('div');
+        availableLine.className = 'update-summary-line';
+        availableLine.appendChild(document.createTextNode(tr('updates.availableVersion', 'Version disponible')));
+        const availablePill = document.createElement('b');
+        availablePill.className = row.updateAvailable ? 'is-green' : '';
+        availablePill.textContent = row.available.version || '-';
+        availableLine.appendChild(availablePill);
+        body.appendChild(availableLine);
+        card.appendChild(body);
+
+        const stateIcon = document.createElement('span');
+        stateIcon.className = 'ui-msr update-summary-state';
+        stateIcon.setAttribute('aria-hidden', 'true');
+        stateIcon.textContent = row.updateAvailable ? 'arrow_upward' : 'horizontal_rule';
+        card.appendChild(stateIcon);
+
+        const foot = document.createElement('div');
+        foot.className = 'update-summary-foot';
+        const dot = document.createElement('span');
+        dot.className = 'update-dot ' + (row.updateAvailable ? 'is-green' : 'is-blue');
+        foot.appendChild(dot);
+        foot.appendChild(document.createTextNode(row.updateAvailable
+          ? tr('updates.status.available', 'Mise à jour disponible')
+          : tr('updates.status.current', 'À jour')));
+        card.appendChild(foot);
 
         upgradeCards.appendChild(card);
       });
     }
 
+    function renderUpgradeTable(rows) {
+      if (!upgradeTableBody) return;
+      upgradeTableBody.innerHTML = '';
+      rows.forEach((row) => {
+        const trEl = document.createElement('tr');
+
+        const componentCell = document.createElement('td');
+        const component = document.createElement('div');
+        component.className = 'update-component-cell';
+        component.appendChild(createUpgradeComponentBadge(row, ''));
+        const copy = document.createElement('div');
+        const title = document.createElement('strong');
+        title.textContent = row.title;
+        const sub = document.createElement('span');
+        sub.textContent = '(' + row.subtitle + ')';
+        copy.appendChild(title);
+        copy.appendChild(sub);
+        component.appendChild(copy);
+        componentCell.appendChild(component);
+        trEl.appendChild(componentCell);
+
+        const currentCell = document.createElement('td');
+        appendUpgradeVersionCell(currentCell, row.current);
+        trEl.appendChild(currentCell);
+
+        const availableCell = document.createElement('td');
+        appendUpgradeVersionCell(availableCell, row.available);
+        trEl.appendChild(availableCell);
+
+        const statusCell = document.createElement('td');
+        statusCell.appendChild(createUpgradeStatusBadge(row.updateAvailable));
+        trEl.appendChild(statusCell);
+
+        const commentsCell = document.createElement('td');
+        commentsCell.textContent = row.comments || '-';
+        trEl.appendChild(commentsCell);
+
+        const actionCell = document.createElement('td');
+        actionCell.appendChild(createUpgradeActionButton(row));
+        trEl.appendChild(actionCell);
+
+        upgradeTableBody.appendChild(trEl);
+      });
+    }
+
+    function renderUpgradeCatalog(options) {
+      const rows = buildUpgradeComponentRows();
+      renderUpgradeSummaryCards(rows);
+      renderUpgradeTable(rows);
+      if (options && options.error) {
+        setUpgradeMessage(tr('updates.err.checkGeneric', 'Échec de la vérification.') + ' : ' + options.error);
+      }
+    }
+
     function resetUpgradeManifestSelections(text) {
       upgradeManifestState = { manifest: null, manifestUrl: '', baseUrl: '' };
-      setUpgradeCardsEmpty(text || tr('updates.empty', 'Cliquez sur « Rechercher les mises à jour ».'));
+      setUpgradeCardsEmpty(text || tr('updates.empty', 'Cliquez sur « Vérifier les mises à jour ».'));
     }
 
     function confirmUpgradeLaunch(entry) {
@@ -2918,10 +3237,10 @@
         supervisor: isMicronovaProfile()
           ? tr('updates.confirmRebootMicronova', 'Confirmer le redémarrage de Micronova ?')
           : tr('updates.confirmRebootSupervisor', 'Confirmer le redémarrage du Supervisor ?'),
-        flow_soft: tr('updates.confirmRebootFlowSoft', 'Confirmer le redémarrage logiciel de Flow.io ?'),
-        flow_hard: tr('updates.confirmRebootFlowHard', 'Confirmer le redémarrage matériel de Flow.io ?'),
+        flow_soft: tr('updates.confirmRebootFlowSoft', 'Confirmer le redémarrage logiciel de flow.io ?'),
+        flow_hard: tr('updates.confirmRebootFlowHard', 'Confirmer le redémarrage matériel de flow.io ?'),
         nextion: tr('updates.confirmRebootNextion', 'Confirmer le redémarrage de Nextion ?'),
-        factory_reset: tr('updates.confirmFactoryReset', 'Confirmer l\'initialisation usine de Flow.io ? Cette action efface la configuration distante.')
+        factory_reset: tr('updates.confirmFactoryReset', 'Confirmer l\'initialisation usine de flow.io ? Cette action efface la configuration distante.')
       };
       return confirm(messages[action] || messages.supervisor);
     }
@@ -2930,31 +3249,19 @@
       const manifest = data && data.manifest && typeof data.manifest === 'object' ? data.manifest : null;
       const manifestUrl = String(data && data.manifest_url ? data.manifest_url : '').trim();
       upgradeManifestState = { manifest: manifest, manifestUrl: manifestUrl, baseUrl: manifestBaseUrl(manifestUrl) };
-      renderUpgradeCards(manifestArtifactEntries(manifest, manifestUrl));
+      renderUpgradeCatalog();
     }
 
     function describeManifestUpdates(data) {
       const manifest = data && data.manifest && typeof data.manifest === 'object' ? data.manifest : null;
       if (!manifest) return 'Manifest indisponible.';
-      const manifestUrl = String(data && data.manifest_url ? data.manifest_url : '').trim();
-      const entries = manifestArtifactEntries(manifest, manifestUrl);
-      const currentByTarget = {
-        supervisor: supervisorFirmwareVersion,
-        flowio: window.__flowIoFirmwareVersion || '-',
-        nextion: '-',
-        spiffs: '-'
-      };
-      const available = [];
-      const listed = [];
-      entries.forEach((entry) => {
-        const version = String(entry.version || '').trim();
-        if (!version) return;
-        const current = currentByTarget[entry.target] || '-';
-        listed.push(entry.title + ' ' + version);
-        if (current && current !== '-' && compareFirmwareVersions(version, current) > 0) {
-          available.push(entry.title + ' ' + current + ' -> ' + version);
-        }
-      });
+      const rows = buildUpgradeComponentRows();
+      const available = rows
+        .filter((row) => row.updateAvailable)
+        .map((row) => row.title + ' ' + row.current.version + ' -> ' + row.available.version);
+      const listed = rows
+        .filter((row) => row.available.version && row.available.version !== '-')
+        .map((row) => row.title + ' ' + row.available.version);
       if (available.length > 0) {
         return 'Mise(s) à jour disponible(s) : ' + available.join(', ') + '.';
       }
@@ -3258,33 +3565,6 @@
       if (n < 1024) return Math.round(n) + ' B';
       if (n < (1024 * 1024)) return Math.round(n / 1024) + ' kB';
       return (n / (1024 * 1024)).toFixed(1) + ' MB';
-    }
-
-    function setDrawerRuntimeMetaValues(heapFreeText, heapMinText) {
-      if (!appHeapSummary) return;
-      const heapFreeValue = String(heapFreeText || '-');
-      const heapMinValue = String(heapMinText || '-');
-      appHeapSummary.textContent = 'Heap: ' + heapFreeValue + ' / ' + heapMinValue;
-    }
-
-    function isDrawerRuntimeMetaVisible() {
-      return !!appRuntimeMeta
-        && isDrawerExpanded();
-    }
-
-    function renderDrawerRuntimeMeta() {
-      if (!appRuntimeMeta) return;
-      const heapFreeValue =
-        supervisorHeap && Object.prototype.hasOwnProperty.call(supervisorHeap, 'free')
-          ? supervisorHeap.free
-          : null;
-      const heapMinValue =
-        supervisorHeap && Object.prototype.hasOwnProperty.call(supervisorHeap, 'min_free')
-          ? supervisorHeap.min_free
-          : null;
-      const heapFreeText = heapFreeValue === null ? '-' : fmtFlowBytes(heapFreeValue);
-      const heapMinText = heapMinValue === null ? '-' : fmtFlowBytes(heapMinValue);
-      setDrawerRuntimeMetaValues(heapFreeText, heapMinText);
     }
 
     function fmtFlowFixed(value, decimals, unit) {
@@ -4004,7 +4284,7 @@
         ]
       });
       appendFlowStatusCard({
-        title: 'Flow.io',
+        title: 'flow.io',
         icon: 'system',
         ok: systemReady,
         iconLabel: systemReady ? 'Systeme joignable' : 'Systeme indisponible',
@@ -4017,8 +4297,8 @@
       });
 
       flowStatusChip.textContent = i2cLinkOk
-        ? 'Flow.io disponible'
-        : 'Connexion Flow.io a verifier';
+        ? 'flow.io disponible'
+        : 'Connexion flow.io a verifier';
       flowStatusRaw.hidden = true;
       flowStatusRaw.classList.remove('is-skeleton');
       flowStatusRaw.innerHTML = '';
@@ -4069,6 +4349,7 @@
     }
 
     function showPoolMeasuresError(err) {
+      if (!poolMeasuresStatus) return;
       poolMeasuresStatus.textContent = 'Chargement mesures echoue: ' + err;
     }
 
@@ -4153,17 +4434,6 @@
       if (!cleanDomain) return [];
       const cache = await loadRuntimeManifestDomains(!!forceRefresh);
       return Array.isArray(cache[cleanDomain]) ? cache[cleanDomain] : [];
-    }
-
-    async function refreshDrawerRuntimeMeta(forceRefresh) {
-      if (!appRuntimeMeta) return;
-      renderDrawerRuntimeMeta();
-      if (!isDrawerRuntimeMetaVisible() || !forceRefresh) return;
-      await loadWebMeta({ skipDrawerRuntimeRender: false });
-    }
-
-    function startDrawerRuntimeTimer() {
-      drawerRuntimePoller.start();
     }
 
     function formatRuntimeDomainLabel(domain) {
@@ -5102,6 +5372,7 @@
     }
 
     function refreshPoolMeasuresStatus() {
+      if (!poolMeasuresStatus) return;
       const activeDomains = activePoolMeasureDomainKeys();
       const domainLabel = (count) => count > 1
         ? tr('dashboard.status.domains.plural', 'Domaines')
@@ -5255,7 +5526,9 @@
 
     async function onUpgradePageShown() {
       renderUpgradeJourney(readUpgradeUiSession() || { phase: 'idle', target: '', detail: tr('updates.none', 'Aucune opération en cours.') });
+      renderUpgradeCatalog();
       resumeUpgradeReconnectFlow();
+      await loadWebMeta().catch(() => {});
       if (!upgradeCfgLoadedOnce) {
         upgradeCfgLoadedOnce = true;
         await loadUpgradeConfig();
@@ -5796,7 +6069,7 @@
     async function applyCalibrationResult() {
       if (!calibrationContext || !calibrationComputed) return;
       if (calibrationApplyBtn) calibrationApplyBtn.disabled = true;
-      calibrationSetStatus(tr('calibration.applyInProgress', 'Application des coefficients sur Flow.io...'), 'busy');
+      calibrationSetStatus(tr('calibration.applyInProgress', 'Application des coefficients sur flow.io...'), 'busy');
 
       try {
         const patch = {};
@@ -6272,7 +6545,7 @@
 
     function cfgSourceLabel(source) {
       if (source !== 'supervisor') {
-        return tr('cfg.remote.flow', 'Config Store Flow.io');
+        return tr('cfg.remote.flow', 'Config Store flow.io');
       }
       if (webLocalConfigLabel) return webLocalConfigLabel;
       return isMicronovaProfile()
@@ -6445,7 +6718,7 @@
       roots.className = 'cfg-tree-group';
       roots.setAttribute('role', 'tree');
       if (webRemoteConfigEnabled && flowChildren.length > 0) {
-        roots.appendChild(buildCfgTreeRootItem('flow', tr('cfg.remote.flow', 'Config Store Flow.io'), flowCfgRootExpanded, flowChildren));
+        roots.appendChild(buildCfgTreeRootItem('flow', tr('cfg.remote.flow', 'Config Store flow.io'), flowCfgRootExpanded, flowChildren));
       }
       roots.appendChild(buildCfgTreeRootItem('supervisor', cfgSourceLabel('supervisor'), supCfgRootExpanded, supervisorChildren));
       flowCfgTree.appendChild(roots);
@@ -8003,17 +8276,17 @@
     function formatCfgLoadStatus(result, finalMessage) {
       if (result && !result.flowLoaded && result.supervisorLoaded) {
         return finalMessage
-          ? 'Flow.io indisponible pour le moment. Configuration Supervisor disponible. Nouvelle tentative automatique...'
-          : 'Configuration Supervisor disponible. Nouvelle tentative pour Flow.io.';
+          ? 'flow.io indisponible pour le moment. Configuration Supervisor disponible. Nouvelle tentative automatique...'
+          : 'Configuration Supervisor disponible. Nouvelle tentative pour flow.io.';
       }
       if (result && result.flowLoaded && !result.supervisorLoaded) {
         return finalMessage
-          ? 'Configuration Flow.io disponible. Configuration Supervisor indisponible. Nouvelle tentative automatique...'
-          : 'Configuration Flow.io disponible. Nouvelle tentative pour Supervisor.';
+          ? 'Configuration flow.io disponible. Configuration Supervisor indisponible. Nouvelle tentative automatique...'
+          : 'Configuration flow.io disponible. Nouvelle tentative pour Supervisor.';
       }
       return finalMessage
-        ? 'Flow.io indisponible pour le moment. Nouvelle tentative automatique...'
-        : 'Flow.io se prépare... nouvelle tentative.';
+        ? 'flow.io indisponible pour le moment. Nouvelle tentative automatique...'
+        : 'flow.io se prépare... nouvelle tentative.';
     }
 
     async function chargerFlowCfgModules(forceReload) {
@@ -8144,11 +8417,11 @@
             if (flowCfgFlowOnlyFailureStreak >= 6) {
               stopFlowCfgRetry();
               flowCfgStatus.textContent =
-                'Flow.io indisponible (lien I2C). Configuration Supervisor disponible. ' +
+                'flow.io indisponible (lien I2C). Configuration Supervisor disponible. ' +
                 'Auto-retry en pause, utilisez Rafraîchir.';
             } else {
               flowCfgStatus.textContent =
-                'Flow.io indisponible pour le moment. Configuration Supervisor disponible. ' +
+                'flow.io indisponible pour le moment. Configuration Supervisor disponible. ' +
                 'Nouvelle tentative dans ' + Math.max(1, Math.round(retryDelayMs / 1000)) + ' s.';
               scheduleFlowCfgRetry(retryDelayMs);
             }
@@ -8185,7 +8458,7 @@
         return 'Patch de configuration invalide (' + (where || 'flowcfg') + ').';
       }
       if (code === 'CfgApplyFailed') {
-        return 'Flow.io a refusé la configuration (' + (where || 'flowcfg') + ').';
+        return 'flow.io a refusé la configuration (' + (where || 'flowcfg') + ').';
       }
       if (code) {
         return code + (where ? ' (' + where + ')' : '');
@@ -8281,7 +8554,7 @@
         if (!res.ok || !data || data.ok !== true) {
           throw new Error(formatFlowCfgApplyError(data));
         }
-        flowCfgStatus.textContent = 'Configuration appliquée sur Flow.io.';
+        flowCfgStatus.textContent = 'Configuration appliquée sur flow.io.';
         await chargerFlowCfgModule(flowCfgCurrentModule);
         await refreshWebUiLocale(true);
       } catch (err) {
@@ -8357,7 +8630,7 @@
     }
 
     function flowCfgBackupStoreLabel(storeName) {
-      return storeName === 'supervisor' ? webProfileName : 'Flow.io';
+      return storeName === 'supervisor' ? webProfileName : 'flow.io';
     }
 
     function flowCfgBackupStoreFetchImpl(storeName) {
@@ -8763,7 +9036,7 @@
 
         const truncatedErrors = []
           .concat((backupDoc.stores.supervisor.truncated_modules || []).map((moduleName) => 'Supervisor/' + moduleName))
-          .concat((backupDoc.stores.flow.truncated_modules || []).map((moduleName) => 'Flow.io/' + moduleName));
+          .concat((backupDoc.stores.flow.truncated_modules || []).map((moduleName) => 'flow.io/' + moduleName));
         if (truncatedErrors.length > 0) {
           throw new Error(
             'export interrompu: modules tronqués (' + truncatedErrors.join(', ') + ').'
@@ -8772,7 +9045,7 @@
 
         const failedModuleErrors = []
           .concat((backupDoc.stores.supervisor.failed_modules || []).map((entry) => 'Supervisor/' + entry.module))
-          .concat((backupDoc.stores.flow.failed_modules || []).map((entry) => 'Flow.io/' + entry.module));
+          .concat((backupDoc.stores.flow.failed_modules || []).map((entry) => 'flow.io/' + entry.module));
 
         const serialized = JSON.stringify(backupDoc, null, 2);
         const fileName = 'flowio-configstore-backup-' + flowCfgBackupIsoDateForFile(createdAt) + '.json';
@@ -8868,7 +9141,7 @@
           'Import terminé (' + Math.max(1, Math.round(durationMs / 1000)) + ' s). '
             + 'Supervisor: ' + report.supervisor.modules_applied + ' module(s), '
             + report.supervisor.patches_applied + ' patch(s). '
-            + 'Flow.io: ' + report.flow.modules_applied + ' module(s), '
+            + 'flow.io: ' + report.flow.modules_applied + ' module(s), '
             + report.flow.patches_applied + ' patch(s).',
           'ok'
         );
@@ -8901,17 +9174,17 @@
       const flowUsesRemote = target === 'flow' && !flowLocalProfile;
       await fetchOkJson(endpoint, { method: 'POST' }, 'échec action', flowUsesRemote ? fetchFlowRemoteQueued : fetch);
       if (target === 'flow' && action === 'factory_reset') {
-        systemStatusText.textContent = 'Reset Flow.io en cours';
+        if (systemStatusText) systemStatusText.textContent = 'Reset flow.io en cours';
       } else if (target === 'flow' && action === 'hardware_reboot') {
-        systemStatusText.textContent = 'Reset matériel Flow.io';
+        if (systemStatusText) systemStatusText.textContent = 'Reset matériel flow.io';
       } else if (target === 'flow' && action === 'reboot') {
-        systemStatusText.textContent = 'Redémarrage Flow.io';
+        if (systemStatusText) systemStatusText.textContent = 'Redémarrage flow.io';
       } else if (target === 'nextion' && action === 'reboot') {
-        systemStatusText.textContent = 'Redémarrage Nextion';
+        if (systemStatusText) systemStatusText.textContent = 'Redémarrage Nextion';
       } else if (target === 'supervisor' && action === 'factory_reset') {
-        systemStatusText.textContent = 'Reset superviseur en cours';
+        if (systemStatusText) systemStatusText.textContent = 'Reset superviseur en cours';
       } else {
-        systemStatusText.textContent = 'Redémarrage superviseur';
+        if (systemStatusText) systemStatusText.textContent = 'Redémarrage superviseur';
       }
     }
 
@@ -8949,7 +9222,7 @@
 
       const tick = () => {
         button.textContent = remaining + ' s';
-        systemStatusText.textContent = countdownLabel + ' dans ' + remaining + ' s';
+        if (systemStatusText) systemStatusText.textContent = countdownLabel + ' dans ' + remaining + ' s';
 
         if (remaining <= 1) {
           pendingSystemActionCountdowns.delete(button);
@@ -8959,7 +9232,7 @@
               await actionRunner();
             } catch (err) {
               clearPendingSystemAction(button);
-              systemStatusText.textContent = failurePrefix;
+              if (systemStatusText) systemStatusText.textContent = failurePrefix;
               return;
             }
             clearPendingSystemAction(button);
@@ -9096,13 +9369,13 @@
             runner: () => callSystemAction('supervisor', 'reboot')
           },
           flow_soft: {
-            countdown: 'Reboot Flow.io',
-            failure: 'Reboot Flow.io échoué',
+            countdown: 'Reboot flow.io',
+            failure: 'Reboot flow.io échoué',
             runner: () => callSystemAction('flow', 'reboot')
           },
           flow_hard: {
-            countdown: 'Reset matériel Flow.io',
-            failure: 'Reset matériel Flow.io échoué',
+            countdown: 'Reset matériel flow.io',
+            failure: 'Reset matériel flow.io échoué',
             runner: () => callSystemAction('flow', 'hardware_reboot')
           },
           nextion: {
@@ -9111,8 +9384,8 @@
             runner: () => callSystemAction('nextion', 'reboot')
           },
           factory_reset: {
-            countdown: 'Init usine Flow.io',
-            failure: 'Init usine Flow.io échouée',
+            countdown: 'Init usine flow.io',
+            failure: 'Init usine flow.io échouée',
             runner: () => callSystemAction('flow', 'factory_reset')
           }
         };
@@ -9122,6 +9395,16 @@
           chosen.countdown,
           chosen.runner,
           chosen.failure
+        );
+      });
+      bindClickAction(factoryResetDeviceActionBtn, () => {
+        if (!factoryResetDeviceActionBtn) return;
+        if (!confirmRebootLaunch('factory_reset')) return;
+        startDelayedSystemAction(
+          factoryResetDeviceActionBtn,
+          'Init usine flow.io',
+          () => callSystemAction('flow', 'factory_reset'),
+          'Init usine flow.io échouée'
         );
       });
     }
@@ -9174,6 +9457,7 @@
         }
         if (!document.hidden) {
           refreshWebUiLocale(true).catch(() => {});
+          refreshAppHeaderWifi(true).catch(() => {});
         }
       });
     }
@@ -9192,10 +9476,12 @@
     renderUpgradeJourney(readUpgradeUiSession() || { phase: 'idle', target: '', detail: tr('updates.none', 'Aucune opération en cours.') });
     refreshWebUiLocale(true).catch(() => {});
     resumeUpgradeReconnectFlow();
-    startDrawerRuntimeTimer();
+    startAppHeaderClock();
+    refreshAppHeader(resolveInitialPageId());
     const initialPageId = resolveInitialPageId();
     const startInitialUi = async () => {
       await loadWebMeta().catch(() => {});
+      refreshAppHeaderWifi(true).catch(() => {});
       showPage(initialPageId, { deferHeavyMs: 260 });
     };
     if (typeof window.requestAnimationFrame === 'function') {

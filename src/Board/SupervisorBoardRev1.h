@@ -16,13 +16,13 @@ inline constexpr HaCapacitySpec kSupervisorBoardRev1HaCapacity{40, 6, 14, 14, 24
 inline constexpr UartSpec kSupervisorBoardRev1Uarts[] = {
     // {name, uartIndex, rxPin, txPin, baud, primary, enableRxPin}
     {"log", 0, -1, -1, kSupervisorBoardRev1UartBaud, true, -1}, // USB serial logs (UART0 default pins).
-    {"bridge", 2, 16, 17, kSupervisorBoardRev1UartBaud, false, -1}, // FlowIO bridge UART (RX=GPIO16, TX=GPIO17).
+    {"bridge", 2, 16, 17, kSupervisorBoardRev1UartBaud, false, -1}, // flow.io bridge UART (RX=GPIO16, TX=GPIO17).
     {"panel", 2, 33, 32, kSupervisorBoardRev1UartBaud, false, -1}, // Nextion panel UART (RX=GPIO33, TX=GPIO32).
 };
 
 inline constexpr I2cBusSpec kSupervisorBoardRev1I2c[] = {
     // {name, sdaPin, sclPin, frequencyHz}
-    {"interlink", 27, 13, kSupervisorBoardRev1InterlinkI2cHz}, // FlowIO interlink bus (SDA=GPIO27, SCL=GPIO13).
+    {"interlink", 27, 13, kSupervisorBoardRev1InterlinkI2cHz}, // flow.io interlink bus (SDA=GPIO27, SCL=GPIO13).
 };
 
 inline constexpr St7789DisplaySpec kSupervisorBoardRev1Display{
@@ -53,8 +53,8 @@ inline constexpr SupervisorInputSpec kSupervisorBoardRev1Inputs{
 };
 
 inline constexpr SupervisorUpdateSpec kSupervisorBoardRev1Update{
-    25,                       // flowIoEnablePin: controls target FlowIO EN line.
-    26,                       // flowIoBootPin: controls target FlowIO boot strap.
+    25,                       // flowIoEnablePin: controls target flow.io EN line.
+    26,                       // flowIoBootPin: controls target flow.io boot strap.
     12,                       // nextionRebootPin: hardware reboot pin for Nextion panel.
     kSupervisorBoardRev1UartBaud // nextionUploadBaud: upload UART baud rate.
 };

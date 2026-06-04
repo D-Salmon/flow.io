@@ -562,6 +562,13 @@ bool HMIModule::isStatusLedAutoWifiMode_() const
     return ws2812AutoWifiMode_;
 }
 
+bool HMIModule::getDisplayVersion_(uint32_t* out) const
+{
+    if (!out || !nextionVersionDetected_) return false;
+    *out = nextionVersion_;
+    return true;
+}
+
 HMIModule::HMIModule(const BoardSpec& board)
 {
     const IoPointSpec* tx433 = boardFindIoPoint(board, BoardSignal::Tx433);

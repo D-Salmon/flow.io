@@ -145,8 +145,8 @@ struct SupervisorInputSpec {
 };
 
 struct SupervisorUpdateSpec {
-    int8_t flowIoEnablePin;  // GPIO controlling FlowIO EN line.
-    int8_t flowIoBootPin;    // GPIO controlling FlowIO boot strap line.
+    int8_t flowIoEnablePin;  // GPIO controlling flow.io EN line.
+    int8_t flowIoBootPin;    // GPIO controlling flow.io boot strap line.
     int8_t nextionRebootPin; // GPIO used to reboot the Nextion panel.
     uint32_t nextionUploadBaud; // UART baud used during Nextion upload.
 };

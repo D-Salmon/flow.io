@@ -539,13 +539,13 @@ void SupervisorHMIModule::syncFlowLocaleIfNeeded_()
         flowLocaleSyncPending_ = false;
         flowLocaleAttempt_ = 0U;
         flowLocaleRetryAtMs_ = 0U;
-        LOGI("FlowIO locale synchronized lang=%s", activeLanguage_);
+        LOGI("flow.io locale synchronized lang=%s", activeLanguage_);
         return;
     }
 
     ++flowLocaleAttempt_;
     flowLocaleRetryAtMs_ = millis() + flowLocaleRetryDelayMs_(flowLocaleAttempt_);
-    LOGW("FlowIO locale sync failed lang=%s retry_in_ms=%lu",
+    LOGW("flow.io locale sync failed lang=%s retry_in_ms=%lu",
          activeLanguage_,
          (unsigned long)(flowLocaleRetryAtMs_ - millis()));
 }

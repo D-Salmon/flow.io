@@ -1,7 +1,7 @@
 #pragma once
 /**
  * @file HmiUdpServerModule.h
- * @brief Lightweight FlowIO UDP endpoint for a remote HMI display.
+ * @brief Lightweight flow.io UDP endpoint for a remote HMI display.
  */
 
 #include <WiFiUdp.h>

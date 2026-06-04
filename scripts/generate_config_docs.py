@@ -222,26 +222,26 @@ def _apply_profile_specific_io_enum_sets(meta: dict, profile: str) -> dict:
         out.pop("label_i18n", None)
         return out
 
-    # Digital input bindings: pin labels differ across FlowIO and FlowIOS3.
+    # Digital input bindings: pin labels differ across flow.io and flow.io.
     din_key = "flowio_binding_port_digital_input"
     din_entries = enum_sets.get(din_key)
     if isinstance(din_entries, list):
         current = [item for item in din_entries if isinstance(item, dict)]
         din_labels_flowio = {
-            200: "PortDigitalIn1 - digital_in1 (FlowIO GPIO34) [200]",
-            201: "PortDigitalIn2 - digital_in2 (FlowIO GPIO36) [201]",
-            202: "PortDigitalIn3 - digital_in3 (FlowIO GPIO39) [202]",
-            203: "PortDigitalIn4 - digital_in4 (FlowIO GPIO35) [203]",
+            200: "PortDigitalIn1 - digital_in1 (flow.io GPIO34) [200]",
+            201: "PortDigitalIn2 - digital_in2 (flow.io GPIO36) [201]",
+            202: "PortDigitalIn3 - digital_in3 (flow.io GPIO39) [202]",
+            203: "PortDigitalIn4 - digital_in4 (flow.io GPIO35) [203]",
         }
         din_labels_flowios3 = {
-            200: "PortDigitalIn1 - digital_in1 (FlowIOS3 GPIO4) [200]",
-            201: "PortDigitalIn2 - digital_in2 (FlowIOS3 GPIO5) [201]",
-            202: "PortDigitalIn3 - digital_in3 (FlowIOS3 GPIO6) [202]",
-            203: "PortDigitalIn4 - digital_in4 (FlowIOS3 GPIO7) [203]",
-            204: "PortDigitalIn5 - digital_in5 (FlowIOS3 GPIO8) [204]",
-            205: "PortDigitalIn6 - digital_in6 (FlowIOS3 GPIO9) [205]",
-            206: "PortDigitalIn7 - digital_in7 (FlowIOS3 GPIO10) [206]",
-            207: "PortDigitalIn8 - digital_in8 (FlowIOS3 GPIO11) [207]",
+            200: "PortDigitalIn1 - digital_in1 (flow.io GPIO4) [200]",
+            201: "PortDigitalIn2 - digital_in2 (flow.io GPIO5) [201]",
+            202: "PortDigitalIn3 - digital_in3 (flow.io GPIO6) [202]",
+            203: "PortDigitalIn4 - digital_in4 (flow.io GPIO7) [203]",
+            204: "PortDigitalIn5 - digital_in5 (flow.io GPIO8) [204]",
+            205: "PortDigitalIn6 - digital_in6 (flow.io GPIO9) [205]",
+            206: "PortDigitalIn7 - digital_in7 (flow.io GPIO10) [206]",
+            207: "PortDigitalIn8 - digital_in8 (flow.io GPIO11) [207]",
         }
 
         selected_labels = None
@@ -259,7 +259,7 @@ def _apply_profile_specific_io_enum_sets(meta: dict, profile: str) -> dict:
                 filtered.append(sanitize_enum_entry(entry, selected_labels[value]))
             enum_sets[din_key] = filtered
 
-    # Digital output bindings: FlowIO uses PCF8574 ports, FlowIOS3 uses TCA9554 ports.
+    # Digital output bindings: flow.io uses PCF8574 ports, flow.io uses TCA9554 ports.
     dout_key = "flowio_binding_port_digital_output"
     dout_entries = enum_sets.get(dout_key)
     if isinstance(dout_entries, list):
@@ -270,7 +270,7 @@ def _apply_profile_specific_io_enum_sets(meta: dict, profile: str) -> dict:
             if value is None:
                 continue
             keep = True
-            # Micronova aux_output must not be exposed on FlowIO / FlowIOS3 profiles.
+            # Micronova aux_output must not be exposed on flow.io / flow.io profiles.
             if profile in ("flowio", "flowios3") and value == 1:
                 keep = False
             if profile == "flowio":
@@ -300,7 +300,7 @@ def _apply_profile_specific_io_enum_sets(meta: dict, profile: str) -> dict:
                     relabeled.append(dict(entry))
             filtered = relabeled
 
-        # Ensure FlowIO exposes all 8 PCF bits (400..407) in UI bindings.
+        # Ensure flow.io exposes all 8 PCF bits (400..407) in UI bindings.
         if profile == "flowio":
             present_values = {_to_int(item.get("value")) for item in filtered}
             if 407 not in present_values:
@@ -313,7 +313,7 @@ def _apply_profile_specific_io_enum_sets(meta: dict, profile: str) -> dict:
         enum_sets[dout_key] = filtered
 
     # PoolLogic device slots: keep generic labels by default, but expose
-    # FlowIOS3 wiring-specific mapping in UI for faster setup.
+    # flow.io wiring-specific mapping in UI for faster setup.
     slot_key = "poollogic_device_slot"
     slot_entries = enum_sets.get(slot_key)
     if profile == "flowios3" and isinstance(slot_entries, list):

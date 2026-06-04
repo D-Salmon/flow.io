@@ -42,7 +42,7 @@ inline constexpr I2cBusSpec kFlowIODINv1S3I2c[] = {
 };
 
 inline constexpr I2cBusSpec kFlowIOS3I2c[] = {
-    // FlowIOS3 wiring defaults for ESP32-S3.
+    // flow.io wiring defaults for ESP32-S3.
     {"io", 42, 41, kFlowIODINv1IoI2cHz},
     {"interlink", 5, 15, kFlowIODINv1InterlinkI2cHz},
 };
@@ -120,7 +120,7 @@ inline constexpr IoPointSpec kFlowIODINv1IoPoints[] = {
 };
 
 inline constexpr IoPointSpec kFlowIOS3IoPoints[] = {
-    // FlowIOS3 digital outputs are exposed through the TCA9554 expander (EXIO1..EXIO8), not direct GPIO relays.
+    // flow.io digital outputs are exposed through the TCA9554 expander (EXIO1..EXIO8), not direct GPIO relays.
     // pin field below uses logical EXIO index (0..7) for board metadata readability.
     {"exio1", IoCapability::DigitalOut, BoardSignal::Relay1, 0, false, 0},
     {"exio2", IoCapability::DigitalOut, BoardSignal::Relay2, 1, false, 0},
@@ -143,7 +143,7 @@ inline constexpr IoPointSpec kFlowIOS3IoPoints[] = {
 };
 
 inline constexpr IoPointSpec kWaveshareESP32S3IoPoints[] = {
-    // FlowIOS3 digital outputs are exposed through the TCA9554 expander (EXIO1..EXIO8), not direct GPIO relays.
+    // flow.io digital outputs are exposed through the TCA9554 expander (EXIO1..EXIO8), not direct GPIO relays.
     {"exio1", IoCapability::DigitalOut, BoardSignal::Relay1, 0, false, 0},
     {"exio2", IoCapability::DigitalOut, BoardSignal::Relay2, 1, false, 0},
     {"exio3", IoCapability::DigitalOut, BoardSignal::Relay3, 2, false, 0},
@@ -189,7 +189,7 @@ inline constexpr SupervisorInputSpec kWaveshareESP32S3Inputs{
 };
 
 inline constexpr SupervisorUpdateSpec kWaveshareESP32S3Update{
-    -1,      // flowIoEnablePin: local FlowIOS3 build has no downstream FlowIO target.
+    -1,      // flowIoEnablePin: local flow.io build has no downstream flow.io target.
     -1,      // flowIoBootPin.
     -1,      // nextionRebootPin.
     115200U  // nextionUploadBaud.
@@ -202,7 +202,7 @@ inline constexpr SupervisorBoardSpec kWaveshareESP32S3Supervisor{
 };
 
 inline constexpr BoardSpec kFlowIODINv1{
-    "FlowIODINv1",
+    "flow.io DIN v1",
     "flowio-core",
     kFlowIODINv1Uarts,
     (uint8_t)(sizeof(kFlowIODINv1Uarts) / sizeof(kFlowIODINv1Uarts[0])),
@@ -225,7 +225,7 @@ inline constexpr auto& kFlowIODINv2OneWire = kFlowIODINv1OneWire;
 inline constexpr auto& kFlowIODINv2IoPoints = kFlowIODINv1IoPoints;
 
 inline constexpr BoardSpec kFlowIODINv2{
-    "FlowIODINv2",
+    "flow.io DIN v2",
     "flowio-core",
     kFlowIODINv2Uarts,
     (uint8_t)(sizeof(kFlowIODINv2Uarts) / sizeof(kFlowIODINv2Uarts[0])),
@@ -243,7 +243,7 @@ inline constexpr BoardSpec kFlowIODINv2{
 };
 
 inline constexpr BoardSpec kFlowIODINv1S3{
-    "FlowIODINv1S3",
+    "flow.io DIN v1 S3",
     "flowio-core",
     kFlowIODINv1Uarts,
     (uint8_t)(sizeof(kFlowIODINv1Uarts) / sizeof(kFlowIODINv1Uarts[0])),
@@ -261,7 +261,7 @@ inline constexpr BoardSpec kFlowIODINv1S3{
 };
 
 inline constexpr BoardSpec kFlowIOS3{
-    "FlowIOS3",
+    "flow.io S3",
     "flowio",
     kFlowIOS3Uarts,
     (uint8_t)(sizeof(kFlowIOS3Uarts) / sizeof(kFlowIOS3Uarts[0])),

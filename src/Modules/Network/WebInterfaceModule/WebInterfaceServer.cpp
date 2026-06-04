@@ -597,7 +597,7 @@ void buildProvisioningApSsid_(char* out, size_t outLen)
     const uint8_t b0 = (uint8_t)(chipId >> 16);
     const uint8_t b1 = (uint8_t)(chipId >> 8);
     const uint8_t b2 = (uint8_t)(chipId >> 0);
-    snprintf(out, outLen, "FlowIO-%s-%02X%02X%02X", FLOW_BUILD_PROFILE_NAME, b0, b1, b2);
+    snprintf(out, outLen, "flow.io-%s-%02X%02X%02X", FLOW_BUILD_PROFILE_NAME, b0, b1, b2);
 }
 
 bool isModuleFlagAndStringConfigured_(ConfigStore* cfgStore,
@@ -750,6 +750,8 @@ bool sendFlowStatusCompactResponse_(AsyncWebServerRequest* request, const FlowCf
             serializeJson(wifiIn["rdy"], *response);
             appendJsonFieldName_(*response, "ip");
             printJsonEscaped_(*response, wifiIn["ip"] | "");
+            appendJsonFieldName_(*response, "mac");
+            printJsonEscaped_(*response, wifiIn["mac"] | "");
             appendJsonFieldValue_(*response, "hrss", wifiIn["hrss"]);
             appendJsonFieldValue_(*response, "rssi", wifiIn["rssi"]);
             response->print('}');
@@ -1926,6 +1928,13 @@ bool flowios3BuildStatusDomainJson_(FlowStatusDomain domain,
         char ipText[20] = {0};
         snprintf(ipText, sizeof(ipText), "%u.%u.%u.%u", (unsigned)ip.b[0], (unsigned)ip.b[1], (unsigned)ip.b[2], (unsigned)ip.b[3]);
         wifi["ip"] = ipText;
+        uint8_t mac[6] = {0};
+        WiFi.macAddress(mac);
+        char macText[18] = {0};
+        snprintf(macText, sizeof(macText), "%02X:%02X:%02X:%02X:%02X:%02X",
+                 (unsigned)mac[0], (unsigned)mac[1], (unsigned)mac[2],
+                 (unsigned)mac[3], (unsigned)mac[4], (unsigned)mac[5]);
+        wifi["mac"] = macText;
         if (wifiUp && wifiConnected) {
             wifi["rssi"] = (int32_t)WiFi.RSSI();
             wifi["hrss"] = true;
@@ -3022,7 +3031,7 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Flow.io Rescue</title>
+<title>flow.io Rescue</title>
 <style>
   :root { color-scheme: dark; --bg:#07111f; --panel:#101c2f; --panel2:#13243b; --line:#29415f; --text:#edf4ff; --muted:#a9bad2; --accent:#41c7b7; --warn:#ffd166; --bad:#ff7b8a; }
   * { box-sizing: border-box; }
@@ -3053,7 +3062,7 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
 </head>
 <body>
 <header>
-  <h1>Flow.io Rescue</h1>
+  <h1>flow.io Rescue</h1>
   <p>Console minimale embarquee dans le firmware Supervisor. Elle reste disponible meme si la partition SPIFFS ne contient plus l'interface web.</p>
 </header>
 <main>
@@ -3848,7 +3857,7 @@ void WebInterfaceModule::onStart(ConfigStore&, ServiceRegistry&)
 void WebInterfaceModule::startLocalRuntime_()
 {
 #if defined(FLOW_PROFILE_FLOWIOS3)
-    // FlowIOS3 exposes its own LogHub on /wslog; there is no secondary UART
+    // flow.io exposes its own LogHub on /wslog; there is no secondary UART
     // bridge to read, especially now that USB CDC on boot is disabled.
     bridgeUartEnabled_ = false;
 #endif
@@ -3870,7 +3879,7 @@ void WebInterfaceModule::startLocalRuntime_()
     }
 
 #if defined(FLOW_PROFILE_FLOWIOS3)
-    LOGI("WebInterface local log runtime enabled on FlowIOS3 (serial bridge disabled)");
+    LOGI("WebInterface local log runtime enabled on flow.io (serial bridge disabled)");
     return;
 #endif
 
@@ -4299,6 +4308,40 @@ void WebInterfaceModule::startServer_()
         }
         sendPreparedAssetResponse(request, response, &forensicMeta);
     });
+    server_.on("/webinterface/favicon.png", HTTP_GET, [this, beginSpiffsAssetResponse, sendPreparedAssetResponse](AsyncWebServerRequest* request) {
+        SpiffsAssetForensicMeta forensicMeta{};
+        bool heapRejected = false;
+        bool buildBusy = false;
+        AsyncWebServerResponse* response =
+            beginSpiffsAssetResponse(
+                request, "/webinterface/favicon.png", "image/png", false, nullptr, &forensicMeta, &heapRejected, &buildBusy);
+        if (!response) {
+            if (heapRejected || buildBusy) {
+                sendTinyBusyJson_(request, heapRejected ? "low_memory" : "asset_build_busy");
+                return;
+            }
+            request->send(404, "text/plain", "Not found");
+            return;
+        }
+        sendPreparedAssetResponse(request, response, &forensicMeta);
+    });
+    server_.on("/webinterface/logo-flowio.png", HTTP_GET, [this, beginSpiffsAssetResponse, sendPreparedAssetResponse](AsyncWebServerRequest* request) {
+        SpiffsAssetForensicMeta forensicMeta{};
+        bool heapRejected = false;
+        bool buildBusy = false;
+        AsyncWebServerResponse* response =
+            beginSpiffsAssetResponse(
+                request, "/webinterface/logo-flowio.png", "image/png", false, nullptr, &forensicMeta, &heapRejected, &buildBusy);
+        if (!response) {
+            if (heapRejected || buildBusy) {
+                sendTinyBusyJson_(request, heapRejected ? "low_memory" : "asset_build_busy");
+                return;
+            }
+            request->send(404, "text/plain", "Not found");
+            return;
+        }
+        sendPreparedAssetResponse(request, response, &forensicMeta);
+    });
     server_.on("/webinterface/runtimeui.json", HTTP_GET, [this, beginSpiffsAssetResponse, sendPreparedAssetResponse](AsyncWebServerRequest* request) {
         SpiffsAssetForensicMeta forensicMeta{};
         bool heapRejected = false;
@@ -4445,7 +4488,7 @@ void WebInterfaceModule::startServer_()
     });
     server_.on("/api/web/meta", HTTP_GET, [this](AsyncWebServerRequest* request) {
         HttpLatencyScope latency(request, "/api/web/meta");
-        StaticJsonDocument<768> doc;
+        StaticJsonDocument<896> doc;
         NetworkAccessMode mode = NetworkAccessMode::None;
         if (!netAccessSvc_ && services_) {
             netAccessSvc_ = services_->get<NetworkAccessService>(ServiceId::NetworkAccess);
@@ -4469,13 +4512,21 @@ void WebInterfaceModule::startServer_()
         doc["provisioning_only"] = provisioningOnly_;
         doc["full_ui_enabled"] = !provisioningOnly_;
         doc["reboot_after_wifi_save"] = provisioningOnly_ || (mode == NetworkAccessMode::AccessPoint);
+        uint32_t nextionDisplayVersion = 0U;
+        if (!hmiSvc_ && services_) {
+            hmiSvc_ = services_->get<HmiService>(ServiceId::Hmi);
+        }
+        if (hmiSvc_ && hmiSvc_->getDisplayVersion &&
+            hmiSvc_->getDisplayVersion(hmiSvc_->ctx, &nextionDisplayVersion)) {
+            doc["nextion_display_version"] = nextionDisplayVersion;
+        }
 #if defined(FLOW_PROFILE_MICRONOVA)
         doc["local_runtime"] = true;
         doc["local_config_label"] = "Config Store Micronova";
         doc["remote_config_enabled"] = false;
 #elif defined(FLOW_PROFILE_FLOWIOS3)
         doc["local_runtime"] = true;
-        doc["local_config_label"] = "Config Store Flow.io";
+        doc["local_config_label"] = "Config Store flow.io";
         doc["remote_config_enabled"] = false;
 #else
         doc["local_runtime"] = false;
@@ -4612,7 +4663,7 @@ void WebInterfaceModule::startServer_()
     server_.on("/webinterface/", HTTP_GET, [webInterfaceLandingUrl](AsyncWebServerRequest* request) {
         request->redirect(webInterfaceLandingUrl());
     });
-    server_.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest* request) { request->redirect("/webinterface/favicon.svg"); });
+    server_.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest* request) { request->redirect("/webinterface/favicon.png"); });
     server_.on("/webserial", HTTP_GET, [this](AsyncWebServerRequest* request) {
         noteHttpActivity_();
         AsyncWebServerResponse* response = request->beginResponse(200, "text/html", kWebSerialLogPage);
@@ -5052,9 +5103,9 @@ void WebInterfaceModule::startServer_()
         }
 
         if (flowSyncAttempted && flowSyncOk) {
-            LOGI("WiFi config synced to Flow.io");
+            LOGI("WiFi config synced to flow.io");
         } else if (flowSyncAttempted) {
-            LOGW("WiFi config sync to Flow.io skipped/failed attempted=%d err=%s",
+            LOGW("WiFi config sync to flow.io skipped/failed attempted=%d err=%s",
                  (int)flowSyncAttempted,
                  flowSyncErr[0] ? flowSyncErr : "none");
         }
@@ -5084,9 +5135,9 @@ void WebInterfaceModule::startServer_()
         }
 
         if (flowRebootAttempted && flowRebootOk) {
-            LOGI("Flow.io reboot requested after AP WiFi provisioning");
+            LOGI("flow.io reboot requested after AP WiFi provisioning");
         } else if (flowRebootAttempted) {
-            LOGW("Flow.io reboot request failed err=%s", flowRebootErr[0] ? flowRebootErr : "unknown");
+            LOGW("flow.io reboot request failed err=%s", flowRebootErr[0] ? flowRebootErr : "unknown");
         }
 
 #if defined(FLOW_PROFILE_FLOWIOS3)

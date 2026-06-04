@@ -222,7 +222,7 @@ void FlowConnectDisplayUdpClientModule::handlePacket_(const HmiUdpHeader& header
     markSeen_(nowMs);
     const HmiUdpMsgType msgType = (HmiUdpMsgType)header.type;
     const bool nextionSleeping = nextion_.isSleeping();
-    LOGD("FlowIO -> FCD msg=%s seq=%u ack=%u flags=0x%02X len=%u",
+    LOGD("flow.io -> FCD msg=%s seq=%u ack=%u flags=0x%02X len=%u",
          msgTypeName_(msgType),
          (unsigned)header.seq,
          (unsigned)header.ack,
@@ -266,7 +266,7 @@ void FlowConnectDisplayUdpClientModule::handlePacket_(const HmiUdpHeader& header
                     (void)nextion_.publishHomeText(HmiHomeTextField::ErrorMessage, "");
                 }
                 if (!wasLinked) {
-                    LOGI("FCD linked to FlowIO proto=%u fw=%u", (unsigned)welcome->protoVersion, (unsigned)welcome->flowFw);
+                    LOGI("FCD linked to flow.io proto=%u fw=%u", (unsigned)welcome->protoVersion, (unsigned)welcome->flowFw);
                     if (!nextionSleeping) {
                         requestFullRefresh_("welcome");
                     }
@@ -631,9 +631,9 @@ bool FlowConnectDisplayUdpClientModule::sendEvent_(const HmiEvent& event)
     hmiUdpEventToPayload(event, payload);
     const bool ok = queueReliablePacket_(HmiUdpMsgType::HmiEvent, &payload, sizeof(payload));
     if (ok) {
-        logEvent_("FCD -> FlowIO", event);
+        logEvent_("FCD -> flow.io", event);
     } else {
-        LOGW("FCD failed to queue event for FlowIO event=%s command=%s row=%u pending=%s seq=%u",
+        LOGW("FCD failed to queue event for flow.io event=%s command=%s row=%u pending=%s seq=%u",
              eventTypeName_(event.type),
              commandName_(event.command),
              (unsigned)event.row,
@@ -778,7 +778,7 @@ void FlowConnectDisplayUdpClientModule::requestFullRefresh_(const char* reason, 
     }
     lastHomeRefreshRequestMs_ = now;
     const bool ok = sendPacket_(HmiUdpMsgType::FullRefresh, nullptr, 0U);
-    LOGD("FCD requested FlowIO full refresh reason=%s ok=%d",
+    LOGD("FCD requested flow.io full refresh reason=%s ok=%d",
          reason ? reason : "unknown",
          ok ? 1 : 0);
 }
@@ -1025,7 +1025,7 @@ void FlowConnectDisplayUdpClientModule::setFlowConnectionVisible_(bool visible, 
     if (!force && flowConnectVisible_ == visible) return;
     const bool ok = nextion_.setObjectVisible(FlowConnectionStateObject, visible);
     if (ok) flowConnectVisible_ = visible;
-    LOGD("FCD FlowIO connection indicator visible=%u reason=%s ok=%d",
+    LOGD("FCD flow.io connection indicator visible=%u reason=%s ok=%d",
          visible ? 1U : 0U,
          reason ? reason : "state",
          ok ? 1 : 0);
@@ -1048,9 +1048,9 @@ void FlowConnectDisplayUdpClientModule::handleLinkLost_()
     if (!lostShown_) {
         lostShown_ = true;
         if (!nextion_.isSleeping()) {
-            (void)nextion_.publishHomeText(HmiHomeTextField::ErrorMessage, "Connexion Flow.io perdue");
+            (void)nextion_.publishHomeText(HmiHomeTextField::ErrorMessage, "Connexion flow.io perdue");
         }
-        LOGI("FCD lost FlowIO link");
+        LOGI("FCD lost flow.io link");
     }
 }
 

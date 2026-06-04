@@ -218,7 +218,7 @@ private:
     static constexpr size_t kRuntimeValuesJsonDocCapacity = 768U;
 #elif defined(FLOW_PROFILE_FLOWIOS3)
     static constexpr UBaseType_t kLocalLogQueueLen = 128;
-    static_assert(kLocalLogQueueLen == 128, "FlowIOS3 wslog queue must keep 128 lines");
+    static_assert(kLocalLogQueueLen == 128, "flow.io wslog queue must keep 128 lines");
     static constexpr size_t kRuntimeValuesBodyMax = 4096U;
     static constexpr size_t kRuntimeValuesJsonDocCapacity = 4096U;
 #else

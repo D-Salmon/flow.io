@@ -10,11 +10,11 @@ namespace FlowIO {
 const FirmwareProfile& profile()
 {
     static const FirmwareProfile kProfile{
-        "FlowIO",
+        "flow.io",
         &BoardCatalog::activeBoard(),
         &DomainCatalog::pool(),
         {
-            "Flow.io",
+            "flow.io",
             "flowio",
             FirmwareVersion::Full,
             "rt"

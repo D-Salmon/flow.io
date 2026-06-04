@@ -14,7 +14,7 @@ const FirmwareProfile& profile()
         &BoardCatalog::micronovaBoardRev1(),
         &DomainCatalog::supervisor(),
         {
-            "Flow.io Micronova",
+            "flow.io Micronova",
             "flowio-micronova",
             FirmwareVersion::Full,
             "rt"

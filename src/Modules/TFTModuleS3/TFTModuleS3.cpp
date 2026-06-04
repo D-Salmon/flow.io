@@ -917,7 +917,7 @@ void TFTModuleS3::drawBrandWordmark_(int16_t x, int16_t y, int16_t w, int16_t h,
 {
     static constexpr char kBrandFlow[] = "Flow";
     static constexpr char kBrandIo[] = ".io";
-    static constexpr char kBrandFull[] = "Flow.io";
+    static constexpr char kBrandFull[] = "flow.io";
 
     setGfxFont_(font, kColorBrandFlow, bg);
     const int16_t flowW = gfxTextWidth_(kBrandFlow);

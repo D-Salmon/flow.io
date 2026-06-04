@@ -97,7 +97,7 @@ def _classify_artifact(software, ext):
             "category": "esp32s3",
             "target": "esp32s3",
             "kind": "esp32-firmware",
-            # Kept on FlowIO update endpoint for compatibility with current updater API.
+            # Kept on flow.io update endpoint for compatibility with current updater API.
             "route": "/fwupdate/flowio",
         }
 

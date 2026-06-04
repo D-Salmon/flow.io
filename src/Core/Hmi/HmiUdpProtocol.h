@@ -1,7 +1,7 @@
 #pragma once
 /**
  * @file HmiUdpProtocol.h
- * @brief Compact UDP protocol shared by FlowIO and the remote Nextion display.
+ * @brief Compact UDP protocol shared by flow.io and the remote Nextion display.
  */
 
 #include <stddef.h>

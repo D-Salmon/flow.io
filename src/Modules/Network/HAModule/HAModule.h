@@ -87,7 +87,7 @@ private:
 
     struct HAConfig {
         bool enabled = true;
-        char vendor[32] = "Flow.io";
+        char vendor[32] = "flow.io";
         char deviceId[32] = "";
         char entityPrefix[16] = FLOW_WIRDEF_HA_ENTITY_PREFIX;
         char discoveryPrefix[32] = "homeassistant";
@@ -111,7 +111,7 @@ private:
     char nodeTopicId_[32] = {0};
     char deviceName_[Limits::Mqtt::Buffers::DeviceName] = {0};
     char objectPrefix_[8] = "fio";
-    char originName_[32] = "Flow.io";
+    char originName_[32] = "flow.io";
 
     char stateTopicBuf_[96] = {0};
     char objectIdBuf_[96] = {0};

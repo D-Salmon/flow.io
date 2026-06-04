@@ -252,7 +252,7 @@ void WifiProvisioningModule::buildApCredentials_()
     const uint8_t b0 = (uint8_t)(chipId >> 16);
     const uint8_t b1 = (uint8_t)(chipId >> 8);
     const uint8_t b2 = (uint8_t)(chipId >> 0);
-    snprintf(apSsid_, sizeof(apSsid_), "FlowIO-%s-%02X%02X%02X", FLOW_BUILD_PROFILE_NAME, b0, b1, b2);
+    snprintf(apSsid_, sizeof(apSsid_), "flow.io-%02X%02X%02X", b0, b1, b2);
     snprintf(apPass_, sizeof(apPass_), "%s", kDefaultApPass);
 }
 
@@ -910,13 +910,13 @@ void WifiProvisioningModule::sendPortalFallbackPage_(WiFiClient& client, const c
     sendHttpHeader_(client, "200 OK", "text/html; charset=utf-8");
     client.print(F("<!doctype html><html><head><meta charset=\"utf-8\">"
                    "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
-                   "<title>Flow.io WiFi</title>"
+                   "<title>flow.io WiFi</title>"
                    "<style>body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;margin:0;background:#f7f7f2;color:#17211c}"
                    "main{max-width:420px;margin:8vh auto;padding:24px}h1{font-size:24px;margin:0 0 8px}"
                    "p{line-height:1.45}.msg{padding:12px;border:1px solid #cbd5c8;background:#fff;margin:16px 0}"
                    "label{display:block;margin:14px 0 6px;font-weight:600}input{box-sizing:border-box;width:100%;font-size:18px;padding:12px;border:1px solid #9aa89d}"
                    "button{margin-top:18px;width:100%;font-size:18px;padding:12px;border:0;background:#166b52;color:#fff}</style></head><body><main>"
-                   "<h1>Flow.io</h1><p>Connexion au reseau WiFi de la piscine.</p>"));
+                   "<h1>flow.io</h1><p>Connexion au reseau WiFi de la piscine.</p>"));
     if (message && message[0] != '\0') {
         client.print(F("<div class=\"msg\" role=\"status\">"));
         client.print(message);
@@ -937,7 +937,7 @@ void WifiProvisioningModule::sendWebMetaJson_(WiFiClient& client)
     const int n = snprintf(out,
                            sizeof(out),
                            "{\"ok\":true,\"firmware_version\":\"%s\",\"profile\":\"%s\","
-                           "\"profile_name\":\"%s\",\"product_name\":\"Flow.io\","
+                           "\"profile_name\":\"%s\",\"product_name\":\"flow.io\","
                            "\"wifi_only\":true,\"mqtt_config_enabled\":false,"
                            "\"runtime_enabled\":false,\"config_browser_enabled\":false,"
                            "\"full_ui_enabled\":false,\"reboot_after_wifi_save\":true}",

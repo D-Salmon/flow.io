@@ -10,11 +10,11 @@ namespace FlowIOS3 {
 const FirmwareProfile& profile()
 {
     static const FirmwareProfile kProfile{
-        "FlowIOS3",
+        "flow.io",
         &BoardCatalog::activeBoard(),
         &DomainCatalog::pool(),
         {
-            "Flow.io",
+            "flow.io",
             "flowio-s3",
             FirmwareVersion::Full,
             "rt"

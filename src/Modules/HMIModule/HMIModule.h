@@ -207,6 +207,7 @@ private:
     bool getStatusLedState_(HmiStatusLedState* out) const;
     bool setStatusLedAutoWifiMode_(bool enabled);
     bool isStatusLedAutoWifiMode_() const;
+    bool getDisplayVersion_(uint32_t* out) const;
     bool refreshCurrentModule_();
     bool render_();
     bool renderAlarmPage_();
@@ -271,6 +272,7 @@ private:
         ServiceBinding::bind<&HMIModule::getStatusLedState_>,
         ServiceBinding::bind<&HMIModule::setStatusLedAutoWifiMode_>,
         ServiceBinding::bind<&HMIModule::isStatusLedAutoWifiMode_>,
+        ServiceBinding::bind<&HMIModule::getDisplayVersion_>,
         this
     };
 };

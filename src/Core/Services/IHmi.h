@@ -29,5 +29,6 @@ struct HmiService {
     bool (*getStatusLedState)(void* ctx, HmiStatusLedState* out);
     bool (*setStatusLedAutoWifiMode)(void* ctx, bool enabled);
     bool (*isStatusLedAutoWifiMode)(void* ctx);
+    bool (*getDisplayVersion)(void* ctx, uint32_t* out);
     void* ctx;
 };

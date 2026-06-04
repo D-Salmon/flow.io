@@ -1,7 +1,7 @@
 #pragma once
 /**
  * @file FlowConnectDisplayUdpClientModule.h
- * @brief Flow Connect FCD UDP bridge between FlowIO and a local Nextion.
+ * @brief Flow Connect FCD UDP bridge between flow.io and a local Nextion.
  */
 
 #include <WiFiUdp.h>

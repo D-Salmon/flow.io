@@ -103,9 +103,9 @@ bool ensureDiscoveryHeap()
         );
     }
     if (gDiscoveryHeap) {
-        FLOWIO_HA_BOOT_TRACE("FlowIO discovery heap allocated (%u bytes)", (unsigned)sizeof(FlowIoDiscoveryHeap));
+        FLOWIO_HA_BOOT_TRACE("flow.io discovery heap allocated (%u bytes)", (unsigned)sizeof(FlowIoDiscoveryHeap));
     } else {
-        FLOWIO_HA_BOOT_TRACE("FlowIO discovery heap allocation failed (%u bytes)", (unsigned)sizeof(FlowIoDiscoveryHeap));
+        FLOWIO_HA_BOOT_TRACE("flow.io discovery heap allocation failed (%u bytes)", (unsigned)sizeof(FlowIoDiscoveryHeap));
     }
     return gDiscoveryHeap != nullptr;
 }
@@ -116,7 +116,7 @@ void releaseDiscoveryHeapIfReady(ModuleInstances& modules)
     if (!gDiscoveryHeap || !modules.ioDataStore) return;
     if (!haAutoconfigPublished(*modules.ioDataStore)) {
         if (!gDiscoveryHeapReleaseWaitLogged) {
-            FLOWIO_HA_BOOT_TRACE("FlowIO discovery heap waiting for HA publish completion");
+            FLOWIO_HA_BOOT_TRACE("flow.io discovery heap waiting for HA publish completion");
             gDiscoveryHeapReleaseWaitLogged = true;
         }
         return;
@@ -124,7 +124,7 @@ void releaseDiscoveryHeapIfReady(ModuleInstances& modules)
     heap_caps_free(gDiscoveryHeap);
     gDiscoveryHeap = nullptr;
     gDiscoveryHeapReleaseWaitLogged = false;
-    FLOWIO_HA_BOOT_TRACE("FlowIO discovery heap released after HA one-shot publish");
+    FLOWIO_HA_BOOT_TRACE("flow.io discovery heap released after HA one-shot publish");
 #else
     (void)modules;
 #endif
@@ -471,7 +471,7 @@ void refreshIoHomeAssistantIfNeeded(ModuleInstances& modules)
 {
 #if FLOW_HA_ONESHOT_DISCOVERY
     if (!gOneShotRefreshBypassedLogged) {
-        FLOWIO_HA_BOOT_TRACE("FlowIO IO->HA dynamic refresh bypassed in one-shot mode");
+        FLOWIO_HA_BOOT_TRACE("flow.io IO->HA dynamic refresh bypassed in one-shot mode");
         gOneShotRefreshBypassedLogged = true;
     }
     releaseDiscoveryHeapIfReady(modules);

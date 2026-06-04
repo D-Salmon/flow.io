@@ -362,7 +362,7 @@ void drawBrandWordmark_(SupervisorSt7789& d,
 {
     static constexpr char kBrandFlow[] = "Flow";
     static constexpr char kBrandIo[] = ".io";
-    static constexpr char kBrandFull[] = "Flow.io";
+    static constexpr char kBrandFull[] = "flow.io";
 
     setGfxFont_(d, swapBytes, font, kColorBrandFlow, bg);
     const int16_t flowW = gfxTextWidth_(d, kBrandFlow);

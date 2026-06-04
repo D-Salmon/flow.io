@@ -1,7 +1,7 @@
 {
   "locale": "en",
   "translations": {
-    "cfgdocs.hmi.leds.enabled.help": "Activate front LEDs on some Flow.io/Poolmaster boards.",
+    "cfgdocs.hmi.leds.enabled.help": "Activate front LEDs on some flow.io/Poolmaster boards.",
     "cfgdocs.hmi.leds.enabled.label": "LEDs enabled",
     "cfgdocs.hmi.nextion.enabled.help": "Activate locally connected Nextion screen (serial port).",
     "cfgdocs.hmi.nextion.enabled.label": "Nextion enabled",

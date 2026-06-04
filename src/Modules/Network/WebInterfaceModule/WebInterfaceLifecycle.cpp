@@ -178,7 +178,7 @@ void WebInterfaceModule::loop()
 #if defined(FLOW_PROFILE_FLOWIOS3)
         if (mode == NetworkAccessMode::AccessPoint) {
             provisioningOnly_ = true;
-            LOGI("Web startup in FlowIOS3 AP provisioning mode");
+            LOGI("Web startup in flow.io AP provisioning mode");
         }
 #endif
 

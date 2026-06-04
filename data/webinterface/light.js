@@ -1,7 +1,7 @@
 const $ = (id) => document.getElementById(id);
 
 const ui = {
-  product: "Flow.io",
+  product: "flow.io",
   rebootAfterWifi: false
 };
 
@@ -130,7 +130,7 @@ async function loadAll() {
     const meta = await json("/api/web/meta");
     applyBrand(meta);
     applyCapabilities(meta);
-    $("subtitle").textContent = "Configuration Initiale - " + (meta.firmware_version || "Flow.io");
+    $("subtitle").textContent = "Configuration Initiale - " + (meta.firmware_version || "flow.io");
   } catch (err) {
     status("Meta indisponible");
   }
