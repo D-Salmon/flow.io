@@ -513,10 +513,10 @@ bool tryAcquireAssetBuildSlot_()
     bool acquired = false;
     portENTER_CRITICAL(&gAssetBuildMux);
     if (gAssetBuildInFlight < kAssetBuildConcurrentLimit) {
-        ++gAssetBuildInFlight;
+        gAssetBuildInFlight = gAssetBuildInFlight + 1U;
         acquired = true;
     } else {
-        ++gAssetBuildRejectCount;
+        gAssetBuildRejectCount = gAssetBuildRejectCount + 1U;
     }
     portEXIT_CRITICAL(&gAssetBuildMux);
     return acquired;
@@ -526,7 +526,7 @@ void releaseAssetBuildSlot_()
 {
     portENTER_CRITICAL(&gAssetBuildMux);
     if (gAssetBuildInFlight > 0U) {
-        --gAssetBuildInFlight;
+        gAssetBuildInFlight = gAssetBuildInFlight - 1U;
     }
     portEXIT_CRITICAL(&gAssetBuildMux);
 }
@@ -2087,6 +2087,20 @@ struct Flowios3DashboardSlotConfig {
     uint8_t colorId = 0U;
 };
 
+struct Flowios3AlarmDashboardSlotConfig {
+    bool enabled = true;
+    uint16_t alarmId = 0U;
+    char label[24] = {0};
+    uint8_t colorId = 0U;
+};
+
+struct Flowios3AlarmDashboardSlotState {
+    bool available = false;
+    bool latched = false;
+    bool conditionKnown = false;
+    bool conditionTrue = false;
+};
+
 struct Flowios3DashboardRuntimeValue {
     bool available = false;
     RuntimeUiWireType wireType = RuntimeUiWireType::Unavailable;
@@ -2128,6 +2142,46 @@ constexpr uint8_t kFlowios3DashboardDefaultColorIds[kFlowios3DashboardSlotCount]
     6U,
     7U,
 };
+constexpr uint16_t kFlowios3AlarmDashboardDefaultIds[kFlowios3DashboardSlotCount] = {
+    (uint16_t)AlarmId::PoolPsiLow,
+    (uint16_t)AlarmId::PoolPsiHigh,
+    (uint16_t)AlarmId::PoolPhTankLow,
+    (uint16_t)AlarmId::PoolChlorineTankLow,
+    (uint16_t)AlarmId::PoolPhPumpMaxUptime,
+    (uint16_t)AlarmId::PoolChlorinePumpMaxUptime,
+    (uint16_t)AlarmId::PoolWaterLevelLow,
+    (uint16_t)AlarmId::PoolWaterLevelLow,
+};
+constexpr bool kFlowios3AlarmDashboardDefaultEnabled[kFlowios3DashboardSlotCount] = {
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    false,
+};
+constexpr const char* kFlowios3AlarmDashboardDefaultLabels[kFlowios3DashboardSlotCount] = {
+    "PSI bas",
+    "PSI haut",
+    "pH vide",
+    "Chlore vide",
+    "pH uptime",
+    "ORP uptime",
+    "Eau basse",
+    "",
+};
+constexpr uint8_t kFlowios3AlarmDashboardDefaultColorIds[kFlowios3DashboardSlotCount] = {
+    17U,
+    17U,
+    8U,
+    10U,
+    9U,
+    7U,
+    5U,
+    19U,
+};
 constexpr const char* kFlowios3DashboardColorHex[] = {
     "#E6EFFF", "#E5F8FC", "#E8FAEF", "#F0EAFE", "#E4F6FA", "#E3F7FE", "#EAF8FD",
     "#FEF0E8", "#FCE7EF", "#FFF0E1", "#FFF7D9", "#EDF8E7", "#F0FAE6", "#F5EEFF",
@@ -2143,6 +2197,21 @@ const char* flowios3DashboardColorHex_(uint8_t colorId, uint8_t slot)
         if (fallbackId < colorCount) return kFlowios3DashboardColorHex[fallbackId];
     }
     return "#FFFFFF";
+}
+
+const char* flowios3AlarmDashboardLabel_(uint16_t alarmId)
+{
+    switch ((AlarmId)alarmId) {
+        case AlarmId::PoolPsiLow: return "PSI bas";
+        case AlarmId::PoolPsiHigh: return "PSI haut";
+        case AlarmId::PoolPhTankLow: return "pH vide";
+        case AlarmId::PoolChlorineTankLow: return "Chlore vide";
+        case AlarmId::PoolPhPumpMaxUptime: return "pH uptime";
+        case AlarmId::PoolChlorinePumpMaxUptime: return "ORP uptime";
+        case AlarmId::PoolWaterLevelLow: return "Eau basse";
+        case AlarmId::None:
+        default: return "Alarme";
+    }
 }
 
 void flowios3DashboardFallbackLabel_(RuntimeUiId id, char* out, size_t outLen)
@@ -2195,6 +2264,34 @@ void flowios3LoadDashboardSlotConfig_(ConfigStore* cfgStore, uint8_t slot, Flowi
     if (deserializeJson(doc, moduleJson)) return;
     if (doc.containsKey("enabled")) out.enabled = doc["enabled"].as<bool>();
     if (doc.containsKey("runtime_ui_id")) out.runtimeUiId = (RuntimeUiId)(doc["runtime_ui_id"].as<uint32_t>() & 0xFFFFU);
+    if (doc.containsKey("color_id")) out.colorId = (uint8_t)(doc["color_id"].as<uint32_t>() & 0xFFU);
+    if (doc.containsKey("label")) {
+        const char* label = doc["label"].as<const char*>();
+        snprintf(out.label, sizeof(out.label), "%s", label ? label : "");
+    }
+}
+
+void flowios3LoadAlarmDashboardSlotConfig_(ConfigStore* cfgStore, uint8_t slot, Flowios3AlarmDashboardSlotConfig& out)
+{
+    out.enabled = (slot < kFlowios3DashboardSlotCount) ? kFlowios3AlarmDashboardDefaultEnabled[slot] : false;
+    out.alarmId = (slot < kFlowios3DashboardSlotCount) ? kFlowios3AlarmDashboardDefaultIds[slot] : 0U;
+    out.colorId = (slot < kFlowios3DashboardSlotCount) ? kFlowios3AlarmDashboardDefaultColorIds[slot] : 0U;
+    snprintf(out.label,
+             sizeof(out.label),
+             "%s",
+             (slot < kFlowios3DashboardSlotCount) ? kFlowios3AlarmDashboardDefaultLabels[slot] : "");
+    if (!cfgStore || slot >= kFlowios3DashboardSlotCount) return;
+
+    char moduleName[32] = {0};
+    snprintf(moduleName, sizeof(moduleName), "tft/s3/alarms/slot%02u", (unsigned)slot);
+    char moduleJson[384] = {0};
+    bool truncated = false;
+    if (!cfgStore->toJsonModule(moduleName, moduleJson, sizeof(moduleJson), &truncated, true) || truncated) return;
+
+    StaticJsonDocument<448> doc;
+    if (deserializeJson(doc, moduleJson)) return;
+    if (doc.containsKey("enabled")) out.enabled = doc["enabled"].as<bool>();
+    if (doc.containsKey("alarm_id")) out.alarmId = (uint16_t)(doc["alarm_id"].as<uint32_t>() & 0xFFFFU);
     if (doc.containsKey("color_id")) out.colorId = (uint8_t)(doc["color_id"].as<uint32_t>() & 0xFFU);
     if (doc.containsKey("label")) {
         const char* label = doc["label"].as<const char*>();
@@ -2510,6 +2607,26 @@ void flowios3FormatDashboardRuntimeValue_(RuntimeUiId id,
     }
 }
 
+bool flowios3ReadAlarmDashboardSlotState_(const AlarmService* alarmSvc,
+                                          uint16_t alarmId,
+                                          Flowios3AlarmDashboardSlotState& out)
+{
+    out = Flowios3AlarmDashboardSlotState{};
+    if (!alarmSvc || !alarmSvc->buildAlarmState || alarmId == 0U) return false;
+
+    char stateJson[144] = {0};
+    if (!alarmSvc->buildAlarmState(alarmSvc->ctx, (AlarmId)alarmId, stateJson, sizeof(stateJson))) return false;
+
+    StaticJsonDocument<192> doc;
+    if (deserializeJson(doc, stateJson)) return false;
+    out.available = true;
+    out.latched = (doc["a"] | 0U) != 0U;
+    const uint8_t condition = doc["c"] | 2U;
+    out.conditionKnown = condition != (uint8_t)AlarmCondState::Unknown;
+    out.conditionTrue = condition == (uint8_t)AlarmCondState::True;
+    return true;
+}
+
 void sendFlowios3DashboardSlotsResponse_(AsyncResponseStream& response,
                                          bool& firstSlot,
                                          DataStore* dataStore,
@@ -2563,6 +2680,52 @@ void sendFlowios3DashboardSlotsResponse_(AsyncResponseStream& response,
         printJsonEscaped_(response, flowios3DashboardColorHex_(slot.colorId, i));
         response.print(",\"available\":");
         response.print(available ? "true" : "false");
+        response.print("}");
+        firstSlot = false;
+    }
+}
+
+void sendFlowios3AlarmDashboardSlotsResponse_(AsyncResponseStream& response,
+                                              bool& firstSlot,
+                                              ConfigStore* cfgStore,
+                                              const AlarmService* alarmSvc)
+{
+    for (uint8_t i = 0U; i < kFlowios3DashboardSlotCount; ++i) {
+        Flowios3AlarmDashboardSlotConfig slot{};
+        flowios3LoadAlarmDashboardSlotConfig_(cfgStore, i, slot);
+
+        char label[32] = {0};
+        if (slot.enabled) {
+            snprintf(label, sizeof(label), "%s", slot.label);
+            if (label[0] == '\0') {
+                snprintf(label, sizeof(label), "%s", flowios3AlarmDashboardLabel_(slot.alarmId));
+            }
+        }
+
+        Flowios3AlarmDashboardSlotState state{};
+        const bool available = slot.enabled &&
+                               flowios3ReadAlarmDashboardSlotState_(alarmSvc, slot.alarmId, state);
+        state.available = available;
+
+        if (!firstSlot) response.print(',');
+        response.print("{\"slot\":");
+        response.print((unsigned)i);
+        response.print(",\"enabled\":");
+        response.print(slot.enabled ? "true" : "false");
+        response.print(",\"alarm_id\":");
+        response.print((unsigned)slot.alarmId);
+        response.print(",\"label\":");
+        printJsonEscaped_(response, label);
+        response.print(",\"bg_color\":");
+        printJsonEscaped_(response, flowios3DashboardColorHex_(slot.colorId, i));
+        response.print(",\"available\":");
+        response.print(available ? "true" : "false");
+        response.print(",\"latched\":");
+        response.print(state.latched ? "true" : "false");
+        response.print(",\"condition_known\":");
+        response.print(state.conditionKnown ? "true" : "false");
+        response.print(",\"condition_true\":");
+        response.print(state.conditionTrue ? "true" : "false");
         response.print("}");
         firstSlot = false;
     }
@@ -5275,6 +5438,16 @@ void WebInterfaceModule::startServer_()
         }
 #else
         (void)first;
+#endif
+        response->print("],\"alarm_slots\":[");
+        bool firstAlarmSlot = true;
+#if defined(FLOW_PROFILE_FLOWIOS3)
+        {
+            const AlarmService* alarmSvc = services_ ? services_->get<AlarmService>(ServiceId::Alarm) : nullptr;
+            sendFlowios3AlarmDashboardSlotsResponse_(*response, firstAlarmSlot, cfgStore_, alarmSvc);
+        }
+#else
+        (void)firstAlarmSlot;
 #endif
         response->print("]}");
         request->send(response);

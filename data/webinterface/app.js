@@ -555,7 +555,7 @@
     }
 
     function createRuntimeDomainState() {
-      return { active: false, loading: false, entries: [], values: [], sondeSlots: [], error: '', requestSeq: 0 };
+      return { active: false, loading: false, entries: [], values: [], sondeSlots: [], alarmSlots: [], error: '', requestSeq: 0 };
     }
 
     function ensureRuntimeDomainState() {
@@ -726,24 +726,36 @@
     }
 
     function normalizeUpgradeHttpErrorMessage(rawMessage, fallback) {
-      const raw = String(rawMessage || '').trim();
-      if (!raw) return String(fallback || '').trim();
+      const normalizedFallback = String(fallback || tr('updates.err.updateGeneric', 'Erreur de mise à jour.')).trim();
+      let raw = String(rawMessage || '').trim().replace(/^error:\s*/i, '');
+      if (normalizedFallback && raw.toLowerCase().startsWith(normalizedFallback.toLowerCase())) {
+        raw = raw.slice(normalizedFallback.length).replace(/^\s*:\s*/, '').trim() || raw;
+      }
+      if (!raw) return normalizedFallback;
       const lower = raw.toLowerCase();
+      const folded = typeof lower.normalize === 'function'
+        ? lower.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        : lower;
 
-      if (lower.includes('serveur http injoignable')) {
-        return 'Serveur HTTP d’upgrade non joignable.';
+      if (folded.includes('serveur http injoignable') || folded.includes('failed to fetch') || folded.includes('load failed')) {
+        return tr('updates.err.serverUnreachable', 'Serveur HTTP d’upgrade non joignable.');
       }
 
-      if (lower.includes('manifest introuvable (404)')) {
-        return 'Manifest d’upgrade introuvable sur le serveur (404).';
+      if (folded.includes('manifest introuvable (404)')) {
+        return tr('updates.err.manifestNotFound', 'Manifest d’upgrade introuvable sur le serveur (404).');
       }
 
-      if (lower.includes('fichier de mise a jour introuvable (404)')) {
-        return 'Fichier de mise à jour introuvable sur le serveur (404).';
+      if (folded.includes('fichier de mise a jour introuvable (404)')) {
+        return tr('updates.err.fileNotFound', 'Fichier de mise à jour introuvable sur le serveur (404).');
       }
 
-      if (lower.includes('http 404')) {
-        return 'Fichier de mise à jour introuvable sur le serveur (404).';
+      const httpStatusMatch = folded.match(/(?:erreur\s+http|http)\s+(-?\d+)/);
+      if (httpStatusMatch && httpStatusMatch[1]) {
+        const status = httpStatusMatch[1];
+        if (status === '404') return tr('updates.err.fileNotFound', 'Fichier de mise à jour introuvable sur le serveur (404).');
+        if (status.charAt(0) === '-') return tr('updates.err.serverUnreachable', 'Serveur HTTP d’upgrade non joignable.');
+        return tr('updates.err.httpStatus', 'Erreur HTTP {status} renvoyée par le serveur d’upgrade.')
+          .replace('{status}', status);
       }
 
       return raw;
@@ -2574,7 +2586,7 @@
         updateUpgradeUiSession({
           phase: 'error',
           target: target,
-          detail: normalizeUpgradeHttpErrorMessage(msg, 'Erreur de mise à jour.'),
+          detail: normalizeUpgradeHttpErrorMessage(msg, tr('updates.err.updateGeneric', 'Erreur de mise à jour.')),
           backendProgress: progress,
           awaitingReconnect: false,
           reconnectShown: false,
@@ -2786,10 +2798,38 @@
     function setUpgradeCardsEmpty(text) {
       if (!upgradeCards) return;
       upgradeCards.innerHTML = '';
+      upgradeCards.classList.remove('has-error');
       const empty = document.createElement('div');
       empty.className = 'upgrade-empty';
       empty.textContent = text || tr('updates.empty', 'Cliquez sur « Rechercher les mises à jour ».');
       upgradeCards.appendChild(empty);
+    }
+
+    function setUpgradeCardsError(detail) {
+      if (!upgradeCards) return;
+      upgradeCards.innerHTML = '';
+      upgradeCards.classList.add('has-error');
+      const box = document.createElement('div');
+      box.className = 'upgrade-empty upgrade-error';
+      box.setAttribute('role', 'alert');
+
+      const icon = document.createElement('span');
+      icon.className = 'ui-msr upgrade-error-icon';
+      icon.setAttribute('aria-hidden', 'true');
+      icon.textContent = 'error';
+      box.appendChild(icon);
+
+      const title = document.createElement('strong');
+      title.className = 'upgrade-error-title';
+      title.textContent = tr('updates.err.checkTitle', 'Impossible de vérifier les mises à jour');
+      box.appendChild(title);
+
+      const text = document.createElement('span');
+      text.className = 'upgrade-error-detail';
+      text.textContent = detail || tr('updates.err.checkGeneric', 'Échec de la vérification.');
+      box.appendChild(text);
+
+      upgradeCards.appendChild(box);
     }
 
     function appendUpgradeCardField(parent, iconName, value) {
@@ -2811,6 +2851,7 @@
     function renderUpgradeCards(entries) {
       if (!upgradeCards) return;
       upgradeCards.innerHTML = '';
+      upgradeCards.classList.remove('has-error');
       if (!Array.isArray(entries) || entries.length === 0) {
         setUpgradeCardsEmpty(tr('updates.noneInManifest', 'Aucune mise à jour disponible dans le manifest.'));
         return;
@@ -2930,13 +2971,15 @@
       }
       try {
         await saveUpgradeConfig();
-        setUpgradeMessage('Vérification du manifest...');
+        setUpgradeCardsEmpty(tr('updates.checking', 'Vérification du manifest...'));
+        setUpgradeMessage(tr('updates.checking', 'Vérification du manifest...'));
         const data = await fetchOkJson('/api/fwupdate/check', { cache: 'no-store' }, 'échec vérification');
         populateUpgradeManifestSelections(data);
         setUpgradeMessage(describeManifestUpdates(data));
       } catch (err) {
-        const errMsg = normalizeUpgradeHttpErrorMessage(String(err || ''), 'Échec de la vérification.');
-        setUpgradeMessage('Échec de la vérification : ' + errMsg);
+        const errMsg = normalizeUpgradeHttpErrorMessage(String(err || ''), tr('updates.err.checkGeneric', 'Échec de la vérification.'));
+        setUpgradeCardsError(errMsg);
+        setUpgradeMessage(tr('updates.err.checkGeneric', 'Échec de la vérification.') + ' : ' + errMsg);
       } finally {
         if (checkUpdatesBtn) {
           checkUpdatesBtn.disabled = false;
@@ -4191,12 +4234,17 @@
       return data.values;
     }
 
-    async function fetchPoolSondeSlots() {
+    async function fetchPoolDashboardSlots() {
       const data = await fetchOkJson(
         '/api/runtime/dashboard_slots',
         { cache: 'no-store' },
-        'lecture slots sondes indisponible'
+        'lecture slots tableau de bord indisponible'
       );
+      return data && typeof data === 'object' ? data : {};
+    }
+
+    async function fetchPoolSondeSlots() {
+      const data = await fetchPoolDashboardSlots();
       const slots = Array.isArray(data && data.slots) ? data.slots : [];
       return slots
         .map((slot) => {
@@ -4209,6 +4257,27 @@
             bgColor: String(slot && slot.bg_color ? slot.bg_color : '').trim(),
             enabled: slot && slot.enabled !== false,
             available: !!(slot && slot.available)
+          };
+        })
+        .sort((a, b) => a.slot - b.slot)
+        .slice(0, 8);
+    }
+
+    async function fetchPoolAlarmSlots() {
+      const data = await fetchPoolDashboardSlots();
+      const slots = Array.isArray(data && data.alarm_slots) ? data.alarm_slots : [];
+      return slots
+        .map((slot) => {
+          const idx = Number(slot && slot.slot);
+          return {
+            slot: Number.isFinite(idx) ? idx : 999,
+            label: String(slot && slot.label ? slot.label : '').trim(),
+            bgColor: String(slot && slot.bg_color ? slot.bg_color : '').trim(),
+            enabled: !!(slot && slot.enabled),
+            available: !!(slot && slot.available),
+            latched: !!(slot && slot.latched),
+            conditionKnown: !!(slot && slot.condition_known),
+            conditionTrue: !!(slot && slot.condition_true)
           };
         })
         .sort((a, b) => a.slot - b.slot)
@@ -4616,6 +4685,48 @@
       return grid;
     }
 
+    function buildPoolAlarmSlotsGrid(slots) {
+      const cleanSlots = Array(8).fill(null);
+      if (Array.isArray(slots)) {
+        slots.forEach((slot) => {
+          const idx = Number(slot && slot.slot);
+          if (Number.isInteger(idx) && idx >= 0 && idx < 8) cleanSlots[idx] = slot;
+        });
+      }
+
+      const grid = document.createElement('div');
+      grid.className = 'status-alarm-slot-grid';
+
+      for (let i = 0; i < 8; i += 1) {
+        const slot = cleanSlots[i] || null;
+        const tile = document.createElement('div');
+        tile.className = 'status-alarm-slot';
+        const enabled = !!(slot && slot.enabled);
+        if (!enabled) {
+          tile.classList.add('is-empty');
+          grid.appendChild(tile);
+          continue;
+        }
+
+        const bgColor = slot && isValidHexColor(slot.bgColor) ? slot.bgColor : '';
+        if (bgColor) tile.style.background = bgColor;
+
+        const title = document.createElement('div');
+        title.className = 'status-alarm-slot-title';
+        title.textContent = slot && slot.label ? slot.label : 'Alarme';
+        tile.appendChild(title);
+
+        const footer = document.createElement('div');
+        footer.className = 'status-alarm-slot-row';
+        footer.appendChild(buildRuntimeAlarmStateNode(slot && slot.available ? !!slot.latched : null));
+        footer.appendChild(buildRuntimeAlarmConditionNode(slot && slot.available && slot.conditionKnown ? !!slot.conditionTrue : null));
+        tile.appendChild(footer);
+        grid.appendChild(tile);
+      }
+
+      return grid;
+    }
+
     function buildRuntimeMeasureFlagsTable(entries, valueById) {
       const columnsByRole = new Map();
       let flagDefs = [];
@@ -4681,6 +4792,7 @@
       const fragment = document.createDocumentFragment();
       const opts = options && typeof options === 'object' ? options : {};
       const sondeSlots = Array.isArray(opts.sondeSlots) ? opts.sondeSlots : [];
+      const alarmSlots = Array.isArray(opts.alarmSlots) ? opts.alarmSlots : [];
       const valueById = new Map();
       (values || []).forEach((item) => {
         const id = Number(item && item.id);
@@ -4792,7 +4904,9 @@
 
         if (flagEntries.length) {
           if (isRuntimeAlarmGroup(group)) {
-            const alarmGrid = buildRuntimeAlarmGrid(flagEntries, valueById);
+            const alarmGrid = alarmSlots.length
+              ? buildPoolAlarmSlotsGrid(alarmSlots)
+              : buildRuntimeAlarmGrid(flagEntries, valueById);
             if (alarmGrid) {
               card.appendChild(alarmGrid);
             } else {
@@ -4907,6 +5021,8 @@
       const cleanDomain = normalizeRuntimeMeasureDomainKey(domainKey);
       const domainState = state && typeof state === 'object' ? state : null;
       if (!cleanDomain || !domainState) return false;
+      if (cleanDomain === 'sondes' && Array.isArray(domainState.sondeSlots) && domainState.sondeSlots.length > 0) return true;
+      if (cleanDomain === 'alarm' && Array.isArray(domainState.alarmSlots) && domainState.alarmSlots.length > 0) return true;
       return Array.isArray(domainState.entries) && domainState.entries.length > 0;
     }
 
@@ -4969,7 +5085,10 @@
           renderedCardCount += 1;
           return;
         }
-        const cards = buildPoolMeasureCards(state.entries, state.values, { sondeSlots: state.sondeSlots });
+        const cards = buildPoolMeasureCards(state.entries, state.values, {
+          sondeSlots: state.sondeSlots,
+          alarmSlots: state.alarmSlots
+        });
         renderedCardCount += cards.childNodes.length;
         poolMeasuresGrid.appendChild(cards);
       });
@@ -5007,6 +5126,7 @@
         valueCount += state.entries.length;
         if (domainKey === 'sondes') {
           valueCount += Array.isArray(state.sondeSlots) ? state.sondeSlots.length : 0;
+          valueCount += Array.isArray(state.alarmSlots) ? state.alarmSlots.length : 0;
         }
       });
 
@@ -5062,10 +5182,14 @@
         const sondeSlots = cleanDomain === 'sondes'
           ? await fetchPoolSondeSlots().catch(() => [])
           : [];
+        const alarmSlots = cleanDomain === 'alarm'
+          ? await fetchPoolAlarmSlots().catch(() => [])
+          : [];
         if (state.requestSeq !== requestSeq) return;
         state.entries = entries;
         state.values = values;
         state.sondeSlots = sondeSlots;
+        state.alarmSlots = alarmSlots;
         state.error = '';
       } catch (err) {
         if (state.requestSeq !== requestSeq) return;
@@ -5073,6 +5197,7 @@
           state.entries = [];
           state.values = [];
           state.sondeSlots = [];
+          state.alarmSlots = [];
         }
         state.error = 'Chargement ' + formatRuntimeDomainLabel(cleanDomain) + ' echoue: ' + err;
       } finally {

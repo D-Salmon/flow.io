@@ -39,8 +39,8 @@ private:
         volatile uint32_t ignoredDebounceCount = 0;
     };
 
-    static void IRAM_ATTR handleInterruptThunk_(void* arg);
-    void IRAM_ATTR handleInterrupt_();
+    static void handleInterruptThunk_(void* arg);
+    void handleInterrupt_();
 
     const char* driverId_ = nullptr;
     uint8_t pin_ = 0;

@@ -5,6 +5,7 @@
 
 #include "PcntCounterDriver.h"
 
+#include <esp_err.h>
 #include <soc/soc_caps.h>
 
 namespace {
@@ -27,6 +28,44 @@ PcntCounterDriver::PcntCounterDriver(const char* driverId,
 {
 }
 
+#if FLOW_PCNT_USE_PULSE_CNT
+void PcntCounterDriver::configureEdgeModes_(pcnt_channel_edge_action_t& posMode, pcnt_channel_edge_action_t& negMode) const
+{
+    posMode = PCNT_CHANNEL_EDGE_ACTION_HOLD;
+    negMode = PCNT_CHANNEL_EDGE_ACTION_HOLD;
+
+    if (edgeMode_ == 2U) {
+        posMode = PCNT_CHANNEL_EDGE_ACTION_INCREASE;
+        negMode = PCNT_CHANNEL_EDGE_ACTION_INCREASE;
+        return;
+    }
+
+    const bool logicalRising = (edgeMode_ == 1U);
+    if (activeHigh_) {
+        posMode = logicalRising ? PCNT_CHANNEL_EDGE_ACTION_INCREASE : PCNT_CHANNEL_EDGE_ACTION_HOLD;
+        negMode = logicalRising ? PCNT_CHANNEL_EDGE_ACTION_HOLD : PCNT_CHANNEL_EDGE_ACTION_INCREASE;
+    } else {
+        posMode = logicalRising ? PCNT_CHANNEL_EDGE_ACTION_HOLD : PCNT_CHANNEL_EDGE_ACTION_INCREASE;
+        negMode = logicalRising ? PCNT_CHANNEL_EDGE_ACTION_INCREASE : PCNT_CHANNEL_EDGE_ACTION_HOLD;
+    }
+}
+
+void PcntCounterDriver::releaseCounter_()
+{
+    if (unit_) {
+        (void)pcnt_unit_stop(unit_);
+        (void)pcnt_unit_disable(unit_);
+    }
+    if (channel_) {
+        (void)pcnt_del_channel(channel_);
+        channel_ = nullptr;
+    }
+    if (unit_) {
+        (void)pcnt_del_unit(unit_);
+        unit_ = nullptr;
+    }
+}
+#else
 pcnt_unit_t PcntCounterDriver::allocUnit_()
 {
     portENTER_CRITICAL(&gPcntCounterMux);
@@ -69,6 +108,7 @@ void PcntCounterDriver::configureEdgeModes_(pcnt_count_mode_t& posMode, pcnt_cou
         negMode = logicalRising ? PCNT_COUNT_INC : PCNT_COUNT_DIS;
     }
 }
+#endif
 
 uint32_t PcntCounterDriver::debounceWindowMs_() const
 {
@@ -78,13 +118,59 @@ uint32_t PcntCounterDriver::debounceWindowMs_() const
 
 bool PcntCounterDriver::begin()
 {
+#if FLOW_PCNT_USE_PULSE_CNT
+    if (unit_) releaseCounter_();
+#else
     unit_ = allocUnit_();
     if (unit_ == PCNT_UNIT_MAX) return false;
+#endif
 
     if (inputPullMode_ == 1U) pinMode(pin_, INPUT_PULLUP);
     else if (inputPullMode_ == 2U) pinMode(pin_, INPUT_PULLDOWN);
     else pinMode(pin_, INPUT);
 
+#if FLOW_PCNT_USE_PULSE_CNT
+    pcnt_unit_config_t unitCfg{};
+    unitCfg.low_limit = kCounterLowLimit;
+    unitCfg.high_limit = kCounterHighLimit;
+    if (pcnt_new_unit(&unitCfg, &unit_) != ESP_OK) {
+        unit_ = nullptr;
+        return false;
+    }
+
+    if (counterDebounceUs_ > 0U) {
+        pcnt_glitch_filter_config_t filterCfg{};
+        const uint64_t ns64 = static_cast<uint64_t>(counterDebounceUs_) * 1000ULL;
+        filterCfg.max_glitch_ns = (ns64 > UINT32_MAX) ? UINT32_MAX : static_cast<uint32_t>(ns64);
+        if (pcnt_unit_set_glitch_filter(unit_, &filterCfg) != ESP_OK) {
+            releaseCounter_();
+            return false;
+        }
+    }
+
+    pcnt_chan_config_t chanCfg{};
+    chanCfg.edge_gpio_num = pin_;
+    chanCfg.level_gpio_num = -1;
+    if (pcnt_new_channel(unit_, &chanCfg, &channel_) != ESP_OK) {
+        releaseCounter_();
+        return false;
+    }
+
+    pcnt_channel_edge_action_t posMode = PCNT_CHANNEL_EDGE_ACTION_HOLD;
+    pcnt_channel_edge_action_t negMode = PCNT_CHANNEL_EDGE_ACTION_HOLD;
+    configureEdgeModes_(posMode, negMode);
+    if (pcnt_channel_set_edge_action(channel_, posMode, negMode) != ESP_OK) {
+        releaseCounter_();
+        return false;
+    }
+
+    if (pcnt_unit_enable(unit_) != ESP_OK ||
+        pcnt_unit_clear_count(unit_) != ESP_OK ||
+        pcnt_unit_start(unit_) != ESP_OK) {
+        releaseCounter_();
+        return false;
+    }
+#else
     pcnt_count_mode_t posMode = PCNT_COUNT_DIS;
     pcnt_count_mode_t negMode = PCNT_COUNT_DIS;
     configureEdgeModes_(posMode, negMode);
@@ -121,6 +207,7 @@ bool PcntCounterDriver::begin()
     (void)pcnt_counter_pause(unit_);
     (void)pcnt_counter_clear(unit_);
     (void)pcnt_counter_resume(unit_);
+#endif
 
     portENTER_CRITICAL(&gPcntCounterMux);
     state_ = RuntimeState{};
@@ -143,20 +230,35 @@ bool PcntCounterDriver::read(bool& on) const
 
 bool PcntCounterDriver::syncCounter_(uint32_t nowMs) const
 {
+#if FLOW_PCNT_USE_PULSE_CNT
+    if (!unit_ || !state_.started) return false;
+
+    int hwCount = 0;
+    if (pcnt_unit_get_count(unit_, &hwCount) != ESP_OK) return false;
+#else
     if (unit_ == PCNT_UNIT_MAX || !state_.started) return false;
 
     int16_t hwCount = 0;
     if (pcnt_get_counter_value(unit_, &hwCount) != ESP_OK) return false;
+#endif
     bool logicalOn = false;
     (void)read(logicalOn);
 
     const bool needFold = (hwCount >= kFoldThreshold) || (hwCount <= -kFoldThreshold);
     if (needFold) {
+#if FLOW_PCNT_USE_PULSE_CNT
+        (void)pcnt_unit_stop(unit_);
+        if (pcnt_unit_get_count(unit_, &hwCount) != ESP_OK) {
+            (void)pcnt_unit_start(unit_);
+            return false;
+        }
+#else
         (void)pcnt_counter_pause(unit_);
         if (pcnt_get_counter_value(unit_, &hwCount) != ESP_OK) {
             (void)pcnt_counter_resume(unit_);
             return false;
         }
+#endif
     }
 
     portENTER_CRITICAL(&gPcntCounterMux);
@@ -196,12 +298,20 @@ bool PcntCounterDriver::syncCounter_(uint32_t nowMs) const
     portEXIT_CRITICAL(&gPcntCounterMux);
 
     if (needFold) {
+#if FLOW_PCNT_USE_PULSE_CNT
+        (void)pcnt_unit_clear_count(unit_);
+#else
         (void)pcnt_counter_clear(unit_);
+#endif
         portENTER_CRITICAL(&gPcntCounterMux);
         state_.lastHardwareCount = 0;
         state_.foldCount++;
         portEXIT_CRITICAL(&gPcntCounterMux);
+#if FLOW_PCNT_USE_PULSE_CNT
+        (void)pcnt_unit_start(unit_);
+#else
         (void)pcnt_counter_resume(unit_);
+#endif
     }
 
     return true;

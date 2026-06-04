@@ -5,8 +5,15 @@
  */
 
 #include <Arduino.h>
-#include <driver/pcnt.h>
 #include <stdint.h>
+
+#if __has_include(<driver/pulse_cnt.h>)
+#include <driver/pulse_cnt.h>
+#define FLOW_PCNT_USE_PULSE_CNT 1
+#else
+#include <driver/pcnt.h>
+#define FLOW_PCNT_USE_PULSE_CNT 0
+#endif
 
 #include "Modules/IOModule/IODrivers/IODriver.h"
 
@@ -47,11 +54,17 @@ private:
     static constexpr int16_t kCounterLowLimit = -32768;
     static constexpr int16_t kFoldThreshold = 30000;
 
-    static pcnt_unit_t allocUnit_();
-    static void releaseUnit_(pcnt_unit_t unit);
     bool syncCounter_(uint32_t nowMs) const;
     uint32_t debounceWindowMs_() const;
+
+#if FLOW_PCNT_USE_PULSE_CNT
+    void configureEdgeModes_(pcnt_channel_edge_action_t& posMode, pcnt_channel_edge_action_t& negMode) const;
+    void releaseCounter_();
+#else
+    static pcnt_unit_t allocUnit_();
+    static void releaseUnit_(pcnt_unit_t unit);
     void configureEdgeModes_(pcnt_count_mode_t& posMode, pcnt_count_mode_t& negMode) const;
+#endif
 
     const char* driverId_ = nullptr;
     uint8_t pin_ = 0;
@@ -59,6 +72,11 @@ private:
     uint8_t inputPullMode_ = 0;
     uint8_t edgeMode_ = 1;
     uint32_t counterDebounceUs_ = 0;
+#if FLOW_PCNT_USE_PULSE_CNT
+    pcnt_unit_handle_t unit_ = nullptr;
+    pcnt_channel_handle_t channel_ = nullptr;
+#else
     pcnt_unit_t unit_ = PCNT_UNIT_MAX;
+#endif
     mutable RuntimeState state_{};
 };

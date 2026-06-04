@@ -1195,23 +1195,24 @@ void TFTModuleS3::drawAlarmDashboardSlot_(uint8_t slot, int16_t x, int16_t y, in
 void TFTModuleS3::drawAlarmDashboardSlot_(uint8_t slot, int16_t x, int16_t y, int16_t w, int16_t h, const AlarmSlotRenderState& state)
 {
     (void)slot;
+    if (!state.enabled) {
+        display_.fillRect(x, y, w, h, color_(kColorBg));
+        return;
+    }
+
     const uint16_t bg = color_(state.cardBg);
     display_.fillRoundRect(x, y, w, h, 10, bg);
     display_.drawRoundRect(x, y, w, h, 10, color_(kColorCardBorder));
 
-    const uint16_t labelColor = state.enabled ? kColorValue : kColorOff;
+    const uint16_t labelColor = kColorValue;
     const char* label = state.label[0] != '\0' ? state.label : "Alarme";
     drawGfxText_(&FreeSans9pt7b, labelColor, state.cardBg, (int16_t)(x + 12), (int16_t)(y + 18), label);
-
-    setGfxFont_(&FreeSans9pt7b, kColorMuted, state.cardBg);
-    display_.setCursor((int16_t)(x + 12), (int16_t)(y + h - 14));
-    display_.print(state.available ? "Latch" : "--");
 
     const int16_t iconY = (int16_t)(y + h - 18);
     const int16_t condX = (int16_t)(x + w - 19);
     const int16_t latchX = (int16_t)(condX - 28);
-    drawAlarmStateIcon_(latchX, iconY, "L", state.latched, state.enabled && state.available);
-    drawAlarmStateIcon_(condX, iconY, "C", state.conditionTrue, state.enabled && state.available && state.conditionKnown);
+    drawAlarmStateIcon_(latchX, iconY, "L", state.latched, state.available);
+    drawAlarmStateIcon_(condX, iconY, "C", state.conditionTrue, state.available && state.conditionKnown);
 }
 
 void TFTModuleS3::drawAlarmStateIcon_(int16_t cx, int16_t cy, const char* text, bool on, bool known)
@@ -1237,6 +1238,8 @@ void TFTModuleS3::readAlarmSlotState_(uint8_t slot, AlarmSlotRenderState& state)
     state.enabled = cfg.enabled;
     state.alarmId = cfg.alarmId;
     state.cardBg = cfg.enabled ? dashboardColor_(cfg.colorId, slot) : kColorCardBg;
+    if (!cfg.enabled) return;
+
     if (cfg.label[0] != '\0') {
         snprintf(state.label, sizeof(state.label), "%s", cfg.label);
     } else {

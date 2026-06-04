@@ -105,17 +105,17 @@ void IRAM_ATTR GpioCounterDriver::handleInterrupt_()
 {
     RuntimeState* state = state_;
     if (!state) return;
-    ++state->irqCallCount;
+    state->irqCallCount = state->irqCallCount + 1U;
     int level = digitalRead(pin_);
     const bool logicalOn = activeHigh_ ? (level == HIGH) : (level == LOW);
     const uint32_t nowUs = micros();
     const bool wasLogicalOn = state->lastLogicalState;
     if (logicalOn == wasLogicalOn) {
-        ++state->ignoredSameStateCount;
+        state->ignoredSameStateCount = state->ignoredSameStateCount + 1U;
         return;
     }
     state->lastLogicalState = logicalOn;
-    ++state->transitionCount;
+    state->transitionCount = state->transitionCount + 1U;
 
     const bool isRising = (!wasLogicalOn && logicalOn);
     const bool isFalling = (wasLogicalOn && !logicalOn);
@@ -124,19 +124,19 @@ void IRAM_ATTR GpioCounterDriver::handleInterrupt_()
         ((edgeMode_ == 0U) && isFalling) ||
         ((edgeMode_ == 2U) && (isRising || isFalling));
     if (!shouldCount) {
-        ++state->ignoredWrongEdgeCount;
+        state->ignoredWrongEdgeCount = state->ignoredWrongEdgeCount + 1U;
         return;
     }
 
     if (counterDebounceUs_ > 0 && state->lastPulseUs != 0U) {
         if ((uint32_t)(nowUs - state->lastPulseUs) < counterDebounceUs_) {
-            ++state->ignoredDebounceCount;
+            state->ignoredDebounceCount = state->ignoredDebounceCount + 1U;
             return;
         }
     }
 
     portENTER_CRITICAL_ISR(&gGpioCounterMux);
-    if (state->pulseCount < INT32_MAX) ++state->pulseCount;
+    if (state->pulseCount < INT32_MAX) state->pulseCount = state->pulseCount + 1;
     state->lastPulseUs = nowUs;
     portEXIT_CRITICAL_ISR(&gGpioCounterMux);
 }
