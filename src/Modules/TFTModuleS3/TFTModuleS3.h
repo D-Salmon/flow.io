@@ -255,6 +255,7 @@ private:
     uint32_t lastMotionMs_ = 0;
     uint32_t lastRenderMs_ = 0;
     uint32_t splashHoldUntilMs_ = 0;
+    uint32_t pageCycleStartMs_ = 0;
     uint32_t lastRenderedPageCycle_ = 0xFFFFFFFFU;
     uint8_t lastPage_ = 0xFFU;
     OverviewRenderCache overviewCache_{};

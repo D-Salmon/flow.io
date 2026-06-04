@@ -574,6 +574,8 @@ void TFTModuleS3::loop()
             return;
         }
         splashHeld_ = true;
+        pageCycleStartMs_ = now;
+        lastRenderedPageCycle_ = 0xFFFFFFFFU;
         redrawRequested_ = true;
     }
 
@@ -635,6 +637,7 @@ bool TFTModuleS3::beginDisplay_()
     redrawRequested_ = true;
     splashHeld_ = false;
     splashHoldUntilMs_ = millis() + kStartupSplashHoldMs;
+    pageCycleStartMs_ = 0;
     lastRenderedPageCycle_ = 0xFFFFFFFFU;
     drawBootLogo_();
     LOGI("TFT S3 ready %ux%u", (unsigned)displayCfg_.resX, (unsigned)displayCfg_.resY);
@@ -915,7 +918,7 @@ void TFTModuleS3::drawWifiBars_(int16_t x, int16_t y, uint8_t bars)
 
 void TFTModuleS3::drawBrandWordmark_(int16_t x, int16_t y, int16_t w, int16_t h, const GFXfont* font, uint16_t bg)
 {
-    static constexpr char kBrandFlow[] = "Flow";
+    static constexpr char kBrandFlow[] = "flow";
     static constexpr char kBrandIo[] = ".io";
     static constexpr char kBrandFull[] = "flow.io";
 
@@ -1725,7 +1728,8 @@ bool TFTModuleS3::loadPoolModeFlags_(bool& autoMode,
 
 uint32_t TFTModuleS3::currentPageCycle_() const
 {
-    return (uint32_t)(millis() / kPageRotateMs);
+    if (!splashHeld_) return 0U;
+    return (uint32_t)((millis() - pageCycleStartMs_) / kPageRotateMs);
 }
 
 bool TFTModuleS3::dashboardSlotStateEquals_(const DashboardSlotRenderState& a, const DashboardSlotRenderState& b)

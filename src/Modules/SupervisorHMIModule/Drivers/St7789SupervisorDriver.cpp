@@ -360,7 +360,7 @@ void drawBrandWordmark_(SupervisorSt7789& d,
                         const GFXfont* font,
                         uint16_t bg)
 {
-    static constexpr char kBrandFlow[] = "Flow";
+    static constexpr char kBrandFlow[] = "flow";
     static constexpr char kBrandIo[] = ".io";
     static constexpr char kBrandFull[] = "flow.io";
 
