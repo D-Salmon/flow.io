@@ -17,7 +17,6 @@ namespace Wifi {
 constexpr char Enabled[] = "wifi_en"; // WiFi module persisted key for field `wifi_en`.
 constexpr char Ssid[] = "wifi_ssid"; // WiFi module persisted key for field `wifi_ssid`.
 constexpr char Pass[] = "wifi_pass"; // WiFi module persisted key for field `wifi_pass`.
-constexpr char Mdns[] = "wifi_mdns"; // WiFi module persisted key for field `wifi_mdns`.
 }  // namespace Wifi
 
 namespace Ethernet {
@@ -56,6 +55,7 @@ constexpr char ScheduleBlob[] = "tm_sched"; // Time module persisted key for fie
 
 namespace System {
 constexpr char Language[] = "sys_lang"; // System module persisted key for field `sys_lang`.
+constexpr char DeviceName[] = "sys_dname"; // System module persisted key for field `sys_dname`.
 }  // namespace System
 
 namespace SystemMonitor {

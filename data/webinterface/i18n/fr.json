@@ -43,6 +43,7 @@
     "terminal.autoscroll.aria": "Activer le défilement automatique des journaux",
     "updates.server": "Serveur d’upgrade (serveur/chemin)",
     "updates.check": "Vérifier les mises à jour",
+    "updates.cancel": "Annuler",
     "updates.availableTitle": "Mises à jour disponibles",
     "updates.availableSubtitle": "Consultez les versions actuelles de votre système et les versions disponibles.",
     "updates.table.component": "Composant",

@@ -151,7 +151,10 @@
               <div id="upgradeProgressBar" class="bar-fill visually-hidden"></div>
               <span id="upgradePct" class="visually-hidden">0%</span>
             </div>
-            <button id="checkUpdates" type="button" class="btn-tonal updates-check-btn"><span class="refresh-icon-glyph" aria-hidden="true"></span><span data-i18n="updates.check">Vérifier les mises à jour</span></button>
+            <div class="updates-action-stack">
+              <button id="checkUpdates" type="button" class="btn-tonal updates-check-btn"><span class="refresh-icon-glyph" aria-hidden="true"></span><span data-i18n="updates.check">Vérifier les mises à jour</span></button>
+              <button id="cancelUpgradeUi" type="button" class="btn-tonal updates-cancel-btn" hidden disabled><span class="ui-msr btn-msr" aria-hidden="true">close</span><span data-i18n="updates.cancel">Annuler</span></button>
+            </div>
           </div>
         </div>
       </section>
@@ -350,12 +353,11 @@
 
       <section id="page-info" class="page">
         <div class="topbar">
-          <h1 class="ui-heading-inline"><span class="ui-msr" aria-hidden="true">info</span><span data-i18n="menu.info">Informations</span></h1>
+          <h1 class="ui-heading-inline"><span class="ui-msr" aria-hidden="true">info</span><span data-i18n="info.systemTitle">Informations système</span></h1>
         </div>
         <div class="info-card-stack">
           <div class="info-main-column">
             <div class="card info-card info-system-table-card">
-              <div class="info-table-title" data-i18n="info.systemTitle">Informations système</div>
               <div id="infoGrid" class="info-list info-system-table" aria-live="polite"></div>
             </div>
             <div class="card info-card info-legal-card">

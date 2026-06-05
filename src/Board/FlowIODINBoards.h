@@ -61,7 +61,7 @@ inline constexpr OneWireBusSpec kFlowIOS3OneWire[] = {
 
 inline constexpr OneWireBusSpec kWaveshareESP32S3OneWire[] = {
     // {name, signal, pin}
-    {"temp_probe_1", BoardSignal::TempProbe1, 8}, // Water DS18B20 probe bus on GPIO8.
+    {"temp_probe_1", BoardSignal::TempProbe1, 48}, // Water DS18B20 probe bus on GPIO48.
     {"temp_probe_2", BoardSignal::TempProbe2, 9}, // Air DS18B20 probe bus on GPIO9.
 };
 
@@ -156,7 +156,7 @@ inline constexpr IoPointSpec kWaveshareESP32S3IoPoints[] = {
     {"ph_level", IoCapability::DigitalIn, BoardSignal::DigitalIn2, 4, false, 0},
     {"chlorine_level", IoCapability::DigitalIn, BoardSignal::DigitalIn3, 5, false, 0},
     {"pool_level", IoCapability::DigitalIn, BoardSignal::DigitalIn4, 6, false, 0},
-    {"water_temperature_ds18b20", IoCapability::OneWireTemp, BoardSignal::TempProbe1, 8, false, 0},
+    {"water_temperature_ds18b20", IoCapability::OneWireTemp, BoardSignal::TempProbe1, 48, false, 0},
     {"air_temperature_ds18b20", IoCapability::OneWireTemp, BoardSignal::TempProbe2, 9, false, 0},
     {"venice_tx433", IoCapability::DigitalOut, BoardSignal::Tx433, 10, false, 0},
 };

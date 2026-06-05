@@ -35,6 +35,9 @@ namespace {
 #ifndef FLOW_TIME_PREFER_INTERNAL_RTC
 #define FLOW_TIME_PREFER_INTERNAL_RTC 0
 #endif
+#ifndef TFT_FIRMW
+#define TFT_FIRMW "0.0.0"
+#endif
 static constexpr bool kConfigMenuEnabled = (FLOW_HMI_CONFIG_MENU_ENABLED != 0);
 static constexpr const char* kHmiModulePrefix = "hmi/";
 static constexpr const char* kPoolLogicSensorsModule = "poollogic/sensors";
@@ -92,8 +95,7 @@ static constexpr uint32_t kRtcFallbackRetryMs = 10000U;
 static constexpr uint32_t kRtcPushRetryMs = 60000U;
 static constexpr uint16_t kLocalNextionRtcReadTimeoutMs = 180U;
 static constexpr uint16_t kRemoteNextionRtcReadTimeoutMs = 2000U;
-static constexpr uint32_t kNextionDisplayVersionV1 = 1U;
-static constexpr uint32_t kNextionDisplayVersionLegacyV2 = 2U;
+static constexpr const char* kNextionDisplayVersionExpected = TFT_FIRMW;
 static constexpr uint8_t kNextionHomePagePrimary = 0U;
 static constexpr uint8_t kNextionHomePageAlias = 1U;
 static constexpr uint8_t kNextionConfigPagePrimary = 10U;
@@ -134,10 +136,9 @@ static constexpr uint16_t kWs2812NormalBreathePeriodMs = 900U;
 static constexpr uint16_t kWs2812ProvisioningBreathePeriodMs = 700U;
 static constexpr uint32_t kWs2812AlarmAlternationMs = 2000U;
 
-static bool isSupportedNextionDisplayVersion_(uint32_t version)
+static bool isSupportedNextionDisplayVersion_(const char* version)
 {
-    return version == kNextionDisplayVersionV1 ||
-           version == kNextionDisplayVersionLegacyV2;
+    return version && strcmp(version, kNextionDisplayVersionExpected) == 0;
 }
 
 static const char* const kMonthNamesFr[] = {
@@ -562,10 +563,11 @@ bool HMIModule::isStatusLedAutoWifiMode_() const
     return ws2812AutoWifiMode_;
 }
 
-bool HMIModule::getDisplayVersion_(uint32_t* out) const
+bool HMIModule::getDisplayVersion_(char* out, size_t outLen) const
 {
-    if (!out || !nextionVersionDetected_) return false;
-    *out = nextionVersion_;
+    if (!out || outLen == 0U || !nextionVersionDetected_) return false;
+    strncpy(out, nextionVersion_, outLen - 1U);
+    out[outLen - 1U] = '\0';
     return true;
 }
 
@@ -678,7 +680,7 @@ void HMIModule::init(ConfigStore& cfg, ServiceRegistry& services)
     rtcFallbackCompleted_ = false;
     rtcPushPending_ = false;
     nextionVersionDetected_ = false;
-    nextionVersion_ = 0U;
+    nextionVersion_[0] = '\0';
     activeConfigContextToken_ = 0U;
     nextConfigContextToken_ = 1U;
     alarmPageIndex_ = 0U;
@@ -1053,10 +1055,12 @@ bool HMIModule::publishHomeText_(HmiHomeTextField field)
         snprintf(value, sizeof(value), "%s", homeErrorMessage_);
         return driver_->publishHomeText(field, value);
     }
-    if (field == HmiHomeTextField::Time || field == HmiHomeTextField::Date) {
+    if (field == HmiHomeTextField::Date) {
         return true;
     }
-    if (field == HmiHomeTextField::DayText || field == HmiHomeTextField::MonthText) {
+    if (field == HmiHomeTextField::Time ||
+        field == HmiHomeTextField::DayText ||
+        field == HmiHomeTextField::MonthText) {
         struct tm local{};
         bool hasTime = timeSvc_ &&
                        timeSvc_->isSynced &&
@@ -1067,7 +1071,13 @@ bool HMIModule::publishHomeText_(HmiHomeTextField field)
             hasTime = localtime_r(&epoch, &local) != nullptr;
         }
 
-        if (field == HmiHomeTextField::DayText) {
+        if (field == HmiHomeTextField::Time) {
+            if (hasTime) {
+                snprintf(value, sizeof(value), "%02d:%02d", local.tm_hour, local.tm_min);
+            } else {
+                snprintf(value, sizeof(value), "--:--");
+            }
+        } else if (field == HmiHomeTextField::DayText) {
             if (hasTime && local.tm_wday >= 0 && local.tm_wday < 7) {
                 snprintf(value, sizeof(value), "%s", kDayNamesFr[local.tm_wday]);
             } else {
@@ -1184,22 +1194,22 @@ bool HMIModule::validateDriverDisplayVersion_(bool requireDetection)
         return false;
     }
 
-    const uint32_t version = driver_->displayVersion();
-    if (nextionVersionDetected_ && nextionVersion_ == version) {
+    const char* version = driver_->displayVersion();
+    if (nextionVersionDetected_ && strcmp(nextionVersion_, version ? version : "") == 0) {
         return isSupportedNextionDisplayVersion_(version);
     }
 
     nextionVersionDetected_ = true;
-    nextionVersion_ = version;
-    LOGI("Ecran Nextion version %04lu detecte driver=%s.",
-         (unsigned long)nextionVersion_,
+    strncpy(nextionVersion_, version ? version : "", sizeof(nextionVersion_) - 1U);
+    nextionVersion_[sizeof(nextionVersion_) - 1U] = '\0';
+    LOGI("Ecran Nextion version %s detecte driver=%s.",
+         nextionVersion_,
          driver_->driverId());
 
     if (!isSupportedNextionDisplayVersion_(nextionVersion_)) {
-        LOGW("Ecran Nextion version %04lu non supportee (supportees %04lu,%04lu). Affichage Nextion desactive.",
-             (unsigned long)nextionVersion_,
-             (unsigned long)kNextionDisplayVersionV1,
-             (unsigned long)kNextionDisplayVersionLegacyV2);
+        LOGW("Ecran Nextion version %s non supportee (supportee %s). Affichage Nextion desactive.",
+             nextionVersion_,
+             kNextionDisplayVersionExpected);
         nextionDisabledByVersion_ = true;
         applyOutputConfig_();
         return false;
@@ -1295,11 +1305,10 @@ void HMIModule::serviceRtcBridge_(uint32_t nowMs)
 #if FLOW_TIME_PREFER_INTERNAL_RTC
     if (timeSynced && fromExternalRtc) {
         rtcFallbackCompleted_ = true;
-        return;
     }
 #endif
 
-    if (timeSynced && !fromExternalRtc) {
+    if (timeSynced) {
         rtcFallbackCompleted_ = true;
         if (!timeSvc_->epoch) return;
         if (driver_ == static_cast<IHmiDriver*>(&remoteUdp_) &&
@@ -2822,13 +2831,17 @@ void HMIModule::loop()
         (uint32_t)(now - lastDisplayVersionProbeMs_) >= kDisplayVersionProbePeriodMs) {
         lastDisplayVersionProbeMs_ = now;
         const bool hadVersion = nextion_.hasDisplayVersion();
-        const uint32_t previousVersion = nextion_.displayVersion();
+        char previousVersion[HMI_DISPLAY_VERSION_TEXT_MAX]{};
+        if (hadVersion) {
+            strncpy(previousVersion, nextion_.displayVersion(), sizeof(previousVersion) - 1U);
+            previousVersion[sizeof(previousVersion) - 1U] = '\0';
+        }
         if (nextion_.detectDisplayVersion(0U, true)) {
-            const uint32_t currentVersion = nextion_.displayVersion();
-            if (!hadVersion || currentVersion != previousVersion) {
-                LOGI("Ecran Nextion version relue: %lu -> %lu",
-                     (unsigned long)(hadVersion ? previousVersion : 0U),
-                     (unsigned long)currentVersion);
+            const char* currentVersion = nextion_.displayVersion();
+            if (!hadVersion || strcmp(currentVersion, previousVersion) != 0) {
+                LOGI("Ecran Nextion version relue: %s -> %s",
+                     hadVersion ? previousVersion : "",
+                     currentVersion);
             }
             (void)validateDriverDisplayVersion_(false);
         }

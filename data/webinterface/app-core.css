@@ -356,8 +356,11 @@ body.web-icons-disabled .status-flag-check.is-true{font-size:13px;}
 .updates-info-copy .steps{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;}
 .updates-info-copy .step-row{gap:7px;}
 .updates-info-copy .step-row::after{display:none;}
-.updates-check-btn{min-width:236px;min-height:50px;border:1px solid #6FB7FF;background:#FFFFFF;color:var(--primary);display:inline-flex;align-items:center;justify-content:center;gap:10px;font-size:14px;font-weight:800;}
+.updates-action-stack{display:grid;gap:10px;align-self:center;}
+.updates-check-btn,.updates-cancel-btn{min-width:236px;min-height:50px;border:1px solid #6FB7FF;background:#FFFFFF;color:var(--primary);display:inline-flex;align-items:center;justify-content:center;gap:10px;font-size:14px;font-weight:800;}
 .updates-check-btn:hover,.updates-check-btn:active{background:#F2F8FF;color:var(--primary);border-color:#3A98F2;}
+.btn-tonal.updates-cancel-btn{min-height:42px;border-color:#F0B8B8;color:#B42318;background:#FFFFFF;}
+.btn-tonal.updates-cancel-btn:hover,.btn-tonal.updates-cancel-btn:active{background:#FFF4F2;color:#B42318;border-color:#E87870;}
 .field-switch{display:flex;align-items:center;min-height:42px;}
 .config-section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;}
 .wifi-section-head{min-height:34px;}
@@ -670,7 +673,7 @@ body.web-icons-disabled .control-field-apply{font-size:15px;font-weight:800;lett
   .updates-table th,.updates-table td{padding:14px 16px;}
   .updates-info-panel{align-items:start;padding:18px 16px;}
   .updates-info-copy .steps{grid-template-columns:1fr;}
-  .updates-check-btn{width:100%;min-width:0;}
+  .updates-action-stack,.updates-check-btn,.updates-cancel-btn{width:100%;min-width:0;}
   .upgrade-check-row .btn-tonal,.status-gauge,.status-gauge-track{width:100%;min-width:0;}
   .field-inline-entry .control-field-apply{width:30px;min-width:30px;}
   .upgrade-journey{padding:15px 14px 14px;border-radius:14px;}

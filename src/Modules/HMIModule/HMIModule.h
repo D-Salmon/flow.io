@@ -181,7 +181,7 @@ private:
     bool rtcFallbackCompleted_ = false;
     bool rtcPushPending_ = false;
     bool nextionVersionDetected_ = false;
-    uint32_t nextionVersion_ = 0U;
+    char nextionVersion_[HMI_DISPLAY_VERSION_TEXT_MAX]{};
     bool homeBindingsRefreshPending_ = false;
     bool mqttConfigRefreshPending_ = false;
     char homeErrorMessage_[96]{};
@@ -207,7 +207,7 @@ private:
     bool getStatusLedState_(HmiStatusLedState* out) const;
     bool setStatusLedAutoWifiMode_(bool enabled);
     bool isStatusLedAutoWifiMode_() const;
-    bool getDisplayVersion_(uint32_t* out) const;
+    bool getDisplayVersion_(char* out, size_t outLen) const;
     bool refreshCurrentModule_();
     bool render_();
     bool renderAlarmPage_();

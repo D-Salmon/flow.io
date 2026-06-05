@@ -8,6 +8,7 @@
 #include "Core/FirmwareVersion.h"
 #include "Core/SystemStats.h"
 #include <WiFi.h>
+#include <ctype.h>
 #include <esp_system.h>
 #include <esp_wifi.h>
 #include <string.h>
@@ -45,6 +46,17 @@ static bool writeOkReply_(char* reply, size_t replyLen, const char* json, const 
         snprintf(reply, replyLen, "{\"ok\":false}");
     }
     return false;
+}
+
+static bool isBlankText_(const char* text, size_t maxLen)
+{
+    if (!text) return true;
+    const size_t len = strnlen(text, maxLen);
+    if (len == 0U || len >= maxLen) return true;
+    for (size_t i = 0; i < len; ++i) {
+        if (!isspace((unsigned char)text[i])) return false;
+    }
+    return true;
 }
 
 bool SystemModule::cmdPing(void*, const CommandRequest&, char* reply, size_t replyLen) {
@@ -167,8 +179,9 @@ void SystemModule::onEvent_(const Event& e)
 
     const ConfigChangedPayload* p = static_cast<const ConfigChangedPayload*>(e.payload);
     if (p->moduleId != (uint8_t)ConfigModuleId::System) return;
-    if (strcmp(p->nvsKey, NvsKeys::System::Language) != 0) return;
-    (void)normalizeLanguage_(true);
+    if (strcmp(p->nvsKey, NvsKeys::System::Language) == 0) {
+        (void)normalizeLanguage_(true);
+    }
 }
 
 const char* SystemModule::localeLanguage_() const
@@ -186,6 +199,7 @@ void SystemModule::init(ConfigStore& cfg, ServiceRegistry& services) {
     constexpr uint8_t kCfgBranchId = 1;
 
     cfg.registerVar(languageVar_, kCfgModuleId, kCfgBranchId);
+    cfg.registerVar(deviceNameVar_, kCfgModuleId, kCfgBranchId);
 
     logHub = services.get<LogHubService>(ServiceId::LogHub);
     cmdSvc = services.get<CommandService>(ServiceId::Command);
@@ -211,4 +225,8 @@ void SystemModule::init(ConfigStore& cfg, ServiceRegistry& services) {
 void SystemModule::onConfigLoaded(ConfigStore&, ServiceRegistry&)
 {
     (void)normalizeLanguage_(false);
+    cfgData_.devicename[sizeof(cfgData_.devicename) - 1U] = '\0';
+    if (isBlankText_(cfgData_.devicename, sizeof(cfgData_.devicename))) {
+        snprintf(cfgData_.devicename, sizeof(cfgData_.devicename), "flowio");
+    }
 }

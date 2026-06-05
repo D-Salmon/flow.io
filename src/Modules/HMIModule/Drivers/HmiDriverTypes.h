@@ -4,6 +4,7 @@
  * @brief Driver abstraction for HMI devices.
  */
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include "Modules/HMIModule/ConfigMenuModel.h"
@@ -79,6 +80,8 @@ struct NextionV2NeedlePublish {
     uint8_t psiNeedle = 0;
 };
 
+static constexpr size_t HMI_DISPLAY_VERSION_TEXT_MAX = 9U; // "99.99.99" + NUL.
+
 enum class HmiHomeTextField : uint8_t {
     WaterTemp = 0,
     AirTemp = 1,
@@ -134,7 +137,7 @@ public:
     virtual bool publishHomeStateBits(uint32_t stateBits) = 0;
     virtual bool publishHomeAlarmBits(uint32_t alarmBits) = 0;
     virtual bool hasDisplayVersion() const { return false; }
-    virtual uint32_t displayVersion() const { return 0U; }
+    virtual const char* displayVersion() const { return ""; }
     virtual bool isLegacyV2() const { return false; }
     virtual bool publishV2Needles(const NextionV2NeedlePublish& publish) {
         (void)publish;

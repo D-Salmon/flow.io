@@ -11,9 +11,9 @@
     "label": "Mot de passe WiFi",
     "help": "Mot de passe WPA/WPA2 du réseau WiFi."
   },
-  "wifi/mdns": {
-    "label": "Nom mDNS",
-    "help": "Nom d'hôte mDNS diffusé sur le réseau local."
+  "system/devicename": {
+    "label": "Nom de l'appareil",
+    "help": "Nom utilisé pour l'affichage web et l'annonce mDNS."
   },
   "mqtt/host": {
     "label": "Hôte MQTT",

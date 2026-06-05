@@ -1803,7 +1803,8 @@ bool IOModule::resolveDsBusAddress_(OneWireBus* bus, const char* runtimeKey, uin
         ? cfgSvc_->readRuntimeBlob(cfgSvc_->ctx, runtimeKey, outAddr, 8U, &len)
         : (cfgStore_ && cfgStore_->readRuntimeBlob(runtimeKey, outAddr, 8U, &len));
     if (readOk && len == 8U) {
-        return true;
+        if (bus->hasAddress(outAddr)) return true;
+        LOGW("Cached DS18B20 address for %s not found on current bus; rescanning", runtimeKey);
     }
 
     if (bus->deviceCount() != 1U) return false;
@@ -2265,7 +2266,7 @@ bool IOModule::configureRuntime_()
                 LOGW("DS18 water pool exhausted");
             }
         } else {
-            LOGW("No resolvable DS18B20 found on water OneWire bus");
+            LOGW("No resolvable DS18B20 found on water OneWire bus GPIO=%d", oneWireWater_->pin());
         }
     }
 
@@ -2280,7 +2281,7 @@ bool IOModule::configureRuntime_()
                 LOGW("DS18 air pool exhausted");
             }
         } else {
-            LOGW("No resolvable DS18B20 found on air OneWire bus");
+            LOGW("No resolvable DS18B20 found on air OneWire bus GPIO=%d", oneWireAir_->pin());
         }
     }
 

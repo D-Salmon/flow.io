@@ -28,6 +28,7 @@
         "children": [
           "leds",
           "nextion",
+          "fcd_udp",
           "tft",
           "venice"
         ]

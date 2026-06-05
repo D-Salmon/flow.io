@@ -5,6 +5,7 @@
  */
 
 #include "Core/Module.h"
+#include "Core/EventBus/EventBus.h"
 #include "Core/NvsKeys.h"
 #include "Core/ServiceBinding.h"
 #include "Core/Services/Services.h"
@@ -38,10 +39,11 @@ public:
     uint8_t taskCount() const override { return 1; }
     const ModuleTaskSpec* taskSpecs() const override { return singleLoopTaskSpec(); }
 
-    uint8_t dependencyCount() const override { return 2; }
+    uint8_t dependencyCount() const override { return 3; }
     ModuleId dependency(uint8_t i) const override {
         if (i == 0) return ModuleId::LogHub;
         if (i == 1) return ModuleId::DataStore;
+        if (i == 2) return ModuleId::EventBus;
         return ModuleId::Unknown;
     }
 
@@ -59,10 +61,15 @@ private:
 
     DataStore* dataStore_ = nullptr;
     ServiceRegistry* services_ = nullptr;
+    ConfigStore* cfgStore_ = nullptr;
+    EventBus* eventBus_ = nullptr;
 
     bool driverStarted_ = false;
     bool spiStarted_ = false;
     bool mdnsStarted_ = false;
+    char deviceName_[33] = "flowio";
+    char mdnsApplied_[sizeof(deviceName_)] = {0};
+    volatile bool deviceNameDirty_ = false;
     uint8_t spiFreqMhz_ = 8;
     network_event_handle_t networkEventHandle_ = 0;
     uint32_t startAttempts_ = 0U;
@@ -85,6 +92,8 @@ private:
 
     static void onNetworkEventStatic_(arduino_event_t* event);
     void onNetworkEvent_(arduino_event_t* event);
+    static void onEventStatic_(const Event& e, void* user);
+    void onEvent_(const Event& e);
 
     void setState_(EthernetState next);
     void resetRuntimeState_();
@@ -93,6 +102,7 @@ private:
     void cleanupDriver_();
     void noteStartFailure_(const char* stage, int err);
     void logEthLinkInfo_() const;
+    void loadSystemDeviceName_();
     void startMdns_();
     void stopMdns_();
     void syncRuntimeState_();

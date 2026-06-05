@@ -13,6 +13,7 @@ Type: module actif.
 
 - `loghub`
 - `datastore`
+- `eventbus`
 
 ## Affinité / cadence
 
@@ -38,11 +39,6 @@ Module config: `wifi` (`moduleId = ConfigModuleId::Wifi`, branche locale `1`)
 - `enabled` (`wifi_en`)
 - `ssid` (`wifi_ssid`)
 - `pass` (`wifi_pass`)
-- `mdns` (`wifi_mdns`)
-
-Default mDNS:
-- `FlowIO`: `flowio-core`
-- `Supervisor`: `flowio`
 
 ## DataStore
 
@@ -52,6 +48,6 @@ Default mDNS:
 
 ## EventBus / MQTT
 
-- pas d'abonnement EventBus
+- abonnement `ConfigChanged` pour appliquer `system/devicename` au mDNS
 - pas de publication EventBus directe
 - impact indirect: `MQTTModule` et `TimeModule` surveillent `DataKeys::WifiReady`

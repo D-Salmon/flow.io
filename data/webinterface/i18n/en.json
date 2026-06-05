@@ -43,6 +43,7 @@
     "terminal.autoscroll.aria": "Enable automatic log scrolling",
     "updates.server": "Upgrade server (host/path)",
     "updates.check": "Check for updates",
+    "updates.cancel": "Cancel",
     "updates.availableTitle": "Available updates",
     "updates.availableSubtitle": "Review the current system versions and the available versions.",
     "updates.table.component": "Component",

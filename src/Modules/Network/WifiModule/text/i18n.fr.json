@@ -2,8 +2,6 @@
   "translations": {
     "cfgdocs.wifi.enabled.help": "Active ou désactive la connexion WiFi en mode station.",
     "cfgdocs.wifi.enabled.label": "WiFi activé",
-    "cfgdocs.wifi.mdns.help": "Nom d'hôte mDNS diffusé sur le réseau local.",
-    "cfgdocs.wifi.mdns.label": "Nom mDNS",
     "cfgdocs.wifi.pass.help": "Mot de passe WPA/WPA2 du réseau WiFi.",
     "cfgdocs.wifi.pass.label": "Mot de passe WiFi",
     "cfgdocs.wifi.ssid.help": "Nom du réseau WiFi auquel se connecter.",

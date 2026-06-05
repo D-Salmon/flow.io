@@ -37,6 +37,7 @@ public:
 private:
     struct SystemConfig {
         char lang[8] = "fr";
+        char devicename[33] = "flowio";
     };
 
     enum RuntimeUiValueId : uint8_t {
@@ -57,6 +58,10 @@ private:
     ConfigVariable<char,0> languageVar_{
         NVS_KEY(NvsKeys::System::Language), "lang", "system", ConfigType::CharArray,
         (char*)cfgData_.lang, ConfigPersistence::Persistent, sizeof(cfgData_.lang)
+    };
+    ConfigVariable<char,0> deviceNameVar_{
+        NVS_KEY(NvsKeys::System::DeviceName), "devicename", "system", ConfigType::CharArray,
+        (char*)cfgData_.devicename, ConfigPersistence::Persistent, sizeof(cfgData_.devicename)
     };
     LocaleService localeSvc_{
         ServiceBinding::bind<&SystemModule::localeLanguage_>,

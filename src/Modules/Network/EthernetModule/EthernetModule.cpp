@@ -6,10 +6,13 @@
 #include "Board/BoardSpec.h"
 #include "Modules/Network/WifiModule/WifiRuntime.h"
 
+#include <ArduinoJson.h>
 #include <Arduino.h>
 #include <SPI.h>
+#include <ctype.h>
 #include <esp_err.h>
 #include <esp_netif_ip_addr.h>
+#include <string.h>
 
 namespace {
 const char* stateName(EthernetState s)
@@ -33,6 +36,17 @@ uint8_t toSpiFreqMhz_(uint32_t hz)
     if (mhz < 1U) mhz = 1U;
     if (mhz > 80U) mhz = 80U;
     return (uint8_t)mhz;
+}
+
+bool isBlank_(const char* text, size_t maxLen)
+{
+    if (!text) return true;
+    const size_t len = strnlen(text, maxLen);
+    if (len == 0U || len >= maxLen) return true;
+    for (size_t i = 0; i < len; ++i) {
+        if (!isspace((unsigned char)text[i])) return false;
+    }
+    return true;
 }
 }  // namespace
 
@@ -58,9 +72,15 @@ void EthernetModule::init(ConfigStore& cfg, ServiceRegistry& services)
     constexpr uint8_t kCfgBranchId = 1U;
     cfg.registerVar(enabledVar_, kCfgModuleId, kCfgBranchId);
 
+    cfgStore_ = &cfg;
     services_ = &services;
     const DataStoreService* dsSvc = services.get<DataStoreService>(ServiceId::DataStore);
     dataStore_ = dsSvc ? dsSvc->store : nullptr;
+    const EventBusService* eventBusSvc = services.get<EventBusService>(ServiceId::EventBus);
+    eventBus_ = eventBusSvc ? eventBusSvc->bus : nullptr;
+    if (eventBus_) {
+        eventBus_->subscribe(EventId::ConfigChanged, &EthernetModule::onEventStatic_, this);
+    }
 
     gEthernetInstance = this;
     cleanupDriver_();
@@ -70,6 +90,7 @@ void EthernetModule::init(ConfigStore& cfg, ServiceRegistry& services)
 
 void EthernetModule::onConfigLoaded(ConfigStore&, ServiceRegistry& services)
 {
+    loadSystemDeviceName_();
     if (cfgData_.enabled) {
         if (!hasEthPins_) {
             LOGE("ethernet enabled in config but board has no valid W5500 pin mapping");
@@ -95,6 +116,11 @@ void EthernetModule::onConfigLoaded(ConfigStore&, ServiceRegistry& services)
 
 void EthernetModule::loop()
 {
+    if (deviceNameDirty_) {
+        deviceNameDirty_ = false;
+        loadSystemDeviceName_();
+    }
+
     if (cfgData_.enabled || driverStarted_) {
         syncRuntimeState_();
     }
@@ -212,6 +238,23 @@ void EthernetModule::onNetworkEvent_(arduino_event_t* event)
     }
 }
 
+void EthernetModule::onEventStatic_(const Event& e, void* user)
+{
+    EthernetModule* self = static_cast<EthernetModule*>(user);
+    if (self) self->onEvent_(e);
+}
+
+void EthernetModule::onEvent_(const Event& e)
+{
+    if (e.id != EventId::ConfigChanged) return;
+    if (!e.payload || e.len < sizeof(ConfigChangedPayload)) return;
+
+    const ConfigChangedPayload* p = static_cast<const ConfigChangedPayload*>(e.payload);
+    if (p->moduleId != (uint8_t)ConfigModuleId::System) return;
+    if (strcmp(p->nvsKey, NvsKeys::System::DeviceName) != 0) return;
+    deviceNameDirty_ = true;
+}
+
 void EthernetModule::setState_(EthernetState next)
 {
     if (state_ == next) return;
@@ -327,17 +370,69 @@ void EthernetModule::logEthLinkInfo_() const
     LOGI("ETH duplex=%s", ETH.fullDuplex() ? "full" : "half");
 }
 
+void EthernetModule::loadSystemDeviceName_()
+{
+    char next[sizeof(deviceName_)] = "flowio";
+    if (cfgStore_) {
+        char systemJson[128] = {0};
+        if (cfgStore_->toJsonModule("system", systemJson, sizeof(systemJson), nullptr, false)) {
+            StaticJsonDocument<128> doc;
+            if (deserializeJson(doc, systemJson) == DeserializationError::Ok && doc.is<JsonObjectConst>()) {
+                const char* configured = doc.as<JsonObjectConst>()["devicename"] | "";
+                if (!isBlank_(configured, sizeof(deviceName_))) {
+                    snprintf(next, sizeof(next), "%s", configured);
+                }
+            }
+        }
+    }
+
+    next[sizeof(next) - 1U] = '\0';
+    if (strncmp(deviceName_, next, sizeof(deviceName_)) == 0) return;
+    snprintf(deviceName_, sizeof(deviceName_), "%s", next);
+    LOGI("System device name loaded: %s", deviceName_);
+    if (mdnsStarted_) {
+        stopMdns_();
+        startMdns_();
+    }
+}
+
 void EthernetModule::startMdns_()
 {
     if (mdnsStarted_) return;
     if (!gotIp_) return;
 
-    if (!MDNS.begin("flowio")) {
-        LOGW("mDNS start failed host=flowio on Ethernet");
+    char host[sizeof(deviceName_)] = {0};
+    size_t w = 0;
+    for (size_t i = 0; deviceName_[i] != '\0' && w < (sizeof(host) - 1); ++i) {
+        char c = deviceName_[i];
+        if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-') {
+            host[w++] = (char)tolower((unsigned char)c);
+        } else if (c == ' ' || c == '_' || c == '.') {
+            host[w++] = '-';
+        }
+    }
+    host[w] = '\0';
+
+    while (w > 0 && host[0] == '-') {
+        memmove(host, host + 1, w);
+        --w;
+    }
+    while (w > 0 && host[w - 1] == '-') {
+        host[w - 1] = '\0';
+        --w;
+    }
+
+    if (host[0] == '\0') {
+        snprintf(host, sizeof(host), "flowio");
+    }
+
+    if (!MDNS.begin(host)) {
+        LOGW("mDNS start failed host=%s on Ethernet", host);
         return;
     }
     mdnsStarted_ = true;
-    LOGI("mDNS started host=flowio.local (Ethernet)");
+    snprintf(mdnsApplied_, sizeof(mdnsApplied_), "%s", host);
+    LOGI("mDNS started host=%s.local (Ethernet)", mdnsApplied_);
 }
 
 void EthernetModule::stopMdns_()
@@ -345,6 +440,7 @@ void EthernetModule::stopMdns_()
     if (!mdnsStarted_) return;
     MDNS.end();
     mdnsStarted_ = false;
+    mdnsApplied_[0] = '\0';
     LOGI("mDNS stopped (Ethernet)");
 }
 

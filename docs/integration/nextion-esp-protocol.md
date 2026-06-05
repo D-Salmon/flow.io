@@ -15,8 +15,8 @@ Le port série utilisé côté FlowIO est `Serial2` sur `RX16 / TX17` à `115200
 
 - Les valeurs métier affichées (`pH`, `ORP`, températures, message d'erreur)
   sont formatées côté ESP puis envoyées vers des variables texte globales.
-- L'heure et la date complètes ne sont pas écrites en `.txt` par l'ESP. Le
-  Nextion les calcule localement depuis son RTC; l'ESP fournit seulement le
+- L'heure affichée est formatée côté ESP puis envoyée vers `tTime.txt`. La date
+  reste calculée localement par le Nextion depuis son RTC; l'ESP fournit le
   texte du jour de semaine et du mois.
 - Les états discrets et indicateurs compacts sont envoyés en `.val`.
 - L'écran Nextion n'est pas la source de vérité : il émet des intentions ou des
@@ -30,6 +30,7 @@ Le port série utilisé côté FlowIO est `Serial2` sur `RX16 / TX17` à `115200
 ### Page Home
 
 Variables texte globales :
+- `globals.vaVersion.txt`
 - `globals.vaWaterTemp.txt`
 - `globals.vaAirTemp.txt`
 - `globals.vaPhValue.txt`
@@ -45,6 +46,8 @@ Objets numériques :
 - `globals.vaAlarms.val`
 
 Sémantique :
+- `globals.vaVersion.txt` : version du TFT au format `M.m.p`, 1 à 2 chiffres
+  par segment, par exemple `6.0.0`; longueur maximale `8` caractères
 - `globals.vaWaterTemp.txt` : exemple `27.4°C`
 - `globals.vaAirTemp.txt` : exemple `21.8°C`
 - `globals.vaPhValue.txt` : exemple `7.18`
@@ -157,9 +160,9 @@ Séquence au boot côté ESP :
   externe et n'est pas utilisée pour réécrire immédiatement la RTC Nextion.
 
 Synchronisation ESP -> Nextion :
-- dès que l'ESP obtient une vraie synchronisation NTP, il écrit `rtc0..rtc5`
-  pour remettre la RTC Nextion à l'heure ;
-- ensuite, tant que l'heure ESP reste synchronisée NTP, l'ESP réécrit la RTC
+- dès que l'ESP obtient une heure synchronisée, il écrit `rtc0..rtc5` pour
+  remettre la RTC Nextion à l'heure ;
+- ensuite, tant que l'heure ESP reste synchronisée, l'ESP réécrit la RTC
   Nextion une fois par jour local ;
 - les valeurs écrites sont en heure locale, pas en UTC.
 

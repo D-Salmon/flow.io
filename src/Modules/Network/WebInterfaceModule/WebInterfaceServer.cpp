@@ -33,6 +33,7 @@
 
 #include <string.h>
 #include <strings.h>
+#include <ctype.h>
 #include <stdlib.h>
 #include <time.h>
 #include <Arduino.h>
@@ -598,6 +599,34 @@ void buildProvisioningApSsid_(char* out, size_t outLen)
     const uint8_t b1 = (uint8_t)(chipId >> 8);
     const uint8_t b2 = (uint8_t)(chipId >> 0);
     snprintf(out, outLen, "flow.io-%s-%02X%02X%02X", FLOW_BUILD_PROFILE_NAME, b0, b1, b2);
+}
+
+bool isBlankText_(const char* text, size_t maxLen)
+{
+    if (!text) return true;
+    const size_t len = strnlen(text, maxLen);
+    if (len == 0U || len >= maxLen) return true;
+    for (size_t i = 0; i < len; ++i) {
+        if (!isspace((unsigned char)text[i])) return false;
+    }
+    return true;
+}
+
+void loadConfiguredDeviceName_(ConfigStore* cfgStore, char* out, size_t outLen)
+{
+    if (!out || outLen == 0U) return;
+    snprintf(out, outLen, "flowio");
+    if (!cfgStore) return;
+
+    char systemJson[128] = {0};
+    if (!cfgStore->toJsonModule("system", systemJson, sizeof(systemJson), nullptr, false)) return;
+
+    StaticJsonDocument<128> doc;
+    if (deserializeJson(doc, systemJson) != DeserializationError::Ok || !doc.is<JsonObjectConst>()) return;
+
+    const char* configured = doc.as<JsonObjectConst>()["devicename"] | "";
+    if (isBlankText_(configured, outLen)) return;
+    snprintf(out, outLen, "%s", configured);
 }
 
 bool isModuleFlagAndStringConfigured_(ConfigStore* cfgStore,
@@ -1907,7 +1936,10 @@ bool flowios3BuildStatusDomainJson_(FlowStatusDomain domain,
     doc["ok"] = true;
 
     if (domain == FlowStatusDomain::System) {
+        char deviceName[48] = {0};
+        loadConfiguredDeviceName_(cfgStore, deviceName, sizeof(deviceName));
         flowios3EnsureSystemStats_(ctx);
+        doc["devicename"] = deviceName;
         doc["fw"] = FirmwareVersion::Full;
         doc["upms"] = (uint64_t)ctx.systemStats.uptimeMs64;
         JsonObject heap = doc.createNestedObject("heap");
@@ -2071,6 +2103,7 @@ bool sendFlowios3StatusCompactResponse_(AsyncWebServerRequest* request,
     addNoCacheHeaders_(response);
     response->print("{\"ok\":true");
     JsonObjectConst systemRoot = systemDoc.as<JsonObjectConst>();
+    if (!systemRoot["devicename"].isNull()) appendJsonFieldValue_(*response, "devicename", systemRoot["devicename"]);
     if (!systemRoot["fw"].isNull()) appendJsonFieldValue_(*response, "fw", systemRoot["fw"]);
     if (!systemRoot["upms"].isNull()) appendJsonFieldValue_(*response, "upms", systemRoot["upms"]);
     if (!systemRoot["heap"].isNull()) appendJsonFieldValue_(*response, "heap", systemRoot["heap"]);
@@ -4488,7 +4521,7 @@ void WebInterfaceModule::startServer_()
     });
     server_.on("/api/web/meta", HTTP_GET, [this](AsyncWebServerRequest* request) {
         HttpLatencyScope latency(request, "/api/web/meta");
-        StaticJsonDocument<896> doc;
+        StaticJsonDocument<1024> doc;
         NetworkAccessMode mode = NetworkAccessMode::None;
         if (!netAccessSvc_ && services_) {
             netAccessSvc_ = services_->get<NetworkAccessService>(ServiceId::NetworkAccess);
@@ -4507,17 +4540,20 @@ void WebInterfaceModule::startServer_()
         doc["firmware_version"] = FirmwareVersion::Full;
         doc["profile"] = FLOW_BUILD_PROFILE_NAME;
         doc["profile_name"] = FLOW_BUILD_PROFILE_NAME;
+        char deviceName[48] = {0};
+        loadConfiguredDeviceName_(cfgStore_, deviceName, sizeof(deviceName));
+        doc["devicename"] = deviceName;
         doc["network_mode"] = modeTxt;
         doc["is_ap_portal"] = (mode == NetworkAccessMode::AccessPoint);
         doc["provisioning_only"] = provisioningOnly_;
         doc["full_ui_enabled"] = !provisioningOnly_;
         doc["reboot_after_wifi_save"] = provisioningOnly_ || (mode == NetworkAccessMode::AccessPoint);
-        uint32_t nextionDisplayVersion = 0U;
+        char nextionDisplayVersion[9]{};
         if (!hmiSvc_ && services_) {
             hmiSvc_ = services_->get<HmiService>(ServiceId::Hmi);
         }
         if (hmiSvc_ && hmiSvc_->getDisplayVersion &&
-            hmiSvc_->getDisplayVersion(hmiSvc_->ctx, &nextionDisplayVersion)) {
+            hmiSvc_->getDisplayVersion(hmiSvc_->ctx, nextionDisplayVersion, sizeof(nextionDisplayVersion))) {
             doc["nextion_display_version"] = nextionDisplayVersion;
         }
 #if defined(FLOW_PROFILE_MICRONOVA)
@@ -4544,7 +4580,7 @@ void WebInterfaceModule::startServer_()
         heap["largest"] = snap.heap.largestFreeBlock;
         heap["frag"] = snap.heap.fragPercent;
 
-        char out[768] = {0};
+        char out[896] = {0};
         const size_t n = serializeJson(doc, out, sizeof(out));
         if (n == 0 || n >= sizeof(out)) {
             request->send(500, "application/json",

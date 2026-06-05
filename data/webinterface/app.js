@@ -46,6 +46,8 @@
     let supervisorUptimeMs = 0;
     let supervisorHeap = {};
     let webProfileName = 'Supervisor';
+    let webDeviceName = 'flowio';
+    let infoLastMac = '-';
     let webProfileKey = 'supervisor';
     let webLocalConfigLabel = 'Config Store Supervisor';
     let webLocalRuntime = false;
@@ -480,6 +482,8 @@
         webProfileName = rawProfile;
         webProfileKey = rawProfile.toLowerCase();
       }
+      const rawDeviceName = String(data.devicename || data.deviceName || '').trim();
+      webDeviceName = rawDeviceName || 'flowio';
       webLocalRuntime = data.local_runtime === true;
       const label = String(data.local_config_label || '').trim();
       webLocalConfigLabel = label || (isMicronovaProfile()
@@ -651,6 +655,8 @@
           webProfileName = rawProfile;
           webProfileKey = rawProfile.toLowerCase();
         }
+        const rawDeviceName = String(initialMeta.devicename || initialMeta.deviceName || '').trim();
+        webDeviceName = rawDeviceName || 'flowio';
         const label = String(initialMeta.local_config_label || '').trim();
         webLocalConfigLabel = label || (isMicronovaProfile()
           ? tr('cfg.local.micronova', 'Config Store Micronova')
@@ -1035,7 +1041,7 @@
         headerWifiDot.classList.toggle('is-connected', isHeaderWifiConnected());
       }
       if (headerDeviceStatus) {
-        headerDeviceStatus.textContent = webProfileName || '-';
+        headerDeviceStatus.textContent = webDeviceName || 'flowio';
       }
     }
 
@@ -1141,11 +1147,6 @@
       return raw ? raw.toUpperCase() : '-';
     }
 
-    function formatInfoDeviceId(mac) {
-      const normalized = String(mac || '').replace(/[^a-fA-F0-9]/g, '').toLowerCase();
-      return normalized ? ('flow.io-' + normalized) : '-';
-    }
-
     function setInfoFlowDomainLoading(domainKey, loading) {
       if (!Object.prototype.hasOwnProperty.call(infoFlowDomainLoading, domainKey)) return;
       const isLoading = !!loading;
@@ -1229,6 +1230,10 @@
           }
         };
       } else if (hasAnyValue && domainKey === 'wifi') {
+        const previousWifi = (cacheEntry.data && cacheEntry.data.ok === true && cacheEntry.data.wifi && typeof cacheEntry.data.wifi === 'object')
+          ? cacheEntry.data.wifi
+          : {};
+        const previousMac = normalizeInfoMac(previousWifi.mac);
         const rssiItem = valueById.get(1003);
         data = {
           ok: true,
@@ -1236,6 +1241,7 @@
             rdy: !!infoRuntimeValue(valueById, 1001, false),
             typ: infoRuntimeValue(valueById, 1004, 'wifi'),
             ip: normalizeIpValue(infoRuntimeValue(valueById, 1002, '')),
+            mac: previousMac !== '-' ? previousMac : '',
             rssi: infoRuntimeValue(valueById, 1003, null),
             hrss: infoRuntimeValueAvailable(rssiItem)
           }
@@ -1368,15 +1374,17 @@
       const mqtt = (mqttDomain && mqttDomain.mqtt && typeof mqttDomain.mqtt === 'object') ? mqttDomain.mqtt : {};
       const fullFirmware = systemDomain ? fmtFlowStatusVal(systemDomain.fw) : (supervisorFirmwareVersion || '-');
       const firmwareParts = splitInfoFirmwareVersion(fullFirmware);
-      const mac = wifiDomain ? normalizeInfoMac(wifi.mac) : '-';
+      const currentMac = wifiDomain ? normalizeInfoMac(wifi.mac) : '-';
+      if (currentMac !== '-') infoLastMac = currentMac;
+      const mac = currentMac !== '-' ? currentMac : infoLastMac;
+      const deviceName = String(systemDomain && systemDomain.devicename ? systemDomain.devicename : webDeviceName || 'flowio').trim() || 'flowio';
       const infoRows = [
-        [tr('info.row.deviceName', 'Nom de l’appareil'), 'flow.io'],
+        [tr('info.row.deviceName', 'Nom de l’appareil'), deviceName],
         [tr('info.row.firmwareVersion', 'Version firmware'), firmwareParts.version],
         [tr('info.row.buildVersion', 'Version build'), firmwareParts.build],
         [tr('info.row.uptime', 'Uptime'), systemDomain ? formatInfoUptime(systemDomain.upms) : formatInfoUptime(supervisorUptimeMs)],
         [tr('info.row.ip', 'Adresse IP'), wifiDomain ? normalizeIpValue(wifi.ip) : '-'],
         [tr('info.row.mac', 'Adresse MAC'), mac],
-        [tr('info.row.deviceId', 'ID appareil'), formatInfoDeviceId(mac)],
         [tr('info.row.networkType', 'Type réseau'), wifiDomain ? formatInfoNetworkType(wifi.typ) : '-'],
         [tr('info.row.signal', 'Signal'), (wifiDomain && wifi.hrss) ? formatInfoDbm(wifi.rssi) : '-'],
         [tr('info.row.mqtt', 'MQTT'), mqttDomain ? formatInfoBoolean(!!mqtt.rdy, tr('info.state.connected', 'Connecté'), tr('info.state.disconnected', 'Déconnecté')) : '-']
@@ -1644,6 +1652,7 @@
     const updateServerPath = document.getElementById('updateServerPath');
     const applyUpdateServerPathBtn = document.getElementById('applyUpdateServerPath');
     const checkUpdatesBtn = document.getElementById('checkUpdates');
+    const cancelUpgradeUiBtn = document.getElementById('cancelUpgradeUi');
     const upgradeCards = document.getElementById('upgradeCards');
     const upgradeTableBody = document.getElementById('upgradeTableBody');
     const upgradeProgressBar = document.getElementById('upgradeProgressBar');
@@ -1939,6 +1948,7 @@
     };
     let logSource = 'supervisor';
     let logSocket = null;
+    let upgradeUiStatusMuted = false;
     const upgradeStatusPoller = createTimeoutRunner(() => pollUpgradeStatusTick());
     const infoRuntimePoller = createIntervalRunner(() => pollInfoRuntimeTick(), infoRefreshActiveMs);
     const infoSupervisorPoller = createIntervalRunner(() => pollInfoSupervisorTick(), infoSupervisorRefreshMs);
@@ -2385,6 +2395,18 @@
       });
     }
 
+    function isUpgradeUiCancelable(session) {
+      const phase = String(session && session.phase ? session.phase : 'idle');
+      return !!(session && (session.awaitingReconnect || phase === 'target' || phase === 'download' || phase === 'flash' || phase === 'reboot' || phase === 'reconnect'));
+    }
+
+    function syncUpgradeCancelButton(session) {
+      if (!cancelUpgradeUiBtn) return;
+      const canCancel = isUpgradeUiCancelable(session);
+      cancelUpgradeUiBtn.hidden = !canCancel;
+      cancelUpgradeUiBtn.disabled = !canCancel;
+    }
+
     function renderUpgradeJourney(session) {
       const safeSession = session && typeof session === 'object' ? session : { phase: 'idle', target: '' };
       const phase = String(safeSession.phase || 'idle');
@@ -2417,6 +2439,7 @@
       if (upStatusChip) {
         upStatusChip.textContent = stateLabel;
       }
+      syncUpgradeCancelButton(safeSession);
     }
 
     function updateUpgradeUiSession(patch) {
@@ -2439,6 +2462,7 @@
 
     function startUpgradeUiSession(target) {
       stopUpgradeReconnectFlow();
+      upgradeUiStatusMuted = false;
       return updateUpgradeUiSession({
         phase: 'target',
         target: target,
@@ -2449,6 +2473,17 @@
         reconnectShown: false,
         reconnectProgress: 0,
         failedStep: ''
+      });
+    }
+
+    function cancelUpgradeUiSession() {
+      upgradeUiStatusMuted = true;
+      stopUpgradeStatusPolling();
+      clearUpgradeUiSession();
+      renderUpgradeJourney({
+        phase: 'idle',
+        target: '',
+        detail: tr('updates.none', 'Aucune opération en cours.')
       });
     }
 
@@ -2581,6 +2616,11 @@
       const target = String(data.target || (current && current.target) || '').trim().toLowerCase();
       const progress = Math.max(0, Math.min(100, Number(data.progress) || 0));
       const msg = String(data.msg || '').trim();
+
+      if (upgradeUiStatusMuted) {
+        if (state !== 'idle' && state !== 'done' && state !== 'error') return;
+        upgradeUiStatusMuted = false;
+      }
 
       if (state === 'idle') {
         if (current && current.awaitingReconnect) {
@@ -3901,6 +3941,7 @@
       ) {
         flowStatusDomainCache.system.data = {
           ok: true,
+          devicename: data.devicename || '',
           fw: data.fw || '',
           upms: data.upms ?? 0,
           heap: (data.heap && typeof data.heap === 'object') ? data.heap : {}
@@ -3910,6 +3951,8 @@
 
       if (data.wifi && typeof data.wifi === 'object') {
         const wifiData = Object.assign({}, data.wifi, { ip: normalizeIpValue(data.wifi.ip) });
+        const wifiMac = normalizeInfoMac(wifiData.mac);
+        if (wifiMac !== '-') infoLastMac = wifiMac;
         flowStatusDomainCache.wifi.data = { ok: true, wifi: wifiData };
         flowStatusDomainCache.wifi.fetchedAt = stamp;
       }
@@ -9263,6 +9306,7 @@
         });
       });
       bindClickAction(checkUpdatesBtn, () => checkFirmwareUpdates());
+      bindClickAction(cancelUpgradeUiBtn, () => cancelUpgradeUiSession());
     }
 
     function initStatusBindings() {

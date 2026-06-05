@@ -1,1 +1,1 @@
-{"ok":true,"module":"system","docs":{"system/lang":{"enum_set":"i18n_languages"}},"meta":{}}
+{"ok":true,"module":"system","docs":{"system/devicename":{"type":"CharArray","label_t":"cfgdocs.system.devicename.label","help_t":"cfgdocs.system.devicename.help","label":"Nom de l'appareil","label_i18n":"cfgdocs.system.devicename.label","help":"Nom utilisé pour l'affichage web et l'annonce mDNS.","help_i18n":"cfgdocs.system.devicename.help"},"system/lang":{"enum_set":"i18n_languages"}},"meta":{}}
