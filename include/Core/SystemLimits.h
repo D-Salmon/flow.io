@@ -303,6 +303,7 @@ constexpr uint8_t MaxBinarySensors = BoardCapacityProfile::kHaCapacity.binarySen
 constexpr uint8_t MaxSwitches = BoardCapacityProfile::kHaCapacity.switches;
 constexpr uint8_t MaxNumbers = BoardCapacityProfile::kHaCapacity.numbers;
 constexpr uint8_t MaxButtons = BoardCapacityProfile::kHaCapacity.buttons;
+constexpr uint8_t MaxSelects = BoardCapacityProfile::kHaCapacity.selects;
 constexpr uint8_t MaxDiscoveryCleanups = BoardCapacityProfile::kHaCapacity.discoveryCleanups;
 
 static_assert(MaxSensors > 0, "HA sensors capacity must be at least 1");
@@ -310,6 +311,7 @@ static_assert(MaxBinarySensors > 0, "HA binarySensors capacity must be at least 
 static_assert(MaxSwitches > 0, "HA switches capacity must be at least 1");
 static_assert(MaxNumbers > 0, "HA numbers capacity must be at least 1");
 static_assert(MaxButtons > 0, "HA buttons capacity must be at least 1");
+static_assert(MaxSelects > 0, "HA selects capacity must be at least 1");
 static_assert(MaxDiscoveryCleanups > 0, "HA cleanup capacity must be at least 1");
 }  // namespace Capacity
 

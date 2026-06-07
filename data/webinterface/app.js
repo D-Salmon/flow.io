@@ -1649,8 +1649,6 @@
     let autoScrollEnabled = true;
     let terminalActive = false;
 
-    const updateServerPath = document.getElementById('updateServerPath');
-    const applyUpdateServerPathBtn = document.getElementById('applyUpdateServerPath');
     const checkUpdatesBtn = document.getElementById('checkUpdates');
     const cancelUpgradeUiBtn = document.getElementById('cancelUpgradeUi');
     const upgradeCards = document.getElementById('upgradeCards');
@@ -1754,7 +1752,6 @@
     let flowCfgLoadPromise = null;
     let flowCfgRetryTimer = null;
     let flowCfgFlowOnlyFailureStreak = 0;
-    let upgradeCfgLoadedOnce = false;
     let wifiConfigLoadedOnce = false;
     let flowCfgLoadedOnce = false;
     let calibrationLoadedOnce = false;
@@ -1893,14 +1890,6 @@
     };
     const poolMeasureDomainAnimations = {};
     const upgradeReconnectFetchTimeoutMs = 1400;
-    const upgradeConfigFieldDefs = [
-      {
-        key: 'update_server_path',
-        input: updateServerPath,
-        button: applyUpdateServerPathBtn,
-        successMessage: 'Serveur d’upgrade enregistré.'
-      }
-    ];
     const upgradeTargetDefs = {
       flowio: { manifestKey: 'flowio', target: 'flowio', endpoint: '/fwupdate/flowio', label: 'flow.io', order: 10 },
       esp32s3: { manifestKey: 'esp32s3', target: 'esp32s3', endpoint: '/fwupdate/flowio', label: 'ESP32-S3', order: 11 },
@@ -2739,48 +2728,6 @@
       }
     }
 
-    async function loadUpgradeConfig() {
-      try {
-        const data = await fetchOkJson('/api/fwupdate/config', { cache: 'no-store' }, 'configuration firmware indisponible');
-        if (updateServerPath) {
-          updateServerPath.value = composeUpgradeServerPath(data.update_host || '', data.update_path || '');
-        }
-        resetUpgradeManifestSelections(tr('updates.empty', 'Cliquez sur « Vérifier les mises à jour ».'));
-        syncUpgradeConfigFieldInitialValues();
-      } catch (err) {
-        setUpgradeMessage('Échec du chargement de la configuration : ' + err);
-      }
-    }
-
-    function composeUpgradeServerPath(hostRaw, pathRaw) {
-      const host = String(hostRaw || '').trim().replace(/^https?:\/\//i, '').replace(/\/+$/, '');
-      let path = String(pathRaw || '').trim();
-      if (path && !path.startsWith('/')) path = '/' + path;
-      if (!host) return path.replace(/^\/+/, '');
-      return host + path;
-    }
-
-    function splitUpgradeServerPath(rawValue) {
-      const raw = String(rawValue || '').trim().replace(/^https?:\/\//i, '');
-      if (!raw) return { host: '', path: '' };
-      const slashIndex = raw.indexOf('/');
-      if (slashIndex < 0) {
-        return { host: raw.replace(/\/+$/, ''), path: '' };
-      }
-      const host = raw.slice(0, slashIndex).trim().replace(/\/+$/, '');
-      let path = raw.slice(slashIndex).trim();
-      if (path && !path.startsWith('/')) path = '/' + path;
-      return { host: host, path: path };
-    }
-
-    function buildUpgradeConfigPayload() {
-      const parts = splitUpgradeServerPath(updateServerPath ? updateServerPath.value : '');
-      return {
-        update_host: parts.host,
-        update_path: parts.path
-      };
-    }
-
     function normalizeFirmwareVersionForCompare(value) {
       return String(value || '').trim().split('+')[0].replace(/^v/i, '');
     }
@@ -3317,7 +3264,6 @@
         checkUpdatesBtn.classList.add('is-pending');
       }
       try {
-        await saveUpgradeConfig();
         setUpgradeCardsEmpty(tr('updates.checking', 'Vérification du manifest...'));
         setUpgradeMessage(tr('updates.checking', 'Vérification du manifest...'));
         const data = await fetchOkJson('/api/fwupdate/check', { cache: 'no-store' }, 'échec vérification');
@@ -3332,61 +3278,6 @@
           checkUpdatesBtn.disabled = false;
           checkUpdatesBtn.classList.remove('is-pending');
         }
-      }
-    }
-
-    function syncUpgradeConfigFieldInitialValues(keys) {
-      const changedKeys = Array.isArray(keys) ? new Set(keys) : null;
-      upgradeConfigFieldDefs.forEach((def) => {
-        if (!def || !def.input || !def.button) return;
-        if (changedKeys) {
-          const isCombinedUpgradeField = def.key === 'update_server_path'
-            && (changedKeys.has('update_host') || changedKeys.has('update_path'));
-          if (!changedKeys.has(def.key) && !isCombinedUpgradeField) return;
-        }
-        def.input.dataset.initialValue = def.input.value.trim();
-        updateUpgradeConfigFieldApplyState(def);
-      });
-    }
-
-    function isUpgradeConfigFieldDirty(def) {
-      if (!def || !def.input) return false;
-      return def.input.value.trim() !== String(def.input.dataset.initialValue || '');
-    }
-
-    function updateUpgradeConfigFieldApplyState(def) {
-      if (!def || !def.button) return;
-      const dirty = isUpgradeConfigFieldDirty(def);
-      def.button.textContent = fieldApplyCheckIcon;
-      def.button.disabled = !dirty;
-      def.button.classList.toggle('is-dirty', dirty);
-      def.button.classList.remove('is-pending');
-      def.button.title = dirty ? 'Appliquer ce changement' : 'Aucun changement a appliquer';
-      def.button.setAttribute('aria-label', def.button.title);
-    }
-
-    async function saveUpgradeConfig(values, successMessage) {
-      const payload = values && typeof values === 'object'
-        ? values
-        : buildUpgradeConfigPayload();
-      await fetchOkJson('/api/fwupdate/config', createFormPostOptions(payload), 'échec enregistrement');
-      syncUpgradeConfigFieldInitialValues(Object.keys(payload));
-      setUpgradeMessage(successMessage || 'Configuration enregistrée.');
-    }
-
-    async function applyUpgradeConfigField(def) {
-      if (!def || !def.input || !def.button || !isUpgradeConfigFieldDirty(def)) return;
-      def.button.disabled = true;
-      def.button.classList.add('is-pending');
-      try {
-        const success = def.successMessage;
-        if (def.key === 'update_server_path') {
-          await saveUpgradeConfig(buildUpgradeConfigPayload(), success);
-        } else {
-          await saveUpgradeConfig({ [def.key]: def.input.value.trim() }, success);
-        }
-      } finally {
-        updateUpgradeConfigFieldApplyState(def);
       }
     }
 
@@ -3407,7 +3298,6 @@
       try {
         startUpgradeUiSession(target);
         startUpgradeStatusPolling(true);
-        await saveUpgradeConfig();
         const selectedUrl = String(url || '').trim();
         if (!selectedUrl) {
           throw new Error('aucune image sélectionnée, lancez Vérifier');
@@ -5572,10 +5462,6 @@
       renderUpgradeCatalog();
       resumeUpgradeReconnectFlow();
       await loadWebMeta().catch(() => {});
-      if (!upgradeCfgLoadedOnce) {
-        upgradeCfgLoadedOnce = true;
-        await loadUpgradeConfig();
-      }
       await refreshUpgradeStatus();
       startUpgradeStatusPolling();
     }
@@ -9292,19 +9178,6 @@
     }
 
     function initUpgradeBindings() {
-      upgradeConfigFieldDefs.forEach((def) => {
-        if (!def || !def.input || !def.button) return;
-        updateUpgradeConfigFieldApplyState(def);
-        def.input.addEventListener('input', () => updateUpgradeConfigFieldApplyState(def));
-        def.input.addEventListener('change', () => updateUpgradeConfigFieldApplyState(def));
-        bindClickAction(def.button, async () => {
-          try {
-            await applyUpgradeConfigField(def);
-          } catch (err) {
-            setUpgradeMessage('Échec de l\'enregistrement : ' + err);
-          }
-        });
-      });
       bindClickAction(checkUpdatesBtn, () => checkFirmwareUpdates());
       bindClickAction(cancelUpgradeUiBtn, () => cancelUpgradeUiSession());
     }

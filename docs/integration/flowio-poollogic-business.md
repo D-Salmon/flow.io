@@ -153,18 +153,19 @@ Conditions d’autorisation:
 - mesure ORP disponible
 - pas d’erreur PSI
 - cuve chlore non vide
-- **et** `elec_mode=false` (la pompe ORP est inhibée quand électrolyse active)
+- **et** `disinfection_type=0` (`Chlore/Brome`; la pompe ORP est inhibée en mode électrolyse ou oxygène actif)
 
 ## 5.4 Électrolyseur
 
 En auto:
 
 - nécessite filtration ON
-- nécessite `elec_mode=true`
+- nécessite `disinfection_type=1` (`Electrolyse`)
 - démarrage autorisé si:
   - température eau >= `secure_elec_t`
   - délai filtration >= `dly_electro_min`
-- si `elec_run=true`, l’électrolyse est asservie à ORP (hystérésis de démarrage à 90% de la consigne)
+- si `swg_control_mode=0`, l’électrolyse est asservie à ORP (hystérésis de démarrage à 90% de la consigne)
+- si `swg_control_mode=1`, l’électrolyse fonctionne en continu sur la plage autorisée
 
 ## 5.5 Robot
 
@@ -205,8 +206,11 @@ Si le service alarme n’est pas disponible, `PoolLogic` utilise un fallback loc
 - `ph_auto_mode`
 - `orp_auto_mode`
 - `ph_dose_plus`
-- `elec_mode`
-- `elec_run`
+- `disinfection_type`
+
+### `poollogic/swg`
+
+- `swg_control_mode`
 
 ### `poollogic/filtration`
 

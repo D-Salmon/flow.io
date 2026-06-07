@@ -51,6 +51,30 @@ const char* poolDeviceBlockReasonStr_(uint8_t reason)
 }
 }  // namespace
 
+bool PoolLogicModule::isDisinfectionType_(DisinfectionType type) const
+{
+    return disinfectionType_ == (uint8_t)type;
+}
+
+const char* PoolLogicModule::disinfectionTypeStr_(uint8_t type)
+{
+    switch (type) {
+        case DisinfectionChlorineBromine: return "chlorine_bromine";
+        case DisinfectionSwg: return "swg";
+        case DisinfectionActiveOxygen: return "active_oxygen";
+        default: return "unknown";
+    }
+}
+
+const char* PoolLogicModule::swgControlModeStr_(uint8_t mode)
+{
+    switch (mode) {
+        case SwgControlOrp: return "orp";
+        case SwgControlContinuous: return "continuous";
+        default: return "unknown";
+    }
+}
+
 // Alarm conditions intentionally stay close to the control helpers because they
 // read the same live IO/runtime state and should evolve together.
 AlarmCondState PoolLogicModule::condPsiLowStatic_(void* ctx, uint32_t nowMs)
@@ -503,7 +527,8 @@ void PoolLogicModule::runControlLoop_(uint32_t nowMs)
             phPidEnabled_ = true;
             LOGI("Activate pH regulation (delay=%umin)", (unsigned)runMin);
         }
-        if (orpAutoMode_ && !orpPidEnabled_ && runMin >= delayPidsMin_) {
+        if (orpAutoMode_ && isDisinfectionType_(DisinfectionChlorineBromine) &&
+            !orpPidEnabled_ && runMin >= delayPidsMin_) {
             orpPidEnabled_ = true;
             LOGI("Activate ORP regulation (delay=%umin)", (unsigned)runMin);
         }
@@ -649,8 +674,8 @@ void PoolLogicModule::runControlLoop_(uint32_t nowMs)
     bool swgDesired = swgFsm_.on;
     if (autoMode_) {
         swgDesired = false;
-        if (electrolyseMode_ && filtrationFsm_.on) {
-            if (electroRunMode_) {
+        if (isDisinfectionType_(DisinfectionSwg) && filtrationFsm_.on) {
+            if (swgControlMode_ == SwgControlOrp) {
                 if (swgFsm_.on) {
                     swgDesired = haveOrp && (orp <= orpSetpoint_);
                 } else {
@@ -807,9 +832,9 @@ void PoolLogicModule::runControlLoop_(uint32_t nowMs)
             }
 
             if (orpAutoMode_) {
-                // ORP peristaltic dosing is disabled when electrolyse mode is active.
                 const bool orpAllowed =
-                    orpPidEnabled_ && haveOrp && !electrolyseMode_ && !psiError_ && !chlorineTankLowError_;
+                    orpPidEnabled_ && haveOrp && isDisinfectionType_(DisinfectionChlorineBromine) &&
+                    !psiError_ && !chlorineTankLowError_;
                 if (orpAllowed) {
                     uint32_t outMs = 0;
                     (void)stepTemporalPid_(orpPidState_,

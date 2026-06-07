@@ -1731,7 +1731,7 @@ bool TFTModuleS3::loadPoolModeFlags_(bool& autoMode,
     winterMode = root["winter_mode"] | false;
     phAutoMode = root["ph_auto_mode"] | false;
     orpAutoMode = root["orp_auto_mode"] | false;
-    swgAutoMode = root["elec_mode"] | false;
+    swgAutoMode = ((root["disinfection_type"] | 0) == 1);
     return true;
 }
 

@@ -25,6 +25,8 @@ static constexpr const char* kCfgModuleSensors = "poollogic/sensors";
 static constexpr const char* kCfgModulePid = "poollogic/pid";
 static constexpr const char* kCfgModuleDelay = "poollogic/delay";
 static constexpr const char* kCfgModuleDevice = "poollogic/device";
+static constexpr const char* kCfgModuleSwg = "poollogic/swg";
+static constexpr const char* kCfgModuleO2 = "poollogic/o2";
 }
 
 MqttBuildResult PoolLogicModule::buildCfgBaseStatic_(void* ctx, uint16_t, MqttBuildContext& buildCtx)
@@ -65,6 +67,8 @@ MqttBuildResult PoolLogicModule::buildCfgBase_(MqttBuildContext& buildCtx)
         {"pid", kCfgModulePid},
         {"delay", kCfgModuleDelay},
         {"device", kCfgModuleDevice},
+        {"swg", kCfgModuleSwg},
+        {"o2", kCfgModuleO2},
     };
 
     buildCtx.payload[0] = '{';
@@ -129,7 +133,7 @@ MqttBuildResult PoolLogicModule::buildCfgBase_(MqttBuildContext& buildCtx)
 
 uint8_t PoolLogicModule::runtimeSnapshotCount() const
 {
-    return 3;
+    return 4;
 }
 
 bool PoolLogicModule::writeRuntimeUiValue(uint8_t valueId, IRuntimeUiWriter& writer) const
@@ -155,6 +159,7 @@ const char* PoolLogicModule::runtimeSnapshotSuffix(uint8_t idx) const
     if (idx == 0) return "rt/poollogic/ph";
     if (idx == 1) return "rt/poollogic/orp";
     if (idx == 2) return "rt/poollogic/heat_assist";
+    if (idx == 3) return "rt/poollogic/disinfection";
     return nullptr;
 }
 
@@ -166,7 +171,7 @@ RuntimeRouteClass PoolLogicModule::runtimeSnapshotClass(uint8_t idx) const
 
 bool PoolLogicModule::runtimeSnapshotAffectsKey(uint8_t idx, DataKey key) const
 {
-    if (idx > 2) return false;
+    if (idx > 3) return false;
     if (key >= DATAKEY_IO_BASE && key < (DataKey)(DATAKEY_IO_BASE + IO_MAX_ENDPOINTS)) return true;
     if (key >= DATAKEY_POOL_DEVICE_STATE_BASE &&
         key < (DataKey)(DATAKEY_POOL_DEVICE_STATE_BASE + POOL_DEVICE_MAX)) return true;
@@ -178,6 +183,26 @@ bool PoolLogicModule::buildRuntimeSnapshot(uint8_t idx, char* out, size_t len, u
     if (!out || len == 0) return false;
 
     const uint32_t nowMs = millis();
+    if (idx == 3) {
+        const int wrote = snprintf(out,
+                                   len,
+                                   "{\"dt\":%u,\"dts\":\"%s\",\"swgm\":%u,\"swgms\":\"%s\","
+                                   "\"o2\":{\"state\":%u,\"last_day\":%u,\"done_ml\":%.1f,\"pending_ml\":%.1f},"
+                                   "\"t\":%lu}",
+                                   (unsigned)disinfectionType_,
+                                   disinfectionTypeStr_(disinfectionType_),
+                                   (unsigned)swgControlMode_,
+                                   swgControlModeStr_(swgControlMode_),
+                                   (unsigned)o2ProtocolState_,
+                                   (unsigned)o2LastDoseDay_,
+                                   (double)o2WeeklyDoneMl_,
+                                   (double)o2PendingMl_,
+                                   (unsigned long)nowMs);
+        if (wrote < 0 || (size_t)wrote >= len) return false;
+        maxTsOut = nowMs ? nowMs : 1U;
+        return true;
+    }
+
     if (idx == 2) {
         constexpr uint8_t kHeatAssistFlagProbeRunning = (1U << 0);
         constexpr uint8_t kHeatAssistFlagHeatingActive = (1U << 1);
@@ -263,7 +288,7 @@ bool PoolLogicModule::buildRuntimeSnapshot(uint8_t idx, char* out, size_t len, u
             "\"kp\":%.6f,\"ki\":%.6f,\"kd\":%.6f,"
             "\"w\":%ld,\"sm\":%ld,\"mo\":%ld,"
             "\"on\":%lu,\"we\":%lu,\"ct\":%lu,"
-            "\"em\":%s,\"t\":%lu}",
+            "\"dt\":%u,\"dts\":\"%s\",\"swgm\":%u,\"swgms\":\"%s\",\"t\":%lu}",
             isPh ? "ph" : "orp",
             (double)st.sampleInput,
             (double)st.sampleSetpoint,
@@ -280,7 +305,10 @@ bool PoolLogicModule::buildRuntimeSnapshot(uint8_t idx, char* out, size_t len, u
             (unsigned long)st.outputOnMs,
             (unsigned long)elapsedMs,
             (unsigned long)st.sampleTsMs,
-            electrolyseMode_ ? "true" : "false",
+            (unsigned)disinfectionType_,
+            disinfectionTypeStr_(disinfectionType_),
+            (unsigned)swgControlMode_,
+            swgControlModeStr_(swgControlMode_),
             (unsigned long)nowMs
         );
     } else {
@@ -291,7 +319,7 @@ bool PoolLogicModule::buildRuntimeSnapshot(uint8_t idx, char* out, size_t len, u
             "\"kp\":%.6f,\"ki\":%.6f,\"kd\":%.6f,"
             "\"w\":%ld,\"sm\":%ld,\"mo\":%ld,"
             "\"on\":%lu,\"we\":%lu,\"ct\":0,"
-            "\"em\":%s,\"t\":%lu}",
+            "\"dt\":%u,\"dts\":\"%s\",\"swgm\":%u,\"swgms\":\"%s\",\"t\":%lu}",
             isPh ? "ph" : "orp",
             (double)(isPh ? phSetpoint_ : orpSetpoint_),
             regulationEnabled ? "true" : "false",
@@ -305,7 +333,10 @@ bool PoolLogicModule::buildRuntimeSnapshot(uint8_t idx, char* out, size_t len, u
             (long)pidMinOnMs_,
             (unsigned long)st.outputOnMs,
             (unsigned long)elapsedMs,
-            electrolyseMode_ ? "true" : "false",
+            (unsigned)disinfectionType_,
+            disinfectionTypeStr_(disinfectionType_),
+            (unsigned)swgControlMode_,
+            swgControlModeStr_(swgControlMode_),
             (unsigned long)nowMs
         );
     }

@@ -9,7 +9,7 @@ Il:
 - applique les règles automatiques (modes, seuils, délais, sécurités)
 - exécute la régulation pH/ORP en **PID temporel** (duty-cycle dans une fenêtre fixe)
 - pilote un protocole de **chauffage assisté** (`heat_assist`) quand la température d'eau dépend de la filtration
-- expose des snapshots runtime MQTT (`rt/poollogic/ph`, `rt/poollogic/orp`, `rt/poollogic/heat_assist`)
+- expose des snapshots runtime MQTT (`rt/poollogic/ph`, `rt/poollogic/orp`, `rt/poollogic/heat_assist`, `rt/poollogic/disinfection`)
 - enregistre des commandes métier et des entités Home Assistant
 - surveille la pression via `AlarmService`
 
@@ -42,6 +42,7 @@ Interfaces runtime exposées:
   - `rt/poollogic/ph`
   - `rt/poollogic/orp`
   - `rt/poollogic/heat_assist`
+  - `rt/poollogic/disinfection`
 
 Ces snapshots sont routés vers MQTT via `MQTTModule::RuntimeProducer` (providers enregistrés dans le bootstrap de profil `FlowIO`), pas publiés directement par `PoolLogicModule`.
 
@@ -102,6 +103,8 @@ Branches locales utilisées:
 - `4`: `pid`
 - `5`: `delay`
 - `6`: `device`
+- `7`: `swg`
+- `8`: `o2`
 
 Persistance: `ConfigStore` + `NvsKeys::PoolLogic::*`
 
@@ -112,8 +115,25 @@ Persistance: `ConfigStore` + `NvsKeys::PoolLogic::*`
 - `winter_mode`
 - `ph_auto_mode`
 - `orp_auto_mode`
-- `electrolys_mode`
-- `electro_run_md`
+- `disinfection_type`
+
+### Paramètres électrolyse (`poollogic/swg`)
+
+- `swg_control_mode`
+
+### Paramètres oxygène actif (`poollogic/o2`, protocole préparé pour phase 2)
+
+- `pool_volume_m3`
+- `dose_ml_10m3_week`
+- `main_hour`
+- `split_count`
+- `temp_comp`
+- `load_factor`
+- `min_filter_run_min`
+- `protocol_state` (persisté pour reprise après reboot)
+- `last_dose_day` (persisté pour reprise après reboot)
+- `weekly_done_ml` (persisté pour reprise après reboot)
+- `pending_ml` (persisté pour reprise après reboot)
 
 ### Fenêtre de filtration (calcul quotidien)
 
@@ -304,7 +324,9 @@ Logique principale:
   - un cycle/jour (`cleaningDone_`)
 - électrolyse:
   - nécessite filtration active, température mini (`secure_elec_t`) et délai (`dly_electro_min`)
-  - en mode `electro_run_md`, asservissement ORP avec hystérésis implicite (`<= 100%` pour maintenir, `<= 90%` pour démarrer)
+  - active uniquement si `disinfection_type == 1`
+  - en mode `swg_control_mode == 0`, asservissement ORP avec hystérésis implicite (`<= 100%` pour maintenir, `<= 90%` pour démarrer)
+  - en mode `swg_control_mode == 1`, marche continue pendant la filtration autorisée
 - remplissage:
   - démarre si `Pool Level` est actif (`pool_lvl_io_id == true`)
   - respecte un minimum de marche `fill_min_on_s`
@@ -370,7 +392,7 @@ Le calcul et la commande sont ensuite conditionnés par:
 - pas de niveau bas cuve actif:
   - pH: `phTankLowError_==false`
   - ORP/chlore: `chlorineTankLowError_==false`
-- pour ORP péristaltique: `electrolys_mode == false` (en mode électrolyse, la pompe ORP liquide est inhibée)
+- pour ORP péristaltique: `disinfection_type == 0` (en mode électrolyse ou oxygène actif, la régulation ORP liquide est inhibée)
 
 ### Convention d'erreur
 
@@ -430,6 +452,7 @@ Snapshots publiés (via `RuntimeProducer` du `MQTTModule`):
 - `rt/poollogic/ph`
 - `rt/poollogic/orp`
 - `rt/poollogic/heat_assist`
+- `rt/poollogic/disinfection`
 
 Payload (champs principaux):
 - `id`: `ph` ou `orp`
@@ -444,7 +467,8 @@ Payload (champs principaux):
 - `window_ms`, `sample_ms`, `min_on_ms`
 - `output_on_ms`
 - `window_elapsed_ms`
-- `electrolyse_mode`
+- `disinfection_type`
+- `swg_control_mode`
 - `ts`: timestamp snapshot
 
 Sémantique importante:
@@ -462,6 +486,14 @@ Sémantique importante:
 - `prm`: temps restant du sondage courant (ms)
 - `irm`: temps restant avant prochain sondage (ms)
 
+### Snapshot `rt/poollogic/disinfection`
+
+- `dt`: type numérique (`0` chlore/brome, `1` électrolyse, `2` oxygène actif)
+- `dts`: libellé machine du type
+- `swgm`: mode SWG numérique (`0` suivi ORP, `1` continu filtration)
+- `swgms`: libellé machine du mode SWG
+- `o2.state`, `o2.last_day`, `o2.done_ml`, `o2.pending_ml`: curseur O2 persistant préparé pour la phase 2
+
 ## Config MQTT (`cfg/poollogic*`)
 
 Publication autoportée via `MqttConfigRouteProducer` local:
@@ -472,6 +504,8 @@ Publication autoportée via `MqttConfigRouteProducer` local:
 - `cfg/poollogic/pid`
 - `cfg/poollogic/delay`
 - `cfg/poollogic/device`
+- `cfg/poollogic/swg`
+- `cfg/poollogic/o2`
 
 Le mapping `ConfigChanged -> messageId -> topic` est local au module.
 

@@ -25,12 +25,16 @@ static constexpr uint8_t kCfgBranchSensors = 3;
 static constexpr uint8_t kCfgBranchPid = 4;
 static constexpr uint8_t kCfgBranchDelay = 5;
 static constexpr uint8_t kCfgBranchDevice = 6;
+static constexpr uint8_t kCfgBranchSwg = 7;
+static constexpr uint8_t kCfgBranchO2 = 8;
 static constexpr const char* kCfgModuleMode = "poollogic/mode";
 static constexpr const char* kCfgModuleFiltration = "poollogic/filtration";
 static constexpr const char* kCfgModuleSensors = "poollogic/sensors";
 static constexpr const char* kCfgModulePid = "poollogic/pid";
 static constexpr const char* kCfgModuleDelay = "poollogic/delay";
 static constexpr const char* kCfgModuleDevice = "poollogic/device";
+static constexpr const char* kCfgModuleSwg = "poollogic/swg";
+static constexpr const char* kCfgModuleO2 = "poollogic/o2";
 
 enum : uint16_t {
     kCfgMsgBase = 1,
@@ -40,6 +44,8 @@ enum : uint16_t {
     kCfgMsgPid = 5,
     kCfgMsgDelay = 6,
     kCfgMsgDevice = 7,
+    kCfgMsgSwg = 8,
+    kCfgMsgO2 = 9,
 };
 
 static constexpr MqttConfigRouteProducer::Route kPoolLogicCfgRoutes[] = {
@@ -92,6 +98,20 @@ static constexpr MqttConfigRouteProducer::Route kPoolLogicCfgRoutes[] = {
      (uint8_t)MqttPublishPriority::Normal,
      nullptr,
      kPoolLogicCfgTopicBase},
+    {kCfgMsgSwg,
+     {(uint8_t)ConfigModuleId::PoolLogic, kCfgBranchSwg},
+     kCfgModuleSwg,
+     "swg",
+     (uint8_t)MqttPublishPriority::Normal,
+     nullptr,
+     kPoolLogicCfgTopicBase},
+    {kCfgMsgO2,
+     {(uint8_t)ConfigModuleId::PoolLogic, kCfgBranchO2},
+     kCfgModuleO2,
+     "o2",
+     (uint8_t)MqttPublishPriority::Normal,
+     nullptr,
+     kPoolLogicCfgTopicBase},
 };
 }
 
@@ -110,8 +130,8 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
     orpAutoModeVar_.moduleName = kCfgModuleMode;
     heaterAutoModeVar_.moduleName = kCfgModuleMode;
     phDosePlusVar_.moduleName = kCfgModuleMode;
-    electrolyseModeVar_.moduleName = kCfgModuleMode;
-    electroRunModeVar_.moduleName = kCfgModuleMode;
+    disinfectionTypeVar_.moduleName = kCfgModuleMode;
+    swgControlModeVar_.moduleName = kCfgModuleSwg;
 
     tempLowVar_.moduleName = kCfgModuleFiltration;
     tempSetpointVar_.moduleName = kCfgModuleFiltration;
@@ -155,6 +175,18 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
     robotDurationVar_.moduleName = kCfgModuleDelay;
     fillingMinOnVar_.moduleName = kCfgModuleDelay;
 
+    o2PoolVolumeVar_.moduleName = kCfgModuleO2;
+    o2DoseVar_.moduleName = kCfgModuleO2;
+    o2MainHourVar_.moduleName = kCfgModuleO2;
+    o2SplitCountVar_.moduleName = kCfgModuleO2;
+    o2TempCompVar_.moduleName = kCfgModuleO2;
+    o2LoadFactorVar_.moduleName = kCfgModuleO2;
+    o2MinFilterRunVar_.moduleName = kCfgModuleO2;
+    o2ProtocolStateVar_.moduleName = kCfgModuleO2;
+    o2LastDoseDayVar_.moduleName = kCfgModuleO2;
+    o2WeeklyDoneVar_.moduleName = kCfgModuleO2;
+    o2PendingVar_.moduleName = kCfgModuleO2;
+
     filtrationDeviceVar_.moduleName = kCfgModuleDevice;
     swgDeviceVar_.moduleName = kCfgModuleDevice;
     robotDeviceVar_.moduleName = kCfgModuleDevice;
@@ -173,8 +205,8 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
     cfg.registerVar(orpAutoModeVar_, kCfgModuleId, kCfgBranchMode);
     cfg.registerVar(heaterAutoModeVar_, kCfgModuleId, kCfgBranchMode);
     cfg.registerVar(phDosePlusVar_, kCfgModuleId, kCfgBranchMode);
-    cfg.registerVar(electrolyseModeVar_, kCfgModuleId, kCfgBranchMode);
-    cfg.registerVar(electroRunModeVar_, kCfgModuleId, kCfgBranchMode);
+    cfg.registerVar(disinfectionTypeVar_, kCfgModuleId, kCfgBranchMode);
+    cfg.registerVar(swgControlModeVar_, kCfgModuleId, kCfgBranchSwg);
 
     cfg.registerVar(tempLowVar_, kCfgModuleId, kCfgBranchFiltration);
     cfg.registerVar(tempSetpointVar_, kCfgModuleId, kCfgBranchFiltration);
@@ -217,6 +249,18 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
     cfg.registerVar(robotDelayVar_, kCfgModuleId, kCfgBranchDelay);
     cfg.registerVar(robotDurationVar_, kCfgModuleId, kCfgBranchDelay);
     cfg.registerVar(fillingMinOnVar_, kCfgModuleId, kCfgBranchDelay);
+
+    cfg.registerVar(o2PoolVolumeVar_, kCfgModuleId, kCfgBranchO2);
+    cfg.registerVar(o2DoseVar_, kCfgModuleId, kCfgBranchO2);
+    cfg.registerVar(o2MainHourVar_, kCfgModuleId, kCfgBranchO2);
+    cfg.registerVar(o2SplitCountVar_, kCfgModuleId, kCfgBranchO2);
+    cfg.registerVar(o2TempCompVar_, kCfgModuleId, kCfgBranchO2);
+    cfg.registerVar(o2LoadFactorVar_, kCfgModuleId, kCfgBranchO2);
+    cfg.registerVar(o2MinFilterRunVar_, kCfgModuleId, kCfgBranchO2);
+    cfg.registerVar(o2ProtocolStateVar_, kCfgModuleId, kCfgBranchO2);
+    cfg.registerVar(o2LastDoseDayVar_, kCfgModuleId, kCfgBranchO2);
+    cfg.registerVar(o2WeeklyDoneVar_, kCfgModuleId, kCfgBranchO2);
+    cfg.registerVar(o2PendingVar_, kCfgModuleId, kCfgBranchO2);
 
     cfg.registerVar(filtrationDeviceVar_, kCfgModuleId, kCfgBranchDevice);
     cfg.registerVar(swgDeviceVar_, kCfgModuleId, kCfgBranchDevice);
@@ -316,28 +360,16 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
             "mdi:beaker-plus-outline",
             "config"
         };
-        const HASwitchEntry chlorineGeneratorModeSwitch{
+        const HASwitchEntry o2TempCompSwitch{
             "poollogic",
-            "pl_chl_gen_mode",
-            "Chlorine Generator Enabled",
-            "cfg/poollogic/mode",
-            "{% if value_json.elec_mode %}ON{% else %}OFF{% endif %}",
+            "pl_o2_temp_comp",
+            "O2 Temperature Compensation",
+            "cfg/poollogic/o2",
+            "{% if value_json.temp_comp %}ON{% else %}OFF{% endif %}",
             MqttTopics::SuffixCfgSet,
-            "{\\\"poollogic/mode\\\":{\\\"elec_mode\\\":true}}",
-            "{\\\"poollogic/mode\\\":{\\\"elec_mode\\\":false}}",
-            "mdi:flash",
-            "config"
-        };
-        const HASwitchEntry chlorineGeneratorOrpControlSwitch{
-            "poollogic",
-            "pl_chl_gen_orp",
-            "Chlorine Generator ORP Control",
-            "cfg/poollogic/mode",
-            "{% if value_json.elec_run %}ON{% else %}OFF{% endif %}",
-            MqttTopics::SuffixCfgSet,
-            "{\\\"poollogic/mode\\\":{\\\"elec_run\\\":true}}",
-            "{\\\"poollogic/mode\\\":{\\\"elec_run\\\":false}}",
-            "mdi:chart-timeline-variant",
+            "{\\\"poollogic/o2\\\":{\\\"temp_comp\\\":true}}",
+            "{\\\"poollogic/o2\\\":{\\\"temp_comp\\\":false}}",
+            "mdi:thermometer-lines",
             "config"
         };
         (void)haSvc->addSwitch(haSvc->ctx, &autoModeSwitch);
@@ -346,8 +378,60 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
         (void)haSvc->addSwitch(haSvc->ctx, &orpAutoModeSwitch);
         (void)haSvc->addSwitch(haSvc->ctx, &heaterAutoModeSwitch);
         (void)haSvc->addSwitch(haSvc->ctx, &phDosePlusSwitch);
-        (void)haSvc->addSwitch(haSvc->ctx, &chlorineGeneratorModeSwitch);
-        (void)haSvc->addSwitch(haSvc->ctx, &chlorineGeneratorOrpControlSwitch);
+        (void)haSvc->addSwitch(haSvc->ctx, &o2TempCompSwitch);
+    }
+    if (haSvc && haSvc->addSelect) {
+        static const char* kDisinfectionTypeStateTpl =
+            R"({% set v = value_json.disinfection_type | int(0) %}{% if v == 1 %}Electrolyse{% elif v == 2 %}Oxygène actif{% else %}Chlore/Brome{% endif %})";
+        static const char* kDisinfectionTypeCmdTpl =
+            R"({% if value == 'Electrolyse' %}{\"poollogic/mode\":{\"disinfection_type\":1}}{% elif value == 'Oxygène actif' %}{\"poollogic/mode\":{\"disinfection_type\":2}}{% else %}{\"poollogic/mode\":{\"disinfection_type\":0}}{% endif %})";
+        const HASelectEntry disinfectionTypeSelect{
+            "poollogic",
+            "pl_disinfection",
+            "Disinfection Type",
+            "cfg/poollogic/mode",
+            kDisinfectionTypeStateTpl,
+            MqttTopics::SuffixCfgSet,
+            kDisinfectionTypeCmdTpl,
+            "[\"Chlore/Brome\",\"Electrolyse\",\"Oxygène actif\"]",
+            "mdi:water-check",
+            "config"
+        };
+        static const char* kSwgControlModeStateTpl =
+            R"({% set v = value_json.swg_control_mode | int(1) %}{% if v == 0 %}Suivi consigne ORP{% else %}Continu sur filtration{% endif %})";
+        static const char* kSwgControlModeCmdTpl =
+            R"({% if value == 'Suivi consigne ORP' %}{\"poollogic/swg\":{\"swg_control_mode\":0}}{% else %}{\"poollogic/swg\":{\"swg_control_mode\":1}}{% endif %})";
+        const HASelectEntry swgControlModeSelect{
+            "poollogic",
+            "pl_swg_ctrl",
+            "SWG Control Mode",
+            "cfg/poollogic/swg",
+            kSwgControlModeStateTpl,
+            MqttTopics::SuffixCfgSet,
+            kSwgControlModeCmdTpl,
+            "[\"Suivi consigne ORP\",\"Continu sur filtration\"]",
+            "mdi:flash",
+            "config"
+        };
+        static const char* kO2MainHourStateTpl =
+            R"({% set h = value_json.main_hour | int(12) %}{{ '%02d:00' | format(h) }})";
+        static const char* kO2MainHourCmdTpl =
+            R"({\"poollogic/o2\":{\"main_hour\":{{ value.split(':')[0] | int(12) }}}})";
+        const HASelectEntry o2MainHourSelect{
+            "poollogic",
+            "pl_o2_hour",
+            "O2 Dosing Hour",
+            "cfg/poollogic/o2",
+            kO2MainHourStateTpl,
+            MqttTopics::SuffixCfgSet,
+            kO2MainHourCmdTpl,
+            "[\"00:00\",\"01:00\",\"02:00\",\"03:00\",\"04:00\",\"05:00\",\"06:00\",\"07:00\",\"08:00\",\"09:00\",\"10:00\",\"11:00\",\"12:00\",\"13:00\",\"14:00\",\"15:00\",\"16:00\",\"17:00\",\"18:00\",\"19:00\",\"20:00\",\"21:00\",\"22:00\",\"23:00\"]",
+            "mdi:clock-time-four-outline",
+            "config"
+        };
+        (void)haSvc->addSelect(haSvc->ctx, &disinfectionTypeSelect);
+        (void)haSvc->addSelect(haSvc->ctx, &swgControlModeSelect);
+        (void)haSvc->addSelect(haSvc->ctx, &o2MainHourSelect);
     }
     if (haSvc && haSvc->addSensor) {
         const HASensorEntry filtrationStart{
@@ -385,9 +469,58 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
             nullptr,
             true
         };
+        static const char* kO2ProtocolStateTemplate =
+            R"({% set st = value_json.o2.state | int(0) %}{% if st == 1 %}En attente{% elif st == 2 %}Dosage{% elif st == 3 %}Bloqué{% else %}Repos{% endif %})";
+        const HASensorEntry o2ProtocolState{
+            "poollogic",
+            "pl_o2_state",
+            "O2 Protocol State",
+            "rt/poollogic/disinfection",
+            kO2ProtocolStateTemplate,
+            nullptr,
+            "mdi:progress-clock",
+            nullptr,
+            false,
+            nullptr,
+            true
+        };
+        const HASensorEntry o2WeeklyDone{
+            "poollogic",
+            "pl_o2_done",
+            "O2 Weekly Injected",
+            "rt/poollogic/disinfection",
+            "{{ value_json.o2.done_ml | float(0) }}",
+            "diagnostic",
+            "mdi:bottle-tonic-plus-outline",
+            "ml"
+        };
+        const HASensorEntry o2Pending{
+            "poollogic",
+            "pl_o2_pending",
+            "O2 Pending Volume",
+            "rt/poollogic/disinfection",
+            "{{ value_json.o2.pending_ml | float(0) }}",
+            "diagnostic",
+            "mdi:bottle-tonic-outline",
+            "ml"
+        };
+        const HASensorEntry o2LastDoseDay{
+            "poollogic",
+            "pl_o2_last_day",
+            "O2 Last Dose Day",
+            "rt/poollogic/disinfection",
+            "{{ value_json.o2.last_day | int(0) }}",
+            "diagnostic",
+            "mdi:calendar-check-outline",
+            nullptr
+        };
         (void)haSvc->addSensor(haSvc->ctx, &filtrationStart);
         (void)haSvc->addSensor(haSvc->ctx, &filtrationStop);
         (void)haSvc->addSensor(haSvc->ctx, &heatAssistStatus);
+        (void)haSvc->addSensor(haSvc->ctx, &o2ProtocolState);
+        (void)haSvc->addSensor(haSvc->ctx, &o2WeeklyDone);
+        (void)haSvc->addSensor(haSvc->ctx, &o2Pending);
+        (void)haSvc->addSensor(haSvc->ctx, &o2LastDoseDay);
     }
     if (haSvc && haSvc->addNumber) {
         const HANumberEntry waterTempSetpoint{
@@ -614,6 +747,86 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
             "mdi:gauge-full",
             "bar"
         };
+        const HANumberEntry o2PoolVolume{
+            "poollogic",
+            "pl_o2_vol",
+            "O2 Pool Volume",
+            "cfg/poollogic/o2",
+            "{{ value_json.pool_volume_m3 | float(0) }}",
+            MqttTopics::SuffixCfgSet,
+            "{\\\"poollogic/o2\\\":{\\\"pool_volume_m3\\\":{{ value | float(0) }}}}",
+            1.0f,
+            200.0f,
+            0.1f,
+            "box",
+            "config",
+            "mdi:pool",
+            "m3"
+        };
+        const HANumberEntry o2WeeklyDose{
+            "poollogic",
+            "pl_o2_dose",
+            "O2 Weekly Dose per 10 m3",
+            "cfg/poollogic/o2",
+            "{{ value_json.dose_ml_10m3_week | float(0) }}",
+            MqttTopics::SuffixCfgSet,
+            "{\\\"poollogic/o2\\\":{\\\"dose_ml_10m3_week\\\":{{ value | float(0) }}}}",
+            0.0f,
+            5000.0f,
+            10.0f,
+            "box",
+            "config",
+            "mdi:cup-water",
+            "ml"
+        };
+        const HANumberEntry o2SplitCount{
+            "poollogic",
+            "pl_o2_split",
+            "O2 Weekly Split Count",
+            "cfg/poollogic/o2",
+            "{{ value_json.split_count | int(1) }}",
+            MqttTopics::SuffixCfgSet,
+            "{\\\"poollogic/o2\\\":{\\\"split_count\\\":{{ value | int(1) }}}}",
+            1.0f,
+            3.0f,
+            1.0f,
+            "box",
+            "config",
+            "mdi:call-split",
+            nullptr
+        };
+        const HANumberEntry o2LoadFactor{
+            "poollogic",
+            "pl_o2_load",
+            "O2 Load Factor",
+            "cfg/poollogic/o2",
+            "{{ value_json.load_factor | float(1) }}",
+            MqttTopics::SuffixCfgSet,
+            "{\\\"poollogic/o2\\\":{\\\"load_factor\\\":{{ value | float(1) }}}}",
+            0.5f,
+            2.0f,
+            0.05f,
+            "slider",
+            "config",
+            "mdi:scale-balance",
+            nullptr
+        };
+        const HANumberEntry o2MinFilterRun{
+            "poollogic",
+            "pl_o2_min_flt",
+            "O2 Min Filtration Runtime",
+            "cfg/poollogic/o2",
+            "{{ value_json.min_filter_run_min | int(0) }}",
+            MqttTopics::SuffixCfgSet,
+            "{\\\"poollogic/o2\\\":{\\\"min_filter_run_min\\\":{{ value | int(0) }}}}",
+            0.0f,
+            240.0f,
+            1.0f,
+            "slider",
+            "config",
+            "mdi:timer-check-outline",
+            "min"
+        };
         (void)haSvc->addNumber(haSvc->ctx, &waterTempSetpoint);
         (void)haSvc->addNumber(haSvc->ctx, &heaterSetpoint);
         (void)haSvc->addNumber(haSvc->ctx, &filtrationStartMin);
@@ -628,6 +841,11 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
         (void)haSvc->addNumber(haSvc->ctx, &orpWindowMin);
         (void)haSvc->addNumber(haSvc->ctx, &psiLowThreshold);
         (void)haSvc->addNumber(haSvc->ctx, &psiHighThreshold);
+        (void)haSvc->addNumber(haSvc->ctx, &o2PoolVolume);
+        (void)haSvc->addNumber(haSvc->ctx, &o2WeeklyDose);
+        (void)haSvc->addNumber(haSvc->ctx, &o2SplitCount);
+        (void)haSvc->addNumber(haSvc->ctx, &o2LoadFactor);
+        (void)haSvc->addNumber(haSvc->ctx, &o2MinFilterRun);
     }
     if (haSvc && haSvc->addButton) {
         const HAButtonEntry filtrationRecalc{
@@ -814,7 +1032,27 @@ void PoolLogicModule::onConfigLoaded(ConfigStore&, ServiceRegistry& services)
 
     if (!enabled_) return;
 
+    if (disinfectionType_ > DisinfectionActiveOxygen) {
+        disinfectionType_ = DisinfectionChlorineBromine;
+        if (cfgStore_) (void)cfgStore_->set(disinfectionTypeVar_, disinfectionType_);
+    }
+    if (swgControlMode_ > SwgControlContinuous) {
+        swgControlMode_ = SwgControlContinuous;
+        if (cfgStore_) (void)cfgStore_->set(swgControlModeVar_, swgControlMode_);
+    }
+    if (o2SplitCount_ == 0U || o2SplitCount_ > 3U) {
+        o2SplitCount_ = 2U;
+        if (cfgStore_) (void)cfgStore_->set(o2SplitCountVar_, o2SplitCount_);
+    }
+    if (o2ProtocolState_ > O2ProtocolBlocked) {
+        o2ProtocolState_ = O2ProtocolIdle;
+        if (cfgStore_) (void)cfgStore_->set(o2ProtocolStateVar_, o2ProtocolState_);
+    }
+
     LOGI("PoolLogic pH dosing mode=%s", phDosePlus_ ? "pH+" : "pH-");
+    LOGI("PoolLogic disinfection=%s swg_control=%s",
+         disinfectionTypeStr_(disinfectionType_),
+         swgControlModeStr_(swgControlMode_));
     normalizeDeviceSlots_();
     logDeviceSlotConfig_();
 
@@ -931,7 +1169,25 @@ void PoolLogicModule::onEvent_(const Event& e)
                     LOGW("PoolLogic failed to stop heater on heater_auto_mode enable (slot=%u)",
                          (unsigned)heaterDeviceSlot_);
                 }
+            } else if (strcmp(p->nvsKey, NvsKeys::PoolLogic::DisinfectionType) == 0) {
+                if (disinfectionType_ > DisinfectionActiveOxygen) disinfectionType_ = DisinfectionChlorineBromine;
+                (void)writeDeviceDesired_(orpPumpDeviceSlot_, false);
+                (void)writeDeviceDesired_(swgDeviceSlot_, false);
+                resetTemporalPidState_(orpPidState_, millis());
+                orpPidEnabled_ = false;
+                LOGI("PoolLogic disinfection changed: %s", disinfectionTypeStr_(disinfectionType_));
             }
+            return;
+        }
+        if (p->moduleId == (uint8_t)ConfigModuleId::PoolLogic &&
+            p->localBranchId == kCfgBranchSwg &&
+            p->nvsKey) {
+            if (strcmp(p->nvsKey, NvsKeys::PoolLogic::SwgControlMode) == 0) {
+                if (swgControlMode_ > SwgControlContinuous) swgControlMode_ = SwgControlContinuous;
+                (void)writeDeviceDesired_(swgDeviceSlot_, false);
+                LOGI("PoolLogic SWG control changed: %s", swgControlModeStr_(swgControlMode_));
+            }
+            return;
         }
         return;
     }

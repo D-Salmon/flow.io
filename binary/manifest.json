@@ -1,7 +1,7 @@
 {
   "schema": "flowio.firmware-manifest.v1",
-  "generated_at": "2026-06-05T19:14:20+02:00",
-  "release": "2026.06.05",
+  "generated_at": "2026-06-08T00:30:04+02:00",
+  "release": "2026.06.08",
   "artifacts": {
     "nextion": [
       {
@@ -43,12 +43,12 @@
         "title": "esp32s3",
         "label": "esp32s3",
         "version": "1.0.3",
-        "build_date": "2026-06-05T19:14:20+02:00",
+        "build_date": "2026-06-08T00:30:04+02:00",
         "target": "esp32s3",
         "path": "esp32s3-1.0.3.bin",
         "kind": "esp32-firmware",
         "route": "/fwupdate/flowio",
-        "size": 1984624
+        "size": 1992592
       }
     ],
     "esp32s3-spiffs": [
@@ -67,7 +67,7 @@
         "title": "esp32s3-spiffs",
         "label": "esp32s3-spiffs",
         "version": "1.0.3",
-        "build_date": "2026-06-05T15:23:48+02:00",
+        "build_date": "2026-06-08T00:14:43+02:00",
         "target": "spiffs",
         "path": "esp32s3-spiffs-1.0.3.bin",
         "kind": "esp32-spiffs",
