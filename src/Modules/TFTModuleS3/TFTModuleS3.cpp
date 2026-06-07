@@ -660,6 +660,15 @@ void TFTModuleS3::applyBacklight_(bool on)
 
 void TFTModuleS3::updateMotionInput_()
 {
+    if (!cfgData_.enabled) {
+        appliedMotionGpio_ = -1;
+        motionInputConfigured_ = false;
+        pirRawState_ = false;
+        pirStableState_ = false;
+        pirDebounceChangedAtMs_ = millis();
+        return;
+    }
+
     int32_t pin = cfgData_.motionGpio;
     if (pin < 0 || pin > 48) pin = -1;
     if (motionInputConfigured_ && appliedMotionGpio_ == pin) return;
