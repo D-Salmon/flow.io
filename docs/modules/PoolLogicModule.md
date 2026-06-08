@@ -310,6 +310,10 @@ Persistance: `ConfigStore` + `NvsKeys::PoolLogic::*`
 - `ph_auto_mode`
 - `orp_auto_mode`
 - `disinfection_type`
+  - `0`: `Chlore/Brome`
+  - `1`: `Electrolyse`
+  - `2`: `Oxygène actif`
+  - `3`: `Désactivé` (aucune désinfection automatique)
 
 ### Paramètres électrolyse (`poollogic/swg`)
 
@@ -446,10 +450,10 @@ Commandes actionneurs:
 - `poollogic.orp_pump.write`
   - args: `{"value":true|false}`
   - écrit la consigne de pompe ORP/chlore liquide
-  - si `value=true`, force `orp_auto_mode=false` (aligné avec `pooldevice.write`)
+  - si `value=true`, force `disinfection_type=3` (`Désactivé`, aligné avec `pooldevice.write`)
 - `poollogic.orp_pump.toggle`
   - inverse l'état réel pompe ORP/chlore liquide
-  - si passage ON, force `orp_auto_mode=false`
+  - si passage ON, force `disinfection_type=3` (`Désactivé`)
 - `poollogic.light.write` / `poollogic.lights.write`
   - args: `{"value":true|false}`
   - écrit la consigne éclairage

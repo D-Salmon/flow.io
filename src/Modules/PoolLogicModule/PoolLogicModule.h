@@ -73,6 +73,7 @@ private:
         DisinfectionChlorineBromine = 0,
         DisinfectionSwg = 1,
         DisinfectionActiveOxygen = 2,
+        DisinfectionDisabled = 3,
     };
 
     enum SwgControlMode : uint8_t {

@@ -185,6 +185,10 @@
         {
           "value": 2,
           "label_t": "cfgmods_meta.poollogicmodule.enum_sets.poollogic_disinfection_type.2.label"
+        },
+        {
+          "value": 3,
+          "label_t": "cfgmods_meta.poollogicmodule.enum_sets.poollogic_disinfection_type.3.label"
         }
       ],
       "poollogic_swg_control_mode": [

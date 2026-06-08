@@ -290,13 +290,25 @@ bool PoolLogicModule::cmdMqttControl_(const CommandRequest& req, char* reply, si
         }
 
         // Keep behavior aligned with pooldevice.write: manual pump start disables
-        // the corresponding auto mode only after the hardware write is accepted.
+        // the corresponding automatic dosing only after the hardware write is accepted.
         if (requested && clearDosingModeKey && cfgStore_) {
             char patch[96]{};
-            snprintf(patch, sizeof(patch), "{\"poollogic/mode\":{\"%s\":false}}", clearDosingModeKey);
+            if (strcmp(clearDosingModeKey, "disinfection_type") == 0) {
+                snprintf(patch, sizeof(patch), "{\"poollogic/mode\":{\"disinfection_type\":%u}}", (unsigned)DisinfectionDisabled);
+            } else {
+                snprintf(patch, sizeof(patch), "{\"poollogic/mode\":{\"%s\":false}}", clearDosingModeKey);
+            }
             if (cfgStore_->applyJson(patch)) {
                 if (strcmp(clearDosingModeKey, "ph_auto_mode") == 0) phAutoMode_ = false;
                 else if (strcmp(clearDosingModeKey, "orp_auto_mode") == 0) orpAutoMode_ = false;
+                else if (strcmp(clearDosingModeKey, "disinfection_type") == 0) {
+                    disinfectionType_ = DisinfectionDisabled;
+                    const PoolDeviceSvcStatus rest = poolSvc_->writeDesired(poolSvc_->ctx, slot, 1U);
+                    if (rest != POOLDEV_SVC_OK) {
+                        writeCmdError_(reply, replyLen, where, ErrorCode::Failed);
+                        return false;
+                    }
+                }
             }
         }
 
@@ -446,10 +458,10 @@ bool PoolLogicModule::cmdMqttControl_(const CommandRequest& req, char* reply, si
         return toggleDeviceValue("poollogic.ph_pump.toggle", phPumpDeviceSlot_, false, "ph_auto_mode");
     }
     if (strcmp(cmdName, "poollogic.orp_pump.write") == 0) {
-        return writeDeviceFromArgs("poollogic.orp_pump.write", orpPumpDeviceSlot_, false, "orp_auto_mode");
+        return writeDeviceFromArgs("poollogic.orp_pump.write", orpPumpDeviceSlot_, false, "disinfection_type");
     }
     if (strcmp(cmdName, "poollogic.orp_pump.toggle") == 0) {
-        return toggleDeviceValue("poollogic.orp_pump.toggle", orpPumpDeviceSlot_, false, "orp_auto_mode");
+        return toggleDeviceValue("poollogic.orp_pump.toggle", orpPumpDeviceSlot_, false, "disinfection_type");
     }
     if (strcmp(cmdName, "poollogic.light.write") == 0 || strcmp(cmdName, "poollogic.lights.write") == 0) {
         return writeDeviceFromArgs("poollogic.lights.write", PoolBinding::kDeviceSlotLights, false, nullptr);

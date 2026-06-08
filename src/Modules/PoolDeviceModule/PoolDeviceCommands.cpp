@@ -170,19 +170,33 @@ bool PoolDeviceModule::handlePoolWrite_(const CommandRequest& req, char* reply, 
 
         const char* modeKey = nullptr;
         if (slot == phPumpSlot) modeKey = "ph_auto_mode";
-        else if (slot == orpPumpSlot) modeKey = "orp_auto_mode";
+        else if (slot == orpPumpSlot) modeKey = "disinfection_type";
 
         if (modeKey) {
             char patch[96]{};
-            snprintf(patch, sizeof(patch), "{\"poollogic/mode\":{\"%s\":false}}", modeKey);
+            if (strcmp(modeKey, "disinfection_type") == 0) {
+                snprintf(patch, sizeof(patch), "{\"poollogic/mode\":{\"disinfection_type\":3}}");
+            } else {
+                snprintf(patch, sizeof(patch), "{\"poollogic/mode\":{\"%s\":false}}", modeKey);
+            }
             if (!cfgStore_->applyJson(patch)) {
                 LOGW("Manual pump start slot=%u failed to clear %s",
                      (unsigned)slot,
                      modeKey);
             } else {
-                LOGI("Manual pump start slot=%u -> %s=false",
-                     (unsigned)slot,
-                     modeKey);
+                if (strcmp(modeKey, "disinfection_type") == 0) {
+                    const PoolDeviceSvcStatus rest = svcWriteDesiredImpl_(slot, 1U);
+                    if (rest != POOLDEV_SVC_OK) {
+                        writeCmdErrorSlot_(reply, replyLen, "pooldevice.write", ErrorCode::Failed, slot);
+                        return false;
+                    }
+                    LOGI("Manual pump start slot=%u -> disinfection_type=3",
+                         (unsigned)slot);
+                } else {
+                    LOGI("Manual pump start slot=%u -> %s=false",
+                         (unsigned)slot,
+                         modeKey);
+                }
             }
         }
     }

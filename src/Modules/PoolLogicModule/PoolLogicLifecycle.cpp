@@ -383,9 +383,9 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
     }
     if (haSvc && haSvc->addSelect) {
         static const char* kDisinfectionTypeStateTpl =
-            R"({% set v = value_json.disinfection_type | int(0) %}{% if v == 1 %}Electrolyse{% elif v == 2 %}Oxygène actif{% else %}Chlore/Brome{% endif %})";
+            R"({% set v = value_json.disinfection_type | int(0) %}{% if v == 1 %}Electrolyse{% elif v == 2 %}Oxygène actif{% elif v == 3 %}Désactivé{% else %}Chlore/Brome{% endif %})";
         static const char* kDisinfectionTypeCmdTpl =
-            R"({% if value == 'Electrolyse' %}{\"poollogic/mode\":{\"disinfection_type\":1}}{% elif value == 'Oxygène actif' %}{\"poollogic/mode\":{\"disinfection_type\":2}}{% else %}{\"poollogic/mode\":{\"disinfection_type\":0}}{% endif %})";
+            R"({% if value == 'Electrolyse' %}{\"poollogic/mode\":{\"disinfection_type\":1}}{% elif value == 'Oxygène actif' %}{\"poollogic/mode\":{\"disinfection_type\":2}}{% elif value == 'Désactivé' %}{\"poollogic/mode\":{\"disinfection_type\":3}}{% else %}{\"poollogic/mode\":{\"disinfection_type\":0}}{% endif %})";
         const HASelectEntry disinfectionTypeSelect{
             "poollogic",
             "pl_disinfection",
@@ -394,7 +394,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
             kDisinfectionTypeStateTpl,
             MqttTopics::SuffixCfgSet,
             kDisinfectionTypeCmdTpl,
-            "[\"Chlore/Brome\",\"Electrolyse\",\"Oxygène actif\"]",
+            "[\"Désactivé\",\"Chlore/Brome\",\"Electrolyse\",\"Oxygène actif\"]",
             "mdi:water-check",
             "config"
         };
@@ -1069,7 +1069,7 @@ void PoolLogicModule::onConfigLoaded(ConfigStore&, ServiceRegistry& services)
 
     if (!enabled_) return;
 
-    if (disinfectionType_ > DisinfectionActiveOxygen) {
+    if (disinfectionType_ > DisinfectionDisabled) {
         disinfectionType_ = DisinfectionChlorineBromine;
         if (cfgStore_) (void)cfgStore_->set(disinfectionTypeVar_, disinfectionType_);
     }
@@ -1231,9 +1231,13 @@ void PoolLogicModule::onEvent_(const Event& e)
                          (unsigned)heaterDeviceSlot_);
                 }
             } else if (strcmp(p->nvsKey, NvsKeys::PoolLogic::DisinfectionType) == 0) {
-                if (disinfectionType_ > DisinfectionActiveOxygen) disinfectionType_ = DisinfectionChlorineBromine;
+                if (disinfectionType_ > DisinfectionDisabled) disinfectionType_ = DisinfectionChlorineBromine;
                 (void)writeDeviceDesired_(orpPumpDeviceSlot_, false);
                 (void)writeDeviceDesired_(swgDeviceSlot_, false);
+                if (disinfectionType_ == DisinfectionChlorineBromine && !orpAutoMode_ && cfgStore_) {
+                    (void)cfgStore_->set(orpAutoModeVar_, true);
+                    orpAutoMode_ = true;
+                }
                 resetTemporalPidState_(orpPidState_, millis());
                 orpPidEnabled_ = false;
                 LOGI("PoolLogic disinfection changed: %s", disinfectionTypeStr_(disinfectionType_));

@@ -498,14 +498,14 @@ Les actions Home sont routées via `CommandService` :
   - `value=1` : désactive `ph_auto_mode` puis force l'état de la pompe pH (`pooldevice.write`)
   - `value=0` : repasse la pompe pH OFF (`pooldevice.write`) sans réactiver l'auto
 - `ORP_PUMP_SET`
-  - `value=1` : désactive `orp_auto_mode` puis force l'état de la pompe ORP (`pooldevice.write`)
+  - `value=1` : passe `disinfection_type=3` (`Désactivé`) puis force l'état de la pompe ORP (`pooldevice.write`)
   - `value=0` : repasse la pompe ORP OFF (`pooldevice.write`) sans réactiver l'auto
 - `PH_PUMP_TOGGLE`
   - inverse l'état réel de la pompe pH
   - si la cible est `ON`, désactive d'abord `ph_auto_mode`, puis force la pompe
 - `ORP_PUMP_TOGGLE`
   - inverse l'état réel de la pompe ORP
-  - si la cible est `ON`, désactive d'abord `orp_auto_mode`, puis force la pompe
+  - si la cible est `ON`, passe `disinfection_type=3` (`Désactivé`), puis force la pompe
 - `FILTRATION_TOGGLE`
   - inverse l'état réel de filtration (`poollogic.filtration.write`)
 - `AUTO_MODE_TOGGLE`

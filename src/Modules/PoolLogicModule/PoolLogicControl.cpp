@@ -72,6 +72,7 @@ const char* PoolLogicModule::disinfectionTypeStr_(uint8_t type)
         case DisinfectionChlorineBromine: return "chlorine_bromine";
         case DisinfectionSwg: return "swg";
         case DisinfectionActiveOxygen: return "active_oxygen";
+        case DisinfectionDisabled: return "disabled";
         default: return "unknown";
     }
 }

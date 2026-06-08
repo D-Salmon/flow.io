@@ -154,7 +154,9 @@ Conditions d’autorisation:
 - mesure ORP disponible
 - pas d’erreur PSI
 - cuve chlore non vide
-- **et** `disinfection_type=0` (`Chlore/Brome`; la pompe ORP est inhibée en mode électrolyse ou oxygène actif)
+- **et** `disinfection_type=0` (`Chlore/Brome`; la pompe ORP automatique est inhibée en mode électrolyse, oxygène actif ou désactivé)
+
+`disinfection_type=3` (`Désactivé`) coupe la désinfection automatique. Un démarrage manuel de la pompe chlore/O2 bascule aussi ce champ sur `Désactivé`, afin de laisser la main à l'utilisateur sans relance automatique de dosage.
 
 ## 5.4 Électrolyseur
 
