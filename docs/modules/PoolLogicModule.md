@@ -8,6 +8,7 @@ Il:
 - pilote les équipements via `PoolDeviceService` (filtration, pompe pH, pompe ORP/chlore liquide, robot, électrolyse, remplissage)
 - applique les règles automatiques (modes, seuils, délais, sécurités)
 - exécute la régulation pH/ORP en **PID temporel** (duty-cycle dans une fenêtre fixe)
+- pilote l'oxygène actif liquide par volume calculé, sans sonde ORP, lorsque `disinfection_type=2`
 - pilote un protocole de **chauffage assisté** (`heat_assist`) quand la température d'eau dépend de la filtration
 - expose des snapshots runtime MQTT (`rt/poollogic/ph`, `rt/poollogic/orp`, `rt/poollogic/heat_assist`, `rt/poollogic/disinfection`)
 - enregistre des commandes métier et des entités Home Assistant
@@ -92,6 +93,199 @@ Si une de ces conditions n'est pas remplie, `heat_assist` reste inactif.
 - `IDLE_PUMP_ON`: pompe en marche mais pas de demande de chauffe.
 - `SETPOINT_REACHED`: seuil haut atteint, arrêt chauffe/pompe effectué.
 
+## Guide utilisateur: désinfection par oxygène actif liquide (`O2`)
+
+### Principe
+
+Le mode oxygène actif liquide est conçu pour les traitements qui ne peuvent pas être pilotés par la sonde ORP.  
+Avec ce type de produit, la mesure ORP peut être fortement perturbée ou inhibée: Flow.io ne cherche donc pas à atteindre une consigne ORP et ne lance pas de PID chlore/brome.
+
+À la place, Flow.io injecte un **volume calculé** d'oxygène actif à des jours et heures définis. Le volume dépend du bassin, du dosage produit choisi, de la température et d'un facteur manuel de charge.
+
+### Ce qui change par rapport au chlore/brome
+
+En mode `Chlore/Brome`, la pompe de désinfection est pilotée par le PID ORP: si l'ORP est sous la consigne, Flow.io injecte par fenêtres temporisées.
+
+En mode `Oxygène actif`, la même sortie de pompe de désinfection est pilotée autrement:
+- la sonde ORP n'est pas utilisée pour décider l'injection
+- `orp_auto_mode` et les paramètres PID ORP ne déclenchent pas la pompe
+- la pompe injecte le volume O2 restant à doser (`pending_ml`)
+- la filtration est demandée automatiquement quand une dose O2 est en attente
+
+La régulation pH reste indépendante: le pH peut continuer à être régulé automatiquement si `ph_auto_mode=true`.
+
+### Conditions pour que le protocole O2 fonctionne
+
+Les conditions principales sont:
+
+- `auto_mode=true`
+- `disinfection_type=2` (`Oxygène actif`)
+- heure système synchronisée
+- pas de défaut pression PSI bloquant
+- niveau de bidon désinfection OK (`chl_lvl_io_id`, réutilisé pour le bidon O2)
+- débit de la pompe de désinfection configuré dans PoolDevice (`flow_l_h`)
+- filtration en marche depuis au moins `min_filter_run_min`
+- pompe de désinfection non bloquée par PoolDevice
+
+PoolDevice conserve ses protections habituelles: appareil désactivé, interlock, erreur I/O et `max_uptime_day_s`. Si PoolDevice bloque la pompe, Flow.io ne force pas l'injection et affiche un blocage O2.
+
+### Calcul de la dose
+
+La dose hebdomadaire calculée est:
+
+`dose_hebdo_ml = pool_volume_m3 / 10 * dose_ml_10m3_week * load_factor * facteur_temperature`
+
+Exemple:
+- bassin: `50 m3`
+- dose produit: `500 ml / 10 m3 / semaine`
+- facteur charge: `1.0`
+- compensation température: `1.0`
+
+Dose hebdomadaire calculée:
+
+`50 / 10 * 500 * 1.0 * 1.0 = 2500 ml / semaine`
+
+Si `split_count=2`, Flow.io prépare deux doses de `1250 ml`: une le lundi et une le jeudi.
+
+### Compensation température
+
+Si `temp_comp=true`, Flow.io ajuste la dose selon la température de l'eau:
+
+- entre 18 °C et 24 °C: facteur `1.0`
+- sous 18 °C: réduction progressive de 2% par °C, limitée à `0.75`
+- au-dessus de 24 °C: augmentation progressive de 3% par °C, limitée à `1.50`
+
+Si la température d'eau est indisponible, Flow.io utilise un facteur `1.0`. Le dosage reste donc possible, mais sans adaptation automatique à la température.
+
+### Fractionnement dans la semaine
+
+`split_count` indique combien d'injections sont prévues sur une semaine:
+
+- `1`: lundi uniquement
+- `2`: lundi et jeudi
+- `3`: lundi, mercredi et vendredi
+
+Le fractionnement réduit les gros volumes injectés en une seule fois et répartit mieux le traitement dans la semaine. Pour un bassin très sollicité, `2` ou `3` est généralement plus confortable qu'une dose unique.
+
+### Heure de dosage
+
+`main_hour` indique l'heure à partir de laquelle Flow.io peut créer la dose du jour.  
+Par exemple, avec `main_hour=20`, une dose prévue le lundi ne sera créée qu'à partir de 20h00.
+
+Si Flow.io redémarre après l'heure prévue, il peut reprendre le protocole:
+- si la dose du jour n'a pas encore été faite, elle peut être créée
+- si un volume était déjà en attente (`pending_ml`), il reprend ce volume
+- si la dose a été terminée, `last_dose_day` empêche une deuxième injection le même jour
+
+### Filtration avant injection
+
+L'oxygène actif doit être injecté avec une eau en circulation.  
+Quand une dose O2 est en attente, Flow.io demande donc la filtration, puis attend que la filtration soit réellement active depuis `min_filter_run_min` minutes.
+
+Ce délai permet:
+- d'éviter une injection dans une canalisation immobile
+- de laisser la température et la circulation se stabiliser
+- de limiter les injections juste au démarrage de la pompe
+
+### Injection au volume
+
+Flow.io calcule le volume injecté à partir du débit configuré dans PoolDevice:
+
+`volume_injecte_ml = flow_l_h / 3600 * temps_ms`
+
+Le paramètre important est donc `flow_l_h` du slot PoolDevice utilisé par la pompe de désinfection. Ce débit doit correspondre au débit réel de la pompe péristaltique. Une erreur de débit entraîne directement une erreur de volume injecté.
+
+Exemple avec une pompe à `1.5 L/h`:
+- débit = `1500 ml/h`
+- soit environ `25 ml/min`
+- une dose de `500 ml` demande environ `20 min` de pompe
+
+### Paramètres à régler
+
+Dans `poollogic/mode`:
+
+- `disinfection_type`: choisir `Oxygène actif`
+- `auto_mode`: doit être actif pour que Flow.io pilote le protocole
+
+Dans `poollogic/o2`:
+
+- `pool_volume_m3`: volume du bassin en m3
+- `dose_ml_10m3_week`: dose hebdomadaire du produit pour 10 m3
+- `main_hour`: heure principale de dosage
+- `split_count`: nombre d'injections par semaine
+- `temp_comp`: active l'ajustement par température
+- `load_factor`: multiplicateur manuel de charge
+- `min_filter_run_min`: durée minimale de filtration avant injection
+- `protocol_state`, `last_dose_day`, `weekly_done_ml`, `pending_ml`: curseurs internes persistants
+
+Dans PoolDevice, sur le slot de la pompe de désinfection:
+
+- `flow_l_h`: débit réel de la pompe
+- `tank_cap_ml` et `tank_init_ml`: suivi du volume restant dans le bidon, si utilisé
+- `max_uptime_day_s`: limite journalière de sécurité de la pompe
+- `enabled`: autorise ou non le pilotage de la pompe
+- `depends_on_mask`: interlock matériel, généralement filtration
+
+### Facteur de charge (`load_factor`)
+
+`load_factor` permet d'ajuster manuellement le dosage sans changer la dose produit de référence.
+
+Exemples:
+- `1.0`: dose nominale
+- `1.2`: +20% pour forte fréquentation, eau chaude ou épisode difficile
+- `0.8`: -20% pour bassin peu utilisé ou eau froide
+
+Ce réglage ne remplace pas les recommandations du produit utilisé. Il sert à adapter la stratégie Flow.io au contexte réel du bassin.
+
+### Etats et diagnostics
+
+Le snapshot `rt/poollogic/disinfection` expose l'état O2:
+
+- `o2.state_s=idle`: aucune dose à faire
+- `o2.state_s=pending`: dose en attente, filtration ou conditions pas encore prêtes
+- `o2.state_s=dosing`: injection en cours
+- `o2.state_s=blocked`: protocole bloqué
+
+Les raisons de blocage les plus utiles sont:
+
+- `inactive`: mode O2 non actif ou mode auto désactivé
+- `time_unsynced`: heure non synchronisée
+- `psi`: défaut pression
+- `tank_low`: bidon désinfection bas
+- `flow_invalid`: débit pompe non configuré ou invalide
+- `filtration_wait`: filtration pas encore prête
+- `pump_service`: service PoolDevice indisponible
+- `pump_blocked`: pompe bloquée par PoolDevice (`disabled`, interlock, I/O, max uptime)
+- `config`: dose impossible à calculer
+
+Home Assistant expose aussi les diagnostics O2:
+- `O2 Protocol State`
+- `O2 Block Reason`
+- `O2 Weekly Injected`
+- `O2 Pending Volume`
+- `O2 Planned Dose`
+- `O2 Pump Flow`
+- `O2 Last Dose Day`
+
+### Reprise après reboot
+
+Le protocole O2 persiste les éléments nécessaires pour reprendre correctement:
+
+- `pending_ml`: volume restant à injecter
+- `weekly_done_ml`: volume déjà injecté depuis le début de semaine
+- `last_dose_day`: dernier jour où une dose a été terminée
+- `protocol_state`: état courant du protocole
+
+Après redémarrage, Flow.io ne repart donc pas aveuglément de zéro. Si une dose était en attente, elle reste en attente. Si une dose a déjà été terminée le même jour, elle n'est pas répétée.
+
+### Points d'attention
+
+- L'O2 n'est pas régulé par une mesure en boucle fermée: le bon réglage du volume bassin, du dosage produit et du débit pompe est essentiel.
+- Le bidon O2 utilise aujourd'hui l'entrée niveau désinfection (`chl_lvl_io_id`) et les alarmes associées au bidon chlore.
+- `max_uptime_day_s` n'est pas modifié automatiquement quand on passe en O2. Il doit être vérifié pour être compatible avec les volumes à injecter et le débit pompe.
+- Si la dose calculée nécessite plus de temps de pompe que le `max_uptime_day_s`, PoolDevice bloquera l'injection avant la fin et O2 restera avec un volume en attente.
+- Les produits O2 ont souvent des recommandations spécifiques selon la marque, la température, la présence d'activateur, la fréquentation et les UV. `dose_ml_10m3_week` doit être aligné sur le produit réellement utilisé.
+
 ## Config / NVS
 
 Module config: `poollogic`
@@ -121,7 +315,7 @@ Persistance: `ConfigStore` + `NvsKeys::PoolLogic::*`
 
 - `swg_control_mode`
 
-### Paramètres oxygène actif (`poollogic/o2`, protocole préparé pour phase 2)
+### Paramètres oxygène actif (`poollogic/o2`)
 
 - `pool_volume_m3`
 - `dose_ml_10m3_week`
@@ -134,6 +328,21 @@ Persistance: `ConfigStore` + `NvsKeys::PoolLogic::*`
 - `last_dose_day` (persisté pour reprise après reboot)
 - `weekly_done_ml` (persisté pour reprise après reboot)
 - `pending_ml` (persisté pour reprise après reboot)
+
+La dose O2 hebdomadaire calculée est:
+
+`pool_volume_m3 / 10 * dose_ml_10m3_week * load_factor * facteur_temperature`
+
+Le facteur température vaut `1.0` si `temp_comp=false` ou si la température eau est indisponible. Sinon il réduit la dose sous 18 °C (minimum `0.75`) et l'augmente au-dessus de 24 °C (maximum `1.50`).
+
+Le protocole fractionne la dose selon `split_count`:
+- `1`: lundi
+- `2`: lundi et jeudi
+- `3`: lundi, mercredi et vendredi
+
+À partir de `main_hour`, si une dose est due, `pending_ml` est créé et persisté. Le protocole demande ensuite la filtration, attend `min_filter_run_min` minutes de filtration effective, puis pilote la pompe de désinfection par débit PoolDevice (`flow_l_h`) jusqu'à consommer le volume en attente.
+
+Les curseurs `protocol_state`, `last_dose_day`, `weekly_done_ml` et `pending_ml` sont persistés pour reprendre correctement après reboot. La limite `max_uptime_day_s` de la pompe reste gérée par `PoolDeviceModule`; si elle bloque la pompe, le protocole O2 passe en état bloqué sans modifier cette configuration.
 
 ### Fenêtre de filtration (calcul quotidien)
 
@@ -391,7 +600,7 @@ Le calcul et la commande sont ensuite conditionnés par:
 - pas de défaut PSI latched (`psiError_==false`)
 - pas de niveau bas cuve actif:
   - pH: `phTankLowError_==false`
-  - ORP/chlore: `chlorineTankLowError_==false`
+  - ORP/chlore/O2: `chlorineTankLowError_==false`
 - pour ORP péristaltique: `disinfection_type == 0` (en mode électrolyse ou oxygène actif, la régulation ORP liquide est inhibée)
 
 ### Convention d'erreur
@@ -492,7 +701,10 @@ Sémantique importante:
 - `dts`: libellé machine du type
 - `swgm`: mode SWG numérique (`0` suivi ORP, `1` continu filtration)
 - `swgms`: libellé machine du mode SWG
-- `o2.state`, `o2.last_day`, `o2.done_ml`, `o2.pending_ml`: curseur O2 persistant préparé pour la phase 2
+- `o2.state`, `o2.state_s`: état protocole O2 (`idle`, `pending`, `dosing`, `blocked`)
+- `o2.block`, `o2.block_s`: raison de blocage O2 (`inactive`, `time_unsynced`, `psi`, `tank_low`, `flow_invalid`, `filtration_wait`, `pump_service`, `pump_blocked`, `config`)
+- `o2.last_day`, `o2.done_ml`, `o2.pending_ml`: curseur O2 persistant
+- `o2.plan_ml`, `o2.flow_l_h`: dose élémentaire calculée et débit pompe utilisé
 
 ## Config MQTT (`cfg/poollogic*`)
 

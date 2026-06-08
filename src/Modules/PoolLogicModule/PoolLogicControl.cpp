@@ -8,6 +8,9 @@
 #include "Modules/PoolDeviceModule/PoolDeviceRuntime.h"
 
 #include <cmath>
+#include <cstdlib>
+#include <cstring>
+#include <ctime>
 
 #define LOG_MODULE_ID ((LogModuleId)LogModuleIdValue::PoolLogicModule)
 #include "Core/ModuleLog.h"
@@ -21,6 +24,8 @@ constexpr uint16_t kHeatAssistIdleFastSec = 20U * 60U;
 constexpr uint8_t kHeatAssistFlagProbeRunning = (1U << 0);
 constexpr uint8_t kHeatAssistFlagHeatingActive = (1U << 1);
 constexpr uint8_t kHeatAssistFlagFastCycle = (1U << 2);
+constexpr uint32_t kO2PersistPeriodMs = 30000UL;
+constexpr float kO2DoseEpsilonMl = 0.5f;
 
 const char* poolDeviceSvcStatusStr_(PoolDeviceSvcStatus st)
 {
@@ -49,6 +54,11 @@ const char* poolDeviceBlockReasonStr_(uint8_t reason)
         default: return "unknown";
     }
 }
+
+uint16_t o2WeekKeyFromDayKey_(uint16_t dayKey)
+{
+    return (uint16_t)(dayKey / 7U);
+}
 }  // namespace
 
 bool PoolLogicModule::isDisinfectionType_(DisinfectionType type) const
@@ -73,6 +83,307 @@ const char* PoolLogicModule::swgControlModeStr_(uint8_t mode)
         case SwgControlContinuous: return "continuous";
         default: return "unknown";
     }
+}
+
+const char* PoolLogicModule::o2ProtocolStateStr_(uint8_t state)
+{
+    switch (state) {
+        case O2ProtocolIdle: return "idle";
+        case O2ProtocolPending: return "pending";
+        case O2ProtocolDosing: return "dosing";
+        case O2ProtocolBlocked: return "blocked";
+        default: return "unknown";
+    }
+}
+
+const char* PoolLogicModule::o2BlockReasonStr_(uint8_t reason)
+{
+    switch (reason) {
+        case O2BlockNone: return "none";
+        case O2BlockInactive: return "inactive";
+        case O2BlockTimeUnsynced: return "time_unsynced";
+        case O2BlockPsi: return "psi";
+        case O2BlockTankLow: return "tank_low";
+        case O2BlockFlowInvalid: return "flow_invalid";
+        case O2BlockFiltrationWait: return "filtration_wait";
+        case O2BlockPumpService: return "pump_service";
+        case O2BlockPumpBlocked: return "pump_blocked";
+        case O2BlockConfig: return "config";
+        default: return "unknown";
+    }
+}
+
+bool PoolLogicModule::readPoolDeviceFlowLh_(uint8_t deviceSlot, float& flowLhOut) const
+{
+    flowLhOut = 0.0f;
+    if (!cfgStore_ || deviceSlot >= POOL_DEVICE_MAX) return false;
+
+    char moduleName[16] = {0};
+    snprintf(moduleName, sizeof(moduleName), "pdm/pd%u", (unsigned)deviceSlot);
+
+    bool truncated = false;
+    if (!cfgStore_->toJsonModule(moduleName,
+                                 o2PoolDeviceJsonBuf_,
+                                 sizeof(o2PoolDeviceJsonBuf_),
+                                 &truncated) ||
+        truncated) {
+        return false;
+    }
+
+    const char* key = strstr(o2PoolDeviceJsonBuf_, "\"flow_l_h\":");
+    if (!key) return false;
+    key += 11;
+    char* end = nullptr;
+    const float flow = strtof(key, &end);
+    if (end == key) return false;
+    if (!std::isfinite(flow) || flow <= 0.0f) return false;
+    flowLhOut = flow;
+    return true;
+}
+
+bool PoolLogicModule::currentO2LocalTime_(uint16_t& dayKeyOut,
+                                          uint16_t& weekKeyOut,
+                                          uint8_t& weekDayMon0Out,
+                                          uint8_t& hourOut) const
+{
+    dayKeyOut = 0;
+    weekKeyOut = 0;
+    weekDayMon0Out = 0;
+    hourOut = 0;
+    if (!timeSvc_ || !timeSvc_->isSynced || !timeSvc_->epoch || !timeSvc_->isSynced(timeSvc_->ctx)) {
+        return false;
+    }
+
+    const uint64_t epoch = timeSvc_->epoch(timeSvc_->ctx);
+    if (epoch < 1609459200ULL) return false;
+    const time_t now = (time_t)epoch;
+    tm localNow{};
+    if (!localtime_r(&now, &localNow)) return false;
+
+    const uint64_t epochDay = epoch / 86400ULL;
+    dayKeyOut = (uint16_t)(epochDay & 0xFFFFU);
+    weekKeyOut = (uint16_t)((epochDay / 7ULL) & 0xFFFFU);
+    weekDayMon0Out = (uint8_t)((localNow.tm_wday + 6) % 7);
+    hourOut = (uint8_t)localNow.tm_hour;
+    return true;
+}
+
+bool PoolLogicModule::isO2DoseDay_(uint8_t weekDayMon0) const
+{
+    if (o2SplitCount_ <= 1U) return weekDayMon0 == 0U;
+    if (o2SplitCount_ == 2U) return weekDayMon0 == 0U || weekDayMon0 == 3U;
+    return weekDayMon0 == 0U || weekDayMon0 == 2U || weekDayMon0 == 4U;
+}
+
+float PoolLogicModule::o2TemperatureFactor_(bool haveWaterTemp, float waterTemp) const
+{
+    if (!o2TempComp_ || !haveWaterTemp || !std::isfinite(waterTemp)) return 1.0f;
+    if (waterTemp <= 18.0f) {
+        const float factor = 1.0f - ((18.0f - waterTemp) * 0.02f);
+        return (factor < 0.75f) ? 0.75f : factor;
+    }
+    if (waterTemp >= 24.0f) {
+        const float factor = 1.0f + ((waterTemp - 24.0f) * 0.03f);
+        return (factor > 1.50f) ? 1.50f : factor;
+    }
+    return 1.0f;
+}
+
+float PoolLogicModule::computeO2WeeklyDoseMl_(bool haveWaterTemp, float waterTemp) const
+{
+    if (!std::isfinite(o2PoolVolumeM3_) || o2PoolVolumeM3_ <= 0.0f ||
+        !std::isfinite(o2DoseMlPer10M3Week_) || o2DoseMlPer10M3Week_ <= 0.0f ||
+        !std::isfinite(o2LoadFactor_) || o2LoadFactor_ <= 0.0f) {
+        return 0.0f;
+    }
+
+    const float base = (o2PoolVolumeM3_ / 10.0f) * o2DoseMlPer10M3Week_;
+    const float dose = base * o2LoadFactor_ * o2TemperatureFactor_(haveWaterTemp, waterTemp);
+    if (!std::isfinite(dose) || dose <= 0.0f) return 0.0f;
+    return dose;
+}
+
+void PoolLogicModule::setO2ProtocolState_(uint8_t state, uint8_t blockReason, uint32_t nowMs)
+{
+    if (state > O2ProtocolBlocked) state = O2ProtocolIdle;
+    if (o2ProtocolState_ != state || o2BlockReason_ != blockReason) {
+        o2ProtocolState_ = state;
+        o2BlockReason_ = blockReason;
+        o2LastPersistMs_ = 0;
+        LOGI("O2 protocol state=%s block=%s pending=%.1f done=%.1f",
+             o2ProtocolStateStr_(o2ProtocolState_),
+             o2BlockReasonStr_(o2BlockReason_),
+             (double)o2PendingMl_,
+             (double)o2WeeklyDoneMl_);
+    }
+    persistO2Protocol_(nowMs, false);
+}
+
+void PoolLogicModule::persistO2Protocol_(uint32_t nowMs, bool force)
+{
+    if (!cfgStore_) return;
+    if (!force && o2LastPersistMs_ != 0U && (uint32_t)(nowMs - o2LastPersistMs_) < kO2PersistPeriodMs) {
+        return;
+    }
+
+    (void)cfgStore_->set(o2ProtocolStateVar_, o2ProtocolState_);
+    (void)cfgStore_->set(o2LastDoseDayVar_, o2LastDoseDay_);
+    (void)cfgStore_->set(o2WeeklyDoneVar_, o2WeeklyDoneMl_);
+    (void)cfgStore_->set(o2PendingVar_, o2PendingMl_);
+    o2LastPersistMs_ = nowMs ? nowMs : 1U;
+}
+
+bool PoolLogicModule::stepO2Protocol_(bool filtrationDesired,
+                                      bool filtrationOn,
+                                      uint32_t filtrationRunMin,
+                                      bool haveWaterTemp,
+                                      float waterTemp,
+                                      bool psiError,
+                                      bool tankLow,
+                                      uint32_t nowMs,
+                                      bool& requestFiltrationOut,
+                                      bool& pumpDesiredOut)
+{
+    requestFiltrationOut = false;
+    pumpDesiredOut = false;
+
+    if (!isDisinfectionType_(DisinfectionActiveOxygen) || !autoMode_) {
+        o2LastProgressMs_ = 0;
+        if (o2PendingMl_ <= kO2DoseEpsilonMl) {
+            o2PendingMl_ = 0.0f;
+            setO2ProtocolState_(O2ProtocolIdle, O2BlockInactive, nowMs);
+        } else {
+            setO2ProtocolState_(O2ProtocolPending, O2BlockInactive, nowMs);
+        }
+        return false;
+    }
+
+    uint16_t dayKey = 0;
+    uint16_t weekKey = 0;
+    uint8_t weekDayMon0 = 0;
+    uint8_t hour = 0;
+    if (!currentO2LocalTime_(dayKey, weekKey, weekDayMon0, hour)) {
+        o2LastProgressMs_ = 0;
+        if (o2PendingMl_ > kO2DoseEpsilonMl) requestFiltrationOut = true;
+        setO2ProtocolState_(o2PendingMl_ > kO2DoseEpsilonMl ? O2ProtocolBlocked : O2ProtocolIdle,
+                            O2BlockTimeUnsynced,
+                            nowMs);
+        return false;
+    }
+
+    if (o2LastDoseDay_ != 0U && o2WeekKeyFromDayKey_(o2LastDoseDay_) != weekKey && o2WeeklyDoneMl_ > 0.0f) {
+        o2WeeklyDoneMl_ = 0.0f;
+        persistO2Protocol_(nowMs, true);
+    }
+
+    const float weeklyDoseMl = computeO2WeeklyDoseMl_(haveWaterTemp, waterTemp);
+    const uint8_t split = (o2SplitCount_ == 0U) ? 1U : ((o2SplitCount_ > 3U) ? 3U : o2SplitCount_);
+    const float doseMl = (split > 0U) ? (weeklyDoseMl / (float)split) : weeklyDoseMl;
+    o2LastPlannedDoseMl_ = doseMl;
+
+    if (o2PendingMl_ <= kO2DoseEpsilonMl) {
+        o2PendingMl_ = 0.0f;
+        if (weeklyDoseMl <= kO2DoseEpsilonMl || doseMl <= kO2DoseEpsilonMl) {
+            setO2ProtocolState_(O2ProtocolBlocked, O2BlockConfig, nowMs);
+            return false;
+        }
+        const bool dueToday =
+            isO2DoseDay_(weekDayMon0) &&
+            hour >= o2MainHour_ &&
+            o2LastDoseDay_ != dayKey &&
+            o2WeeklyDoneMl_ < (weeklyDoseMl - kO2DoseEpsilonMl);
+        if (dueToday) {
+            const float remainingWeekMl = weeklyDoseMl - o2WeeklyDoneMl_;
+            o2PendingMl_ = (remainingWeekMl < doseMl) ? remainingWeekMl : doseMl;
+            if (o2PendingMl_ < 0.0f) o2PendingMl_ = 0.0f;
+            o2LastProgressMs_ = 0;
+            setO2ProtocolState_(O2ProtocolPending, O2BlockNone, nowMs);
+            persistO2Protocol_(nowMs, true);
+        }
+    }
+
+    if (o2PendingMl_ <= kO2DoseEpsilonMl) {
+        o2PendingMl_ = 0.0f;
+        setO2ProtocolState_(O2ProtocolIdle, O2BlockNone, nowMs);
+        return false;
+    }
+
+    requestFiltrationOut = true;
+    if (psiError) {
+        o2LastProgressMs_ = 0;
+        setO2ProtocolState_(O2ProtocolBlocked, O2BlockPsi, nowMs);
+        return false;
+    }
+    if (tankLow) {
+        o2LastProgressMs_ = 0;
+        setO2ProtocolState_(O2ProtocolBlocked, O2BlockTankLow, nowMs);
+        return false;
+    }
+
+    float flowLh = 0.0f;
+    if (!readPoolDeviceFlowLh_(orpPumpDeviceSlot_, flowLh)) {
+        o2LastFlowLh_ = 0.0f;
+        o2LastProgressMs_ = 0;
+        setO2ProtocolState_(O2ProtocolBlocked, O2BlockFlowInvalid, nowMs);
+        return false;
+    }
+    o2LastFlowLh_ = flowLh;
+
+    const bool filtrationReady = filtrationOn && filtrationDesired && filtrationRunMin >= o2MinFilterRunMin_;
+    if (!filtrationReady) {
+        o2LastProgressMs_ = 0;
+        setO2ProtocolState_(O2ProtocolPending, O2BlockFiltrationWait, nowMs);
+        return false;
+    }
+
+    PoolDeviceSvcMeta meta{};
+    if (!poolSvc_ || !poolSvc_->meta || poolSvc_->meta(poolSvc_->ctx, orpPumpDeviceSlot_, &meta) != POOLDEV_SVC_OK) {
+        o2LastProgressMs_ = 0;
+        setO2ProtocolState_(O2ProtocolBlocked, O2BlockPumpService, nowMs);
+        return false;
+    }
+    if (meta.blockReason == POOL_DEVICE_BLOCK_MAX_UPTIME ||
+        meta.blockReason == POOL_DEVICE_BLOCK_DISABLED ||
+        meta.blockReason == POOL_DEVICE_BLOCK_INTERLOCK ||
+        meta.blockReason == POOL_DEVICE_BLOCK_IO_ERROR) {
+        o2LastProgressMs_ = 0;
+        setO2ProtocolState_(O2ProtocolBlocked, O2BlockPumpBlocked, nowMs);
+        return false;
+    }
+
+    pumpDesiredOut = true;
+    if (orpPumpFsm_.on) {
+        const uint32_t deltaMs = (o2LastProgressMs_ == 0U) ? 0U : (nowMs - o2LastProgressMs_);
+        o2LastProgressMs_ = nowMs ? nowMs : 1U;
+        if (deltaMs > 0U) {
+            const float injectedMl = (flowLh / 3600.0f) * (float)deltaMs;
+            if (std::isfinite(injectedMl) && injectedMl > 0.0f) {
+                o2PendingMl_ -= injectedMl;
+                o2WeeklyDoneMl_ += injectedMl;
+                if (o2PendingMl_ <= kO2DoseEpsilonMl) {
+                    if (o2PendingMl_ < 0.0f) {
+                        o2WeeklyDoneMl_ += o2PendingMl_;
+                    }
+                    o2PendingMl_ = 0.0f;
+                    o2LastDoseDay_ = dayKey;
+                    pumpDesiredOut = false;
+                    o2LastProgressMs_ = 0;
+                    setO2ProtocolState_(O2ProtocolIdle, O2BlockNone, nowMs);
+                    persistO2Protocol_(nowMs, true);
+                    return true;
+                }
+                setO2ProtocolState_(O2ProtocolDosing, O2BlockNone, nowMs);
+                persistO2Protocol_(nowMs, false);
+            }
+        } else {
+            setO2ProtocolState_(O2ProtocolDosing, O2BlockNone, nowMs);
+        }
+    } else {
+        o2LastProgressMs_ = 0;
+        setO2ProtocolState_(O2ProtocolPending, O2BlockNone, nowMs);
+    }
+
+    return pumpDesiredOut;
 }
 
 // Alarm conditions intentionally stay close to the control helpers because they
@@ -872,6 +1183,25 @@ void PoolLogicModule::runControlLoop_(uint32_t nowMs)
         }
     }
 
+    bool o2RequestFiltration = false;
+    bool o2PumpDesired = false;
+    (void)stepO2Protocol_(filtrationDesired,
+                          filtrationFsm_.on,
+                          stateUptimeSec_(filtrationFsm_, nowMs) / 60U,
+                          haveWaterTemp,
+                          waterTemp,
+                          psiError_,
+                          chlorineTankLowError_,
+                          nowMs,
+                          o2RequestFiltration,
+                          o2PumpDesired);
+    if (o2RequestFiltration && !psiError_) {
+        filtrationDesired = true;
+    }
+    if (isDisinfectionType_(DisinfectionActiveOxygen)) {
+        orpPumpDesired = o2PumpDesired;
+    }
+
     bool fillingDesired = false;
     if (haveLevel) {
         if (!fillingFsm_.on) {
@@ -890,7 +1220,11 @@ void PoolLogicModule::runControlLoop_(uint32_t nowMs)
     }
     applyDeviceControl_(filtrationDeviceSlot_, "Filtration Pump", filtrationFsm_, filtrationDesired, nowMs);
     applyDeviceControl_(phPumpDeviceSlot_, "pH Pump", phPumpFsm_, phPumpDesired, nowMs);
-    applyDeviceControl_(orpPumpDeviceSlot_, "Chlorine Pump", orpPumpFsm_, orpPumpDesired, nowMs);
+    applyDeviceControl_(orpPumpDeviceSlot_,
+                        isDisinfectionType_(DisinfectionActiveOxygen) ? "O2 Pump" : "Chlorine Pump",
+                        orpPumpFsm_,
+                        orpPumpDesired,
+                        nowMs);
     applyDeviceControl_(robotDeviceSlot_, "Robot Pump", robotFsm_, robotDesired, nowMs);
     applyDeviceControl_(swgDeviceSlot_, "SWG Pump", swgFsm_, swgDesired, nowMs);
     applyDeviceControl_(heaterDeviceSlot_, "Water Heater", heaterFsm_, heaterDesired, nowMs);

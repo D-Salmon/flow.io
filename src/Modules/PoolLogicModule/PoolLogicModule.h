@@ -45,7 +45,7 @@ public:
     void init(ConfigStore& cfg, ServiceRegistry& services) override;
     void onConfigLoaded(ConfigStore& cfg, ServiceRegistry& services) override;
     void loop() override;
-    uint16_t taskStackSize() const override { return 2560; }
+    uint16_t taskStackSize() const override { return 4096; }
     uint32_t startDelayMs() const override {
 #if defined(FLOW_PROFILE_FLOWIOS3)
         return 8000U;
@@ -85,6 +85,19 @@ private:
         O2ProtocolPending = 1,
         O2ProtocolDosing = 2,
         O2ProtocolBlocked = 3,
+    };
+
+    enum O2BlockReason : uint8_t {
+        O2BlockNone = 0,
+        O2BlockInactive = 1,
+        O2BlockTimeUnsynced = 2,
+        O2BlockPsi = 3,
+        O2BlockTankLow = 4,
+        O2BlockFlowInvalid = 5,
+        O2BlockFiltrationWait = 6,
+        O2BlockPumpService = 7,
+        O2BlockPumpBlocked = 8,
+        O2BlockConfig = 9,
     };
 
     struct DeviceFsm {
@@ -215,6 +228,12 @@ private:
     uint16_t o2LastDoseDay_ = 0;
     float o2WeeklyDoneMl_ = 0.0f;
     float o2PendingMl_ = 0.0f;
+    uint8_t o2BlockReason_ = O2BlockNone;
+    float o2LastPlannedDoseMl_ = 0.0f;
+    float o2LastFlowLh_ = 0.0f;
+    uint32_t o2LastProgressMs_ = 0;
+    uint32_t o2LastPersistMs_ = 0;
+    mutable char o2PoolDeviceJsonBuf_[160] = {0};
 
     // Controlled pool devices
     uint8_t filtrationDeviceSlot_ = PoolBinding::kDeviceSlotFiltrationPump;
@@ -454,8 +473,30 @@ private:
     void applyDeviceControl_(uint8_t deviceSlot, const char* label, DeviceFsm& fsm, bool desired, uint32_t nowMs);
     void runControlLoop_(uint32_t nowMs);
     bool isDisinfectionType_(DisinfectionType type) const;
+    bool readPoolDeviceFlowLh_(uint8_t deviceSlot, float& flowLhOut) const;
+    bool currentO2LocalTime_(uint16_t& dayKeyOut,
+                             uint16_t& weekKeyOut,
+                             uint8_t& weekDayMon0Out,
+                             uint8_t& hourOut) const;
+    bool isO2DoseDay_(uint8_t weekDayMon0) const;
+    float o2TemperatureFactor_(bool haveWaterTemp, float waterTemp) const;
+    float computeO2WeeklyDoseMl_(bool haveWaterTemp, float waterTemp) const;
+    void setO2ProtocolState_(uint8_t state, uint8_t blockReason, uint32_t nowMs);
+    void persistO2Protocol_(uint32_t nowMs, bool force);
+    bool stepO2Protocol_(bool filtrationDesired,
+                         bool filtrationOn,
+                         uint32_t filtrationRunMin,
+                         bool haveWaterTemp,
+                         float waterTemp,
+                         bool psiError,
+                         bool tankLow,
+                         uint32_t nowMs,
+                         bool& requestFiltrationOut,
+                         bool& pumpDesiredOut);
     static const char* disinfectionTypeStr_(uint8_t type);
     static const char* swgControlModeStr_(uint8_t mode);
+    static const char* o2ProtocolStateStr_(uint8_t state);
+    static const char* o2BlockReasonStr_(uint8_t reason);
 
     // Runtime
     MqttBuildResult buildCfgBase_(MqttBuildContext& buildCtx);

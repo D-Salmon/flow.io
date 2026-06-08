@@ -68,6 +68,7 @@ Responsabilités:
 - applique sécurités pression PSI
 - pilote robot, électrolyse, remplissage
 - exécute la régulation temporelle PID pH et ORP (pompes péristaltiques)
+- exécute le protocole oxygène actif liquide par volume calculé quand `disinfection_type=2`
 - publie la configuration `cfg/poollogic/*` et snapshots `rt/poollogic/ph|orp`
 
 Important: en mode manuel (`auto_mode=false`), la filtration reste pilotée manuellement **sauf sécurité PSI** (qui garde priorité et peut couper).
@@ -167,7 +168,29 @@ En auto:
 - si `swg_control_mode=0`, l’électrolyse est asservie à ORP (hystérésis de démarrage à 90% de la consigne)
 - si `swg_control_mode=1`, l’électrolyse fonctionne en continu sur la plage autorisée
 
-## 5.5 Robot
+## 5.5 Oxygène actif liquide
+
+En auto:
+
+- nécessite `disinfection_type=2` (`Oxygène actif`)
+- n'utilise pas la sonde ORP
+- calcule une dose hebdomadaire à partir de:
+  - `pool_volume_m3`
+  - `dose_ml_10m3_week`
+  - `load_factor`
+  - compensation température optionnelle (`temp_comp`)
+- fractionne la dose selon `split_count`:
+  - `1`: lundi
+  - `2`: lundi et jeudi
+  - `3`: lundi, mercredi et vendredi
+- crée une dose en attente à partir de `main_hour`
+- demande la filtration si une dose est en attente
+- attend `min_filter_run_min` minutes de filtration effective
+- pilote la pompe de désinfection au volume, avec le débit `flow_l_h` configuré dans `PoolDeviceModule`
+
+Le protocole persiste `protocol_state`, `last_dose_day`, `weekly_done_ml` et `pending_ml` pour reprendre après reboot. La limite `max_uptime_day_s` de la pompe reste appliquée par `PoolDeviceModule`; si elle est atteinte, l'O2 est bloqué avec la raison `pump_blocked`.
+
+## 5.6 Robot
 
 En auto:
 
@@ -176,7 +199,7 @@ En auto:
 - s’arrête après `robot_dur_min`
 - `cleaning_done` est remis à false au changement de jour
 
-## 5.6 Remplissage
+## 5.7 Remplissage
 
 - basé sur capteur niveau bassin (`i0`)
 - si niveau bas (`i0 == true`): marche

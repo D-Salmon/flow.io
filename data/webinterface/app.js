@@ -7,6 +7,7 @@
     const desktopPageTitle = document.getElementById('desktopPageTitle');
     const headerWifiDot = document.getElementById('headerWifiDot');
     const headerWifiStatus = document.getElementById('headerWifiStatus');
+    const headerReachabilityDot = document.getElementById('headerReachabilityDot');
     const headerDeviceStatus = document.getElementById('headerDeviceStatus');
     const headerClockStatus = document.getElementById('headerClockStatus');
     const flowWebAssetVersionStorageKey = 'flow_web_asset_version';
@@ -23,6 +24,9 @@
     const deferredMenuAssetReloadDelayMs = 1400;
     const deferredMenuAssetReloadStepMs = 850;
     const deferredMenuAssetReloadFallbackDelayMs = 6500;
+    const deviceReachabilityProbeMs = 5000;
+    const deviceReachabilityFetchTimeoutMs = 2500;
+    const deviceReachabilityLostThreshold = 3;
     const remoteMenuIconFontLinkId = 'flowMenuIconFontRemote';
     const remoteMenuIconFontHref = 'https://fonts.googleapis.com/icon?family=Material+Symbols+Rounded&display=block';
     const remoteMenuIconLigatures = {
@@ -67,6 +71,10 @@
     let remoteMenuIconFontReady = false;
     let remoteMenuIconFontPromise = null;
     let appHeaderClockTimer = null;
+    let deviceReachabilityTimer = null;
+    let deviceReachabilityInFlight = false;
+    let deviceReachabilityMisses = 0;
+    let deviceReachabilityReachable = false;
     const pendingSystemActionCountdowns = new Map();
     let activeColorPickerPopover = null;
     let webUiLocale = 'fr';
@@ -1040,9 +1048,7 @@
       if (headerWifiDot) {
         headerWifiDot.classList.toggle('is-connected', isHeaderWifiConnected());
       }
-      if (headerDeviceStatus) {
-        headerDeviceStatus.textContent = webDeviceName || 'flowio';
-      }
+      renderHeaderReachability();
     }
 
     function refreshAppHeaderClock() {
@@ -1054,6 +1060,70 @@
       refreshAppHeaderClock();
       if (appHeaderClockTimer || !headerClockStatus) return;
       appHeaderClockTimer = setInterval(refreshAppHeaderClock, 1000);
+    }
+
+    function renderHeaderReachability() {
+      const unreachable = deviceReachabilityMisses >= deviceReachabilityLostThreshold;
+      const reachable = deviceReachabilityReachable && !unreachable;
+      if (headerDeviceStatus) {
+        headerDeviceStatus.textContent = unreachable
+          ? tr('header.device.unreachable', 'Non joignable')
+          : (reachable ? tr('header.device.reachable', 'Joignable') : tr('header.device.pending', 'Vérification...'));
+      }
+      if (headerReachabilityDot) {
+        headerReachabilityDot.classList.toggle('is-reachable', reachable);
+        headerReachabilityDot.classList.toggle('is-pending', !reachable && !unreachable);
+        headerReachabilityDot.classList.toggle('is-unreachable', unreachable);
+      }
+    }
+
+    async function fetchHeaderReachabilityHello() {
+      const supportsAbort = typeof AbortController === 'function';
+      const controller = supportsAbort ? new AbortController() : null;
+      const timeoutId = controller
+        ? setTimeout(() => {
+            try {
+              controller.abort();
+            } catch (err) {
+            }
+          }, deviceReachabilityFetchTimeoutMs)
+        : null;
+      try {
+        const res = await fetch('/api/web/meta', {
+          cache: 'no-store',
+          signal: controller ? controller.signal : undefined
+        });
+        if (!res.ok) throw new Error('hello_http_' + res.status);
+        const data = await res.json().catch(() => null);
+        if (!data || data.ok !== true) throw new Error('hello_payload');
+      } finally {
+        if (timeoutId) clearTimeout(timeoutId);
+      }
+    }
+
+    async function probeHeaderReachability() {
+      if (deviceReachabilityInFlight) return;
+      deviceReachabilityInFlight = true;
+      try {
+        await fetchHeaderReachabilityHello();
+        deviceReachabilityMisses = 0;
+        deviceReachabilityReachable = true;
+      } catch (err) {
+        deviceReachabilityMisses = Math.min(deviceReachabilityLostThreshold, deviceReachabilityMisses + 1);
+      } finally {
+        deviceReachabilityInFlight = false;
+        renderHeaderReachability();
+      }
+    }
+
+    function startHeaderReachabilityProbe() {
+      renderHeaderReachability();
+      probeHeaderReachability().catch(() => {});
+      if (deviceReachabilityTimer || !headerDeviceStatus) return;
+      deviceReachabilityTimer = setInterval(() => {
+        if (document.hidden) return;
+        probeHeaderReachability().catch(() => {});
+      }, deviceReachabilityProbeMs);
     }
 
     async function refreshAppHeaderWifi(forceRefresh) {
@@ -9375,6 +9445,7 @@
         if (!document.hidden) {
           refreshWebUiLocale(true).catch(() => {});
           refreshAppHeaderWifi(true).catch(() => {});
+          probeHeaderReachability().catch(() => {});
         }
       });
     }
@@ -9394,6 +9465,7 @@
     refreshWebUiLocale(true).catch(() => {});
     resumeUpgradeReconnectFlow();
     startAppHeaderClock();
+    startHeaderReachabilityProbe();
     refreshAppHeader(resolveInitialPageId());
     const initialPageId = resolveInitialPageId();
     const startInitialUi = async () => {

@@ -222,6 +222,17 @@ def _apply_profile_specific_io_enum_sets(meta: dict, profile: str) -> dict:
         out.pop("label_i18n", None)
         return out
 
+    # Analog bindings: Micronova's local DS18B20 GPIO binding is not valid on
+    # flow.io boards, which expose DS18B20 probes through profile ports 120/121.
+    analog_key = "flowio_binding_port_analog"
+    analog_entries = enum_sets.get(analog_key)
+    if profile in ("flowio", "flowios3") and isinstance(analog_entries, list):
+        enum_sets[analog_key] = [
+            dict(entry)
+            for entry in analog_entries
+            if isinstance(entry, dict) and _to_int(entry.get("value")) != 2
+        ]
+
     # Digital input bindings: pin labels differ across flow.io and flow.io.
     din_key = "flowio_binding_port_digital_input"
     din_entries = enum_sets.get(din_key)
@@ -234,14 +245,10 @@ def _apply_profile_specific_io_enum_sets(meta: dict, profile: str) -> dict:
             203: "PortDigitalIn4 - digital_in4 (flow.io GPIO35) [203]",
         }
         din_labels_flowios3 = {
-            200: "PortDigitalIn1 - digital_in1 (flow.io GPIO4) [200]",
-            201: "PortDigitalIn2 - digital_in2 (flow.io GPIO5) [201]",
-            202: "PortDigitalIn3 - digital_in3 (flow.io GPIO6) [202]",
-            203: "PortDigitalIn4 - digital_in4 (flow.io GPIO7) [203]",
-            204: "PortDigitalIn5 - digital_in5 (flow.io GPIO8) [204]",
-            205: "PortDigitalIn6 - digital_in6 (flow.io GPIO9) [205]",
-            206: "PortDigitalIn7 - digital_in7 (flow.io GPIO10) [206]",
-            207: "PortDigitalIn8 - digital_in8 (flow.io GPIO11) [207]",
+            200: "PortDigitalIn1 - water_counter (Waveshare GPIO7) [200]",
+            201: "PortDigitalIn2 - ph_level (Waveshare GPIO4) [201]",
+            202: "PortDigitalIn3 - chlorine_level (Waveshare GPIO5) [202]",
+            203: "PortDigitalIn4 - pool_level (Waveshare GPIO6) [203]",
         }
 
         selected_labels = None

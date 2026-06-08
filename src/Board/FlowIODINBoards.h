@@ -62,7 +62,7 @@ inline constexpr OneWireBusSpec kFlowIOS3OneWire[] = {
 inline constexpr OneWireBusSpec kWaveshareESP32S3OneWire[] = {
     // {name, signal, pin}
     {"temp_probe_1", BoardSignal::TempProbe1, 48}, // Water DS18B20 probe bus on GPIO48.
-    {"temp_probe_2", BoardSignal::TempProbe2, 9}, // Air DS18B20 probe bus on GPIO9.
+    {"temp_probe_2", BoardSignal::TempProbe2, 47}, // Air DS18B20 probe bus on GPIO9.
 };
 
 // Waveshare industrial 8DI/8RO variants route W5500 on GPIO13/14/15/16 + INT12 + RST39.

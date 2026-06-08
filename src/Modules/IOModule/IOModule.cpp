@@ -137,6 +137,16 @@ static constexpr uint8_t kCfgBranchIoBmp280 = 30;
 static constexpr uint8_t kCfgBranchIoBme680 = 31;
 static constexpr uint8_t kCfgBranchIoIna226 = 32;
 static constexpr char kLegacyCounterRuntimeKeyFmt[] = "ioi%02urt";
+
+static void formatDs18Address_(const uint8_t addr[8], char* out, size_t outLen)
+{
+    if (!addr || !out || outLen == 0U) return;
+    int pos = snprintf(out, outLen, "%02X", addr[0]);
+    for (uint8_t i = 1; i < 8U && pos > 0 && (size_t)pos < outLen; ++i) {
+        pos += snprintf(out + pos, outLen - (size_t)pos, ":%02X", addr[i]);
+    }
+}
+
 #define FLOW_IO_ANALOG_ROUTE_ENTRY(ROUTE_ID, BRANCH_ID, SLOT_STR) \
     {ROUTE_ID, {(uint8_t)ConfigModuleId::Io, BRANCH_ID}, "io/input/a" SLOT_STR, "io/input/a" SLOT_STR, (uint8_t)MqttPublishPriority::Normal, nullptr}
 static constexpr MqttConfigRouteProducer::Route kIoCfgRoutes[] = {
@@ -1797,18 +1807,59 @@ bool IOModule::resolveDsBusAddress_(OneWireBus* bus, const char* runtimeKey, uin
     if (!bus || !runtimeKey || !outAddr) return false;
 
     bus->begin();
+    const uint8_t count = bus->deviceCount();
 
     size_t len = 0U;
     const bool readOk = cfgSvc_ && cfgSvc_->readRuntimeBlob
         ? cfgSvc_->readRuntimeBlob(cfgSvc_->ctx, runtimeKey, outAddr, 8U, &len)
         : (cfgStore_ && cfgStore_->readRuntimeBlob(runtimeKey, outAddr, 8U, &len));
     if (readOk && len == 8U) {
-        if (bus->hasAddress(outAddr)) return true;
-        LOGW("Cached DS18B20 address for %s not found on current bus; rescanning", runtimeKey);
+        char cached[24]{};
+        formatDs18Address_(outAddr, cached, sizeof(cached));
+        if (bus->hasAddress(outAddr)) {
+            LOGI("DS18B20 resolved from cache key=%s GPIO=%d count=%u rom=%s",
+                 runtimeKey,
+                 bus->pin(),
+                 (unsigned)count,
+                 cached);
+            return true;
+        }
+        LOGW("Cached DS18B20 address for %s not found on current bus GPIO=%d count=%u rom=%s; rescanning",
+             runtimeKey,
+             bus->pin(),
+             (unsigned)count,
+             cached);
     }
 
-    if (bus->deviceCount() != 1U) return false;
-    if (!bus->getAddress(0, outAddr)) return false;
+    if (count != 1U) {
+        LOGW("DS18B20 scan unresolved key=%s GPIO=%d count=%u expected=1",
+             runtimeKey,
+             bus->pin(),
+             (unsigned)count);
+        for (uint8_t i = 0; i < count; ++i) {
+            uint8_t found[8]{};
+            if (!bus->getAddress(i, found)) continue;
+            char rom[24]{};
+            formatDs18Address_(found, rom, sizeof(rom));
+            LOGW("DS18B20 scan key=%s GPIO=%d index=%u rom=%s",
+                 runtimeKey,
+                 bus->pin(),
+                 (unsigned)i,
+                 rom);
+        }
+        return false;
+    }
+    if (!bus->getAddress(0, outAddr)) {
+        LOGW("DS18B20 scan failed to read address key=%s GPIO=%d count=%u",
+             runtimeKey,
+             bus->pin(),
+             (unsigned)count);
+        return false;
+    }
+
+    char resolved[24]{};
+    formatDs18Address_(outAddr, resolved, sizeof(resolved));
+    LOGI("DS18B20 resolved by scan key=%s GPIO=%d rom=%s", runtimeKey, bus->pin(), resolved);
 
     if (cfgSvc_ && cfgSvc_->writeRuntimeBlobAsync) {
         (void)cfgSvc_->writeRuntimeBlobAsync(cfgSvc_->ctx, runtimeKey, outAddr, 8U);

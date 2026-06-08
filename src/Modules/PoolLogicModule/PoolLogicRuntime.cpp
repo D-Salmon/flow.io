@@ -187,16 +187,23 @@ bool PoolLogicModule::buildRuntimeSnapshot(uint8_t idx, char* out, size_t len, u
         const int wrote = snprintf(out,
                                    len,
                                    "{\"dt\":%u,\"dts\":\"%s\",\"swgm\":%u,\"swgms\":\"%s\","
-                                   "\"o2\":{\"state\":%u,\"last_day\":%u,\"done_ml\":%.1f,\"pending_ml\":%.1f},"
+                                   "\"o2\":{\"state\":%u,\"state_s\":\"%s\",\"block\":%u,\"block_s\":\"%s\","
+                                   "\"last_day\":%u,\"done_ml\":%.1f,\"pending_ml\":%.1f,"
+                                   "\"plan_ml\":%.1f,\"flow_l_h\":%.2f},"
                                    "\"t\":%lu}",
                                    (unsigned)disinfectionType_,
                                    disinfectionTypeStr_(disinfectionType_),
                                    (unsigned)swgControlMode_,
                                    swgControlModeStr_(swgControlMode_),
                                    (unsigned)o2ProtocolState_,
+                                   o2ProtocolStateStr_(o2ProtocolState_),
+                                   (unsigned)o2BlockReason_,
+                                   o2BlockReasonStr_(o2BlockReason_),
                                    (unsigned)o2LastDoseDay_,
                                    (double)o2WeeklyDoneMl_,
                                    (double)o2PendingMl_,
+                                   (double)o2LastPlannedDoseMl_,
+                                   (double)o2LastFlowLh_,
                                    (unsigned long)nowMs);
         if (wrote < 0 || (size_t)wrote >= len) return false;
         maxTsOut = nowMs ? nowMs : 1U;

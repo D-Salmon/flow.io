@@ -8,6 +8,7 @@
 #include "Modules/IOModule/IORuntime.h"
 #include "Modules/PoolDeviceModule/PoolDeviceRuntime.h"
 
+#include <cmath>
 #include <cstring>
 #include <new>
 
@@ -514,6 +515,39 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
             "mdi:calendar-check-outline",
             nullptr
         };
+        const HASensorEntry o2BlockReason{
+            "poollogic",
+            "pl_o2_block",
+            "O2 Block Reason",
+            "rt/poollogic/disinfection",
+            "{{ value_json.o2.block_s | default('none') }}",
+            "diagnostic",
+            "mdi:alert-circle-outline",
+            nullptr,
+            false,
+            nullptr,
+            true
+        };
+        const HASensorEntry o2PlannedDose{
+            "poollogic",
+            "pl_o2_plan",
+            "O2 Planned Dose",
+            "rt/poollogic/disinfection",
+            "{{ value_json.o2.plan_ml | float(0) }}",
+            "diagnostic",
+            "mdi:cup-water",
+            "ml"
+        };
+        const HASensorEntry o2PumpFlow{
+            "poollogic",
+            "pl_o2_flow",
+            "O2 Pump Flow",
+            "rt/poollogic/disinfection",
+            "{{ value_json.o2.flow_l_h | float(0) }}",
+            "diagnostic",
+            "mdi:pump",
+            "L/h"
+        };
         (void)haSvc->addSensor(haSvc->ctx, &filtrationStart);
         (void)haSvc->addSensor(haSvc->ctx, &filtrationStop);
         (void)haSvc->addSensor(haSvc->ctx, &heatAssistStatus);
@@ -521,6 +555,9 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
         (void)haSvc->addSensor(haSvc->ctx, &o2WeeklyDone);
         (void)haSvc->addSensor(haSvc->ctx, &o2Pending);
         (void)haSvc->addSensor(haSvc->ctx, &o2LastDoseDay);
+        (void)haSvc->addSensor(haSvc->ctx, &o2BlockReason);
+        (void)haSvc->addSensor(haSvc->ctx, &o2PlannedDose);
+        (void)haSvc->addSensor(haSvc->ctx, &o2PumpFlow);
     }
     if (haSvc && haSvc->addNumber) {
         const HANumberEntry waterTempSetpoint{
@@ -1040,13 +1077,37 @@ void PoolLogicModule::onConfigLoaded(ConfigStore&, ServiceRegistry& services)
         swgControlMode_ = SwgControlContinuous;
         if (cfgStore_) (void)cfgStore_->set(swgControlModeVar_, swgControlMode_);
     }
+    if (!std::isfinite(o2PoolVolumeM3_) || o2PoolVolumeM3_ <= 0.0f) {
+        o2PoolVolumeM3_ = 50.0f;
+        if (cfgStore_) (void)cfgStore_->set(o2PoolVolumeVar_, o2PoolVolumeM3_);
+    }
+    if (!std::isfinite(o2DoseMlPer10M3Week_) || o2DoseMlPer10M3Week_ <= 0.0f) {
+        o2DoseMlPer10M3Week_ = 500.0f;
+        if (cfgStore_) (void)cfgStore_->set(o2DoseVar_, o2DoseMlPer10M3Week_);
+    }
+    if (o2MainHour_ > 23U) {
+        o2MainHour_ = 20U;
+        if (cfgStore_) (void)cfgStore_->set(o2MainHourVar_, o2MainHour_);
+    }
     if (o2SplitCount_ == 0U || o2SplitCount_ > 3U) {
         o2SplitCount_ = 2U;
         if (cfgStore_) (void)cfgStore_->set(o2SplitCountVar_, o2SplitCount_);
     }
+    if (!std::isfinite(o2LoadFactor_) || o2LoadFactor_ <= 0.0f) {
+        o2LoadFactor_ = 1.0f;
+        if (cfgStore_) (void)cfgStore_->set(o2LoadFactorVar_, o2LoadFactor_);
+    }
     if (o2ProtocolState_ > O2ProtocolBlocked) {
         o2ProtocolState_ = O2ProtocolIdle;
         if (cfgStore_) (void)cfgStore_->set(o2ProtocolStateVar_, o2ProtocolState_);
+    }
+    if (!std::isfinite(o2WeeklyDoneMl_) || o2WeeklyDoneMl_ < 0.0f) {
+        o2WeeklyDoneMl_ = 0.0f;
+        if (cfgStore_) (void)cfgStore_->set(o2WeeklyDoneVar_, o2WeeklyDoneMl_);
+    }
+    if (!std::isfinite(o2PendingMl_) || o2PendingMl_ < 0.0f) {
+        o2PendingMl_ = 0.0f;
+        if (cfgStore_) (void)cfgStore_->set(o2PendingVar_, o2PendingMl_);
     }
 
     LOGI("PoolLogic pH dosing mode=%s", phDosePlus_ ? "pH+" : "pH-");
