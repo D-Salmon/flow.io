@@ -27,28 +27,38 @@ La dernière version tire notamment profit de l'ESP32-S3 embarqué dans la carte
 
 ## Surveillance et contrôle en continu
 
-Mesure en continu:
+flow.io mesure l'état du bassin et pilote les équipements en continu pour maintenir l'eau stable, adapter la filtration et sécuriser les traitements.
+
+Modes de désinfection supportés:
+- `Chlore/Brome`: régulation PID temporelle sur sonde ORP, avec injection par pompe péristaltique, consigne redox, délai de stabilisation après démarrage filtration, sécurité pression et contrôle du niveau de cuve
+- `Electrolyse`: pilotage d'un électrolyseur au sel, soit en suivi de consigne ORP avec hystérésis, soit sur plages fixes pendant la filtration, avec température minimale de sécurité et temporisation de démarrage
+- `Oxygène actif liquide`: dosage volumétrique sans asservissement ORP, calculé à partir du volume du bassin, de la dose produit hebdomadaire, du facteur de charge, de la compensation température optionnelle, de l'heure principale de dosage et d'un fractionnement en 1, 2 ou 3 injections par semaine
+
+Régulation automatique de température:
+- consigne de chauffage avec hystérésis et relais chauffage dédié
+- protocole de chauffage assisté qui lance d'abord la filtration pour obtenir une mesure fiable de température d'eau, puis décide de maintenir pompe et chauffage actifs
+- cycles de sondage périodiques lorsque la pompe est arrêtée, avec arrêt automatique une fois la consigne atteinte
+- blocage de sécurité si la pression ou la mesure de température ne sont pas cohérentes
+
+Mesures effectuées:
 - température de l'eau et de l'air
 - pression de pompe
 - pH
-- ORP (redox)
+- ORP / redox
 - niveau du bassin
-- métriques de fonctionnement des équipements (temps de marche, volumes injectés, niveau cuves)
+- niveaux de cuves pH et désinfection
+- compteur d'eau ou métriques de remplissage
+- états, temps de marche, volumes injectés et historiques d'exploitation des équipements
 
-Actionneurs pilotés:
+Actionneurs supportés:
 - pompe de filtration
-- pompes péristaltiques pH / chlore liquide
-- électrolyse au sel (SWG)
+- pompe doseuse pH, compatible pH- ou pH+
+- pompe doseuse chlore/brome ou oxygène actif liquide
+- électrolyseur au sel
 - pompe robot
-- pompe de remplissage
-- relais auxiliaires (ex: éclairage, chauffage, équipements externes)
-
-## Désinfection supportée
-
-flow.io supporte désormais trois stratégies de désinfection principales:
-- `Chlore/Brome`: pilotage d'une pompe péristaltique par régulation ORP, avec dosage temporel et sécurités de filtration, pression et niveau de cuve
-- `Electrolyse`: pilotage d'un électrolyseur au sel, soit en suivi de consigne ORP, soit en fonctionnement continu pendant la filtration selon le mode configuré
-- `Oxygène actif`: dosage liquide calculé au volume, sans utiliser la sonde ORP comme critère de décision, adapté aux produits dont la mesure redox n'est pas représentative
+- pompe ou électrovanne de remplissage
+- chauffage ou pompe à chaleur
+- éclairage et relais auxiliaires
 
 ## Interface locale tactile
 
