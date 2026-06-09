@@ -23,6 +23,7 @@ struct TimeConfig {
     char server1[40] = "pool.ntp.org";
     char server2[40] = "time.nist.gov";
     char tz[64]      = "CET-1CEST,M3.5.0/2,M10.5.0/3";
+    char manualTime[24] = "";
     bool enabled = true;
     bool weekStartMonday = true;
 };
@@ -81,6 +82,13 @@ private:
         uint64_t epochSec = 0;
     };
 
+    struct SourceSnapshot {
+        bool available = false;
+        bool valid = false;
+        uint64_t epochSec = 0ULL;
+        uint32_t sampledAtMs = 0;
+    };
+
     TimeConfig cfgData{};
     char scheduleBlob_[TIME_SCHED_BLOB_SIZE] = {0};
 
@@ -89,6 +97,8 @@ private:
     const LogHubService* logHub = nullptr;
     EventBus* eventBus = nullptr;
     DataStore* dataStore = nullptr;
+    ServiceRegistry* services_ = nullptr;
+    const HmiService* hmiSvc_ = nullptr;
     MqttConfigRouteProducer* cfgMqttPub_ = nullptr;
 
     static void onEventStatic(const Event& e, void* user);
@@ -127,6 +137,10 @@ private:
         NVS_KEY(NvsKeys::Time::Enabled),"enabled","time",ConfigType::Bool,
         &cfgData.enabled,ConfigPersistence::Persistent,0
     };
+    ConfigVariable<char,0> manualTimeVar {
+        NVS_KEY(NvsKeys::Time::ManualTime),"manual_time","time",ConfigType::CharArray,
+        (char*)cfgData.manualTime,ConfigPersistence::Persistent,sizeof(cfgData.manualTime)
+    };
     ConfigVariable<bool,0> weekStartMondayVar {
         NVS_KEY(NvsKeys::Time::WeekStartMonday),"week_start_mon","time",ConfigType::Bool,
         &cfgData.weekStartMonday,ConfigPersistence::Persistent,0
@@ -141,10 +155,24 @@ private:
     TimeSyncState stateSvc_() const;
     bool isSynced_() const;
     bool isExternalRtc_() const;
+    TimeSource sourceSvc_() const;
+    const char* sourceNameSvc_() const;
     uint64_t epoch_() const;
     bool formatLocalTime_(char* out, size_t len) const;
     bool setExternalEpoch_(uint64_t epochSec);
-    bool setRtcEpoch_(uint64_t epochSec, bool fromInternalRtc, const char* sourceTag);
+    bool setRtcEpoch_(uint64_t epochSec, TimeSource source, const char* sourceTag);
+    void setActiveSource_(TimeSource source);
+    const char* activeSourceName_() const;
+    static const char* sourceName_(TimeSource source);
+    void recordSource_(TimeSource source, bool available, bool valid, uint64_t epochSec, uint32_t sampledAtMs);
+    bool ensureHmiService_();
+    bool nextionRtcReadEpoch_(uint64_t& epochSec);
+    bool nextionRtcWriteEpoch_(uint64_t epochSec);
+    void serviceNextionFallback_(uint32_t nowMs);
+    void serviceNextionWriteBack_(uint32_t nowMs);
+    void serviceManualTimeConfig_(uint32_t nowMs);
+    static bool parseManualTime_(const char* text, uint64_t& epochSec);
+    static bool epochToHmiRtc_(uint64_t epochSec, HmiRtcDateTime& out);
 
     bool setSlotSvc_(const TimeSchedulerSlot* slotDef);
     bool getSlotSvc_(uint8_t slot, TimeSchedulerSlot* outDef) const;
@@ -184,7 +212,6 @@ private:
     void serviceInternalRtcFallback_(uint32_t nowMs);
     void serviceInternalRtcWriteBack_(uint32_t nowMs);
     void serviceInternalRtcDailyResync_(uint32_t nowMs);
-    static uint32_t dayStampFromEpoch_(uint64_t epochSec);
 #endif
 
     // ---- network warmup ----
@@ -196,6 +223,16 @@ private:
     uint32_t _retryDelayMs = 2000; // 2s start
     bool syncedFromExternalRtc_ = false;
     bool syncedFromInternalRtc_ = false;
+    TimeSource activeSource_ = TimeSource::None;
+    SourceSnapshot ntpSource_{};
+    SourceSnapshot internalRtcSource_{};
+    SourceSnapshot nextionSource_{};
+    uint32_t lastNextionRtcReadAttemptMs_ = 0;
+    uint32_t lastNextionRtcWriteAttemptMs_ = 0;
+    uint32_t lastNextionRtcWriteDayStamp_ = 0xFFFFFFFFUL;
+    bool nextionRtcWritePending_ = false;
+    char manualTimeApplied_[sizeof(TimeConfig::manualTime)] = {0};
+    uint32_t lastManualTimeAttemptMs_ = 0;
 
 #if FLOW_RTC_PCF85063
     bool internalRtcInitDone_ = false;
@@ -227,7 +264,9 @@ private:
         ServiceBinding::bind<&TimeModule::formatLocalTime_>,
         this,
         ServiceBinding::bind<&TimeModule::setExternalEpoch_>,
-        ServiceBinding::bind<&TimeModule::isExternalRtc_>
+        ServiceBinding::bind<&TimeModule::isExternalRtc_>,
+        ServiceBinding::bind<&TimeModule::sourceSvc_>,
+        ServiceBinding::bind<&TimeModule::sourceNameSvc_>
     };
     TimeSchedulerService schedSvc_{
         ServiceBinding::bind<&TimeModule::setSlotSvc_>,

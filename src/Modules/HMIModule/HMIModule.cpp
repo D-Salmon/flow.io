@@ -1287,6 +1287,18 @@ bool HMIModule::pushEspTimeToNextionRtc_()
     return true;
 }
 
+bool HMIModule::readRtcSvc_(HmiRtcDateTime* out, uint16_t timeoutMs)
+{
+    if (!out || !driver_ || !driverReady_) return false;
+    return driver_->readRtc(*out, timeoutMs);
+}
+
+bool HMIModule::writeRtcSvc_(const HmiRtcDateTime* value)
+{
+    if (!value || !driver_ || !driverReady_) return false;
+    return driver_->writeRtc(*value);
+}
+
 void HMIModule::resetClockPublishStamps_()
 {
     lastClockMinuteStamp_ = kInvalidClockStamp;
@@ -1295,67 +1307,7 @@ void HMIModule::resetClockPublishStamps_()
 
 void HMIModule::serviceRtcBridge_(uint32_t nowMs)
 {
-    if (!driver_ || !driverReady_ || !timeSvc_) return;
-
-    const bool timeSynced = timeSvc_->isSynced && timeSvc_->isSynced(timeSvc_->ctx);
-    const bool fromExternalRtc = timeSynced &&
-                                 timeSvc_->isExternalRtc &&
-                                 timeSvc_->isExternalRtc(timeSvc_->ctx);
-
-#if FLOW_TIME_PREFER_INTERNAL_RTC
-    if (timeSynced && fromExternalRtc) {
-        rtcFallbackCompleted_ = true;
-    }
-#endif
-
-    if (timeSynced) {
-        rtcFallbackCompleted_ = true;
-        if (!timeSvc_->epoch) return;
-        if (driver_ == static_cast<IHmiDriver*>(&remoteUdp_) &&
-            remoteUdpServer_ &&
-            remoteUdpServer_->isDisplaySleeping()) {
-            return;
-        }
-
-        const uint64_t epoch = timeSvc_->epoch(timeSvc_->ctx);
-        const uint32_t dayStamp = rtcDayStamp_(epoch);
-        if (dayStamp == kInvalidClockStamp) return;
-        const bool dayChanged = dayStamp != lastRtcPushDayStamp_;
-        if (!rtcPushPending_ && !dayChanged) return;
-        if (lastRtcPushAttemptMs_ != 0U &&
-            (uint32_t)(nowMs - lastRtcPushAttemptMs_) < kRtcPushRetryMs) {
-            return;
-        }
-
-        lastRtcPushAttemptMs_ = nowMs;
-        if (pushEspTimeToNextionRtc_()) {
-            lastRtcPushDayStamp_ = dayStamp;
-            rtcPushPending_ = false;
-        }
-        return;
-    }
-
-    if (rtcFallbackCompleted_) return;
-
-    bool immediateFallback = false;
-    if (timeSvc_->state && timeSvc_->state(timeSvc_->ctx) == TimeSyncState::Disabled) {
-        immediateFallback = true;
-    }
-    if (wifiSvc_ && wifiSvc_->state && wifiSvc_->state(wifiSvc_->ctx) == WifiState::Disabled) {
-        immediateFallback = true;
-    }
-
-    if (!immediateFallback && nowMs < kRtcFallbackDelayMs) return;
-    if (lastRtcFallbackAttemptMs_ != 0U &&
-        (uint32_t)(nowMs - lastRtcFallbackAttemptMs_) < kRtcFallbackRetryMs) {
-        return;
-    }
-
-    lastRtcFallbackAttemptMs_ = nowMs;
-    if (readNextionRtcAndSetTime_()) {
-        rtcFallbackCompleted_ = true;
-        queueHomePublish_(kHomePublishTime | kHomePublishDate);
-    }
+    (void)nowMs;
 }
 
 void HMIModule::queueHomePublish_(uint32_t mask)

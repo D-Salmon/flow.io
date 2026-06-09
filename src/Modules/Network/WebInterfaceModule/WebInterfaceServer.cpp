@@ -46,6 +46,7 @@
 #include <memory>
 #include "Core/DataKeys.h"
 #include "Core/EventBus/EventPayloads.h"
+#include "Modules/Network/TimeModule/TimeRuntime.h"
 #include "Modules/Network/WifiModule/WifiRuntime.h"
 
 #ifndef FLOW_WEB_UNIFY_STATUS_CARD_ICONS
@@ -1389,9 +1390,9 @@ const char kMicronovaRuntimeManifestJson[] PROGMEM = R"json({
     {"id":1702,"runtimeId":1702,"moduleId":17,"module":"system","valueId":2,"key":"system.uptime_ms","label":"Uptime","type":"uint32","domain":"system","group":"Système","unit":"ms","decimals":0,"order":20},
     {"id":1703,"runtimeId":1703,"moduleId":17,"module":"system","valueId":3,"key":"system.heap_free","label":"Heap libre","type":"uint32","domain":"system","group":"Mémoire","unit":"B","decimals":0,"order":30},
     {"id":1704,"runtimeId":1704,"moduleId":17,"module":"system","valueId":4,"key":"system.heap_min_free","label":"Heap minimum","type":"uint32","domain":"system","group":"Mémoire","unit":"B","decimals":0,"order":40},
-    {"id":1001,"runtimeId":1001,"moduleId":10,"module":"wifi","valueId":1,"key":"wifi.ready","label":"WiFi connecté","type":"bool","domain":"wifi","group":"WiFi","unit":null,"decimals":null,"order":10,"display":"boolean"},
-    {"id":1002,"runtimeId":1002,"moduleId":10,"module":"wifi","valueId":2,"key":"wifi.ip","label":"Adresse IP","type":"string","domain":"wifi","group":"WiFi","unit":null,"decimals":null,"order":20},
-    {"id":1003,"runtimeId":1003,"moduleId":10,"module":"wifi","valueId":3,"key":"wifi.rssi","label":"RSSI","type":"int32","domain":"wifi","group":"WiFi","unit":"dBm","decimals":0,"order":30},
+    {"id":1001,"runtimeId":1001,"moduleId":10,"module":"wifi","valueId":1,"key":"wifi.ready","label":"Réseau connecté","type":"bool","domain":"wifi","group":"Réseau","unit":null,"decimals":null,"order":10,"display":"boolean"},
+    {"id":1002,"runtimeId":1002,"moduleId":10,"module":"wifi","valueId":2,"key":"wifi.ip","label":"Adresse IP","type":"string","domain":"wifi","group":"Réseau","unit":null,"decimals":null,"order":20},
+    {"id":1003,"runtimeId":1003,"moduleId":10,"module":"wifi","valueId":3,"key":"wifi.rssi","label":"RSSI","type":"int32","domain":"wifi","group":"Réseau","unit":"dBm","decimals":0,"order":30},
     {"id":1004,"runtimeId":1004,"moduleId":10,"module":"wifi","valueId":4,"key":"network.type","label":"Type","type":"string","domain":"wifi","group":"Réseau","unit":null,"decimals":null,"order":40}
   ]
 })json";
@@ -1867,6 +1868,12 @@ bool appendFlowios3LocalRuntimeValue_(Print& out,
             flowios3EnsureSystemStats_(ctx);
             printRuntimeU32_(out, firstValue, id, "system.heap_min_free", ctx.systemStats.heap.minFreeBytes, "B");
             return true;
+        case 1301:
+            printRuntimeBool_(out, firstValue, id, "time.ready", timeReady(*dataStore) || timeSource(*dataStore) != TimeSource::None);
+            return true;
+        case 1302:
+            printRuntimeString_(out, firstValue, id, "time.source", timeSourceText(*dataStore));
+            return true;
         case 1001:
             printRuntimeBool_(out, firstValue, id, "wifi.ready", networkReady(*dataStore));
             return true;
@@ -1942,6 +1949,10 @@ bool flowios3BuildStatusDomainJson_(FlowStatusDomain domain,
         doc["devicename"] = deviceName;
         doc["fw"] = FirmwareVersion::Full;
         doc["upms"] = (uint64_t)ctx.systemStats.uptimeMs64;
+        JsonObject time = doc.createNestedObject("time");
+        time["rdy"] = dataStore ? (timeReady(*dataStore) || timeSource(*dataStore) != TimeSource::None) : false;
+        time["src"] = dataStore ? timeSourceText(*dataStore) : "none";
+        time["src_id"] = dataStore ? (uint8_t)timeSource(*dataStore) : 0U;
         JsonObject heap = doc.createNestedObject("heap");
         heap["free"] = ctx.systemStats.heap.freeBytes;
         heap["min_free"] = ctx.systemStats.heap.minFreeBytes;
@@ -2116,6 +2127,16 @@ bool sendFlowios3StatusCompactResponse_(AsyncWebServerRequest* request,
     if (!poolRoot["pool"].isNull()) appendJsonFieldValue_(*response, "pool", poolRoot["pool"]);
     JsonObjectConst i2cRoot = i2cDoc.as<JsonObjectConst>();
     if (!i2cRoot["i2c"].isNull()) appendJsonFieldValue_(*response, "i2c", i2cRoot["i2c"]);
+    if (dataStore) {
+        response->print(",\"time\":{");
+        response->print("\"rdy\":");
+        response->print((timeReady(*dataStore) || timeSource(*dataStore) != TimeSource::None) ? "true" : "false");
+        response->print(",\"src\":");
+        printJsonEscaped_(*response, timeSourceText(*dataStore));
+        response->print(",\"src_id\":");
+        response->print((unsigned)timeSource(*dataStore));
+        response->print('}');
+    }
 
     response->print("}");
     request->send(response);
@@ -3103,7 +3124,7 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
     <h2>Etat</h2>
     <div class="row">
       <button class="secondary" id="refresh" type="button">Rafraichir</button>
-      <button class="secondary" id="scan" type="button">Scanner Wi-Fi</button>
+      <button class="secondary" id="scan" type="button">Scanner le réseau</button>
       <a href="/webinterface?full=1" style="align-self:center">Essayer l'interface complete</a>
     </div>
     <div class="status" id="status">Chargement...</div>
@@ -3111,8 +3132,8 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
 
   <div class="grid">
     <section>
-      <h2>Wi-Fi Supervisor</h2>
-      <label><input id="wifiEnabled" type="checkbox" checked />Activer le Wi-Fi station</label>
+      <h2>Réseau Supervisor</h2>
+      <label><input id="wifiEnabled" type="checkbox" checked />Activer le réseau station</label>
       <label for="wifiList">Reseaux detectes</label>
       <select id="wifiList"><option value="">Saisie manuelle</option></select>
       <label for="ssid">SSID</label>
@@ -3120,7 +3141,7 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
       <label for="pass">Mot de passe</label>
       <input id="pass" type="password" autocomplete="off" />
       <div class="row">
-        <button id="saveWifi" type="button">Enregistrer Wi-Fi</button>
+        <button id="saveWifi" type="button">Enregistrer réseau</button>
       </div>
       <div class="status" id="wifiMsg">-</div>
     </section>
@@ -3257,7 +3278,7 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
           pass: $("pass").value
         })
       });
-      put(wifiMsg, out.reboot_scheduled ? "Wi-Fi enregistre. Redemarrage planifie." : "Wi-Fi enregistre.", "ok");
+      put(wifiMsg, out.reboot_scheduled ? "Réseau enregistre. Redemarrage planifie." : "Réseau enregistre.", "ok");
       await refreshAll();
     } catch (e) {
       put(wifiMsg, e.message, "bad");

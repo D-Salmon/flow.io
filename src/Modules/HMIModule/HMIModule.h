@@ -208,6 +208,8 @@ private:
     bool setStatusLedAutoWifiMode_(bool enabled);
     bool isStatusLedAutoWifiMode_() const;
     bool getDisplayVersion_(char* out, size_t outLen) const;
+    bool readRtcSvc_(HmiRtcDateTime* out, uint16_t timeoutMs);
+    bool writeRtcSvc_(const HmiRtcDateTime* value);
     bool refreshCurrentModule_();
     bool render_();
     bool renderAlarmPage_();
@@ -273,6 +275,9 @@ private:
         ServiceBinding::bind<&HMIModule::setStatusLedAutoWifiMode_>,
         ServiceBinding::bind<&HMIModule::isStatusLedAutoWifiMode_>,
         ServiceBinding::bind<&HMIModule::getDisplayVersion_>,
+        ServiceBinding::bind<&HMIModule::readRtcSvc_>,
+        ServiceBinding::bind<&HMIModule::writeRtcSvc_>,
+        ServiceBinding::bind<&HMIModule::isDisplaySleeping_>,
         this
     };
 };

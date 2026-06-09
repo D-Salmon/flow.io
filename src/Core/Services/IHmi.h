@@ -7,6 +7,15 @@
 #include <stddef.h>
 #include <stdint.h>
 
+struct HmiRtcDateTime {
+    uint16_t year = 0;
+    uint8_t month = 0;
+    uint8_t day = 0;
+    uint8_t hour = 0;
+    uint8_t minute = 0;
+    uint8_t second = 0;
+};
+
 struct HmiStatusLedState {
     bool enabled = true;
     bool blinkEnabled = false;
@@ -30,5 +39,8 @@ struct HmiService {
     bool (*setStatusLedAutoWifiMode)(void* ctx, bool enabled);
     bool (*isStatusLedAutoWifiMode)(void* ctx);
     bool (*getDisplayVersion)(void* ctx, char* out, size_t outLen);
+    bool (*readRtc)(void* ctx, HmiRtcDateTime* out, uint16_t timeoutMs);
+    bool (*writeRtc)(void* ctx, const HmiRtcDateTime* value);
+    bool (*isDisplaySleeping)(void* ctx);
     void* ctx;
 };

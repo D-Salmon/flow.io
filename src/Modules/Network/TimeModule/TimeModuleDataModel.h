@@ -7,6 +7,8 @@
 /** @brief Time runtime status. */
 struct TimeRuntimeData {
     bool timeReady = false;
+    uint8_t source = 0;
+    char sourceText[16] = "none";
 };
 
 // MODULE_DATA_MODEL: TimeRuntimeData time

@@ -49,6 +49,7 @@ constexpr char Server1[] = "ntp_s1"; // Time module persisted key for field `ntp
 constexpr char Server2[] = "ntp_s2"; // Time module persisted key for field `ntp_s2`.
 constexpr char Tz[] = "ntp_tz"; // Time module persisted key for field `ntp_tz`.
 constexpr char Enabled[] = "ntp_en"; // Time module persisted key for field `ntp_en`.
+constexpr char ManualTime[] = "tm_manual"; // Time module persisted key for field `manual_time`.
 constexpr char WeekStartMonday[] = "tm_wkmon"; // Time module persisted key for field `tm_wkmon`.
 constexpr char ScheduleBlob[] = "tm_sched"; // Time module persisted key for field `tm_sched`.
 }  // namespace Time
