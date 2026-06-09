@@ -33,6 +33,11 @@ AppContext gContext{};
 bool gStarted = false;
 #if FLOW_ENABLE_BOOT_LOG_CAPTURE
 bool gBootLogCaptureCompleteMarked = false;
+
+bool bootLogCaptureWaitsForHaDiscovery()
+{
+    return gContext.services.has(ServiceId::Ha);
+}
 #endif
 
 const FirmwareProfile& resolveProfile()
@@ -61,6 +66,7 @@ void markBootLogCaptureCompleteIfReady()
 {
     if (gBootLogCaptureCompleteMarked) return;
     if (!gContext.moduleManager.startupComplete()) return;
+    if (bootLogCaptureWaitsForHaDiscovery()) return;
 
     markBootLogCaptureComplete();
     gBootLogCaptureCompleteMarked = true;

@@ -30,6 +30,8 @@ constexpr DataKey MqttParseFail = 6;
 constexpr DataKey MqttHandlerFail = 7;
 /** @brief MQTT runtime key: dropped RX messages due to oversize topic/payload (`MQTTRuntime`). */
 constexpr DataKey MqttOversizeDrop = 8;
+/** @brief MQTT runtime key: initial full runtime snapshot has completed (`MQTTRuntime`). */
+constexpr DataKey MqttRuntimeFullSnapshotPublished = 9;
 
 /** @brief Home Assistant runtime key: autoconfig publish state (`HARuntime`). */
 constexpr DataKey HaPublished = 10;
@@ -133,7 +135,7 @@ constexpr DataKey ReservedMax = MicronovaEndExclusive - 1;
 
 static_assert(WifiReady < TimeReady, "DataKey ordering invariant broken");
 static_assert(TimeReady < MqttReady, "DataKey ordering invariant broken");
-static_assert(MqttOversizeDrop < HaPublished, "DataKey ranges overlap");
+static_assert(MqttRuntimeFullSnapshotPublished < HaPublished, "DataKey ranges overlap");
 static_assert(HaDeviceId < IoBase, "HA fixed keys overlap IO key range");
 static_assert(IoEndExclusive <= PoolDeviceStateBase, "IO and pool-device key ranges overlap");
 static_assert(PoolDeviceStateEndExclusive <= PoolDeviceMetricsBase, "Pool-device state and metrics ranges overlap");

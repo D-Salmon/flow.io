@@ -15,6 +15,11 @@ namespace {
 static constexpr uint16_t kRetryMinMs = 200U;
 static constexpr uint16_t kRetryMaxMs = 2000U;
 static constexpr uint32_t kRetryTimeoutMs = 10000U;
+
+uint64_t routeBit_(uint8_t idx)
+{
+    return (idx < MqttConfigRouteProducer::MaxRoutes) ? (1ULL << idx) : 0ULL;
+}
 }
 
 bool MqttConfigRouteProducer::buildRelativeTopic(char* dst,
@@ -94,35 +99,35 @@ int8_t MqttConfigRouteProducer::findRouteByMessage_(uint16_t messageId) const
 
 void MqttConfigRouteProducer::setPending_(uint8_t idx, bool pending)
 {
-    if (idx >= routeCount_ || idx >= 32U) return;
-    const uint32_t mask = (1UL << idx);
+    if (idx >= routeCount_ || idx >= MaxRoutes) return;
+    const uint64_t mask = routeBit_(idx);
     if (pending) pendingMask_ |= mask;
     else pendingMask_ &= ~mask;
 }
 
 bool MqttConfigRouteProducer::isPending_(uint8_t idx) const
 {
-    if (idx >= routeCount_ || idx >= 32U) return false;
-    return (pendingMask_ & (1UL << idx)) != 0UL;
+    if (idx >= routeCount_ || idx >= MaxRoutes) return false;
+    return (pendingMask_ & routeBit_(idx)) != 0ULL;
 }
 
 void MqttConfigRouteProducer::setNeedsEnqueue_(uint8_t idx, bool needed)
 {
-    if (idx >= routeCount_ || idx >= 32U) return;
-    const uint32_t mask = (1UL << idx);
+    if (idx >= routeCount_ || idx >= MaxRoutes) return;
+    const uint64_t mask = routeBit_(idx);
     if (needed) needsEnqueueMask_ |= mask;
     else needsEnqueueMask_ &= ~mask;
 }
 
 bool MqttConfigRouteProducer::needsEnqueue_(uint8_t idx) const
 {
-    if (idx >= routeCount_ || idx >= 32U) return false;
-    return (needsEnqueueMask_ & (1UL << idx)) != 0UL;
+    if (idx >= routeCount_ || idx >= MaxRoutes) return false;
+    return (needsEnqueueMask_ & routeBit_(idx)) != 0ULL;
 }
 
 bool MqttConfigRouteProducer::hasNeedsEnqueue_() const
 {
-    return needsEnqueueMask_ != 0UL;
+    return needsEnqueueMask_ != 0ULL;
 }
 
 void MqttConfigRouteProducer::armRetry_(uint32_t nowMs)
@@ -159,11 +164,11 @@ void MqttConfigRouteProducer::expireTimedOutRoutes_(uint32_t nowMs)
     }
 }
 
-uint8_t MqttConfigRouteProducer::countPendingBits_(uint32_t mask) const
+uint8_t MqttConfigRouteProducer::countPendingBits_(uint64_t mask) const
 {
     uint8_t c = 0U;
-    for (uint8_t i = 0; i < routeCount_ && i < 32U; ++i) {
-        if (mask & (1UL << i)) ++c;
+    for (uint8_t i = 0; i < routeCount_ && i < MaxRoutes; ++i) {
+        if (mask & routeBit_(i)) ++c;
     }
     return c;
 }
@@ -259,9 +264,9 @@ bool MqttConfigRouteProducer::enqueueByRoute_(uint8_t idx, MqttPublishPriority p
 {
     if (!mqttSvc_ || !mqttSvc_->enqueue) return false;
     if (idx >= routeCount_) return false;
-    const uint32_t bit = (idx < 32U) ? (1UL << idx) : 0UL;
+    const uint64_t bit = routeBit_(idx);
     const bool wasPending = isPending_(idx);
-    const bool wasBuilding = (bit != 0UL) && ((buildingMask_ & bit) != 0UL);
+    const bool wasBuilding = (bit != 0ULL) && ((buildingMask_ & bit) != 0ULL);
     if (wasBuilding) {
         republishAfterPublishMask_ |= bit;
     }
@@ -285,7 +290,7 @@ bool MqttConfigRouteProducer::enqueueByRoute_(uint8_t idx, MqttPublishPriority p
     ++metricsRefusedTotal_;
     // If a route was already pending and this enqueue was refused, preserve a
     // one-shot republish so changes that arrived in-between are not lost.
-    if (bit != 0UL && wasPending) {
+    if (bit != 0ULL && wasPending) {
         republishAfterPublishMask_ |= bit;
     }
     if (idx < MaxRoutes && retryFirstRefusedMs_[idx] == 0U) {
@@ -372,8 +377,9 @@ MqttBuildResult MqttConfigRouteProducer::buildMessage_(uint16_t messageId, MqttB
     const uint8_t idx = (uint8_t)routeIdx;
     if (!isPending_(idx)) return MqttBuildResult::NoLongerNeeded;
     const Route& route = routes_[idx];
-    if (idx < 32U) {
-        buildingMask_ |= (1UL << idx);
+    const uint64_t bit = routeBit_(idx);
+    if (bit != 0ULL) {
+        buildingMask_ |= bit;
     }
 
     if (route.customBuild) {
@@ -430,12 +436,12 @@ void MqttConfigRouteProducer::onMessagePublished_(uint16_t messageId)
     const int8_t routeIdx = findRouteByMessage_(messageId);
     if (routeIdx < 0) return;
     const uint8_t idx = (uint8_t)routeIdx;
-    const uint32_t bit = (idx < 32U) ? (1UL << idx) : 0UL;
-    if (bit != 0UL) {
+    const uint64_t bit = routeBit_(idx);
+    if (bit != 0ULL) {
         buildingMask_ &= ~bit;
     }
 
-    if (bit != 0UL && (republishAfterPublishMask_ & bit) != 0UL) {
+    if (bit != 0ULL && (republishAfterPublishMask_ & bit) != 0ULL) {
         republishAfterPublishMask_ &= ~bit;
         (void)enqueueByRoute_(idx, routePriority_(routes_[idx]));
         return;
@@ -454,11 +460,11 @@ void MqttConfigRouteProducer::onMessageDropped_(uint16_t messageId)
     const int8_t routeIdx = findRouteByMessage_(messageId);
     if (routeIdx < 0) return;
     const uint8_t idx = (uint8_t)routeIdx;
-    const uint32_t bit = (idx < 32U) ? (1UL << idx) : 0UL;
+    const uint64_t bit = routeBit_(idx);
     setPending_(idx, false);
     setNeedsEnqueue_(idx, false);
     retryFirstRefusedMs_[idx] = 0U;
-    if (bit != 0UL) {
+    if (bit != 0ULL) {
         buildingMask_ &= ~bit;
         republishAfterPublishMask_ &= ~bit;
     }

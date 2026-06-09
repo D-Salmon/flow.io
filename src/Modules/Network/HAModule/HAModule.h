@@ -195,6 +195,7 @@ private:
     void refreshIdentityFromConfig();
     void refreshDeviceNameFromMqttConfig_();
     bool enqueuePending_(MqttPublishPriority prio);
+    bool discoveryReady_() const;
     void markAllPending_();
     bool isPending_(uint16_t messageId) const;
     void setPending_(uint16_t messageId, bool pending);
@@ -209,6 +210,7 @@ private:
     MqttBuildResult buildMessage_(uint16_t messageId, MqttBuildContext& buildCtx);
     void onMessagePublished_(uint16_t messageId);
     void onMessageDropped_(uint16_t messageId);
+    void markBootLogCaptureCompleteAfterDiscovery_();
 
     bool buildEntityMessage_(uint16_t messageId, MqttBuildContext& buildCtx);
     bool buildLegacyCleanupMessage_(uint16_t cleanupId, MqttBuildContext& buildCtx);

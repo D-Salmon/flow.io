@@ -310,6 +310,8 @@ private:
     bool enqueueSvc_(uint8_t producerId, uint16_t messageId, uint8_t prio, uint8_t flags);
     void formatTopicSvc_(const char* suffix, char* out, size_t outLen) const;
     void setState_(MQTTState s);
+    static void onRuntimeInitialSnapshotCompleteStatic_(void* ctx);
+    void onRuntimeInitialSnapshotComplete_();
     bool allocateScratchBuffers_();
     bool allocateRxQueue_();
     void refreshTopicDeviceId_();

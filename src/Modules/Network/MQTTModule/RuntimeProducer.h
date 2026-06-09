@@ -7,8 +7,11 @@
 class RuntimeProducer {
 public:
     static constexpr uint8_t ProducerId = 4;
+    using InitialFullSnapshotCallback = void (*)(void* ctx);
 
-    void configure(const MqttService* mqttSvc);
+    void configure(const MqttService* mqttSvc,
+                   InitialFullSnapshotCallback initialFullSnapshotCb = nullptr,
+                   void* initialFullSnapshotCtx = nullptr);
     bool registerProvider(const IRuntimeSnapshotProvider* provider);
     void rebuildRoutes();
 
@@ -42,8 +45,14 @@ private:
 
     Route routes_[Limits::MaxRuntimeRoutes] = {};
     uint8_t routeCount_ = 0;
+    bool initialFullSnapshotActive_ = false;
+    bool initialFullSnapshotDone_[Limits::MaxRuntimeRoutes] = {};
+    uint8_t initialFullSnapshotRemaining_ = 0;
+    InitialFullSnapshotCallback initialFullSnapshotCb_ = nullptr;
+    void* initialFullSnapshotCtx_ = nullptr;
 
     void markRoutePending_(uint8_t idx, bool force);
     void enqueueRoute_(uint8_t idx);
+    void completeInitialFullSnapshotRoute_(uint8_t idx);
+    void notifyInitialFullSnapshotComplete_();
 };
-

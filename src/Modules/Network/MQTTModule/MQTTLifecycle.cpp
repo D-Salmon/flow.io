@@ -114,7 +114,23 @@ void MQTTModule::setState_(MQTTState s)
     state_ = s;
     stateTs_ = millis();
     if (dataStore_) {
+        if (s != MQTTState::Connected) {
+            setMqttRuntimeFullSnapshotPublished(*dataStore_, false);
+        }
         setMqttReady(*dataStore_, s == MQTTState::Connected);
+    }
+}
+
+void MQTTModule::onRuntimeInitialSnapshotCompleteStatic_(void* ctx)
+{
+    MQTTModule* self = static_cast<MQTTModule*>(ctx);
+    if (self) self->onRuntimeInitialSnapshotComplete_();
+}
+
+void MQTTModule::onRuntimeInitialSnapshotComplete_()
+{
+    if (dataStore_) {
+        setMqttRuntimeFullSnapshotPublished(*dataStore_, true);
     }
 }
 
@@ -302,7 +318,9 @@ void MQTTModule::init(ConfigStore& cfg, ServiceRegistry& services)
                                 (uint8_t)(sizeof(kMqttCfgRoutes) / sizeof(kMqttCfgRoutes[0])),
                                 services);
     }
-    runtimeProducerCore_.configure(&mqttSvc_);
+    runtimeProducerCore_.configure(&mqttSvc_,
+                                   &MQTTModule::onRuntimeInitialSnapshotCompleteStatic_,
+                                   this);
 
     ackProducerDesc_ = MqttPublishProducer{};
     ackProducerDesc_.producerId = ProducerIdAck;

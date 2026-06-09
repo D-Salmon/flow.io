@@ -1060,7 +1060,7 @@ bool HAModule::enqueuePending_(MqttPublishPriority prio)
 {
     if (oneShotCompleted_) return false;
     if (!mqttSvc_ || !mqttSvc_->enqueue) return false;
-    if (!startupReady_) return false;
+    if (!discoveryReady_()) return false;
 
     const uint16_t count = messageCount_();
     constexpr uint8_t kFlags = (uint8_t)MqttEnqueueFlags::SilentRejectLog;
@@ -1076,6 +1076,16 @@ bool HAModule::enqueuePending_(MqttPublishPriority prio)
     }
     HA_BOOT_TRACE_D("ha boot trace: enqueue skipped (no pending)");
     return false;
+}
+
+bool HAModule::discoveryReady_() const
+{
+    if (!startupReady_) return false;
+    if (!dsSvc_ || !dsSvc_->store) return false;
+    const DataStore& ds = *dsSvc_->store;
+    return networkReady(ds) &&
+           mqttReady(ds) &&
+           mqttRuntimeFullSnapshotPublished(ds);
 }
 
 MqttBuildResult HAModule::producerBuildStatic_(void* ctx, uint16_t messageId, MqttBuildContext& buildCtx)
@@ -1194,6 +1204,7 @@ MqttBuildResult HAModule::buildMessage_(uint16_t messageId, MqttBuildContext& bu
     if (!dsSvc_ || !dsSvc_->store) return MqttBuildResult::RetryLater;
     if (!networkReady(*dsSvc_->store)) return MqttBuildResult::RetryLater;
     if (!mqttReady(*dsSvc_->store)) return MqttBuildResult::RetryLater;
+    if (!mqttRuntimeFullSnapshotPublished(*dsSvc_->store)) return MqttBuildResult::RetryLater;
     if (!isPending_(messageId)) return MqttBuildResult::NoLongerNeeded;
 
     refreshIdentityFromConfig();
@@ -1226,6 +1237,9 @@ void HAModule::onMessagePublished_(uint16_t messageId)
     HA_BOOT_TRACE_D("ha boot trace: published message=%u done=%d",
                     (unsigned)messageId,
                     done ? 1 : 0);
+#if !FLOW_HA_ONESHOT_DISCOVERY
+    if (done) markBootLogCaptureCompleteAfterDiscovery_();
+#endif
 }
 
 void HAModule::onMessageDropped_(uint16_t messageId)
@@ -1235,9 +1249,20 @@ void HAModule::onMessageDropped_(uint16_t messageId)
     if (dsSvc_ && dsSvc_->store) {
         setHaAutoconfigPublished(*dsSvc_->store, done);
     }
+    published_ = done;
     HA_BOOT_TRACE_I("ha boot trace: dropped message=%u done=%d",
                     (unsigned)messageId,
                     done ? 1 : 0);
+#if !FLOW_HA_ONESHOT_DISCOVERY
+    if (done) markBootLogCaptureCompleteAfterDiscovery_();
+#endif
+}
+
+void HAModule::markBootLogCaptureCompleteAfterDiscovery_()
+{
+#if FLOW_ENABLE_BOOT_LOG_CAPTURE
+    markBootLogCaptureComplete();
+#endif
 }
 
 void HAModule::onEventStatic(const Event& e, void* user)
@@ -1255,20 +1280,33 @@ void HAModule::onEvent(const Event& e)
     if (!dsSvc_ || !dsSvc_->store) return;
 
     if (payload->id == DATAKEY_NETWORK_READY) {
-        HA_BOOT_TRACE_D("ha boot trace: event wifi_ready=%d mqtt_ready=%d",
+        HA_BOOT_TRACE_D("ha boot trace: event wifi_ready=%d mqtt_ready=%d runtime_full=%d",
                         networkReady(*dsSvc_->store) ? 1 : 0,
-                        mqttReady(*dsSvc_->store) ? 1 : 0);
-        if (networkReady(*dsSvc_->store) && mqttReady(*dsSvc_->store)) {
+                        mqttReady(*dsSvc_->store) ? 1 : 0,
+                        mqttRuntimeFullSnapshotPublished(*dsSvc_->store) ? 1 : 0);
+        if (discoveryReady_()) {
             (void)enqueuePending_(MqttPublishPriority::Low);
         }
         return;
     }
 
     if (payload->id == DATAKEY_MQTT_READY) {
-        HA_BOOT_TRACE_D("ha boot trace: event mqtt_ready=%d wifi_ready=%d",
+        HA_BOOT_TRACE_D("ha boot trace: event mqtt_ready=%d wifi_ready=%d runtime_full=%d",
                         mqttReady(*dsSvc_->store) ? 1 : 0,
-                        networkReady(*dsSvc_->store) ? 1 : 0);
-        if (networkReady(*dsSvc_->store) && mqttReady(*dsSvc_->store)) {
+                        networkReady(*dsSvc_->store) ? 1 : 0,
+                        mqttRuntimeFullSnapshotPublished(*dsSvc_->store) ? 1 : 0);
+        if (discoveryReady_()) {
+            (void)enqueuePending_(MqttPublishPriority::Low);
+        }
+        return;
+    }
+
+    if (payload->id == DATAKEY_MQTT_RUNTIME_FULL_SNAPSHOT_PUBLISHED) {
+        HA_BOOT_TRACE_D("ha boot trace: event runtime_full=%d wifi_ready=%d mqtt_ready=%d",
+                        mqttRuntimeFullSnapshotPublished(*dsSvc_->store) ? 1 : 0,
+                        networkReady(*dsSvc_->store) ? 1 : 0,
+                        mqttReady(*dsSvc_->store) ? 1 : 0);
+        if (discoveryReady_()) {
             (void)enqueuePending_(MqttPublishPriority::Low);
         }
         return;
@@ -1292,6 +1330,7 @@ void HAModule::loop()
     if (published_ && !anyPending_()) {
         LOGI("HA one-shot discovery complete, releasing resources");
         HA_BOOT_TRACE_I("ha boot trace: loop detected completion, deleting task");
+        markBootLogCaptureCompleteAfterDiscovery_();
         releaseOneShotResources_();
         vTaskDelete(nullptr);
     }

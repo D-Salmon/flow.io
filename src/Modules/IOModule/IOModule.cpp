@@ -2070,10 +2070,27 @@ bool IOModule::configureRuntime_()
                 s.inDef.edgeMode,
                 s.inDef.counterDebounceUs
             );
-            if (!driver) continue;
+            if (!driver) {
+                LOGW("Digital input %s driver alloc failed pin=%u binding_port=%u mode=%u debounce_us=%lu",
+                     s.endpointId,
+                     (unsigned)pin,
+                     (unsigned)s.inDef.bindingPort,
+                     (unsigned)s.inDef.mode,
+                     (unsigned long)s.inDef.counterDebounceUs);
+                continue;
+            }
 
             s.provider = makeDigitalProvider(driver);
-            if (!s.provider.begin()) continue;
+            if (!s.provider.begin()) {
+                LOGW("Digital input %s driver begin failed id=%s pin=%u binding_port=%u mode=%u debounce_us=%lu",
+                     s.endpointId,
+                     driver->id() ? driver->id() : "?",
+                     (unsigned)pin,
+                     (unsigned)s.inDef.bindingPort,
+                     (unsigned)s.inDef.mode,
+                     (unsigned long)s.inDef.counterDebounceUs);
+                continue;
+            }
 
             const uint8_t valueType = (s.inDef.mode == IO_DIGITAL_INPUT_COUNTER) ? IO_EP_VALUE_FLOAT : IO_EP_VALUE_BOOL;
             s.endpoint = allocDigitalSensorEndpoint_(s.endpointId, valueType);

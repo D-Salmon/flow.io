@@ -10,7 +10,7 @@ inline constexpr uint16_t kFlowIODINMomentaryPulseMs = 500U;
 
 inline constexpr IoCapacitySpec kFlowIODINIoCapacity{17, 5, 10, 17, 5, 10};
 inline constexpr IoCapacitySpec kFlowIOS3IoCapacity{11, 8, 8, 11, 8, 8};
-inline constexpr MqttCapacitySpec kFlowIODINMqttCapacity{5712, 8, 8, 48, 24, 16, 2, 80, 80, 80, 60};
+inline constexpr MqttCapacitySpec kFlowIODINMqttCapacity{5712, 8, 8, 48, 24, 16, 2, 192, 80, 80, 128};
 inline constexpr MqttBufferSpec kFlowIODINMqttBuffers{
     64, 32, 32, 15, 15, 70, 160, 128, 384, 1536, 1024, 1536, 1536, 64, 320, 32
 };

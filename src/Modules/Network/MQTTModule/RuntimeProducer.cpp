@@ -2,9 +2,13 @@
 
 #include <string.h>
 
-void RuntimeProducer::configure(const MqttService* mqttSvc)
+void RuntimeProducer::configure(const MqttService* mqttSvc,
+                                InitialFullSnapshotCallback initialFullSnapshotCb,
+                                void* initialFullSnapshotCtx)
 {
     mqttSvc_ = mqttSvc;
+    initialFullSnapshotCb_ = initialFullSnapshotCb;
+    initialFullSnapshotCtx_ = initialFullSnapshotCtx;
 }
 
 bool RuntimeProducer::registerProvider(const IRuntimeSnapshotProvider* provider)
@@ -69,8 +73,39 @@ void RuntimeProducer::enqueueRoute_(uint8_t idx)
     (void)mqttSvc_->enqueue(mqttSvc_->ctx, ProducerId, idx, (uint8_t)prio, 0);
 }
 
+void RuntimeProducer::completeInitialFullSnapshotRoute_(uint8_t idx)
+{
+    if (!initialFullSnapshotActive_) return;
+    if (idx >= routeCount_) return;
+    if (initialFullSnapshotDone_[idx]) return;
+
+    initialFullSnapshotDone_[idx] = true;
+    if (initialFullSnapshotRemaining_ > 0U) {
+        --initialFullSnapshotRemaining_;
+    }
+    if (initialFullSnapshotRemaining_ == 0U) {
+        notifyInitialFullSnapshotComplete_();
+    }
+}
+
+void RuntimeProducer::notifyInitialFullSnapshotComplete_()
+{
+    initialFullSnapshotActive_ = false;
+    if (initialFullSnapshotCb_) {
+        initialFullSnapshotCb_(initialFullSnapshotCtx_);
+    }
+}
+
 void RuntimeProducer::onConnected()
 {
+    memset(initialFullSnapshotDone_, 0, sizeof(initialFullSnapshotDone_));
+    initialFullSnapshotRemaining_ = routeCount_;
+    initialFullSnapshotActive_ = true;
+    if (routeCount_ == 0U) {
+        notifyInitialFullSnapshotComplete_();
+        return;
+    }
+
     for (uint8_t i = 0; i < routeCount_; ++i) {
         markRoutePending_(i, true);
         enqueueRoute_(i);
@@ -136,10 +171,12 @@ void RuntimeProducer::onMessagePublished(uint16_t messageId)
     route.lastPublishMs = millis();
     route.pending = false;
     route.force = false;
+    completeInitialFullSnapshotRoute_((uint8_t)messageId);
 }
 
 void RuntimeProducer::onMessageDropped(uint16_t messageId)
 {
     if (messageId >= routeCount_) return;
     routes_[messageId].pending = false;
+    completeInitialFullSnapshotRoute_((uint8_t)messageId);
 }
