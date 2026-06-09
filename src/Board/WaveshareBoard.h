@@ -55,7 +55,7 @@ inline constexpr uint32_t kWaveshareESP32S3InterlinkI2cHz = 400000U;
  *   Not stored in NVS. These are compile-time sizing limits, so the compiled
  *   values always apply.
  */
-inline constexpr IoCapacitySpec kWaveshareESP32S3IoCapacity{11, 4, 8, 11, 4, 8};
+inline constexpr IoCapacitySpec kWaveshareESP32S3IoCapacity{11, 8, 8, 11, 8, 8};
 
 /*
  * MQTT task and queue capacities.
@@ -189,8 +189,8 @@ inline constexpr I2cBusSpec kWaveshareESP32S3I2c[] = {
  *   bus GPIO pins are not.
  */
 inline constexpr OneWireBusSpec kWaveshareESP32S3OneWire[] = {
-    {"temp_probe_1", BoardSignal::TempProbe1, 20}, // Water DS18B20 probe bus on GPIO20.
-    {"temp_probe_2", BoardSignal::TempProbe2, 19}, // Air DS18B20 probe bus on GPIO19.
+    {"temp_probe_1", BoardSignal::TempProbe1, 47}, // Water DS18B20 probe bus on GPIO47.
+    {"temp_probe_2", BoardSignal::TempProbe2, 48}, // Air DS18B20 probe bus on GPIO48.
 };
 
 /*
@@ -263,13 +263,17 @@ inline constexpr IoPointSpec kWaveshareESP32S3IoPoints[] = {
     {"exio6", IoCapability::DigitalOut, BoardSignal::Relay6, 5, false, 0},
     {"exio7", IoCapability::DigitalOut, BoardSignal::Relay7, 6, false, 0},
     {"exio8", IoCapability::DigitalOut, BoardSignal::Relay8, 7, false, 0},
-    {"water_counter", IoCapability::DigitalIn, BoardSignal::DigitalIn1, 7, false, 0},
-    {"ph_level", IoCapability::DigitalIn, BoardSignal::DigitalIn2, 4, false, 0},
-    {"chlorine_level", IoCapability::DigitalIn, BoardSignal::DigitalIn3, 5, false, 0},
-    {"pool_level", IoCapability::DigitalIn, BoardSignal::DigitalIn4, 6, false, 0},
-    {"water_temperature_ds18b20", IoCapability::OneWireTemp, BoardSignal::TempProbe1, 20, false, 0},
-    {"air_temperature_ds18b20", IoCapability::OneWireTemp, BoardSignal::TempProbe2, 19, false, 0},
-    {"venice_tx433", IoCapability::DigitalOut, BoardSignal::Tx433, 10, false, 0},
+    {"digital_in1_ph_level", IoCapability::DigitalIn, BoardSignal::DigitalIn1, 4, false, 0},
+    {"digital_in2_disinfectant_level", IoCapability::DigitalIn, BoardSignal::DigitalIn2, 5, false, 0},
+    {"digital_in3_pool_level", IoCapability::DigitalIn, BoardSignal::DigitalIn3, 6, false, 0},
+    {"digital_in4_water_counter", IoCapability::DigitalIn, BoardSignal::DigitalIn4, 7, false, 0},
+    {"digital_in5_unused", IoCapability::DigitalIn, BoardSignal::DigitalIn5, 8, false, 0},
+    {"digital_in6_unused", IoCapability::DigitalIn, BoardSignal::DigitalIn6, 9, false, 0},
+    {"digital_in7_unused", IoCapability::DigitalIn, BoardSignal::DigitalIn7, 10, false, 0},
+    {"digital_in8_unused", IoCapability::DigitalIn, BoardSignal::DigitalIn8, 11, false, 0},
+    {"water_temperature_ds18b20", IoCapability::OneWireTemp, BoardSignal::TempProbe1, 47, false, 0},
+    {"air_temperature_ds18b20", IoCapability::OneWireTemp, BoardSignal::TempProbe2, 48, false, 0},
+    {"venice_tx433", IoCapability::DigitalOut, BoardSignal::Tx433, 45, false, 0},
 };
 
 /*

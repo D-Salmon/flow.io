@@ -86,6 +86,11 @@ void seedFlowIos3DigitalInputPullDefaults(Preferences& prefs)
         NvsKeys::Io::IO_I0PU,
         NvsKeys::Io::IO_I1PU,
         NvsKeys::Io::IO_I2PU,
+        NvsKeys::Io::IO_I3PU,
+        NvsKeys::Io::IO_I4PU,
+        NvsKeys::Io::IO_I5PU,
+        NvsKeys::Io::IO_I6PU,
+        NvsKeys::Io::IO_I7PU,
     };
 
     for (const char* key : kPullModeKeys) {

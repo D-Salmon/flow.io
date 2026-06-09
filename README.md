@@ -1,10 +1,10 @@
-<p align="center">
-  <img src="docs/pictures/Logo_flowio.png" alt="flow.io" width="260">
-</p>
-
 # flow.io
 
 flow.io est une plateforme autonome permettant de gérer automatiquement votre piscine: elle automatise la gestion de la qualité de l'eau, réduit les opérations manuelles, et donne une supervision claire des équipements en local comme à distance.
+
+<p align="center">
+  <img src="docs/pictures/Logo_flowio.png" alt="flow.io" width="260">
+</p>
 
 ## Pourquoi flow.io
 
@@ -23,7 +23,7 @@ flow.io apporte un pilotage cohérent de bout en bout.
 
 flow.io peut fonctionner avec plusieurs cartes matérielles selon le niveau d'intégration recherché: carte au format PoolMaster pour une intégration complète dans l'écosystème historique, carte au format DIN pour une installation propre en coffret électrique, ou cartes industrielles prêtes à câbler.
 
-La dernière version tire notamment profit de l'ESP32-S3 embarqué dans la carte [WAVESHARE ESP32-S3-ETH-8DI-8RO](https://www.waveshare.com/esp32-s3-eth-8di-8ro.htm). Cette carte regroupe les entrées digitales, relais, Ethernet, Wi-Fi, RS485 et protections nécessaires pour construire une installation flow.io à prix abordable, dans un format compact avec une finition professionnelle.
+La dernière version tire notamment profit de l'ESP32-S3 embarqué dans la carte [WAVESHARE ESP32-S3-ETH-8DI-8RO](https://www.waveshare.com/esp32-s3-eth-8di-8ro.htm). Cette carte industrielle regroupe 8 entrées digitales, 8 relais, Ethernet, Wi-Fi, Bluetooth LE, RS485, USB-C, alimentation large plage, protections d'isolation, borniers de câblage et boîtier ABS montable sur rail DIN. Elle inclut aussi une horloge temps réel PCF85063ATL, utile pour conserver l'heure et sécuriser les plannings lorsque le réseau ou le NTP ne sont pas disponibles. L'ensemble permet de construire une installation flow.io à prix abordable, dans un format compact avec une finition professionnelle.
 
 ## Surveillance et contrôle en continu
 
@@ -42,6 +42,13 @@ Actionneurs pilotés:
 - pompe robot
 - pompe de remplissage
 - relais auxiliaires (ex: éclairage, chauffage, équipements externes)
+
+## Désinfection supportée
+
+flow.io supporte désormais trois stratégies de désinfection principales:
+- `Chlore/Brome`: pilotage d'une pompe péristaltique par régulation ORP, avec dosage temporel et sécurités de filtration, pression et niveau de cuve
+- `Electrolyse`: pilotage d'un électrolyseur au sel, soit en suivi de consigne ORP, soit en fonctionnement continu pendant la filtration selon le mode configuré
+- `Oxygène actif`: dosage liquide calculé au volume, sans utiliser la sonde ORP comme critère de décision, adapté aux produits dont la mesure redox n'est pas représentative
 
 ## Interface locale tactile
 
