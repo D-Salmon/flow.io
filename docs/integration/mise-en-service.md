@@ -49,7 +49,7 @@ Scripts de pré-build actuellement exécutés par `platformio.ini`:
 
 Références:
 
-- `src/Board/FlowIODINBoards.h`
+- `src/Board/FlowIODINBoard.h`
 - `src/Board/BoardSerialMap.h`
 
 ### Sorties digitales

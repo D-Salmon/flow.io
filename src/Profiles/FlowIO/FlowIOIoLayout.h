@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Board/FlowIODINBoards.h"
+#include "Board/FlowIODINBoard.h"
 #include "Domain/DomainTypes.h"
 #include "Modules/IOModule/IODrivers/Ads1115Driver.h"
 #include "Modules/IOModule/IOModuleTypes.h"

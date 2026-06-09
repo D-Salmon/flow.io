@@ -68,7 +68,7 @@ Les tableaux ci-dessous décrivent le câblage actuellement reflété par les so
 
 Références principales:
 
-- `src/Board/FlowIODINBoards.h`
+- `src/Board/FlowIODINBoard.h`
 - `src/Board/BoardSerialMap.h`
 
 | GPIO | Usage | Remarque |

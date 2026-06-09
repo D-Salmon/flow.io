@@ -46,8 +46,8 @@ struct UartSpec {
 
 struct I2cBusSpec {
     const char* name;   // Logical bus name.
-    uint8_t sdaPin;     // SDA GPIO pin.
-    uint8_t sclPin;     // SCL GPIO pin.
+    int8_t sdaPin;      // SDA GPIO pin (-1 when disabled/unwired).
+    int8_t sclPin;      // SCL GPIO pin (-1 when disabled/unwired).
     uint32_t frequencyHz; // I2C clock frequency in Hz.
 };
 

@@ -1,7 +1,7 @@
 {
   "schema": "flowio.firmware-manifest.v1",
-  "generated_at": "2026-06-08T22:37:03+02:00",
-  "release": "2026.06.08",
+  "generated_at": "2026-06-09T13:27:41+02:00",
+  "release": "2026.06.09",
   "artifacts": {
     "nextion": [
       {
@@ -43,7 +43,7 @@
         "title": "esp32s3",
         "label": "esp32s3",
         "version": "1.0.3",
-        "build_date": "2026-06-08T22:37:03+02:00",
+        "build_date": "2026-06-09T13:27:41+02:00",
         "target": "esp32s3",
         "path": "esp32s3-1.0.3.bin",
         "kind": "esp32-firmware",

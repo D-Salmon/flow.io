@@ -1,7 +1,7 @@
 #pragma once
 
 #include "App/BuildFlags.h"
-#include "Board/FlowIODINBoards.h"
+#include "Board/FlowIODINBoard.h"
 #include "Board/MicronovaBoard.h"
 #include "Board/SupervisorBoardRev1.h"
 

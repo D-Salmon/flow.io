@@ -10,7 +10,6 @@ inline constexpr uint16_t kFlowIODINMomentaryPulseMs = 500U;
 
 inline constexpr IoCapacitySpec kFlowIODINIoCapacity{17, 5, 10, 17, 5, 10};
 inline constexpr IoCapacitySpec kFlowIOS3IoCapacity{11, 8, 8, 11, 8, 8};
-inline constexpr IoCapacitySpec kWaveshareESP32S3IoCapacity{11, 4, 8, 11, 4, 8};
 inline constexpr MqttCapacitySpec kFlowIODINMqttCapacity{5712, 8, 8, 48, 24, 16, 2, 80, 80, 80, 60};
 inline constexpr MqttBufferSpec kFlowIODINMqttBuffers{
     64, 32, 32, 15, 15, 70, 160, 128, 384, 1536, 1024, 1536, 1536, 64, 320, 32
@@ -59,14 +58,7 @@ inline constexpr OneWireBusSpec kFlowIOS3OneWire[] = {
     {"temp_probe_2", BoardSignal::TempProbe2, 2}, // Air temperature probe bus on GPIO2.
 };
 
-inline constexpr OneWireBusSpec kWaveshareESP32S3OneWire[] = {
-    // {name, signal, pin}
-    {"temp_probe_1", BoardSignal::TempProbe1, 48}, // Water DS18B20 probe bus on GPIO48.
-    {"temp_probe_2", BoardSignal::TempProbe2, 47}, // Air DS18B20 probe bus on GPIO9.
-};
-
-// Waveshare industrial 8DI/8RO variants route W5500 on GPIO13/14/15/16 + INT12 + RST39.
-inline constexpr EthernetW5500Spec kFlowIOS3EthernetW5500_8di8ro{
+inline constexpr EthernetW5500Spec kFlowIOS3EthernetW5500{
     true,       // enabled: board exposes W5500 Ethernet.
     13,         // mosiPin: ETH_MOSI.
     14,         // misoPin: ETH_MISO.
@@ -77,25 +69,6 @@ inline constexpr EthernetW5500Spec kFlowIOS3EthernetW5500_8di8ro{
     1,          // phyAddr: W5500 PHY address.
     8000000U    // spiClockHz: conservative SPI clock for reliable DHCP bring-up.
 };
-
-// Waveshare ESP32-S3-ETH dev board routes W5500 on GPIO11/12/13/14 + INT10 + RST9.
-inline constexpr EthernetW5500Spec kFlowIOS3EthernetW5500_s3eth{
-    true,       // enabled: board exposes W5500 Ethernet.
-    11,         // mosiPin: ETH_MOSI.
-    12,         // misoPin: ETH_MISO.
-    13,         // sclkPin: ETH_SCLK.
-    14,         // csPin: ETH_CS.
-    10,         // intPin: ETH_INT.
-    9,          // rstPin: ETH_RST.
-    1,          // phyAddr: W5500 PHY address.
-    8000000U    // spiClockHz: conservative SPI clock for reliable DHCP bring-up.
-};
-
-#if defined(FLOW_ETH_WAVESHARE_S3_ETH)
-inline constexpr auto& kFlowIOS3EthernetW5500 = kFlowIOS3EthernetW5500_s3eth;
-#else
-inline constexpr auto& kFlowIOS3EthernetW5500 = kFlowIOS3EthernetW5500_8di8ro;
-#endif
 
 inline constexpr IoPointSpec kFlowIODINv1IoPoints[] = {
     // {name, capability, signal, pin, momentary, pulseMs}
@@ -140,65 +113,6 @@ inline constexpr IoPointSpec kFlowIOS3IoPoints[] = {
     {"analog_in4", IoCapability::AnalogIn, BoardSignal::AnalogIn4, 3, false, 0},
     {"temp_probe_1", IoCapability::OneWireTemp, BoardSignal::TempProbe1, 3, false, 0},
     {"temp_probe_2", IoCapability::OneWireTemp, BoardSignal::TempProbe2, 2, false, 0},
-};
-
-inline constexpr IoPointSpec kWaveshareESP32S3IoPoints[] = {
-    // flow.io digital outputs are exposed through the TCA9554 expander (EXIO1..EXIO8), not direct GPIO relays.
-    {"exio1", IoCapability::DigitalOut, BoardSignal::Relay1, 0, false, 0},
-    {"exio2", IoCapability::DigitalOut, BoardSignal::Relay2, 1, false, 0},
-    {"exio3", IoCapability::DigitalOut, BoardSignal::Relay3, 2, false, 0},
-    {"exio4", IoCapability::DigitalOut, BoardSignal::Relay4, 3, false, 0},
-    {"exio5", IoCapability::DigitalOut, BoardSignal::Relay5, 4, false, 0},
-    {"exio6", IoCapability::DigitalOut, BoardSignal::Relay6, 5, false, 0},
-    {"exio7", IoCapability::DigitalOut, BoardSignal::Relay7, 6, false, 0},
-    {"exio8", IoCapability::DigitalOut, BoardSignal::Relay8, 7, false, 0},
-    {"water_counter", IoCapability::DigitalIn, BoardSignal::DigitalIn1, 7, false, 0},
-    {"ph_level", IoCapability::DigitalIn, BoardSignal::DigitalIn2, 4, false, 0},
-    {"chlorine_level", IoCapability::DigitalIn, BoardSignal::DigitalIn3, 5, false, 0},
-    {"pool_level", IoCapability::DigitalIn, BoardSignal::DigitalIn4, 6, false, 0},
-    {"water_temperature_ds18b20", IoCapability::OneWireTemp, BoardSignal::TempProbe1, 48, false, 0},
-    {"air_temperature_ds18b20", IoCapability::OneWireTemp, BoardSignal::TempProbe2, 9, false, 0},
-    {"venice_tx433", IoCapability::DigitalOut, BoardSignal::Tx433, 10, false, 0},
-};
-
-inline constexpr St7789DisplaySpec kWaveshareESP32S3Display{
-    240,       // resX: horizontal pixels.
-    320,       // resY: vertical pixels.
-    1,         // rotation.
-    0,         // colStart.
-    0,         // rowStart.
-    1,         // backlightPin: TFT_BL.
-    21,        // csPin: SPI_CS.
-    45,        // dcPin: TFT_DC.
-    2,         // rstPin: TFT_RES.
-    -1,        // misoPin: not wired for this TFT.
-    47,        // mosiPin: SPI_MOSI.
-    48,        // sclkPin: SPI_SCL.
-    false,     // swapColorBytes.
-    true,      // invertColors.
-    40000000U, // spiHz.
-    80         // minRenderGapMs.
-};
-
-inline constexpr SupervisorInputSpec kWaveshareESP32S3Inputs{
-    11,   // pirPin: motion sensor for TFT wake.
-    120,  // pirDebounceMs.
-    true, // pirActiveHigh.
-    -1,   // factoryResetPin: not assigned on this board.
-    40    // factoryResetDebounceMs.
-};
-
-inline constexpr SupervisorUpdateSpec kWaveshareESP32S3Update{
-    -1,      // flowIoEnablePin: local flow.io build has no downstream flow.io target.
-    -1,      // flowIoBootPin.
-    -1,      // nextionRebootPin.
-    115200U  // nextionUploadBaud.
-};
-
-inline constexpr SupervisorBoardSpec kWaveshareESP32S3Supervisor{
-    kWaveshareESP32S3Display,
-    kWaveshareESP32S3Inputs,
-    kWaveshareESP32S3Update
 };
 
 inline constexpr BoardSpec kFlowIODINv1{
@@ -276,26 +190,6 @@ inline constexpr BoardSpec kFlowIOS3{
     kFlowIODINMqttBuffers,
     kFlowIODINHaCapacity,
     nullptr,
-    {},
-    &kFlowIOS3EthernetW5500
-};
-
-inline constexpr BoardSpec kWaveshareESP32S3{
-    "WaveshareESP32S3",
-    "flowio",
-    kFlowIOS3Uarts,
-    (uint8_t)(sizeof(kFlowIOS3Uarts) / sizeof(kFlowIOS3Uarts[0])),
-    kFlowIOS3I2c,
-    (uint8_t)(sizeof(kFlowIOS3I2c) / sizeof(kFlowIOS3I2c[0])),
-    kWaveshareESP32S3OneWire,
-    (uint8_t)(sizeof(kWaveshareESP32S3OneWire) / sizeof(kWaveshareESP32S3OneWire[0])),
-    kWaveshareESP32S3IoPoints,
-    (uint8_t)(sizeof(kWaveshareESP32S3IoPoints) / sizeof(kWaveshareESP32S3IoPoints[0])),
-    kWaveshareESP32S3IoCapacity,
-    kFlowIODINMqttCapacity,
-    kFlowIODINMqttBuffers,
-    kFlowIODINHaCapacity,
-    &kWaveshareESP32S3Supervisor,
     {},
     &kFlowIOS3EthernetW5500
 };
