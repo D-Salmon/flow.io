@@ -38,6 +38,7 @@
 #include <time.h>
 #include <Arduino.h>
 #include <WiFi.h>
+#include <ETH.h>
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
 #include <SPIFFS.h>
@@ -4555,6 +4556,7 @@ void WebInterfaceModule::startServer_()
         const char* modeTxt = "none";
         if (mode == NetworkAccessMode::Station) modeTxt = "station";
         else if (mode == NetworkAccessMode::AccessPoint) modeTxt = "ap";
+        const char* transportTxt = networkTransport_(mode);
 
         doc["ok"] = true;
         doc["web_asset_version"] = webAssetVersion_();
@@ -4565,6 +4567,7 @@ void WebInterfaceModule::startServer_()
         loadConfiguredDeviceName_(cfgStore_, deviceName, sizeof(deviceName));
         doc["devicename"] = deviceName;
         doc["network_mode"] = modeTxt;
+        doc["network_transport"] = transportTxt;
         doc["is_ap_portal"] = (mode == NetworkAccessMode::AccessPoint);
         doc["provisioning_only"] = provisioningOnly_;
         doc["full_ui_enabled"] = !provisioningOnly_;
@@ -4601,7 +4604,7 @@ void WebInterfaceModule::startServer_()
         heap["largest"] = snap.heap.largestFreeBlock;
         heap["frag"] = snap.heap.fragPercent;
 
-        char out[896] = {0};
+        char out[960] = {0};
         const size_t n = serializeJson(doc, out, sizeof(out));
         if (n == 0 || n >= sizeof(out)) {
             request->send(500, "application/json",
@@ -4751,15 +4754,17 @@ void WebInterfaceModule::startServer_()
         const char* modeTxt = "none";
         if (mode == NetworkAccessMode::Station) modeTxt = "station";
         else if (mode == NetworkAccessMode::AccessPoint) modeTxt = "ap";
+        const char* transportTxt = networkTransport_(mode);
 
         char ip[16] = {0};
         (void)getNetworkIp_(ip, sizeof(ip), nullptr);
 
-        char out[96] = {0};
+        char out[128] = {0};
         const int n = snprintf(out,
                                sizeof(out),
-                               "{\"ok\":true,\"mode\":\"%s\",\"ip\":\"%s\"}",
+                               "{\"ok\":true,\"mode\":\"%s\",\"transport\":\"%s\",\"ip\":\"%s\"}",
                                modeTxt,
+                               transportTxt,
                                ip);
         if (n <= 0 || (size_t)n >= sizeof(out)) {
             request->send(500, "application/json",
@@ -6508,4 +6513,17 @@ bool WebInterfaceModule::getNetworkIp_(char* out, size_t len, NetworkAccessMode*
     }
 
     return false;
+}
+
+const char* WebInterfaceModule::networkTransport_(NetworkAccessMode mode) const
+{
+    if (mode != NetworkAccessMode::Station) return "none";
+
+    const IPAddress ethIp = ETH.localIP();
+    if (ethIp[0] != 0 || ethIp[1] != 0 || ethIp[2] != 0 || ethIp[3] != 0) {
+        return "ethernet";
+    }
+
+    if (WiFi.isConnected()) return "wifi";
+    return "none";
 }

@@ -11,12 +11,18 @@
 #include "Modules/PoolDeviceModule/PoolDeviceRuntime.h"
 #include <Arduino.h>
 #include <ArduinoJson.h>
+#include <climits>
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
 namespace {
+struct Fixed3 {
+    unsigned long long whole = 0ULL;
+    unsigned frac = 0U;
+};
+
 template <size_t Rows, size_t Cols>
 size_t charTableUsage_(const char (&table)[Rows][Cols])
 {
@@ -31,6 +37,17 @@ size_t charTableUsage_(const char (&table)[Rows][Cols])
 bool isFiniteNonNegative_(float value)
 {
     return isfinite(value) && value >= 0.0f;
+}
+
+Fixed3 fixed3FromMl_(float value)
+{
+    if (!isFiniteNonNegative_(value)) return Fixed3{};
+
+    const double scaled = ((double)value * 1000.0) + 0.5;
+    const unsigned long long milli = (scaled >= (double)ULLONG_MAX)
+        ? ULLONG_MAX
+        : (unsigned long long)scaled;
+    return Fixed3{milli / 1000ULL, (unsigned)(milli % 1000ULL)};
 }
 } // namespace
 
@@ -328,19 +345,30 @@ bool PoolDeviceModule::persistMetrics_(uint8_t slotIdx, PoolDeviceSlot& slot, ui
     if (!slot.used) return false;
     if (!cfgStore_) return false;
 
+    const Fixed3 injectedDay = fixed3FromMl_(slot.injectedMlDay);
+    const Fixed3 injectedWeek = fixed3FromMl_(slot.injectedMlWeek);
+    const Fixed3 injectedMonth = fixed3FromMl_(slot.injectedMlMonth);
+    const Fixed3 injectedTotal = fixed3FromMl_(slot.injectedMlTotal);
+    const Fixed3 tankRemaining = fixed3FromMl_(slot.tankRemainingMl);
+
     char encoded[sizeof(runtimePersistBuf_[0])] = {0};
     const int wrote = snprintf(
         encoded, sizeof(encoded),
-        "v1,%llu,%llu,%llu,%llu,%.3f,%.3f,%.3f,%.3f,%.3f,%lu,%lu,%lu",
+        "v1,%llu,%llu,%llu,%llu,%llu.%03u,%llu.%03u,%llu.%03u,%llu.%03u,%llu.%03u,%lu,%lu,%lu",
         (unsigned long long)slot.runningMsDay,
         (unsigned long long)slot.runningMsWeek,
         (unsigned long long)slot.runningMsMonth,
         (unsigned long long)slot.runningMsTotal,
-        (double)(isFiniteNonNegative_(slot.injectedMlDay) ? slot.injectedMlDay : 0.0f),
-        (double)(isFiniteNonNegative_(slot.injectedMlWeek) ? slot.injectedMlWeek : 0.0f),
-        (double)(isFiniteNonNegative_(slot.injectedMlMonth) ? slot.injectedMlMonth : 0.0f),
-        (double)(isFiniteNonNegative_(slot.injectedMlTotal) ? slot.injectedMlTotal : 0.0f),
-        (double)(isFiniteNonNegative_(slot.tankRemainingMl) ? slot.tankRemainingMl : 0.0f),
+        injectedDay.whole,
+        injectedDay.frac,
+        injectedWeek.whole,
+        injectedWeek.frac,
+        injectedMonth.whole,
+        injectedMonth.frac,
+        injectedTotal.whole,
+        injectedTotal.frac,
+        tankRemaining.whole,
+        tankRemaining.frac,
         (unsigned long)slot.dayKey,
         (unsigned long)slot.weekKey,
         (unsigned long)slot.monthKey);

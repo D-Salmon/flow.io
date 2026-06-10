@@ -71,6 +71,7 @@
     let deferredMenuAssetsArmed = false;
     let fieldApplyCheckIcon = '✓';
     let networkMode = 'none';
+    let networkTransport = 'none';
     let currentFlowTimeSourceLabel = '';
     let useRemoteMenuIcons = false;
     let remoteMenuIconFontReady = false;
@@ -363,6 +364,11 @@
       return '';
     }
 
+    function normalizeNetworkTransport(value) {
+      const raw = normalizeNetworkType(value);
+      return raw || 'none';
+    }
+
     function isAccessPointMode() {
       return normalizeNetworkMode(networkMode) === 'ap';
     }
@@ -532,6 +538,7 @@
     async function applyMenuIconModeFromMeta(data) {
       const mode = normalizeNetworkMode(data && data.network_mode);
       networkMode = mode;
+      networkTransport = normalizeNetworkTransport(data && (data.network_transport || data.transport));
       const remoteReady = await ensureRemoteMenuIconFontLoaded().catch(() => false);
       applyMenuIconSourcePreference(remoteReady);
     }
@@ -685,6 +692,7 @@
         webLocalRuntime = initialMeta.local_runtime === true;
         webRemoteConfigEnabled = initialMeta.remote_config_enabled !== false;
         networkMode = normalizeNetworkMode(initialMeta.network_mode);
+        networkTransport = normalizeNetworkTransport(initialMeta.network_transport || initialMeta.transport);
       }
     } catch (err) {
     }
@@ -1031,9 +1039,29 @@
       }
       const mode = normalizeNetworkMode(networkMode);
       if (mode === 'ap') return 'AP';
-      if (mode === 'station') return tr('info.netType.wifi', 'Réseau');
+      const type = currentFlowNetworkType();
+      if (type) return formatInfoNetworkType(type);
+      if (mode === 'station') return tr('info.netType.wifi', 'Wifi');
       if (mode === 'ethernet') return tr('info.netType.ethernet', 'Ethernet');
       return '-';
+    }
+
+    function effectiveNetworkType(wifi, domainReady) {
+      const transport = normalizeNetworkType(networkTransport);
+      if (transport) return transport;
+
+      const ready = wifi && typeof wifi.rdy === 'boolean'
+        ? wifi.rdy
+        : !!domainReady;
+      if (!ready) return '';
+
+      const runtimeType = normalizeNetworkType(wifi && wifi.typ);
+      if (runtimeType) return runtimeType;
+
+      const mode = normalizeNetworkMode(networkMode);
+      if (mode === 'ethernet') return 'ethernet';
+      if (mode === 'station') return 'wifi';
+      return '';
     }
 
     function currentFlowNetworkType() {
@@ -1042,10 +1070,12 @@
           ? flowStatusDomainCache.wifi.data
           : null;
         const wifi = (wifiDomain && wifiDomain.wifi && typeof wifiDomain.wifi === 'object') ? wifiDomain.wifi : null;
-        const type = wifi ? normalizeNetworkType(wifi.typ) : '';
+        const type = effectiveNetworkType(wifi, !!wifiDomain);
         if (type) return type;
       } catch (err) {
       }
+      const transport = normalizeNetworkType(networkTransport);
+      if (transport) return transport;
       const mode = normalizeNetworkMode(networkMode);
       if (mode === 'ethernet') return 'ethernet';
       if (mode === 'station') return 'wifi';
@@ -1065,6 +1095,7 @@
         if (wifi && typeof wifi.rdy === 'boolean') return wifi.rdy;
       } catch (err) {
       }
+      if (normalizeNetworkType(networkTransport)) return true;
       const mode = normalizeNetworkMode(networkMode);
       return mode === 'station' || mode === 'ethernet';
     }
@@ -1108,6 +1139,21 @@
       refreshAppHeaderClock();
       if (appHeaderClockTimer || !headerClockStatus) return;
       appHeaderClockTimer = setInterval(refreshAppHeaderClock, 1000);
+    }
+
+    function syncHeaderTimeSourceFromSystemDomain() {
+      try {
+        const systemDomain = (flowStatusDomainCache.system && flowStatusDomainCache.system.data && flowStatusDomainCache.system.data.ok === true)
+          ? flowStatusDomainCache.system.data
+          : null;
+        const time = (systemDomain && systemDomain.time && typeof systemDomain.time === 'object') ? systemDomain.time : null;
+        const nextTimeLabel = flowTimeHeaderLabel(time);
+        if (nextTimeLabel) {
+          currentFlowTimeSourceLabel = nextTimeLabel;
+          refreshAppHeaderClock();
+        }
+      } catch (err) {
+      }
     }
 
     function renderHeaderReachability() {
@@ -1171,6 +1217,7 @@
       deviceReachabilityTimer = setInterval(() => {
         if (document.hidden) return;
         probeHeaderReachability().catch(() => {});
+        refreshAppHeaderTime(false).catch(() => {});
       }, deviceReachabilityProbeMs);
     }
 
@@ -1180,6 +1227,15 @@
       } catch (err) {
       }
       refreshAppHeader(getActivePageId());
+    }
+
+    async function refreshAppHeaderTime(forceRefresh) {
+      try {
+        await fetchFlowStatusDomain('system', !!forceRefresh, 'header');
+        syncHeaderTimeSourceFromSystemDomain();
+      } catch (err) {
+      }
+      refreshAppHeaderClock();
     }
 
     function syncMobileTopbarTitle(pageId) {
@@ -1475,8 +1531,11 @@
     function formatInfoNetworkType(value) {
       const normalized = normalizeNetworkType(value);
       if (normalized === 'ethernet') return tr('info.netType.ethernet', 'Ethernet');
-      if (normalized === 'wifi') return tr('info.netType.wifi', 'Réseau');
+      if (normalized === 'wifi') return tr('info.netType.wifi', 'Wifi');
       const raw = String(value || '').trim().toLowerCase();
+      if (!raw || raw === 'none' || raw === 'ap' || raw === 'accesspoint' || raw === 'access_point') {
+        return tr('info.state.disconnected', 'Déconnecté');
+      }
       return raw ? raw : '-';
     }
 
@@ -1497,8 +1556,7 @@
       const mqtt = (mqttDomain && mqttDomain.mqtt && typeof mqttDomain.mqtt === 'object') ? mqttDomain.mqtt : {};
       const time = (systemDomain && systemDomain.time && typeof systemDomain.time === 'object') ? systemDomain.time : null;
       if (time) {
-        const nextTimeLabel = flowTimeHeaderLabel(time);
-        if (nextTimeLabel) currentFlowTimeSourceLabel = nextTimeLabel;
+        syncHeaderTimeSourceFromSystemDomain();
       }
       const fullFirmware = systemDomain ? fmtFlowStatusVal(systemDomain.fw) : (supervisorFirmwareVersion || '-');
       const firmwareParts = splitInfoFirmwareVersion(fullFirmware);
@@ -1506,6 +1564,7 @@
       if (currentMac !== '-') infoLastMac = currentMac;
       const mac = currentMac !== '-' ? currentMac : infoLastMac;
       const deviceName = String(systemDomain && systemDomain.devicename ? systemDomain.devicename : webDeviceName || 'flowio').trim() || 'flowio';
+      const infoNetworkType = effectiveNetworkType(wifi, !!wifiDomain);
       const infoRows = [
         [tr('info.row.deviceName', 'Nom de l’appareil'), deviceName],
         [tr('info.row.firmwareVersion', 'Version firmware'), firmwareParts.version],
@@ -1513,7 +1572,7 @@
         [tr('info.row.uptime', 'Uptime'), systemDomain ? formatInfoUptime(systemDomain.upms) : formatInfoUptime(supervisorUptimeMs)],
         [tr('info.row.ip', 'Adresse IP'), wifiDomain ? normalizeIpValue(wifi.ip) : '-'],
         [tr('info.row.mac', 'Adresse MAC'), mac],
-        [tr('info.row.networkType', 'Type réseau'), wifiDomain ? formatInfoNetworkType(wifi.typ) : '-'],
+        [tr('info.row.networkType', 'Type réseau'), wifiDomain ? formatInfoNetworkType(infoNetworkType) : '-'],
         [tr('info.row.signal', 'Signal'), (wifiDomain && wifi.hrss) ? formatInfoDbm(wifi.rssi) : '-'],
         [tr('info.row.mqtt', 'MQTT'), mqttDomain ? formatInfoBoolean(!!mqtt.rdy, tr('info.state.connected', 'Connecté'), tr('info.state.disconnected', 'Déconnecté')) : '-'],
         [tr('info.row.time', 'Heure'), time ? flowTimeStatusLabel(time) : '-']
@@ -4195,7 +4254,7 @@
       const wifiIp = normalizeIpValue(wifi.ip);
       const wifiHasRssi = !!wifi.hrss;
       const wifiRssi = wifi.rssi ?? '-';
-      const networkType = normalizeNetworkType(wifi.typ);
+      const networkType = effectiveNetworkType(wifi, true);
       const networkIsEthernet = networkType === 'ethernet';
       const mqttReady = !!mqtt.rdy;
       if (data && Object.prototype.hasOwnProperty.call(data, 'time')) {
@@ -4329,7 +4388,7 @@
       flowStatusGrid.innerHTML = '';
       const networkRows = [
         [tr('info.row.ip', 'Adresse IP'), wifiIp],
-        [tr('info.row.networkType', 'Type réseau'), formatInfoNetworkType(wifi.typ)]
+        [tr('info.row.networkType', 'Type réseau'), formatInfoNetworkType(networkType)]
       ];
       if (!networkIsEthernet) {
         networkRows.push([tr('info.row.signal', 'Signal'), buildFlowRssiGauge(wifiRssi, wifiHasRssi)]);
@@ -9562,6 +9621,7 @@
         if (!document.hidden) {
           refreshWebUiLocale(true).catch(() => {});
           refreshAppHeaderWifi(true).catch(() => {});
+          refreshAppHeaderTime(true).catch(() => {});
           probeHeaderReachability().catch(() => {});
         }
       });
@@ -9588,6 +9648,7 @@
     const startInitialUi = async () => {
       await loadWebMeta().catch(() => {});
       refreshAppHeaderWifi(true).catch(() => {});
+      refreshAppHeaderTime(true).catch(() => {});
       showPage(initialPageId, { deferHeavyMs: 260 });
     };
     if (typeof window.requestAnimationFrame === 'function') {

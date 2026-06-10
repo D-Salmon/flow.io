@@ -161,10 +161,10 @@ private:
         PoolBinding::kSensorBindings[PoolBinding::kSensorSlotChlorineLevel].ioId;
 
     // State and configuration storage
-    bool enabled_ = true;
+    bool enabled_ = false;
 
     // Modes
-    bool autoMode_ = true;
+    bool autoMode_ = false;
     bool winterMode_ = false;
     bool phAutoMode_ = false;
     bool orpAutoMode_ = false;

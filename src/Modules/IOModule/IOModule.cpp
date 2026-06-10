@@ -12,6 +12,7 @@
 #include <Preferences.h>
 #include <esp_rom_sys.h>
 #include <esp_heap_caps.h>
+#include <limits.h>
 #include <new>
 #include <stdlib.h>
 #include <string.h>
@@ -235,6 +236,17 @@ static const char* ioEdgeModeLabelLocal(uint8_t edgeMode)
     }
 }
 
+static int32_t counterDebounceConfigFromUsLocal(uint32_t value)
+{
+    if (value > (uint32_t)INT32_MAX) return INT32_MAX;
+    return (int32_t)value;
+}
+
+static uint32_t counterDebounceUsFromConfigLocal(int32_t value)
+{
+    return (value <= 0) ? 0U : (uint32_t)value;
+}
+
 void IOModule::setOneWireBuses(OneWireBus* water, OneWireBus* air)
 {
     oneWireWater_ = water;
@@ -450,7 +462,7 @@ bool IOModule::defineDigitalInput(const IODigitalInputDefinition& def)
             digitalInCfg_[logicalIdx].pullMode = def.pullMode;
             digitalInCfg_[logicalIdx].mode = def.mode;
             digitalInCfg_[logicalIdx].edgeMode = def.edgeMode;
-            digitalInCfg_[logicalIdx].counterDebounceUs = def.counterDebounceUs;
+            digitalInCfg_[logicalIdx].counterDebounceUs = counterDebounceConfigFromUsLocal(def.counterDebounceUs);
         }
         return true;
     }
@@ -2045,7 +2057,7 @@ bool IOModule::configureRuntime_()
                 s.inDef.pullMode = pull;
                 s.inDef.mode = digitalInCfg_[cfgIdx].mode;
                 s.inDef.edgeMode = digitalInCfg_[cfgIdx].edgeMode;
-                s.inDef.counterDebounceUs = digitalInCfg_[cfgIdx].counterDebounceUs;
+                s.inDef.counterDebounceUs = counterDebounceUsFromConfigLocal(digitalInCfg_[cfgIdx].counterDebounceUs);
             }
 
             snprintf(s.endpointId, sizeof(s.endpointId), "i%02u", (unsigned)s.logicalIdx);
@@ -2803,14 +2815,14 @@ void IOModule::init(ConfigStore& cfg, ServiceRegistry& services)
         LOGE("failed to allocate extra analog config vars");
     }
 
-    cfg.registerVar(i0NameVar_, kCfgModuleId, kCfgBranchIoI0); cfg.registerVar(i0BindingVar_, kCfgModuleId, kCfgBranchIoI0); cfg.registerVar(i0ActiveHighVar_, kCfgModuleId, kCfgBranchIoI0); cfg.registerVar(i0PullModeVar_, kCfgModuleId, kCfgBranchIoI0); cfg.registerVar(i0EdgeModeVar_, kCfgModuleId, kCfgBranchIoI0); cfg.registerVar(i0C0Var_, kCfgModuleId, kCfgBranchIoI0); cfg.registerVar(i0PrecVar_, kCfgModuleId, kCfgBranchIoI0);
-    cfg.registerVar(i1NameVar_, kCfgModuleId, kCfgBranchIoI1); cfg.registerVar(i1BindingVar_, kCfgModuleId, kCfgBranchIoI1); cfg.registerVar(i1ActiveHighVar_, kCfgModuleId, kCfgBranchIoI1); cfg.registerVar(i1PullModeVar_, kCfgModuleId, kCfgBranchIoI1); cfg.registerVar(i1EdgeModeVar_, kCfgModuleId, kCfgBranchIoI1); cfg.registerVar(i1C0Var_, kCfgModuleId, kCfgBranchIoI1); cfg.registerVar(i1PrecVar_, kCfgModuleId, kCfgBranchIoI1);
-    cfg.registerVar(i2NameVar_, kCfgModuleId, kCfgBranchIoI2); cfg.registerVar(i2BindingVar_, kCfgModuleId, kCfgBranchIoI2); cfg.registerVar(i2ActiveHighVar_, kCfgModuleId, kCfgBranchIoI2); cfg.registerVar(i2PullModeVar_, kCfgModuleId, kCfgBranchIoI2); cfg.registerVar(i2EdgeModeVar_, kCfgModuleId, kCfgBranchIoI2); cfg.registerVar(i2C0Var_, kCfgModuleId, kCfgBranchIoI2); cfg.registerVar(i2PrecVar_, kCfgModuleId, kCfgBranchIoI2);
-    cfg.registerVar(i3NameVar_, kCfgModuleId, kCfgBranchIoI3); cfg.registerVar(i3BindingVar_, kCfgModuleId, kCfgBranchIoI3); cfg.registerVar(i3ActiveHighVar_, kCfgModuleId, kCfgBranchIoI3); cfg.registerVar(i3PullModeVar_, kCfgModuleId, kCfgBranchIoI3); cfg.registerVar(i3EdgeModeVar_, kCfgModuleId, kCfgBranchIoI3); cfg.registerVar(i3C0Var_, kCfgModuleId, kCfgBranchIoI3); cfg.registerVar(i3PrecVar_, kCfgModuleId, kCfgBranchIoI3);
-    cfg.registerVar(i4NameVar_, kCfgModuleId, kCfgBranchIoI4); cfg.registerVar(i4BindingVar_, kCfgModuleId, kCfgBranchIoI4); cfg.registerVar(i4ActiveHighVar_, kCfgModuleId, kCfgBranchIoI4); cfg.registerVar(i4PullModeVar_, kCfgModuleId, kCfgBranchIoI4); cfg.registerVar(i4EdgeModeVar_, kCfgModuleId, kCfgBranchIoI4); cfg.registerVar(i4C0Var_, kCfgModuleId, kCfgBranchIoI4); cfg.registerVar(i4PrecVar_, kCfgModuleId, kCfgBranchIoI4);
-    if (DIGITAL_INPUT_CFG_SLOTS > 5U) { cfg.registerVar(i5NameVar_, kCfgModuleId, kCfgBranchIoI5); cfg.registerVar(i5BindingVar_, kCfgModuleId, kCfgBranchIoI5); cfg.registerVar(i5ActiveHighVar_, kCfgModuleId, kCfgBranchIoI5); cfg.registerVar(i5PullModeVar_, kCfgModuleId, kCfgBranchIoI5); cfg.registerVar(i5EdgeModeVar_, kCfgModuleId, kCfgBranchIoI5); cfg.registerVar(i5C0Var_, kCfgModuleId, kCfgBranchIoI5); cfg.registerVar(i5PrecVar_, kCfgModuleId, kCfgBranchIoI5); }
-    if (DIGITAL_INPUT_CFG_SLOTS > 6U) { cfg.registerVar(i6NameVar_, kCfgModuleId, kCfgBranchIoI6); cfg.registerVar(i6BindingVar_, kCfgModuleId, kCfgBranchIoI6); cfg.registerVar(i6ActiveHighVar_, kCfgModuleId, kCfgBranchIoI6); cfg.registerVar(i6PullModeVar_, kCfgModuleId, kCfgBranchIoI6); cfg.registerVar(i6EdgeModeVar_, kCfgModuleId, kCfgBranchIoI6); cfg.registerVar(i6C0Var_, kCfgModuleId, kCfgBranchIoI6); cfg.registerVar(i6PrecVar_, kCfgModuleId, kCfgBranchIoI6); }
-    if (DIGITAL_INPUT_CFG_SLOTS > 7U) { cfg.registerVar(i7NameVar_, kCfgModuleId, kCfgBranchIoI7); cfg.registerVar(i7BindingVar_, kCfgModuleId, kCfgBranchIoI7); cfg.registerVar(i7ActiveHighVar_, kCfgModuleId, kCfgBranchIoI7); cfg.registerVar(i7PullModeVar_, kCfgModuleId, kCfgBranchIoI7); cfg.registerVar(i7EdgeModeVar_, kCfgModuleId, kCfgBranchIoI7); cfg.registerVar(i7C0Var_, kCfgModuleId, kCfgBranchIoI7); cfg.registerVar(i7PrecVar_, kCfgModuleId, kCfgBranchIoI7); }
+    cfg.registerVar(i0NameVar_, kCfgModuleId, kCfgBranchIoI0); cfg.registerVar(i0BindingVar_, kCfgModuleId, kCfgBranchIoI0); cfg.registerVar(i0ActiveHighVar_, kCfgModuleId, kCfgBranchIoI0); cfg.registerVar(i0PullModeVar_, kCfgModuleId, kCfgBranchIoI0); cfg.registerVar(i0EdgeModeVar_, kCfgModuleId, kCfgBranchIoI0); cfg.registerVar(i0CounterDebounceVar_, kCfgModuleId, kCfgBranchIoI0); cfg.registerVar(i0C0Var_, kCfgModuleId, kCfgBranchIoI0); cfg.registerVar(i0PrecVar_, kCfgModuleId, kCfgBranchIoI0);
+    cfg.registerVar(i1NameVar_, kCfgModuleId, kCfgBranchIoI1); cfg.registerVar(i1BindingVar_, kCfgModuleId, kCfgBranchIoI1); cfg.registerVar(i1ActiveHighVar_, kCfgModuleId, kCfgBranchIoI1); cfg.registerVar(i1PullModeVar_, kCfgModuleId, kCfgBranchIoI1); cfg.registerVar(i1EdgeModeVar_, kCfgModuleId, kCfgBranchIoI1); cfg.registerVar(i1CounterDebounceVar_, kCfgModuleId, kCfgBranchIoI1); cfg.registerVar(i1C0Var_, kCfgModuleId, kCfgBranchIoI1); cfg.registerVar(i1PrecVar_, kCfgModuleId, kCfgBranchIoI1);
+    cfg.registerVar(i2NameVar_, kCfgModuleId, kCfgBranchIoI2); cfg.registerVar(i2BindingVar_, kCfgModuleId, kCfgBranchIoI2); cfg.registerVar(i2ActiveHighVar_, kCfgModuleId, kCfgBranchIoI2); cfg.registerVar(i2PullModeVar_, kCfgModuleId, kCfgBranchIoI2); cfg.registerVar(i2EdgeModeVar_, kCfgModuleId, kCfgBranchIoI2); cfg.registerVar(i2CounterDebounceVar_, kCfgModuleId, kCfgBranchIoI2); cfg.registerVar(i2C0Var_, kCfgModuleId, kCfgBranchIoI2); cfg.registerVar(i2PrecVar_, kCfgModuleId, kCfgBranchIoI2);
+    cfg.registerVar(i3NameVar_, kCfgModuleId, kCfgBranchIoI3); cfg.registerVar(i3BindingVar_, kCfgModuleId, kCfgBranchIoI3); cfg.registerVar(i3ActiveHighVar_, kCfgModuleId, kCfgBranchIoI3); cfg.registerVar(i3PullModeVar_, kCfgModuleId, kCfgBranchIoI3); cfg.registerVar(i3EdgeModeVar_, kCfgModuleId, kCfgBranchIoI3); cfg.registerVar(i3CounterDebounceVar_, kCfgModuleId, kCfgBranchIoI3); cfg.registerVar(i3C0Var_, kCfgModuleId, kCfgBranchIoI3); cfg.registerVar(i3PrecVar_, kCfgModuleId, kCfgBranchIoI3);
+    cfg.registerVar(i4NameVar_, kCfgModuleId, kCfgBranchIoI4); cfg.registerVar(i4BindingVar_, kCfgModuleId, kCfgBranchIoI4); cfg.registerVar(i4ActiveHighVar_, kCfgModuleId, kCfgBranchIoI4); cfg.registerVar(i4PullModeVar_, kCfgModuleId, kCfgBranchIoI4); cfg.registerVar(i4EdgeModeVar_, kCfgModuleId, kCfgBranchIoI4); cfg.registerVar(i4CounterDebounceVar_, kCfgModuleId, kCfgBranchIoI4); cfg.registerVar(i4C0Var_, kCfgModuleId, kCfgBranchIoI4); cfg.registerVar(i4PrecVar_, kCfgModuleId, kCfgBranchIoI4);
+    if (DIGITAL_INPUT_CFG_SLOTS > 5U) { cfg.registerVar(i5NameVar_, kCfgModuleId, kCfgBranchIoI5); cfg.registerVar(i5BindingVar_, kCfgModuleId, kCfgBranchIoI5); cfg.registerVar(i5ActiveHighVar_, kCfgModuleId, kCfgBranchIoI5); cfg.registerVar(i5PullModeVar_, kCfgModuleId, kCfgBranchIoI5); cfg.registerVar(i5EdgeModeVar_, kCfgModuleId, kCfgBranchIoI5); cfg.registerVar(i5CounterDebounceVar_, kCfgModuleId, kCfgBranchIoI5); cfg.registerVar(i5C0Var_, kCfgModuleId, kCfgBranchIoI5); cfg.registerVar(i5PrecVar_, kCfgModuleId, kCfgBranchIoI5); }
+    if (DIGITAL_INPUT_CFG_SLOTS > 6U) { cfg.registerVar(i6NameVar_, kCfgModuleId, kCfgBranchIoI6); cfg.registerVar(i6BindingVar_, kCfgModuleId, kCfgBranchIoI6); cfg.registerVar(i6ActiveHighVar_, kCfgModuleId, kCfgBranchIoI6); cfg.registerVar(i6PullModeVar_, kCfgModuleId, kCfgBranchIoI6); cfg.registerVar(i6EdgeModeVar_, kCfgModuleId, kCfgBranchIoI6); cfg.registerVar(i6CounterDebounceVar_, kCfgModuleId, kCfgBranchIoI6); cfg.registerVar(i6C0Var_, kCfgModuleId, kCfgBranchIoI6); cfg.registerVar(i6PrecVar_, kCfgModuleId, kCfgBranchIoI6); }
+    if (DIGITAL_INPUT_CFG_SLOTS > 7U) { cfg.registerVar(i7NameVar_, kCfgModuleId, kCfgBranchIoI7); cfg.registerVar(i7BindingVar_, kCfgModuleId, kCfgBranchIoI7); cfg.registerVar(i7ActiveHighVar_, kCfgModuleId, kCfgBranchIoI7); cfg.registerVar(i7PullModeVar_, kCfgModuleId, kCfgBranchIoI7); cfg.registerVar(i7EdgeModeVar_, kCfgModuleId, kCfgBranchIoI7); cfg.registerVar(i7CounterDebounceVar_, kCfgModuleId, kCfgBranchIoI7); cfg.registerVar(i7C0Var_, kCfgModuleId, kCfgBranchIoI7); cfg.registerVar(i7PrecVar_, kCfgModuleId, kCfgBranchIoI7); }
 
     if (ensureDigitalInputModeCfgVars_()) {
         ExtraDigitalInputModeConfigVars& modes = *extraDigitalInputModeCfgVars_;

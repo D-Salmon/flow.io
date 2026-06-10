@@ -140,7 +140,7 @@
     "info.state.connected": "Connected",
     "info.state.disconnected": "Disconnected",
     "info.netType.ethernet": "Ethernet",
-    "info.netType.wifi": "Network",
+    "info.netType.wifi": "Wifi",
     "info.updatedAt": "Updated",
     "info.pressure.normal": "normal",
     "info.pressure.constrained": "constrained",
