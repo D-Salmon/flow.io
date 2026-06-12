@@ -33,7 +33,7 @@ MODULE_RULES: List[Tuple[re.Pattern[str], str]] = [
     (re.compile(r"^fcd/"), "FlowConnectDisplay/FlowConnectDisplayUdpClientModule"),
     (re.compile(r"^fwupdate/"), "Network/FirmwareUpdateModule"),
     (re.compile(r"^ha/"), "Network/HAModule"),
-    (re.compile(r"^hmi/fcd_udp/"), "Network/HmiUdpServerModule"),
+    (re.compile(r"^hmi/nextion_udp/"), "Network/HmiUdpServerModule"),
     (re.compile(r"^hmi(?:/|$)"), "HMIModule"),
     (re.compile(r"^io/"), "IOModule"),
     (re.compile(r"^log(?:/|$)"), "Logs/LogHubModule"),

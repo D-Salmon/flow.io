@@ -1400,7 +1400,8 @@
           upms: infoRuntimeValue(valueById, 1802, 0),
           time: {
             rdy: !!infoRuntimeValue(valueById, 1301, false),
-            src: infoRuntimeValue(valueById, 1302, 'none')
+            src: infoRuntimeValue(valueById, 1302, 'none'),
+            qlt: infoRuntimeValue(valueById, 1303, '')
           },
           heap: {
             free: infoRuntimeValue(valueById, 1803, 0),
@@ -1990,7 +1991,7 @@
         key: 'orp',
         label: 'ORP',
         mode: 'two',
-        poollogicKey: 'orp_io_id',
+        poollogicKey: 'dis_io_id',
         runtimeUiId: 2104,
         recommendedSpan: 120,
         warningOffset: 120
@@ -2036,6 +2037,7 @@
       system: Object.freeze([
         Object.freeze({ id: 1301 }),
         Object.freeze({ id: 1302 }),
+        Object.freeze({ id: 1303 }),
         Object.freeze({ id: 1801 }),
         Object.freeze({ id: 1802 }),
         Object.freeze({ id: 1803 }),
@@ -3566,18 +3568,30 @@
     function flowTimeSourceLabel(src) {
       const key = String(src || '').trim().toLowerCase();
       if (key === 'ntp') return 'NTP';
-      if (key === 'internal_rtc') return 'RTC interne';
+      if (key === 'internal_rtc') return 'RTC';
       if (key === 'manual') return 'manuel';
+      return '';
+    }
+
+    function flowTimeQualityLabel(quality) {
+      const key = String(quality || '').trim().toLowerCase();
+      if (key === 'ntp_synced') return 'NTP';
+      if (key === 'rtc_trusted') return currentWebLocaleTag().toLowerCase().startsWith('en') ? 'RTC' : 'RTC';
+      if (key === 'manual') return currentWebLocaleTag().toLowerCase().startsWith('en') ? 'manual' : 'manuel';
+      if (key === 'rtc_untrusted') return 'RTC?';
+      if (key === 'invalid') return '';
       return '';
     }
 
     function flowTimeIsReady(time) {
       if (!time || typeof time !== 'object') return false;
-      return !!time.rdy || !!flowTimeSourceLabel(time.src);
+      return !!time.rdy || !!flowTimeQualityLabel(time.qlt) || !!flowTimeSourceLabel(time.src);
     }
 
     function flowTimeHeaderLabel(time) {
       if (!time || typeof time !== 'object') return '';
+      const quality = flowTimeQualityLabel(time.qlt);
+      if (quality) return quality;
       const source = flowTimeSourceLabel(time.src);
       if (source) return source;
       return flowTimeIsReady(time) ? tr('info.state.synced', 'Synchronisée') : tr('info.state.unsynced', 'Non synchronisée');
@@ -3586,7 +3600,7 @@
     function flowTimeStatusLabel(time) {
       if (!time || typeof time !== 'object') return '';
       if (!flowTimeIsReady(time)) return tr('info.state.unsynced', 'Non synchronisée');
-      const source = flowTimeSourceLabel(time.src);
+      const source = flowTimeQualityLabel(time.qlt) || flowTimeSourceLabel(time.src);
       return source
         ? tr('info.state.synced', 'Synchronisée') + ' (' + source + ')'
         : tr('info.state.synced', 'Synchronisée');

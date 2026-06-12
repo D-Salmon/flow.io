@@ -62,6 +62,8 @@ public:
 
     /** @brief Force a resync attempt. */
     void forceResync();
+    /** @brief Apply a user-provided UTC time for the current session and RTC write-back. */
+    bool setManualTimeUtc(uint64_t epochSec);
 
 private:
     static constexpr uint32_t INVALID_MINUTE_KEY = 0xFFFFFFFFUL;
@@ -87,6 +89,15 @@ private:
         bool valid = false;
         uint64_t epochSec = 0ULL;
         uint32_t sampledAtMs = 0;
+    };
+
+    struct PersistentMeta {
+        uint32_t magic = 0;
+        uint16_t version = 0;
+        uint8_t rtcInitialized = 0;
+        uint8_t lastKnownGoodSource = 0;
+        uint32_t lastNtpSyncUtc = 0;
+        uint32_t lastKnownGoodTimeUtc = 0;
     };
 
     TimeConfig cfgData{};
@@ -157,14 +168,28 @@ private:
     bool isExternalRtc_() const;
     TimeSource sourceSvc_() const;
     const char* sourceNameSvc_() const;
+    TimeQuality qualitySvc_() const;
+    const char* qualityNameSvc_() const;
+    bool currentStateSvc_(TimeState* out) const;
     uint64_t epoch_() const;
     bool formatLocalTime_(char* out, size_t len) const;
     bool setExternalEpoch_(uint64_t epochSec);
-    bool setRtcEpoch_(uint64_t epochSec, TimeSource source, const char* sourceTag);
-    void setActiveSource_(TimeSource source);
+    bool setManualEpoch_(uint64_t epochSec);
+    bool setRtcEpoch_(uint64_t epochSec, TimeSource source, TimeQuality quality, const char* sourceTag);
+    void setActiveSource_(TimeSource source, TimeQuality quality);
     const char* activeSourceName_() const;
     static const char* sourceName_(TimeSource source);
+    static const char* qualityName_(TimeQuality quality);
+    static bool isTimePlausible_(uint64_t epochSec);
+    static bool isTimePlausibleSvc_(uint64_t epochSec);
+    static const char* shortStatusFr_(TimeQuality quality, TimeSource source);
+    static const char* shortStatusEn_(TimeQuality quality, TimeSource source);
+    void updateRuntimeStatus_();
+    void logTimeJump_(uint64_t oldEpochSec, uint64_t newEpochSec, TimeSource source, TimeQuality quality);
     void recordSource_(TimeSource source, bool available, bool valid, uint64_t epochSec, uint32_t sampledAtMs);
+    void loadPersistentMeta_();
+    void persistMetaIfChanged_();
+    void noteGoodTime_(TimeSource source, TimeQuality quality, uint64_t epochSec);
     bool ensureHmiService_();
     bool nextionRtcReadEpoch_(uint64_t& epochSec);
     bool nextionRtcWriteEpoch_(uint64_t epochSec);
@@ -207,6 +232,7 @@ private:
     bool ensureInternalRtcInit_();
     bool internalRtcReadEpoch_(uint64_t& epochSec);
     bool internalRtcWriteEpoch_(uint64_t epochSec);
+    bool internalRtcBatteryPresent_();
     bool internalRtcReadRegs_(uint8_t reg, uint8_t* data, uint8_t len);
     bool internalRtcWriteRegs_(uint8_t reg, const uint8_t* data, uint8_t len);
     void serviceInternalRtcFallback_(uint32_t nowMs);
@@ -224,6 +250,11 @@ private:
     bool syncedFromExternalRtc_ = false;
     bool syncedFromInternalRtc_ = false;
     TimeSource activeSource_ = TimeSource::None;
+    TimeQuality activeQuality_ = TimeQuality::Invalid;
+    TimeState timeState_{};
+    PersistentMeta persistentMeta_{};
+    PersistentMeta lastPersistedMeta_{};
+    bool persistentMetaLoaded_ = false;
     SourceSnapshot ntpSource_{};
     SourceSnapshot internalRtcSource_{};
     SourceSnapshot nextionSource_{};
@@ -266,7 +297,12 @@ private:
         ServiceBinding::bind<&TimeModule::setExternalEpoch_>,
         ServiceBinding::bind<&TimeModule::isExternalRtc_>,
         ServiceBinding::bind<&TimeModule::sourceSvc_>,
-        ServiceBinding::bind<&TimeModule::sourceNameSvc_>
+        ServiceBinding::bind<&TimeModule::sourceNameSvc_>,
+        ServiceBinding::bind<&TimeModule::qualitySvc_>,
+        ServiceBinding::bind<&TimeModule::qualityNameSvc_>,
+        ServiceBinding::bind<&TimeModule::currentStateSvc_>,
+        ServiceBinding::bind<&TimeModule::setManualEpoch_>,
+        &TimeModule::isTimePlausibleSvc_
     };
     TimeSchedulerService schedSvc_{
         ServiceBinding::bind<&TimeModule::setSlotSvc_>,

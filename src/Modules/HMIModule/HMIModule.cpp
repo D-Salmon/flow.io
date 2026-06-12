@@ -41,13 +41,13 @@ namespace {
 static constexpr bool kConfigMenuEnabled = (FLOW_HMI_CONFIG_MENU_ENABLED != 0);
 static constexpr const char* kHmiModulePrefix = "hmi/";
 static constexpr const char* kPoolLogicSensorsModule = "poollogic/sensors";
-static constexpr const char* kPoolLogicDeviceModule = "poollogic/device";
-static constexpr const char* kPoolLogicModeModule = "poollogic/mode";
-static constexpr const char* kPoolLogicPidModule = "poollogic/pid";
+static constexpr const char* kPoolLogicDeviceModule = "poollogic/devices";
+static constexpr const char* kPoolLogicModesModule = "poollogic/modes";
+static constexpr const char* kPoolLogicPhModule = "poollogic/ph";
+static constexpr const char* kPoolLogicChlorineModule = "poollogic/chlorine";
 static constexpr size_t kPoolLogicSensorsJsonBufSize = 320U;
 static constexpr size_t kPoolLogicDeviceJsonBufSize = 192U;
 static constexpr size_t kPoolLogicModeJsonBufSize = 256U;
-static constexpr size_t kPoolLogicPidJsonBufSize = 512U;
 static constexpr uint8_t kLedBitMqttConnected = 0;
 static constexpr uint8_t kLedBitPageSelect = 1;
 static constexpr uint8_t kLedBitModeA = 2;
@@ -411,8 +411,8 @@ static bool extractJsonStringField_(const char* json, const char* key, char* out
 static const ConfigMenuHint kHints[] = {
     {"poollogic/filtration", "filtr_start_min", {ConfigMenuWidget::Slider, true, 0.0f, 23.0f, 1.0f, nullptr}},
     {"poollogic/filtration", "filtr_stop_max", {ConfigMenuWidget::Slider, true, 0.0f, 23.0f, 1.0f, nullptr}},
-    {"poollogic/pid", "ph_setpoint", {ConfigMenuWidget::Slider, true, 6.6f, 7.8f, 0.1f, nullptr}},
-    {"poollogic/pid", "orp_setpoint", {ConfigMenuWidget::Slider, true, 450.0f, 950.0f, 10.0f, nullptr}},
+    {"poollogic/ph", "ph_setpoint", {ConfigMenuWidget::Slider, true, 6.6f, 7.8f, 0.1f, nullptr}},
+    {"poollogic/chlorine", "dis_setpoint", {ConfigMenuWidget::Slider, true, 450.0f, 950.0f, 10.0f, nullptr}},
     {"time", "tz", {ConfigMenuWidget::Select, true, 0.0f, 0.0f, 1.0f,
                     "CET-1CEST,M3.5.0/2,M10.5.0/3|UTC0|EST5EDT,M3.2.0/2,M11.1.0/2"}}
 };
@@ -810,7 +810,7 @@ void HMIModule::refreshHomeBindings_()
                 phIoId_ = (IoId)ioId;
             }
             ioId = (uint16_t)orpIoId_;
-            foundOrp = findJsonUInt16_(jsonBuf, "orp_io_id", ioId);
+            foundOrp = findJsonUInt16_(jsonBuf, "dis_io_id", ioId);
             if (foundOrp) {
                 orpIoId_ = (IoId)ioId;
             }
@@ -851,7 +851,7 @@ void HMIModule::refreshHomeBindings_()
                 phPumpDeviceSlot_ = (uint8_t)slot;
             }
             slot = orpPumpDeviceSlot_;
-            foundOrpPumpSlot = findJsonUInt16_(jsonBuf, "orp_pump_slot", slot);
+            foundOrpPumpSlot = findJsonUInt16_(jsonBuf, "dis_pump_slot", slot);
             if (foundOrpPumpSlot) {
                 orpPumpDeviceSlot_ = (uint8_t)slot;
             }
@@ -921,7 +921,7 @@ bool HMIModule::readPoolLogicModeFlags_(bool& autoMode,
     char jsonBuf[kPoolLogicModeJsonBufSize]{};
     bool truncated = false;
     if (!cfgSvc_->toJsonModule(cfgSvc_->ctx,
-                               kPoolLogicModeModule,
+                               kPoolLogicModesModule,
                                jsonBuf,
                                sizeof(jsonBuf),
                                &truncated)) {
@@ -931,8 +931,26 @@ bool HMIModule::readPoolLogicModeFlags_(bool& autoMode,
     bool v = false;
     if (findJsonBool_(jsonBuf, "auto_mode", v)) autoMode = v;
     if (findJsonBool_(jsonBuf, "winter_mode", v)) winterMode = v;
-    if (findJsonBool_(jsonBuf, "ph_auto_mode", v)) phAutoMode = v;
-    if (findJsonBool_(jsonBuf, "orp_auto_mode", v)) orpAutoMode = v;
+
+    memset(jsonBuf, 0, sizeof(jsonBuf));
+    truncated = false;
+    if (cfgSvc_->toJsonModule(cfgSvc_->ctx,
+                              kPoolLogicPhModule,
+                              jsonBuf,
+                              sizeof(jsonBuf),
+                              &truncated)) {
+        if (findJsonBool_(jsonBuf, "ph_auto_mode", v)) phAutoMode = v;
+    }
+
+    memset(jsonBuf, 0, sizeof(jsonBuf));
+    truncated = false;
+    if (cfgSvc_->toJsonModule(cfgSvc_->ctx,
+                              kPoolLogicChlorineModule,
+                              jsonBuf,
+                              sizeof(jsonBuf),
+                              &truncated)) {
+        if (findJsonBool_(jsonBuf, "dis_auto_mode", v)) orpAutoMode = v;
+    }
     return true;
 }
 
@@ -942,10 +960,10 @@ bool HMIModule::readPidSetpoints_(float& phSetpoint, float& orpSetpoint) const
     orpSetpoint = 0.0f;
     if (!cfgSvc_ || !cfgSvc_->toJsonModule) return false;
 
-    char jsonBuf[kPoolLogicPidJsonBufSize]{};
+    char jsonBuf[kPoolLogicModeJsonBufSize]{};
     bool truncated = false;
     if (!cfgSvc_->toJsonModule(cfgSvc_->ctx,
-                               kPoolLogicPidModule,
+                               kPoolLogicPhModule,
                                jsonBuf,
                                sizeof(jsonBuf),
                                &truncated)) {
@@ -958,7 +976,15 @@ bool HMIModule::readPidSetpoints_(float& phSetpoint, float& orpSetpoint) const
         phSetpoint = value;
         found = true;
     }
-    if (findJsonFloat_(jsonBuf, "orp_setpoint", value)) {
+
+    memset(jsonBuf, 0, sizeof(jsonBuf));
+    truncated = false;
+    if (cfgSvc_->toJsonModule(cfgSvc_->ctx,
+                              kPoolLogicChlorineModule,
+                              jsonBuf,
+                              sizeof(jsonBuf),
+                              &truncated) &&
+        findJsonFloat_(jsonBuf, "dis_setpoint", value)) {
         orpSetpoint = value;
         found = true;
     }
@@ -2146,7 +2172,7 @@ bool HMIModule::executeHmiCommand_(HmiCommandId command, uint8_t value)
             return executeCommandBool_("poollogic.ph_pump.write", value != 0U);
 
         case HmiCommandId::HomeOrpPumpSet:
-            return executeCommandBool_("poollogic.orp_pump.write", value != 0U);
+            return executeCommandBool_("poollogic.dis_pump.write", value != 0U);
 
         case HmiCommandId::HomePhPumpToggle:
             if (!readPoolDeviceActualOn_(phPumpDeviceSlot_, current)) {
@@ -2160,7 +2186,7 @@ bool HMIModule::executeHmiCommand_(HmiCommandId command, uint8_t value)
                 setHomeErrorMessage_("ReadStateFailed", true);
                 return false;
             }
-            return executeCommandBool_("poollogic.orp_pump.write", !current);
+            return executeCommandBool_("poollogic.dis_pump.write", !current);
 
         case HmiCommandId::HomeFiltrationToggle:
             if (!readPoolDeviceActualOn_(filtrationDeviceSlot_, current)) {
@@ -2175,7 +2201,7 @@ bool HMIModule::executeHmiCommand_(HmiCommandId command, uint8_t value)
 
         case HmiCommandId::HomeOrpAutoModeToggle:
             (void)readPoolLogicModeFlags_(modes.autoMode, modes.winterMode, modes.phAutoMode, modes.orpAutoMode);
-            return executePoolLogicModePatch_("orp_auto_mode", !modes.orpAutoMode);
+            return executePoolLogicModePatch_("dis_auto_mode", !modes.orpAutoMode);
 
         case HmiCommandId::HomePhAutoModeToggle:
             (void)readPoolLogicModeFlags_(modes.autoMode, modes.winterMode, modes.phAutoMode, modes.orpAutoMode);
@@ -2274,7 +2300,13 @@ bool HMIModule::executePoolLogicModePatch_(const char* key, bool value)
     }
 
     char json[96]{};
-    snprintf(json, sizeof(json), "{\"poollogic/mode\":{\"%s\":%s}}", key, value ? "true" : "false");
+    const char* moduleName = "poollogic/modes";
+    if (strcmp(key, "ph_auto_mode") == 0) {
+        moduleName = "poollogic/ph";
+    } else if (strcmp(key, "dis_auto_mode") == 0) {
+        moduleName = "poollogic/chlorine";
+    }
+    snprintf(json, sizeof(json), "{\"%s\":{\"%s\":%s}}", moduleName, key, value ? "true" : "false");
     const bool ok = cfgSvc_->applyJson(cfgSvc_->ctx, json);
     if (!ok) {
         LOGW("HMI config patch failed json=%s", json);

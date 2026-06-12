@@ -1561,7 +1561,7 @@ bool flowios3LoadPoolModeFlags_(ConfigStore* cfgStore,
 
     char moduleJson[320] = {0};
     bool truncated = false;
-    if (!cfgStore->toJsonModule("poollogic/mode", moduleJson, sizeof(moduleJson), &truncated, true)) {
+    if (!cfgStore->toJsonModule("poollogic/modes", moduleJson, sizeof(moduleJson), &truncated, true)) {
         return false;
     }
 
@@ -1573,8 +1573,26 @@ bool flowios3LoadPoolModeFlags_(ConfigStore* cfgStore,
     hasMode = true;
     autoMode = root["auto_mode"] | false;
     winterMode = root["winter_mode"] | false;
-    phAutoMode = root["ph_auto_mode"] | false;
-    orpAutoMode = root["orp_auto_mode"] | false;
+
+    memset(moduleJson, 0, sizeof(moduleJson));
+    truncated = false;
+    if (cfgStore->toJsonModule("poollogic/ph", moduleJson, sizeof(moduleJson), &truncated, true)) {
+        StaticJsonDocument<128> phDoc;
+        if (!deserializeJson(phDoc, moduleJson)) {
+            JsonObjectConst phRoot = phDoc.as<JsonObjectConst>();
+            if (!phRoot.isNull()) phAutoMode = phRoot["ph_auto_mode"] | false;
+        }
+    }
+
+    memset(moduleJson, 0, sizeof(moduleJson));
+    truncated = false;
+    if (cfgStore->toJsonModule("poollogic/chlorine", moduleJson, sizeof(moduleJson), &truncated, true)) {
+        StaticJsonDocument<128> disDoc;
+        if (!deserializeJson(disDoc, moduleJson)) {
+            JsonObjectConst disRoot = disDoc.as<JsonObjectConst>();
+            if (!disRoot.isNull()) orpAutoMode = disRoot["dis_auto_mode"] | false;
+        }
+    }
     return true;
 }
 
@@ -1745,7 +1763,7 @@ bool appendFlowios3LocalRuntimeValue_(Print& out,
             if (!ctx.poolModeAvailable) {
                 flowios3PrintUnavailableByManifestType_(out, firstValue, id);
             } else {
-                printRuntimeBool_(out, firstValue, id, "pool.orp_auto_mode", ctx.poolOrpAutoMode);
+                printRuntimeBool_(out, firstValue, id, "pool.dis_auto_mode", ctx.poolOrpAutoMode);
             }
             return true;
         case 2301:
@@ -1875,6 +1893,9 @@ bool appendFlowios3LocalRuntimeValue_(Print& out,
         case 1302:
             printRuntimeString_(out, firstValue, id, "time.source", timeSourceText(*dataStore));
             return true;
+        case 1303:
+            printRuntimeString_(out, firstValue, id, "time.quality", timeQualityText(*dataStore));
+            return true;
         case 1001:
             printRuntimeBool_(out, firstValue, id, "wifi.ready", networkReady(*dataStore));
             return true;
@@ -1954,6 +1975,10 @@ bool flowios3BuildStatusDomainJson_(FlowStatusDomain domain,
         time["rdy"] = dataStore ? (timeReady(*dataStore) || timeSource(*dataStore) != TimeSource::None) : false;
         time["src"] = dataStore ? timeSourceText(*dataStore) : "none";
         time["src_id"] = dataStore ? (uint8_t)timeSource(*dataStore) : 0U;
+        time["qlt"] = dataStore ? timeQualityText(*dataStore) : "invalid";
+        time["qlt_id"] = dataStore ? (uint8_t)timeQuality(*dataStore) : 0U;
+        time["last_ntp"] = dataStore ? (uint32_t)timeLastNtpSyncUtc(*dataStore) : 0U;
+        time["last_rtc"] = dataStore ? (uint32_t)timeLastRtcSyncUtc(*dataStore) : 0U;
         JsonObject heap = doc.createNestedObject("heap");
         heap["free"] = ctx.systemStats.heap.freeBytes;
         heap["min_free"] = ctx.systemStats.heap.minFreeBytes;
@@ -2136,6 +2161,14 @@ bool sendFlowios3StatusCompactResponse_(AsyncWebServerRequest* request,
         printJsonEscaped_(*response, timeSourceText(*dataStore));
         response->print(",\"src_id\":");
         response->print((unsigned)timeSource(*dataStore));
+        response->print(",\"qlt\":");
+        printJsonEscaped_(*response, timeQualityText(*dataStore));
+        response->print(",\"qlt_id\":");
+        response->print((unsigned)timeQuality(*dataStore));
+        response->print(",\"last_ntp\":");
+        response->print((unsigned long)timeLastNtpSyncUtc(*dataStore));
+        response->print(",\"last_rtc\":");
+        response->print((unsigned long)timeLastRtcSyncUtc(*dataStore));
         response->print('}');
     }
 

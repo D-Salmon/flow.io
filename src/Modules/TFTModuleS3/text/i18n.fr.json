@@ -6,7 +6,6 @@
     "cfgdocs.tft.s3.enabled.label": "TFT local actif",
     "cfgdocs.tft.s3.motion_gpio.help": "GPIO du capteur de mouvement local utilise pour reveiller le retroeclairage. -1 desactive l'entree.",
     "cfgdocs.tft.s3.motion_gpio.label": "GPIO mouvement",
-    "cfgmods.hmi.tft.label": "TFT local",
     "cfgmods_meta.tftmodules3.enum_sets.tft_s3_dashboard_color.0.label": "#4A90E2",
     "cfgmods_meta.tftmodules3.enum_sets.tft_s3_dashboard_color.1.label": "#20C5D8",
     "cfgmods_meta.tftmodules3.enum_sets.tft_s3_dashboard_color.2.label": "#54C27A",

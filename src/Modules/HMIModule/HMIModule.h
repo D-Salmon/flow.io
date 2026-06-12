@@ -83,7 +83,7 @@ private:
         ConfigType::Bool, &cfgData_.nextionEnabled, ConfigPersistence::Persistent, 0
     };
     ConfigVariable<bool,0> remoteUdpEnabledVar_{
-        NVS_KEY(NvsKeys::Hmi::FlowConnectUdpEnabled), "enabled", "hmi/fcd_udp",
+        NVS_KEY(NvsKeys::Hmi::FlowConnectUdpEnabled), "enabled", "hmi/nextion_udp",
         ConfigType::Bool, &cfgData_.remoteUdpEnabled, ConfigPersistence::Persistent, 0
     };
     ConfigVariable<bool,0> veniceEnabledVar_{

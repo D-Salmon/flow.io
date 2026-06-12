@@ -17,6 +17,26 @@ enum class TimeSource : uint8_t {
     NextionManual = 3
 };
 
+/** @brief Trust level of the currently exposed system time. */
+enum class TimeQuality : uint8_t {
+    Invalid = 0,
+    RtcUntrusted = 1,
+    Manual = 2,
+    RtcTrusted = 3,
+    NtpSynced = 4
+};
+
+/** @brief Complete UTC-oriented time state exposed by the Time service. */
+struct TimeState {
+    bool valid = false;
+    TimeQuality quality = TimeQuality::Invalid;
+    TimeSource source = TimeSource::None;
+    uint64_t currentTimeUtc = 0;
+    uint64_t lastNtpSyncUtc = 0;
+    uint64_t lastRtcSyncUtc = 0;
+    int64_t lastUpdateMonotonicMs = 0;
+};
+
 /** @brief Backward compatibility alias. */
 using NTPState = TimeSyncState;
 
@@ -31,4 +51,9 @@ struct TimeService {
     bool (*isExternalRtc)(void* ctx);
     TimeSource (*source)(void* ctx);
     const char* (*sourceName)(void* ctx);
+    TimeQuality (*quality)(void* ctx);
+    const char* (*qualityName)(void* ctx);
+    bool (*currentState)(void* ctx, TimeState* out);
+    bool (*setManualEpoch)(void* ctx, uint64_t epochSec);
+    bool (*isPlausible)(uint64_t epochSec);
 };

@@ -25,7 +25,7 @@ inline constexpr RuntimeUiManifestItem kRuntimeUiManifestItems[] = {
     {2301, "pool.filtration_on", "bool", nullptr},
     {2403, "pool.ph_auto_mode", "bool", nullptr},
     {2302, "pool.ph_pump_on", "bool", nullptr},
-    {2404, "pool.orp_auto_mode", "bool", nullptr},
+    {2404, "pool.dis_auto_mode", "bool", nullptr},
     {2303, "pool.chlorine_pump_on", "bool", nullptr},
     {2304, "pool.robot_on", "bool", nullptr},
     {2101, "mqtt.ready", "bool", nullptr},

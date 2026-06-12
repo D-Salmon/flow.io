@@ -1,142 +1,73 @@
-# TimeModule (`moduleId: time`)
+# Heure et planification
 
-## Rôle
+## A quoi sert cette fonction
 
-Synchronisation temps + moteur scheduler interne:
-- sync NTP (TZ configurable)
-- selection de source horaire valide (`NTP` > `RTC interne PCF85063` > `RTC Nextion manuel`)
-- exposition `TimeService`
-- exposition `TimeSchedulerService` (16 slots)
-- publication d'événements scheduler sur EventBus
+Flow.io utilise l'heure pour afficher la bonne date, piloter les programmes
+horaires et declencher les actions planifiees, comme les fenetres de filtration
+ou certains dosages.
 
-Type: module actif.
+Le systeme peut continuer a demarrer sans heure valide. Dans ce cas, les
+fonctions physiques et les securites restent disponibles, mais les actions qui
+dependent d'une heure fiable attendent qu'une source d'heure soit acceptee.
 
-## Dépendances
+## Sources d'heure utilisees
 
-- `loghub`
-- `datastore`
-- `cmd`
-- `eventbus`
+Flow.io choisit automatiquement la meilleure source disponible:
 
-## Affinité / cadence
+1. **NTP**: l'heure recue par le reseau. C'est la source la plus fiable.
+2. **RTC**: l'horloge interne de la carte. Elle sert de secours quand le reseau
+   n'est pas disponible.
+3. **Heure manuelle**: l'heure saisie par l'utilisateur pendant la session.
+4. **Aucune heure valide**: Flow.io ne declenche pas les programmes horaires.
 
-- core: 1
-- task: `time`
-- loop: toutes les 250ms
+Si NTP devient disponible apres une heure RTC ou une heure manuelle, NTP reprend
+la main et corrige l'heure.
 
-## Services exposés
+## Heure locale et fuseau horaire
 
-- `time` -> `TimeService`
-- `time.scheduler` -> `TimeSchedulerService`
+En interne, Flow.io garde l'heure en UTC. Le fuseau horaire configure dans
+`time/tz` est applique uniquement pour l'affichage et pour les programmes
+exprimes en heure locale.
 
-## Services consommés
+Du point de vue utilisateur:
+- l'heure affichee dans l'interface web est locale;
+- l'heure envoyee a l'ecran est locale;
+- une fenetre de filtration configuree de 8h a 18h est comparee a l'heure
+  locale;
+- les changements d'heure ete/hiver suivent le fuseau horaire configure.
 
-- `eventbus`
-- `datastore`
-- `cmd`
+## Synchronisation reseau
 
-## Config / NVS
+Quand le reseau est disponible et que NTP est active:
+- Flow.io synchronise l'heure par NTP;
+- le badge d'heure affiche `NTP`;
+- les programmes horaires peuvent fonctionner;
+- l'horloge interne de la carte est mise a jour pour les prochains redemarrages
+  sans reseau.
 
-Branches:
-- `moduleId = ConfigModuleId::Time`, branche locale `1` (`module: time`)
-  - `server1`, `server2`, `tz`, `enabled`, `manual_time`, `week_start_mon`
-- `moduleId = ConfigModuleId::Time`, branche locale `2` (`module: time/scheduler`)
-  - `slots_blob` (`tm_sched`)
+Si NTP echoue, Flow.io garde la meilleure heure deja disponible. Une erreur NTP
+ne rend pas invalide une heure RTC deja acceptee.
 
-`enabled` active/desactive la synchronisation NTP. Le module Time reste actif
-quand NTP est desactive afin de pouvoir utiliser les RTC disponibles.
+## Horloge RTC
 
-`manual_time` force une ecriture dans le RTC Nextion au format
-`YYYY-MM-DD HH:MM:SS`. Cette source est consideree comme une heure manuelle:
-elle est utilisee seulement si NTP et la RTC interne ne fournissent pas
-d'heure valide.
+Quand le reseau n'est pas disponible, Flow.io peut utiliser l'horloge interne de
+la carte.
 
-## Guide d'utilisation
+Cette horloge n'est acceptee que si sa date semble coherente. Si elle retourne
+une date manifestement fausse, par exemple 1970, 2000 ou une date trop ancienne,
+Flow.io l'ignore et attend une autre source.
 
-### Objectif operationnel
+Quand l'horloge RTC est acceptee:
+- le badge d'heure affiche `RTC`;
+- la page Informations affiche `Synchronisee (RTC)`;
+- les programmes horaires peuvent fonctionner.
 
-Le systeme Flow.io a besoin d'une heure fiable pour executer les actions
-planifiees, notamment les dosages et les fenetres de filtration. Le module
-`Time` est le point central qui choisit la meilleure source disponible et qui
-indique au reste du logiciel si une heure exploitable est presente.
+## Heure manuelle
 
-Le module peut fonctionner avec 0, 1, 2 ou 3 sources de temps:
-- client NTP, via le reseau
-- RTC interne Waveshare PCF85063
-- RTC de l'ecran Nextion
-
-Toutes ces sources sont optionnelles. Si aucune source valide n'est disponible,
-le systeme demarre quand meme, mais les declenchements horaires ne sont pas
-emis.
-
-### Priorite des sources
-
-La selection est automatique et suit toujours cet ordre:
-
-1. `NTP`
-2. `RTC interne PCF85063`
-3. `RTC Nextion manuel`
-4. aucune source valide
-
-NTP est toujours prioritaire lorsqu'il est synchronise. Si NTP echoue, si le
-reseau n'est pas disponible, ou si `time/enabled=false`, le module tente
-d'utiliser le RTC interne. Le RTC Nextion est utilise en dernier recours et est
-considere comme une heure manuelle.
-
-### Source NTP
-
-Quand NTP est disponible:
-- l'horloge systeme ESP32 est reglee par NTP
-- la source active devient `ntp`
-- `time.ready` devient vrai
-- le scheduler peut emettre ses evenements horaires
-- le RTC interne PCF85063 est mis a jour
-- le RTC Nextion est mis a jour
-
-Les RTC sont synchronises lors de la synchronisation NTP, puis a nouveau une
-fois par jour. Cela permet de conserver une reference locale correcte pour les
-redemarrages sans reseau.
-
-Le champ `time/enabled` active ou desactive uniquement le client NTP. Il ne
-desactive pas le module `Time`: meme avec `enabled=false`, le module continue
-d'utiliser les RTC disponibles et de piloter le scheduler si une heure valide
-est trouvee.
-
-### RTC interne PCF85063
-
-Si NTP n'est pas disponible, le module lit le RTC interne Waveshare PCF85063.
-Cette source n'est acceptee que si l'horloge du composant est consideree
-valide.
-
-La validation utilise le bit 7 du registre secondes du PCF85063. Si ce bit est
-positionne, l'horloge RTC est rejetee comme invalide. Si le bit n'est pas
-positionne et que la date est coherent, la source active devient
-`internal_rtc`.
-
-Quand le RTC interne devient la reference:
-- l'horloge systeme ESP32 est reglee depuis le PCF85063
-- `time.ready` devient vrai
-- la source active devient `internal_rtc`
-- le RTC Nextion est synchronise avec cette heure
-- le scheduler peut fonctionner
-
-### RTC Nextion et heure manuelle
-
-Le RTC Nextion ne permet pas de savoir de facon fiable si son heure est valide
-ou si sa pile est presente. Pour cette raison, Flow.io le traite comme une
-source manuelle.
-
-Le champ de configuration `time/manual_time` permet de forcer une heure
-manuelle. Le format attendu est:
+L'utilisateur peut saisir une heure manuelle au format:
 
 ```text
 YYYY-MM-DD HH:MM:SS
-```
-
-Le format avec `T` est aussi accepte:
-
-```text
-YYYY-MM-DDTHH:MM:SS
 ```
 
 Exemple:
@@ -145,118 +76,80 @@ Exemple:
 2026-06-09 18:30:00
 ```
 
-Quand `manual_time` est modifie:
-- le module parse la date
-- le RTC Nextion est mis a jour avec cette heure
-- si aucune source prioritaire n'est active, l'horloge systeme ESP32 est reglee
-  avec cette valeur
-- la source active devient `manual`
-- `time.ready` devient vrai
+Cette heure est interpretee comme une heure locale, puis convertie par Flow.io
+avant d'etre appliquee.
 
-Si NTP ou le RTC interne est deja actif, `manual_time` met a jour le RTC
-Nextion mais ne remplace pas la source active, car NTP et le RTC interne sont
-plus prioritaires.
+Quand une heure manuelle est acceptee:
+- le badge d'heure affiche `manuel`;
+- la page Informations affiche `Synchronisee (manuel)`;
+- les programmes horaires peuvent fonctionner;
+- Flow.io peut recopier cette heure vers l'horloge interne de la carte.
 
-Si l'ecran Nextion n'est pas disponible ou si l'ecriture RTC echoue, l'heure
-manuelle n'est pas appliquee.
+Une heure manuelle saisie dans la configuration ne doit pas etre comprise comme
+une horloge permanente en elle-meme. Apres redemarrage, Flow.io ne fait pas
+confiance a une ancienne valeur manuelle simplement parce qu'elle est encore
+presente dans la configuration. Pour etre reutilisee sans reseau, elle doit
+avoir ete conservee par l'horloge RTC de la carte et etre jugee coherente au
+redemarrage.
 
-### Etat visible dans l'interface web
+Si NTP reussit plus tard, il remplace l'heure manuelle.
 
-L'interface web affiche l'etat de l'heure dans le badge d'en-tete:
-- `Heure (NTP)` lorsque la source active est NTP
-- `Heure (RTC interne)` lorsque la source active est le PCF85063
-- `Heure (manuel)` lorsque la source active est le Nextion en mode manuel
-- `Heure (Non synchronisee)` lorsqu'aucune source valide n'est disponible
+## Ce que montre l'interface web
 
-La page `Informations systeme` affiche aussi une ligne `Heure`, alimentee par
-le meme chemin runtime que les autres champs de la page Info:
-- `1301` -> `time.ready`
-- `1302` -> `time.source`
+Le badge en haut de l'interface indique la confiance actuelle dans l'heure:
 
-Cette page affiche:
+- `Heure (NTP)`: heure synchronisee par le reseau.
+- `Heure (RTC)`: heure reprise depuis l'horloge interne.
+- `Heure (manuel)`: heure reglee manuellement pendant la session.
+- `Heure`: aucune source fiable n'est encore disponible.
+
+La page Informations affiche le meme etat dans la ligne `Heure`:
+
 - `Synchronisee (NTP)`
-- `Synchronisee (RTC interne)`
+- `Synchronisee (RTC)`
 - `Synchronisee (manuel)`
 - `Non synchronisee`
 
-### Effet sur la logique metier
+Le badge d'en-tete et la page Informations utilisent le meme niveau de confiance.
+Ils doivent donc afficher le meme type de source.
 
-Les modules metier demarrent meme si l'heure n'est pas synchronisee. Les
-services, les lectures capteurs, les etats physiques et les securites peuvent
-donc fonctionner au boot sans attendre NTP.
+## Effet sur la filtration et les programmes
 
-En revanche, le `time.scheduler` n'emet pas d'evenements tant que le module
-`Time` n'a pas une heure exploitable. Cela evite de declencher des dosages ou
-des fenetres horaires sur une date inconnue ou fausse.
+Les programmes horaires sont compares a l'heure locale. Par exemple, une
+filtration de 8h a 18h signifie 8h a 18h dans le fuseau horaire configure, pas
+8h a 18h UTC.
 
-Comportements importants:
-- une filtration deja active au boot peut etre conservee temporairement si
-  l'heure n'est pas encore fiable
-- les declenchements horaires attendent `time.ready=true`
-- le protocole O2 bloque explicitement si l'heure est absente
-- les regulateurs bases sur `millis()` peuvent continuer une fois les
-  conditions metier reunies, mais les decisions planifiees restent dependantes
-  du scheduler
+Tant que l'heure n'est pas fiable:
+- les declenchements horaires restent en attente;
+- Flow.io evite de lancer une action planifiee sur une date inconnue;
+- une filtration deja active peut etre conservee temporairement au demarrage,
+  jusqu'a ce que Flow.io puisse prendre une decision horaire fiable.
 
-### Diagnostic rapide
+Quand une source plus fiable arrive, Flow.io corrige l'heure. Si la correction
+est importante, l'evenement est journalise afin d'expliquer un changement de
+comportement horaire.
 
-Pour diagnostiquer l'etat du temps:
-- verifier le badge `Heure (...)` dans l'interface web
-- verifier la ligne `Heure` dans la page `Informations systeme`
-- utiliser `time.scheduler.info`, qui expose aussi la source active
-- controler `time/sourceText` dans le runtime si besoin
+## Scenarios typiques
 
-Interpretation:
-- `ntp`: le reseau et NTP ont fourni l'heure
-- `internal_rtc`: le PCF85063 a fourni une heure valide
-- `manual`: l'heure vient du Nextion en mode manuel
-- `none`: aucune source valide n'est disponible
+1. **Demarrage avec reseau**: Flow.io synchronise par NTP et affiche `NTP`.
+2. **Demarrage sans reseau avec RTC correcte**: Flow.io utilise le RTC et affiche
+   `RTC`.
+3. **Demarrage sans reseau avec RTC incoherente**: Flow.io refuse l'heure et
+   affiche une heure non synchronisee.
+4. **Heure manuelle sans reseau**: Flow.io applique l'heure saisie et affiche
+   `manuel`.
+5. **NTP disponible apres une heure manuelle**: Flow.io remplace l'heure
+   manuelle par NTP et affiche `NTP`.
+6. **NTP echoue apres une heure RTC valide**: Flow.io conserve l'heure RTC et
+   continue d'afficher `RTC`.
 
-## Commandes
+## Diagnostic utilisateur
 
-- `time.resync` (alias: `ntp.resync`)
-- `time.scheduler.info`
-- `time.scheduler.get`
-- `time.scheduler.set`
-- `time.scheduler.clear`
-- `time.scheduler.clear_all`
+Pour comprendre l'etat de l'heure:
 
-## EventBus
-
-Abonnements:
-- `DataChanged` (clé `WifiReady`)
-- `ConfigChanged` (branches locales `1` et `2` du module `Time`)
-
-Publications:
-- `SchedulerEventTriggered` avec payload `SchedulerEventTriggeredPayload`
-
-Slots système réservés (0..2):
-- `TIME_SLOT_SYS_DAY_START` -> `TIME_EVENT_SYS_DAY_START`
-- `TIME_SLOT_SYS_WEEK_START` -> `TIME_EVENT_SYS_WEEK_START`
-- `TIME_SLOT_SYS_MONTH_START` -> `TIME_EVENT_SYS_MONTH_START`
-
-## DataStore
-
-Écriture:
-- `setTimeReady(...)` -> `DataKeys::TimeReady`
-- `TimeRuntimeData.source` / `sourceText` indiquent la source horaire active
-  (`none`, `ntp`, `internal_rtc`, `manual`)
-
-## Persistance scheduler
-
-- serialisation compacte dans `slots_blob`
-- recharge en `onConfigLoaded()`
-- validation stricte des slots (mode, bornes horaires/epoch)
-- slots système toujours ré-appliqués et protégés
-
-## Intégration actuelle
-
-- Les modules métier (ex: `PoolLogicModule`) doivent utiliser `time.scheduler` pour programmer leurs fenêtres.
-- Les modules consommateurs doivent écouter `EventId::SchedulerEventTriggered`.
-- `TimeService.source()` et `sourceName()` exposent la source active.
-- Le `HMIModule` expose les lectures/ecritures RTC Nextion au `TimeModule`;
-  l'arbitrage et le `settimeofday()` restent centralises dans `TimeModule`.
-- Quand NTP est synchronise, le module met a jour la RTC interne et le RTC
-  Nextion a la synchronisation, puis une fois par jour.
-- La RTC interne PCF85063 n'est acceptee que si son registre secondes n'a pas
-  le bit d'oscillator stop/invalid clock leve.
+- regarder le badge `Heure (...)` en haut de l'interface;
+- ouvrir la page Informations et verifier la ligne `Heure`;
+- verifier que le fuseau horaire configure correspond bien au lieu
+  d'installation;
+- si les programmes horaires ne demarrent pas, verifier d'abord que l'heure est
+  indiquee comme synchronisee.
