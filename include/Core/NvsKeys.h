@@ -450,6 +450,7 @@ constexpr char RemoteUdpEnabledLegacy[] = "hmi_udpen"; // Legacy remote UDP disp
 constexpr char RemoteUdpTokenLegacy[] = "hmi_udptk"; // Legacy remote UDP display pairing token key.
 constexpr char VeniceEnabled[] = "hmi_vcen"; // HMI module persisted key for Venice RF433 output enable.
 constexpr char VeniceTxGpio[] = "hmi_vcgp"; // HMI module persisted key for Venice RF433 TX GPIO.
+constexpr char BuzzerEnable[] = "hmi_bz_en"; // HMI buzzer module persisted key for config-ack beep enable.
 }  // namespace Hmi
 
 namespace FlowConnectDisplay {

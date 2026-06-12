@@ -63,11 +63,11 @@
     "label": "Préfixe des entités Home Assistant",
     "help": "Préfixe appliqué aux object_id Home Assistant: <prefix>_<entité>. Si vide, seul le nom de l'entité est utilisé."
   },
-  "poollogic/pid/ph_setpoint": {
+  "poollogic/ph/ph_setpoint": {
     "label": "Consigne pH",
     "help": "Valeur cible de pH pour la régulation."
   },
-  "poollogic/pid/orp_setpoint": {
+  "poollogic/chlorine/dis_setpoint": {
     "label": "Consigne ORP",
     "help": "Valeur cible ORP pour la régulation chlore."
   },

@@ -88,7 +88,7 @@ Responsabilités:
   - temps de marche jour/semaine/mois/total
   - volume injecté jour/semaine/mois/total
   - volume restant cuve
-- persiste les métriques (`metrics_blob`) dans ConfigStore
+- persiste les métriques via les blobs runtime NVS du ConfigStore
 
 ## 3.3 `IOModule`
 
@@ -333,9 +333,9 @@ Par slot `pdm/pdN` (N=0..7):
 - `tank_init_ml`
 - `max_uptime_day_s`
 
-Runtime persistant par slot `pdmrt/pdN`:
+Runtime persistant par slot, stocké en blob NVS interne `pdNrt`:
 
-- `metrics_blob`
+- blob de métriques
 
 ## 7.3 `io/*` (principalement utile à la logique piscine)
 

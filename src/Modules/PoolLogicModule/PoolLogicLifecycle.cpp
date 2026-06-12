@@ -341,7 +341,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
     if (haSvc && haSvc->addSwitch) {
         const HASwitchEntry autoModeSwitch{
             "poollogic",
-            "pl_auto",
+            "pl_modes_auto",
             "Pool Auto-regulation",
             "cfg/poollogic/modes",
             "{% if value_json.auto_mode %}ON{% else %}OFF{% endif %}",
@@ -353,7 +353,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
         };
         const HASwitchEntry winterModeSwitch{
             "poollogic",
-            "pl_winter",
+            "pl_modes_winter",
             "Winter Mode",
             "cfg/poollogic/modes",
             "{% if value_json.winter_mode %}ON{% else %}OFF{% endif %}",
@@ -365,7 +365,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
         };
         const HASwitchEntry phAutoModeSwitch{
             "poollogic",
-            "pl_ph_auto",
+            "pl_ph_auto_mode",
             "pH Auto-regulation",
             "cfg/poollogic/ph",
             "{% if value_json.ph_auto_mode %}ON{% else %}OFF{% endif %}",
@@ -377,7 +377,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
         };
         const HASwitchEntry orpAutoModeSwitch{
             "poollogic",
-            "pl_orp_auto",
+            "pl_dis_auto",
             "Orp Auto-regulation",
             "cfg/poollogic/chlorine",
             "{% if value_json.dis_auto_mode %}ON{% else %}OFF{% endif %}",
@@ -389,7 +389,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
         };
         const HASwitchEntry heaterAutoModeSwitch{
             "poollogic",
-            "pl_heater_auto",
+            "pl_heat_auto",
             "Heater Auto-regulation",
             "cfg/poollogic/heater",
             "{% if value_json.heater_auto_mode %}ON{% else %}OFF{% endif %}",
@@ -401,7 +401,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
         };
         const HASwitchEntry phDosePlusSwitch{
             "poollogic",
-            "pl_ph_plus",
+            "pl_ph_dose_plus",
             "pH Dosing uses pH+",
             "cfg/poollogic/ph",
             "{% if value_json.ph_dose_plus %}ON{% else %}OFF{% endif %}",
@@ -438,7 +438,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
             R"({% if value == 'Electrolyse' %}{\"poollogic/modes\":{\"disinfection_type\":1}}{% elif value == 'Oxygène actif' %}{\"poollogic/modes\":{\"disinfection_type\":2}}{% elif value == 'Désactivé' %}{\"poollogic/modes\":{\"disinfection_type\":3}}{% else %}{\"poollogic/modes\":{\"disinfection_type\":0}}{% endif %})";
         const HASelectEntry disinfectionTypeSelect{
             "poollogic",
-            "pl_disinfection",
+            "pl_modes_dis",
             "Disinfection Type",
             "cfg/poollogic/modes",
             kDisinfectionTypeStateTpl,
@@ -660,7 +660,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
         };
         const HANumberEntry delayPidsMin{
             "poollogic",
-            "pl_dly_pid",
+            "pl_reg_dly_pid",
             "Delay PIDs",
             "cfg/poollogic/regulation",
             "{{ value_json.dly_pid_min | int(0) }}",
@@ -676,7 +676,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
         };
         const HANumberEntry delayElectroMin{
             "poollogic",
-            "pl_dly_elec",
+            "pl_swg_dly_elec",
             "Delay Chlorine Generator",
             "cfg/poollogic/swg",
             "{{ value_json.dly_electro_min | int(0) }}",
@@ -692,7 +692,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
         };
         const HANumberEntry fillMinUptime{
             "poollogic",
-            "pl_fill_min_upt",
+            "pl_refill_min_on",
             "Min Uptime Fill Pump",
             "cfg/poollogic/refill",
             "{{ ((value_json.fill_min_on_s | float(0)) / 60) | round(1) }}",
@@ -708,7 +708,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
         };
         const HANumberEntry phSetpoint{
             "poollogic",
-            "pl_ph_sp",
+            "pl_ph_setpoint",
             "pH Setpoint",
             "cfg/poollogic/ph",
             "{{ value_json.ph_setpoint | float(0) }}",
@@ -724,7 +724,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
         };
         const HANumberEntry orpSetpoint{
             "poollogic",
-            "pl_orp_sp",
+            "pl_dis_setpoint",
             "Orp Setpoint",
             "cfg/poollogic/chlorine",
             "{{ value_json.dis_setpoint | float(0) }}",
@@ -740,7 +740,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
         };
         const HANumberEntry heaterSetpoint{
             "poollogic",
-            "pl_heater_sp",
+            "pl_heat_setpoint",
             "Water Heater Setpoint",
             "cfg/poollogic/heater",
             "{{ value_json.heater_setpoint | float(0) }}",
@@ -756,7 +756,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
         };
         const HANumberEntry chlorineGeneratorMinTemp{
             "poollogic",
-            "pl_chl_gen_min_temp",
+            "pl_swg_min_temp",
             "Min Temperature Chlorine Generator",
             "cfg/poollogic/swg",
             "{{ value_json.secure_elec_t | float(0) }}",
@@ -772,7 +772,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
         };
         const HANumberEntry phWindowMin{
             "poollogic",
-            "pl_ph_win",
+            "pl_ph_window",
             "pH PID Window Size",
             "cfg/poollogic/ph",
             "{{ ((value_json.ph_window_ms | float(0)) / 60000) | round(0) | int(0) }}",
@@ -788,7 +788,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
         };
         const HANumberEntry orpWindowMin{
             "poollogic",
-            "pl_orp_win",
+            "pl_dis_window",
             "Orp PID Window Size",
             "cfg/poollogic/chlorine",
             "{{ ((value_json.dis_window_ms | float(0)) / 60000) | round(0) | int(0) }}",
@@ -804,7 +804,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
         };
         const HANumberEntry psiLowThreshold{
             "poollogic",
-            "pl_psi_low",
+            "pl_safe_psi_low",
             "PSI Low Threshold",
             "cfg/poollogic/safety",
             "{{ value_json.psi_low_th | float(0) }}",
@@ -820,7 +820,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
         };
         const HANumberEntry psiHighThreshold{
             "poollogic",
-            "pl_psi_high",
+            "pl_safe_psi_high",
             "PSI High Threshold",
             "cfg/poollogic/safety",
             "{{ value_json.psi_high_th | float(0) }}",

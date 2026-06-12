@@ -42,7 +42,6 @@ MODULE_RULES: List[Tuple[re.Pattern[str], str]] = [
     (re.compile(r"^network/time(?:/|$)"), "Network/TimeModule"),
     (re.compile(r"^network(?:/wifi)?(?:/|$)"), "Network/WifiModule"),
     (re.compile(r"^pdm(?:/|$)"), "PoolDeviceModule"),
-    (re.compile(r"^pdmrt(?:/|$)"), "PoolDeviceModule"),
     (re.compile(r"^poollogic(?:/|$)"), "PoolLogicModule"),
     (re.compile(r"^sysmon(?:/|$)"), "System/SystemMonitorModule"),
     (re.compile(r"^time(?:/|$)"), "Network/TimeModule"),

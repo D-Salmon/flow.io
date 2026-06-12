@@ -97,8 +97,7 @@ inline constexpr MqttBufferSpec kWaveshareESP32S3MqttBuffers{
  * Home Assistant discovery/entity capacities.
  *
  * Field order:
- *   sensors, binarySensors, switches, numbers, buttons, selects,
- *   discoveryCleanups.
+ *   sensors, binarySensors, switches, numbers, buttons, selects.
  *
  * Increase these counts when the board/profile publishes more HA entities than
  * the current configuration.
@@ -108,7 +107,7 @@ inline constexpr MqttBufferSpec kWaveshareESP32S3MqttBuffers{
  *   Home Assistant naming/identity options are handled by separate persistent
  *   module config, not by this capacity block.
  */
-inline constexpr HaCapacitySpec kWaveshareESP32S3HaCapacity{48, 6, 16, 30, 24, 6, 12};
+inline constexpr HaCapacitySpec kWaveshareESP32S3HaCapacity{48, 6, 16, 30, 24, 6};
 
 /*
  * UART definitions.
@@ -218,6 +217,26 @@ inline constexpr EthernetW5500Spec kWaveshareESP32S3EthernetW5500{
     39,         // rstPin: ETH_RST.
     1,          // phyAddr: W5500 PHY address.
     8000000U    // spiClockHz: conservative SPI clock for reliable DHCP bring-up.
+};
+
+/*
+ * Local active buzzer wiring.
+ *
+ * Field order:
+ *   enabled, pin, activeHigh.
+ *
+ * The Waveshare ESP32-S3 board exposes an active buzzer on GPIO46. The buzzer
+ * is driven directly by HMIBuzzerModule and is intentionally not registered as
+ * a generic IO output, so it remains reserved for local HMI feedback.
+ *
+ * NVS behavior:
+ *   The GPIO and polarity are compiled hardware settings. Only the
+ *   hmi/buzzer/enable module setting is persistent.
+ */
+inline constexpr HmiBuzzerSpec kWaveshareESP32S3HmiBuzzer{
+    true,
+    46,
+    true
 };
 
 /*
@@ -416,7 +435,7 @@ inline constexpr SupervisorBoardSpec kWaveshareESP32S3Supervisor{
  * Field order:
  *   name, mdnsHost, uarts, uartCount, i2cBuses, i2cCount, oneWireBuses,
  *   oneWireCount, ioPoints, ioPointCount, ioCapacity, mqttCapacity,
- *   mqttBuffers, haCapacity, supervisor, provisioning, ethernetW5500.
+ *   mqttBuffers, haCapacity, supervisor, provisioning, ethernetW5500, hmiBuzzer.
  *
  * name:
  *   Board identifier exposed to logs/runtime.
@@ -459,7 +478,8 @@ inline constexpr BoardSpec kWaveshareESP32S3{
     kWaveshareESP32S3HaCapacity,
     &kWaveshareESP32S3Supervisor,
     {},
-    &kWaveshareESP32S3EthernetW5500
+    &kWaveshareESP32S3EthernetW5500,
+    &kWaveshareESP32S3HmiBuzzer
 };
 
 }  // namespace BoardProfiles

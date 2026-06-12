@@ -139,6 +139,7 @@ void registerModules(AppContext& ctx, ModuleInstances& modules)
     ctx.moduleManager.add(&modules.commandModule);
     ctx.moduleManager.add(&modules.hmiUdpServerModule);
     ctx.moduleManager.add(&modules.hmiModule);
+    ctx.moduleManager.add(&modules.hmiBuzzerModule);
     ctx.moduleManager.add(&modules.alarmModule);
     ctx.moduleManager.add(&modules.ethernetModule);
     ctx.moduleManager.add(&modules.wifiModule);

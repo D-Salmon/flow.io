@@ -5,6 +5,7 @@
 
 #include "PoolDeviceModule.h"
 #include "Core/BufferUsageTracker.h"
+#include "Domain/Pool/PoolDeviceSlots.h"
 #define LOG_MODULE_ID ((LogModuleId)LogModuleIdValue::PoolDeviceModule)
 #include "Core/ModuleLog.h"
 #include "Modules/Network/TimeModule/TimeRuntime.h"
@@ -250,7 +251,36 @@ bool PoolDeviceModule::loadPersistedMetrics_(uint8_t slotIdx, PoolDeviceSlot& sl
 {
     if (slotIdx >= POOL_DEVICE_MAX) return false;
     if (!slot.used) return false;
-    if (runtimePersistBuf_[slotIdx][0] == '\0') return false;
+    if (!cfgStore_) return false;
+
+    const char* runtimeKey = PoolDeviceSlots::kSlots[slotIdx].runtimeKey;
+    if (!runtimeKey || runtimeKey[0] == '\0') return false;
+
+    runtimePersistBuf_[slotIdx][0] = '\0';
+    size_t actualLen = 0U;
+    bool readOk = false;
+    if (cfgSvc_ && cfgSvc_->readRuntimeBlob) {
+        readOk = cfgSvc_->readRuntimeBlob(cfgSvc_->ctx,
+                                          runtimeKey,
+                                          runtimePersistBuf_[slotIdx],
+                                          sizeof(runtimePersistBuf_[slotIdx]) - 1U,
+                                          &actualLen);
+    }
+    if (!readOk) {
+        readOk = cfgStore_->readRuntimeBlob(runtimeKey,
+                                            runtimePersistBuf_[slotIdx],
+                                            sizeof(runtimePersistBuf_[slotIdx]) - 1U,
+                                            &actualLen);
+    }
+    if (!readOk) {
+        return false;
+    }
+    runtimePersistBuf_[slotIdx][sizeof(runtimePersistBuf_[slotIdx]) - 1U] = '\0';
+    if (actualLen >= sizeof(runtimePersistBuf_[slotIdx])) {
+        LOGW("Pool device %s runtime blob too large len=%u", slot.id, (unsigned)actualLen);
+        runtimePersistBuf_[slotIdx][0] = '\0';
+        return false;
+    }
 
     char parseBuf[sizeof(runtimePersistBuf_[0])] = {0};
     strncpy(parseBuf, runtimePersistBuf_[slotIdx], sizeof(parseBuf) - 1);
@@ -345,6 +375,9 @@ bool PoolDeviceModule::persistMetrics_(uint8_t slotIdx, PoolDeviceSlot& slot, ui
     if (!slot.used) return false;
     if (!cfgStore_) return false;
 
+    const char* runtimeKey = PoolDeviceSlots::kSlots[slotIdx].runtimeKey;
+    if (!runtimeKey || runtimeKey[0] == '\0') return false;
+
     const Fixed3 injectedDay = fixed3FromMl_(slot.injectedMlDay);
     const Fixed3 injectedWeek = fixed3FromMl_(slot.injectedMlWeek);
     const Fixed3 injectedMonth = fixed3FromMl_(slot.injectedMlMonth);
@@ -376,7 +409,18 @@ bool PoolDeviceModule::persistMetrics_(uint8_t slotIdx, PoolDeviceSlot& slot, ui
         LOGW("Pool device %s runtime persist failed", slot.id);
         return false;
     }
-    if (!cfgStore_->set(cfgRuntimeVar_[slotIdx], encoded)) return false;
+    const size_t encodedLen = strnlen(encoded, sizeof(encoded)) + 1U;
+    bool persisted = false;
+    if (cfgSvc_ && cfgSvc_->writeRuntimeBlob) {
+        persisted = cfgSvc_->writeRuntimeBlob(cfgSvc_->ctx, runtimeKey, encoded, encodedLen);
+    }
+    if (!persisted) {
+        persisted = cfgStore_->writeRuntimeBlob(runtimeKey, encoded, encodedLen);
+    }
+    if (!persisted) return false;
+
+    strncpy(runtimePersistBuf_[slotIdx], encoded, sizeof(runtimePersistBuf_[slotIdx]) - 1U);
+    runtimePersistBuf_[slotIdx][sizeof(runtimePersistBuf_[slotIdx]) - 1U] = '\0';
     BufferUsageTracker::note(TrackedBufferId::PoolDeviceRuntimePersistTable,
                              charTableUsage_(runtimePersistBuf_),
                              sizeof(runtimePersistBuf_),

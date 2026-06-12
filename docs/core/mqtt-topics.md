@@ -91,9 +91,8 @@ Exemples:
 - `cfg/poollogic`
 - `cfg/poollogic/filtration`
 - `cfg/poollogic/chlorine`
-- `cfg/pdmrt`
-- `cfg/pdmrt/pd0`
-- `cfg/pdmrt/pd1`
+- `cfg/pdm`
+- `cfg/pdm/pd0`
 
 Règle topic:
 - suffixe vide -> base (`cfg/<module>`)

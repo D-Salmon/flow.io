@@ -25,6 +25,7 @@
         "display": "hmi",
         "children": [
           "leds",
+          "buzzer",
           "nextion",
           "nextion_udp",
           "tft",
