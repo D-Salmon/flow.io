@@ -87,7 +87,9 @@ const char* wifiCipherName_(wifi_cipher_type_t cipher)
 void WifiProvisioningModule::init(ConfigStore& cfg, ServiceRegistry& services)
 {
     cfgStore_ = &cfg;
+    services_ = &services;
     wifiSvc_ = services.get<WifiService>(ServiceId::Wifi);
+    hmiSvc_ = services.get<HmiService>(ServiceId::Hmi);
     bootMs_ = millis();
     networkManager_.begin(bootMs_);
     lastCfgPollMs_ = 0;
@@ -108,6 +110,8 @@ void WifiProvisioningModule::init(ConfigStore& cfg, ServiceRegistry& services)
 
 void WifiProvisioningModule::onConfigLoaded(ConfigStore&, ServiceRegistry& services)
 {
+    services_ = &services;
+    hmiSvc_ = services.get<HmiService>(ServiceId::Hmi);
     refreshWifiConfig_();
     observedNetAccessSvc_ = services.get<NetworkAccessService>(ServiceId::NetworkAccess);
     if (!ethernetEnabled_ && !services.has(ServiceId::NetworkAccess)) {
@@ -148,6 +152,7 @@ void WifiProvisioningModule::loop()
 #endif
         apActive_ = false;
         networkManager_.setCaptivePortalRunning(false);
+        setHmiCaptivePortalCondition_(false);
         portalLatched_ = false;
         apClientCount_ = 0;
         nextApStartAttemptMs_ = millis() + kApStartRetryMs;
@@ -165,6 +170,9 @@ void WifiProvisioningModule::loop()
         refreshWifiConfig_();
     }
     syncNetworkManagerState_();
+    const bool forceHmiPortalSync = apActive_ &&
+        ((uint32_t)(now - lastHmiCaptivePortalSyncMs_) >= kHmiPortalResyncMs);
+    setHmiCaptivePortalCondition_(apActive_, forceHmiPortalSync);
 
     if (hasStationNetwork_()) {
         if (apActive_) {
@@ -463,6 +471,7 @@ bool WifiProvisioningModule::startCaptivePortal_(NetworkPortalReason reason)
 #endif
     apActive_ = true;
     networkManager_.setCaptivePortalRunning(true);
+    setHmiCaptivePortalCondition_(true);
     staProbeActive_ = false;
     apClientEverSeen_ = false;
     lastStaProbeStartMs_ = millis();
@@ -501,6 +510,7 @@ void WifiProvisioningModule::stopCaptivePortal_(const char* reason)
     lastApClientSeenMs_ = 0;
     lastApClientPollMs_ = 0;
     networkManager_.setCaptivePortalRunning(false);
+    setHmiCaptivePortalCondition_(false);
     LOGI("[NET] Captive portal stopped because %s", reason ? reason : "network is available");
 }
 
@@ -662,6 +672,32 @@ void WifiProvisioningModule::syncNetworkManagerState_()
     networkManager_.updateConfig(ethernetEnabled_, wifiEnabled_, wifiConfigured_);
     networkManager_.updateInterfaces(ethHasIP, wifiHasIP);
     networkManager_.setCaptivePortalRunning(apActive_);
+}
+
+void WifiProvisioningModule::setHmiCaptivePortalCondition_(bool active, bool force)
+{
+    const uint32_t now = millis();
+    if (!force &&
+        hmiCaptivePortalConditionSynced_ &&
+        hmiCaptivePortalActive_ == active) {
+        return;
+    }
+    if (!hmiSvc_ && services_) {
+        hmiSvc_ = services_->get<HmiService>(ServiceId::Hmi);
+    }
+    if (!hmiSvc_) {
+        hmiCaptivePortalConditionSynced_ = false;
+        return;
+    }
+    if (hmiSvc_->setLedCondition) {
+        (void)hmiSvc_->setLedCondition(hmiSvc_->ctx, HmiLedCondition::CaptivePortalActive, active);
+        hmiCaptivePortalConditionSynced_ = true;
+        lastHmiCaptivePortalSyncMs_ = now;
+    } else {
+        hmiCaptivePortalConditionSynced_ = false;
+        return;
+    }
+    hmiCaptivePortalActive_ = active;
 }
 
 bool WifiProvisioningModule::getStaIp_(char* out, size_t len) const

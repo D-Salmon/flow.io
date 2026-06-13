@@ -7,6 +7,34 @@
 #include <stddef.h>
 #include <stdint.h>
 
+enum class HmiLedCondition : uint8_t {
+    AlarmActive = 0,
+    SensorFault,
+    CaptivePortalActive,
+    OtaInProgress,
+    NetworkLost,
+    Booting,
+    Count
+};
+
+enum class HmiLedDisplayState : uint8_t {
+    AlarmActive,
+    SensorFault,
+    CaptivePortalActive,
+    OtaInProgress,
+    NetworkLost,
+    Booting,
+    Normal
+};
+
+enum class HmiLedAnimation : uint8_t {
+    Solid,
+    Breathe,
+    Blink,
+    FastBlink,
+    Pulse
+};
+
 struct HmiRtcDateTime {
     uint16_t year = 0;
     uint8_t month = 0;
@@ -38,6 +66,11 @@ struct HmiService {
     bool (*getStatusLedState)(void* ctx, HmiStatusLedState* out);
     bool (*setStatusLedAutoWifiMode)(void* ctx, bool enabled);
     bool (*isStatusLedAutoWifiMode)(void* ctx);
+    bool (*setLedCondition)(void* ctx, HmiLedCondition condition, bool active);
+    void (*clearLedConditions)(void* ctx);
+    void (*setBootComplete)(void* ctx);
+    bool (*setLedEnabled)(void* ctx, bool enabled);
+    bool (*setLedBrightness)(void* ctx, uint8_t brightness);
     bool (*getDisplayVersion)(void* ctx, char* out, size_t outLen);
     bool (*readRtc)(void* ctx, HmiRtcDateTime* out, uint16_t timeoutMs);
     bool (*writeRtc)(void* ctx, const HmiRtcDateTime* value);

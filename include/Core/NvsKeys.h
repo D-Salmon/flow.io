@@ -443,6 +443,7 @@ constexpr char EvalPeriodMs[] = "al_epms"; // Alarm module persisted key for fie
 
 namespace Hmi {
 constexpr char LedsEnabled[] = "hmi_leds"; // HMI module persisted key for logical LED-panel writes enable.
+constexpr char WaveshareLedEnabled[] = "hmi_wsled"; // HMI module persisted key for Waveshare WS2812 status LED enable.
 constexpr char NextionEnabled[] = "hmi_nxen"; // HMI module persisted key for Nextion output enable.
 constexpr char FlowConnectUdpEnabled[] = "hmi_fcden"; // HMI module persisted key for Flow Connect Display UDP driver enable.
 constexpr char FlowConnectUdpToken[] = "hmi_fcdtk"; // Shared token for Flow Connect Display UDP pairing.

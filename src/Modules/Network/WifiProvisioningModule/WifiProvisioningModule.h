@@ -141,10 +141,13 @@ private:
     static constexpr uint32_t kStaStopWaitMs = 700U;
     static constexpr uint32_t kModeResetSettleMs = 120U;
     static constexpr uint32_t kApStartStableDelayMs = 450U;
+    static constexpr uint32_t kHmiPortalResyncMs = 2000U;
 
     ConfigStore* cfgStore_ = nullptr;
+    ServiceRegistry* services_ = nullptr;
     const WifiService* wifiSvc_ = nullptr;
     const NetworkAccessService* observedNetAccessSvc_ = nullptr;
+    const HmiService* hmiSvc_ = nullptr;
     FlowNetwork::NetworkManager networkManager_{};
 
     DNSServer dns_;
@@ -157,6 +160,8 @@ private:
     bool configDirty_ = false;
     bool fastPortalStart_ = false;
     bool portalLatched_ = false;
+    bool hmiCaptivePortalActive_ = false;
+    bool hmiCaptivePortalConditionSynced_ = false;
     bool staProbeActive_ = false;
     bool apStarting_ = false;
     volatile bool apRestartPending_ = false;
@@ -170,6 +175,7 @@ private:
     uint32_t lastApStartPrecheckLogMs_ = 0;
     uint32_t lastApStartDeferredLogMs_ = 0;
     uint32_t lastApProbeLogMs_ = 0;
+    uint32_t lastHmiCaptivePortalSyncMs_ = 0;
     uint32_t nextApStartAttemptMs_ = 0;
     uint32_t apProbeCount_ = 0;
     uint8_t apStartDeferredCount_ = 0;
@@ -216,6 +222,7 @@ private:
     bool isStaConnected_() const;
     bool hasStationNetwork_() const;
     void syncNetworkManagerState_();
+    void setHmiCaptivePortalCondition_(bool active, bool force = false);
     bool getStaIp_(char* out, size_t len) const;
     bool getApIp_(char* out, size_t len) const;
 #if defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY)

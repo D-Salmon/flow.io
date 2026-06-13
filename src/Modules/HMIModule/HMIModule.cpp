@@ -12,6 +12,7 @@
 #include "Core/EventBus/EventPayloads.h"
 #include "Core/AlarmIds.h"
 #include "Core/Generated/RuntimeUiAlarmText_Generated.h"
+#include "Core/SystemLimits.h"
 #include "Domain/Pool/PoolBindings.h"
 #include "Domain/Pool/PoolDefaults.h"
 #include "Modules/IOModule/IORuntime.h"
@@ -45,7 +46,7 @@ static constexpr const char* kPoolLogicDeviceModule = "poollogic/devices";
 static constexpr const char* kPoolLogicModesModule = "poollogic/modes";
 static constexpr const char* kPoolLogicPhModule = "poollogic/ph";
 static constexpr const char* kPoolLogicChlorineModule = "poollogic/chlorine";
-static constexpr size_t kPoolLogicSensorsJsonBufSize = 320U;
+static constexpr size_t kPoolLogicSensorsJsonBufSize = 480U;
 static constexpr size_t kPoolLogicDeviceJsonBufSize = 192U;
 static constexpr size_t kPoolLogicModeJsonBufSize = 256U;
 static constexpr uint8_t kLedBitMqttConnected = 0;
@@ -135,6 +136,7 @@ static constexpr uint16_t kWs2812NetFastBlinkOffMs = 150U;
 static constexpr uint16_t kWs2812NormalBreathePeriodMs = 900U;
 static constexpr uint16_t kWs2812ProvisioningBreathePeriodMs = 700U;
 static constexpr uint32_t kWs2812AlarmAlternationMs = 2000U;
+static constexpr uint32_t kHmiLedDebugPeriodMs = 5000U;
 
 static bool isSupportedNextionDisplayVersion_(const char* version)
 {
@@ -343,6 +345,30 @@ static bool isNetworkConnected_(const DataStoreService* dsSvc)
     return hasValidNetworkIp_(networkIp(ds));
 }
 
+static bool formatSensorIoRef_(IoId ioId, char* out, size_t outLen)
+{
+    if (!out || outLen == 0U) return false;
+    out[0] = '\0';
+
+    if (ioId == IO_ID_INVALID) {
+        snprintf(out, outLen, "none");
+        return false;
+    }
+
+    if (ioId >= IO_ID_AI_BASE && ioId < (IoId)(IO_ID_AI_BASE + Limits::Io::MaxAnalogEndpoints)) {
+        snprintf(out, outLen, "a%02u", (unsigned)(ioId - IO_ID_AI_BASE));
+        return true;
+    }
+
+    if (ioId >= IO_ID_DI_BASE && ioId < (IoId)(IO_ID_DI_BASE + Limits::Io::MaxDigitalInputs)) {
+        snprintf(out, outLen, "i%02u", (unsigned)(ioId - IO_ID_DI_BASE));
+        return true;
+    }
+
+    snprintf(out, outLen, "unknown");
+    return false;
+}
+
 static bool findJsonUInt16_(const char* json, const char* key, uint16_t& out)
 {
     if (!json || !key || key[0] == '\0') return false;
@@ -454,6 +480,7 @@ void HMIModule::applyOutputConfig_()
     if (!kFrontLedsSupported || !cfgData_.ledsEnabled) {
         wifiBlinkOn_ = false;
     }
+    (void)ws2812StatusLed_.setEnabled(cfgData_.waveshareLedEnabled);
     ledMaskValid_ = false;
 }
 
@@ -563,6 +590,33 @@ bool HMIModule::isStatusLedAutoWifiMode_() const
     return ws2812AutoWifiMode_;
 }
 
+bool HMIModule::setLedCondition_(HmiLedCondition condition, bool active)
+{
+    ws2812AutoWifiMode_ = true;
+    ws2812StatusLed_.setCondition(condition, active);
+    return true;
+}
+
+void HMIModule::clearLedConditions_()
+{
+    ws2812StatusLed_.clearAllConditions();
+}
+
+void HMIModule::setBootComplete_()
+{
+    ws2812StatusLed_.setBootComplete();
+}
+
+bool HMIModule::setLedEnabled_(bool enabled)
+{
+    return ws2812StatusLed_.setEnabled(enabled);
+}
+
+bool HMIModule::setLedBrightness_(uint8_t brightness)
+{
+    return ws2812StatusLed_.setBrightness(brightness);
+}
+
 bool HMIModule::getDisplayVersion_(char* out, size_t outLen) const
 {
     if (!out || outLen == 0U || !nextionVersionDetected_) return false;
@@ -583,6 +637,7 @@ void HMIModule::init(ConfigStore& cfg, ServiceRegistry& services)
 {
     services_ = &services;
     cfg.registerVar(ledsEnabledVar_);
+    cfg.registerVar(waveshareLedEnabledVar_);
     cfg.registerVar(nextionEnabledVar_);
     cfg.registerVar(remoteUdpEnabledVar_);
     cfg.registerVar(veniceEnabledVar_);
@@ -646,6 +701,7 @@ void HMIModule::init(ConfigStore& cfg, ServiceRegistry& services)
     wsCfg.gpio = kWs2812StatusLedGpio;
     ws2812StatusLed_.setConfig(wsCfg);
     const bool ws2812Ready = ws2812StatusLed_.begin();
+    (void)ws2812StatusLed_.setEnabled(cfgData_.waveshareLedEnabled);
     driverReady_ = false;
     nextionDisabledByVersion_ = false;
     homePageVisible_ = false;
@@ -656,6 +712,7 @@ void HMIModule::init(ConfigStore& cfg, ServiceRegistry& services)
     configMenuActive_ = false;
     viewDirty_ = true;
     lastRenderMs_ = 0;
+    lastHmiLedDebugMs_ = 0;
     ledPage_ = 1U;
     ledMaskValid_ = false;
     ws2812AutoWifiMode_ = true;
@@ -699,12 +756,19 @@ void HMIModule::init(ConfigStore& cfg, ServiceRegistry& services)
     airTempIoId_ = PoolBinding::kSensorBindings[PoolBinding::kSensorSlotAirTemp].ioId;
     poolLevelIoId_ = PoolBinding::kSensorBindings[PoolBinding::kSensorSlotPoolLevel].ioId;
     waterTempIoId_ = PoolBinding::kSensorBindings[PoolBinding::kSensorSlotWaterTemp].ioId;
+    phLevelIoId_ = PoolBinding::kSensorBindings[PoolBinding::kSensorSlotPhLevel].ioId;
+    chlorineLevelIoId_ = PoolBinding::kSensorBindings[PoolBinding::kSensorSlotChlorineLevel].ioId;
+    waterCounterIoId_ = IO_ID_INVALID;
     phRuntimeIndex_ = kInvalidRuntimeIndex;
     orpRuntimeIndex_ = kInvalidRuntimeIndex;
     psiRuntimeIndex_ = kInvalidRuntimeIndex;
     waterTempRuntimeIndex_ = kInvalidRuntimeIndex;
     airTempRuntimeIndex_ = kInvalidRuntimeIndex;
     poolLevelRuntimeIndex_ = kInvalidRuntimeIndex;
+    phLevelRuntimeIndex_ = kInvalidRuntimeIndex;
+    chlorineLevelRuntimeIndex_ = kInvalidRuntimeIndex;
+    waterCounterRuntimeIndex_ = kInvalidRuntimeIndex;
+    refreshNetworkExpectations_();
     homeErrorMessage_[0] = '\0';
     applyWs2812AutoWifiProfile_();
     if (wsCfg.enabled && !ws2812Ready) {
@@ -720,6 +784,7 @@ void HMIModule::init(ConfigStore& cfg, ServiceRegistry& services)
 void HMIModule::onConfigLoaded(ConfigStore&, ServiceRegistry&)
 {
     refreshMqttConfig_();
+    refreshNetworkExpectations_();
     refreshLocale_();
     applyOutputConfig_();
     refreshHomeBindings_();
@@ -743,6 +808,24 @@ void HMIModule::refreshMqttConfig_()
         (void)findJsonBool_(mqttJson, "enabled", enabled);
     }
     mqttEnabled_ = enabled;
+}
+
+void HMIModule::refreshNetworkExpectations_()
+{
+    wifiNetworkExpected_ = true;
+    ethernetNetworkExpected_ = false;
+
+    if (!cfgSvc_ || !cfgSvc_->toJsonModule) return;
+
+    char jsonBuf[160] = {0};
+    if (cfgSvc_->toJsonModule(cfgSvc_->ctx, "wifi", jsonBuf, sizeof(jsonBuf), nullptr)) {
+        (void)findJsonBool_(jsonBuf, "enabled", wifiNetworkExpected_);
+    }
+
+    memset(jsonBuf, 0, sizeof(jsonBuf));
+    if (cfgSvc_->toJsonModule(cfgSvc_->ctx, "ethernet", jsonBuf, sizeof(jsonBuf), nullptr)) {
+        (void)findJsonBool_(jsonBuf, "enabled", ethernetNetworkExpected_);
+    }
 }
 
 void HMIModule::onEventStatic_(const Event& e, void* user)
@@ -787,6 +870,9 @@ void HMIModule::refreshHomeBindings_()
         bool foundPsi = false;
         bool foundWaterTemp = false;
         bool foundAirTemp = false;
+        bool foundPhLevel = false;
+        bool foundChlorineLevel = false;
+        bool foundWaterCounter = false;
         bool foundFiltrationSlot = false;
         bool foundPhPumpSlot = false;
         bool foundOrpPumpSlot = false;
@@ -829,6 +915,21 @@ void HMIModule::refreshHomeBindings_()
             if (foundAirTemp) {
                 airTempIoId_ = (IoId)ioId;
             }
+            ioId = (uint16_t)phLevelIoId_;
+            foundPhLevel = findJsonUInt16_(jsonBuf, "ph_lvl_io_id", ioId);
+            if (foundPhLevel) {
+                phLevelIoId_ = (IoId)ioId;
+            }
+            ioId = (uint16_t)chlorineLevelIoId_;
+            foundChlorineLevel = findJsonUInt16_(jsonBuf, "chl_lvl_io_id", ioId);
+            if (foundChlorineLevel) {
+                chlorineLevelIoId_ = (IoId)ioId;
+            }
+            ioId = (uint16_t)waterCounterIoId_;
+            foundWaterCounter = findJsonUInt16_(jsonBuf, "water_counter_io_id", ioId);
+            if (foundWaterCounter) {
+                waterCounterIoId_ = (IoId)ioId;
+            }
         } else {
             LOGW("HMI poollogic sensors export failed");
         }
@@ -866,7 +967,7 @@ void HMIModule::refreshHomeBindings_()
                 fillingDeviceSlot_ = (uint8_t)slot;
             }
 
-            LOGD("HMI poollogic cfg sensors_trunc=%u device_trunc=%u keys lvl=%u ph=%u orp=%u psi=%u wat=%u air=%u filtr=%u php=%u orpp=%u robot=%u fill=%u",
+            LOGD("HMI poollogic cfg sensors_trunc=%u device_trunc=%u keys lvl=%u ph=%u orp=%u psi=%u wat=%u air=%u phlvl=%u chllvl=%u wc=%u filtr=%u php=%u orpp=%u robot=%u fill=%u",
                  sensorsTruncated ? 1U : 0U,
                  truncated ? 1U : 0U,
                  foundPoolLevel ? 1U : 0U,
@@ -875,6 +976,9 @@ void HMIModule::refreshHomeBindings_()
                  foundPsi ? 1U : 0U,
                  foundWaterTemp ? 1U : 0U,
                  foundAirTemp ? 1U : 0U,
+                 foundPhLevel ? 1U : 0U,
+                 foundChlorineLevel ? 1U : 0U,
+                 foundWaterCounter ? 1U : 0U,
                  foundFiltrationSlot ? 1U : 0U,
                  foundPhPumpSlot ? 1U : 0U,
                  foundOrpPumpSlot ? 1U : 0U,
@@ -891,6 +995,9 @@ void HMIModule::refreshHomeBindings_()
     (void)resolveIoRuntimeIndex_(waterTempIoId_, waterTempRuntimeIndex_);
     (void)resolveIoRuntimeIndex_(airTempIoId_, airTempRuntimeIndex_);
     (void)resolveIoRuntimeIndex_(poolLevelIoId_, poolLevelRuntimeIndex_);
+    (void)resolveIoRuntimeIndex_(phLevelIoId_, phLevelRuntimeIndex_);
+    (void)resolveIoRuntimeIndex_(chlorineLevelIoId_, chlorineLevelRuntimeIndex_);
+    (void)resolveIoRuntimeIndex_(waterCounterIoId_, waterCounterRuntimeIndex_);
 
     LOGD("HMI home bindings ph=%u(rt=%u) orp=%u(rt=%u) psi=%u(rt=%u) wat=%u(rt=%u) air=%u(rt=%u) lvl=%u(rt=%u)",
          (unsigned)phIoId_,
@@ -1490,92 +1597,102 @@ void HMIModule::flushHomePublish_()
 
 void HMIModule::applyWs2812AutoWifiProfile_()
 {
+    updateHmiLedConditions_();
+}
+
+void HMIModule::updateHmiLedConditions_()
+{
     if (!ws2812AutoWifiMode_) return;
 
-    if (!netAccessSvc_ && services_) {
-        netAccessSvc_ = services_->get<NetworkAccessService>(ServiceId::NetworkAccess);
-    }
-
-    bool networkConnected = false;
-    bool mqttConnected = false;
-    networkConnected = isNetworkConnected_(dsSvc_);
-    if (dsSvc_ && dsSvc_->store) mqttConnected = mqttReady(*dsSvc_->store);
-    const bool apMode = netAccessSvc_ && netAccessSvc_->mode &&
-                        netAccessSvc_->mode(netAccessSvc_->ctx) == NetworkAccessMode::AccessPoint;
-    const bool normalRun = networkConnected && (!mqttEnabled_ || mqttConnected) &&
-                           (driverReady_ || driver_ == nullptr);
     bool alarmActive = false;
     if (alarmSvc_ && alarmSvc_->activeCount) {
         alarmActive = (alarmSvc_->activeCount(alarmSvc_->ctx) > 0U);
     }
 
-    const uint32_t nowMs = millis();
-    const bool alarmRedPhase = alarmActive && (((nowMs / kWs2812AlarmAlternationMs) & 1UL) != 0UL);
-    if (ws2812AutoWifiApplied_ &&
-        ws2812AutoWifiConnectedLast_ == networkConnected &&
-        ws2812AutoWifiMqttLast_ == mqttConnected &&
-        ws2812AutoWifiApModeLast_ == apMode &&
-        ws2812AutoWifiNormalLast_ == normalRun &&
-        ws2812AutoWifiAlarmActiveLast_ == alarmActive &&
-        ws2812AutoWifiAlarmRedPhaseLast_ == alarmRedPhase) {
-        return;
-    }
+    const bool networkExpected = wifiNetworkExpected_ || ethernetNetworkExpected_;
+    const bool networkLost = networkExpected && !isNetworkConnected_(dsSvc_);
+    const bool sensorFault = hasSensorFault_();
 
-    Ws2812StatusLedState state{};
-    state.enabled = true;
-    if (apMode) {
-        state.blinkEnabled = false;
-        state.breatheEnabled = true;
-        state.red = kWs2812ProvisioningRed;
-        state.green = kWs2812ProvisioningGreen;
-        state.blue = kWs2812ProvisioningBlue;
-        state.brightness = kWs2812ProvisioningBrightness;
-        state.breathePeriodMs = kWs2812ProvisioningBreathePeriodMs;
-    } else if (alarmRedPhase) {
-        state.blinkEnabled = false;
-        state.breatheEnabled = false;
-        state.red = kWs2812AlarmRedRed;
-        state.green = kWs2812AlarmRedGreen;
-        state.blue = kWs2812AlarmRedBlue;
-        state.brightness = kWs2812AlarmRedBrightness;
-        state.blinkOnMs = kWs2812NetFastBlinkOnMs;
-        state.blinkOffMs = kWs2812NetFastBlinkOffMs;
-    } else {
-        state.red = kWs2812T0BlueRed;
-        state.green = kWs2812T0BlueGreen;
-        state.blue = kWs2812T0BlueBlue;
-        state.brightness = kWs2812T0BlueBrightness;
-        if (normalRun) {
-            state.blinkEnabled = false;
-            state.breatheEnabled = true;
-            state.breathePeriodMs = kWs2812NormalBreathePeriodMs;
-            state.blinkOnMs = kWs2812NetFastBlinkOnMs;
-            state.blinkOffMs = kWs2812NetFastBlinkOffMs;
-        } else if (networkConnected && mqttConnected) {
-            state.blinkEnabled = false;
-            state.breatheEnabled = false;
-            state.blinkOnMs = kWs2812NetFastBlinkOnMs;
-            state.blinkOffMs = kWs2812NetFastBlinkOffMs;
-        } else if (networkConnected) {
-            state.blinkEnabled = true;
-            state.breatheEnabled = false;
-            state.blinkOnMs = kWs2812NetFastBlinkOnMs;
-            state.blinkOffMs = kWs2812NetFastBlinkOffMs;
-        } else {
-            state.blinkEnabled = true;
-            state.breatheEnabled = false;
-            state.blinkOnMs = kWs2812NetSlowBlinkOnMs;
-            state.blinkOffMs = kWs2812NetSlowBlinkOffMs;
-        }
-    }
-    (void)ws2812StatusLed_.setState(state);
-    ws2812AutoWifiConnectedLast_ = networkConnected;
-    ws2812AutoWifiMqttLast_ = mqttConnected;
-    ws2812AutoWifiApModeLast_ = apMode;
-    ws2812AutoWifiNormalLast_ = normalRun;
-    ws2812AutoWifiAlarmActiveLast_ = alarmActive;
-    ws2812AutoWifiAlarmRedPhaseLast_ = alarmRedPhase;
+    ws2812StatusLed_.setCondition(HmiLedCondition::AlarmActive, alarmActive);
+    ws2812StatusLed_.setCondition(HmiLedCondition::SensorFault, sensorFault);
+    ws2812StatusLed_.setCondition(HmiLedCondition::NetworkLost, networkLost);
     ws2812AutoWifiApplied_ = true;
+}
+
+bool HMIModule::hasSensorFault_() const
+{
+    return configuredSensorUnknown_(phIoId_, phRuntimeIndex_) ||
+           configuredSensorUnknown_(orpIoId_, orpRuntimeIndex_) ||
+           configuredSensorUnknown_(psiIoId_, psiRuntimeIndex_) ||
+           configuredSensorUnknown_(waterTempIoId_, waterTempRuntimeIndex_) ||
+           configuredSensorUnknown_(airTempIoId_, airTempRuntimeIndex_) ||
+           configuredSensorUnknown_(poolLevelIoId_, poolLevelRuntimeIndex_) ||
+           configuredSensorUnknown_(phLevelIoId_, phLevelRuntimeIndex_) ||
+           configuredSensorUnknown_(chlorineLevelIoId_, chlorineLevelRuntimeIndex_) ||
+           configuredSensorUnknown_(waterCounterIoId_, waterCounterRuntimeIndex_);
+}
+
+bool HMIModule::configuredSensorUnknown_(IoId ioId, uint8_t runtimeIndex) const
+{
+    (void)runtimeIndex;
+    if (ioId == IO_ID_INVALID) return false;
+    if (!ioSvc_ || !ioSvc_->sensorStatus) return false;
+
+    IoSensorStatus status{};
+    if (ioSvc_->sensorStatus(ioSvc_->ctx, ioId, &status) != IO_OK) return false;
+    return status.enabled != 0U && status.valid == 0U;
+}
+
+bool HMIModule::firstSensorFaultRef_(char* out, size_t outLen) const
+{
+    if (!out || outLen == 0U) return false;
+    snprintf(out, outLen, "none");
+
+    IoId faultIoId = IO_ID_INVALID;
+    if (configuredSensorUnknown_(phIoId_, phRuntimeIndex_)) faultIoId = phIoId_;
+    else if (configuredSensorUnknown_(orpIoId_, orpRuntimeIndex_)) faultIoId = orpIoId_;
+    else if (configuredSensorUnknown_(psiIoId_, psiRuntimeIndex_)) faultIoId = psiIoId_;
+    else if (configuredSensorUnknown_(waterTempIoId_, waterTempRuntimeIndex_)) faultIoId = waterTempIoId_;
+    else if (configuredSensorUnknown_(airTempIoId_, airTempRuntimeIndex_)) faultIoId = airTempIoId_;
+    else if (configuredSensorUnknown_(poolLevelIoId_, poolLevelRuntimeIndex_)) faultIoId = poolLevelIoId_;
+    else if (configuredSensorUnknown_(phLevelIoId_, phLevelRuntimeIndex_)) faultIoId = phLevelIoId_;
+    else if (configuredSensorUnknown_(chlorineLevelIoId_, chlorineLevelRuntimeIndex_)) faultIoId = chlorineLevelIoId_;
+    else if (configuredSensorUnknown_(waterCounterIoId_, waterCounterRuntimeIndex_)) faultIoId = waterCounterIoId_;
+    else return false;
+
+    return formatSensorIoRef_(faultIoId, out, outLen);
+}
+
+const char* HMIModule::hmiLedDisplayStateName_(HmiLedDisplayState state)
+{
+    switch (state) {
+        case HmiLedDisplayState::AlarmActive: return "AlarmActive";
+        case HmiLedDisplayState::SensorFault: return "SensorFault";
+        case HmiLedDisplayState::CaptivePortalActive: return "CaptivePortalActive";
+        case HmiLedDisplayState::OtaInProgress: return "OtaInProgress";
+        case HmiLedDisplayState::NetworkLost: return "NetworkLost";
+        case HmiLedDisplayState::Booting: return "Booting";
+        case HmiLedDisplayState::Normal: return "Normal";
+        default: return "Unknown";
+    }
+}
+
+void HMIModule::logHmiLedDebug_(uint32_t nowMs)
+{
+    if ((uint32_t)(nowMs - lastHmiLedDebugMs_) < kHmiLedDebugPeriodMs) return;
+    lastHmiLedDebugMs_ = nowMs;
+
+    const HmiLedDisplayState current = ws2812StatusLed_.currentDisplayState();
+    const HmiLedDisplayState target = ws2812StatusLed_.targetDisplayState();
+    char sensorFaultRef[12]{};
+    (void)firstSensorFaultRef_(sensorFaultRef, sizeof(sensorFaultRef));
+    LOGD("Waveshare HMI LED enabled=%u ready=%u state=%s target=%s transition=%u sensor=%s",
+         ws2812StatusLed_.isEnabled() ? 1U : 0U,
+         ws2812StatusLed_.isReady() ? 1U : 0U,
+         hmiLedDisplayStateName_(current),
+         hmiLedDisplayStateName_(target),
+         ws2812StatusLed_.isTransitionActive() ? 1U : 0U,
+         sensorFaultRef);
 }
 
 void HMIModule::applyLedMask_(bool force)
@@ -1714,6 +1831,9 @@ void HMIModule::onEvent_(const Event& e)
             mqttConfigRefreshPending_ = true;
             ledDirty = true;
             homePublishMask |= kHomePublishStateBits;
+        }
+        if ((p->module[0] && (strcmp(p->module, "wifi") == 0 || strcmp(p->module, "ethernet") == 0))) {
+            refreshNetworkExpectations_();
         }
         if ((p->moduleId == (uint8_t)ConfigModuleId::System &&
              strcmp(p->nvsKey, NvsKeys::System::Language) == 0) ||
@@ -2716,6 +2836,7 @@ void HMIModule::loop()
     const uint32_t wsLedNow = millis();
     applyWs2812AutoWifiProfile_();
     ws2812StatusLed_.tick(wsLedNow);
+    logHmiLedDebug_(wsLedNow);
 
     if (driver_) {
         if (!driverReady_) {

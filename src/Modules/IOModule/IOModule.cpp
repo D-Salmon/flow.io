@@ -1641,6 +1641,157 @@ IoStatus IOModule::ioLastCycle_(IoCycleInfo* outCycle) const
     return IO_OK;
 }
 
+IoStatus IOModule::ioSensorStatus_(IoId id, IoSensorStatus* outStatus) const
+{
+    if (!outStatus) return IO_ERR_INVALID_ARG;
+    *outStatus = IoSensorStatus{};
+    outStatus->id = id;
+
+    if (!cfgData_.enabled) {
+        outStatus->invalidReasons = IO_SENSOR_INVALID_DISABLED;
+        return IO_OK;
+    }
+
+    if (id >= IO_ID_AI_BASE && id < IO_ID_AI_MAX) {
+        const uint8_t analogIdx = (uint8_t)(id - IO_ID_AI_BASE);
+        outStatus->kind = IO_KIND_ANALOG_IN;
+
+        if (!analogSlots_[analogIdx].used) {
+            outStatus->invalidReasons = IO_SENSOR_INVALID_UNKNOWN_ID;
+            return IO_ERR_UNKNOWN_ID;
+        }
+
+        if (!analogSlotPublished_(analogIdx)) {
+            outStatus->enabled = 0U;
+            outStatus->invalidReasons = IO_SENSOR_INVALID_DISABLED;
+
+            if (analogIdx < ANALOG_CFG_SLOTS) {
+                if (analogCfg_[analogIdx].bindingPort == IO_PORT_INVALID) {
+                    outStatus->invalidReasons |= IO_SENSOR_INVALID_NO_BINDING;
+                } else {
+                    uint8_t source = IO_ANALOG_SOURCE_INVALID;
+                    if (!resolveConfiguredAnalogSource_(analogIdx, source)) {
+                        outStatus->invalidReasons |= IO_SENSOR_INVALID_NO_BINDING;
+                    } else if (analogSourceRequiresDriverEnable_(source) && !analogSourceDriverEnabled_(source)) {
+                        outStatus->invalidReasons |= IO_SENSOR_INVALID_DRIVER_DISABLED;
+                    }
+                }
+            }
+
+            return IO_OK;
+        }
+
+        outStatus->enabled = 1U;
+        if (!analogSlots_[analogIdx].endpoint) {
+            outStatus->invalidReasons = IO_SENSOR_INVALID_NOT_READY;
+            return IO_OK;
+        }
+
+        IOEndpointValue v{};
+        if (!analogSlots_[analogIdx].endpoint->read(v)) {
+            outStatus->invalidReasons = IO_SENSOR_INVALID_NOT_READY;
+            return IO_OK;
+        }
+        if (!v.valid) {
+            outStatus->invalidReasons = IO_SENSOR_INVALID_NO_VALUE;
+            outStatus->tsMs = v.timestampMs;
+            return IO_OK;
+        }
+        if (v.valueType != IO_EP_VALUE_FLOAT) {
+            outStatus->invalidReasons = IO_SENSOR_INVALID_TYPE;
+            outStatus->tsMs = v.timestampMs;
+            return IO_OK;
+        }
+
+        outStatus->valid = 1U;
+        outStatus->invalidReasons = IO_SENSOR_INVALID_NONE;
+        outStatus->tsMs = v.timestampMs;
+        return IO_OK;
+    }
+
+    if (id >= IO_ID_DI_BASE && id < IO_ID_DI_MAX) {
+        const uint8_t logicalIdx = (uint8_t)(id - IO_ID_DI_BASE);
+        outStatus->kind = IO_KIND_DIGITAL_IN;
+
+        if (logicalIdx < DIGITAL_INPUT_CFG_SLOTS &&
+            digitalInCfg_[logicalIdx].bindingPort == IO_PORT_INVALID) {
+            outStatus->enabled = 0U;
+            outStatus->invalidReasons = IO_SENSOR_INVALID_DISABLED | IO_SENSOR_INVALID_NO_BINDING;
+            return IO_OK;
+        }
+
+        uint8_t slotIdx = 0xFF;
+        if (!findDigitalSlotByIoId_(id, slotIdx)) {
+            outStatus->enabled = 0U;
+            outStatus->invalidReasons = IO_SENSOR_INVALID_DISABLED;
+            outStatus->invalidReasons |= IO_SENSOR_INVALID_UNKNOWN_ID;
+            return IO_OK;
+        }
+
+        const DigitalSlot& s = digitalSlots_[slotIdx];
+        if (!s.used || s.kind != DIGITAL_SLOT_INPUT) {
+            outStatus->invalidReasons = IO_SENSOR_INVALID_NOT_SENSOR;
+            return IO_ERR_TYPE_MISMATCH;
+        }
+
+        outStatus->enabled = 1U;
+        if (!s.endpoint) {
+            outStatus->invalidReasons = IO_SENSOR_INVALID_NOT_READY;
+            return IO_OK;
+        }
+
+        IOEndpointValue v{};
+        if (!s.endpoint->read(v)) {
+            outStatus->invalidReasons = IO_SENSOR_INVALID_NOT_READY;
+            return IO_OK;
+        }
+        if (!v.valid) {
+            outStatus->invalidReasons = IO_SENSOR_INVALID_NO_VALUE;
+            outStatus->tsMs = v.timestampMs;
+            return IO_OK;
+        }
+
+        outStatus->valid = 1U;
+        outStatus->invalidReasons = IO_SENSOR_INVALID_NONE;
+        outStatus->tsMs = v.timestampMs;
+        return IO_OK;
+    }
+
+    if (id >= IO_ID_DO_BASE && id < IO_ID_DO_MAX) {
+        outStatus->kind = IO_KIND_DIGITAL_OUT;
+        outStatus->invalidReasons = IO_SENSOR_INVALID_NOT_SENSOR;
+        return IO_ERR_TYPE_MISMATCH;
+    }
+
+    outStatus->invalidReasons = IO_SENSOR_INVALID_UNKNOWN_ID;
+    return IO_ERR_UNKNOWN_ID;
+}
+
+IoStatus IOModule::ioListInvalidSensors_(IoId* outIds, uint8_t maxIds, uint8_t* outCount) const
+{
+    if (!outCount) return IO_ERR_INVALID_ARG;
+    *outCount = 0U;
+
+    uint8_t written = 0U;
+    for (uint8_t i = 0; i < MAX_ANALOG_ENDPOINTS; ++i) {
+        IoSensorStatus st{};
+        if (ioSensorStatus_((IoId)(IO_ID_AI_BASE + i), &st) != IO_OK) continue;
+        if (!st.enabled || st.valid) continue;
+        if (outIds && written < maxIds) outIds[written++] = st.id;
+        if (*outCount < 0xFFU) ++(*outCount);
+    }
+
+    for (uint8_t logical = 0; logical < MAX_DIGITAL_INPUTS; ++logical) {
+        IoSensorStatus st{};
+        if (ioSensorStatus_((IoId)(IO_ID_DI_BASE + logical), &st) != IO_OK) continue;
+        if (!st.enabled || st.valid) continue;
+        if (outIds && written < maxIds) outIds[written++] = st.id;
+        if (*outCount < 0xFFU) ++(*outCount);
+    }
+
+    return IO_OK;
+}
+
 bool IOModule::getLedMaskSvc_(uint8_t* mask) const
 {
     if (!mask) return false;
