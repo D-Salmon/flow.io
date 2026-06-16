@@ -547,13 +547,15 @@
       return webProfileKey === 'micronova';
     }
 
-    function isFlowIOS3Profile() {
+    function isWaveshareProfile() {
       const key = String(webProfileKey || '').trim().toLowerCase();
-      return key === 'flowios3'
-        || key === 'waveshare'
+      return key === 'waveshare'
+        || key === 'flowios3'
         || key === 'esp32s3'
+        || key === 'esp32-s3'
+        || key === 'flowio-s3'
         || key.indexOf('waveshare') >= 0
-        || key.indexOf('flowios3') === 0;
+        || key.indexOf('flowios3') >= 0;
     }
 
     function isFlowIOProfile() {
@@ -634,8 +636,8 @@
         };
         const blockValues = isMicronovaProfile()
           ? new Set(['flow_soft', 'flow_hard', 'nextion', 'factory_reset'])
-          : (isFlowIOS3Profile() ? new Set(['supervisor', 'flow_hard']) : new Set());
-        const hiddenValues = isFlowIOS3Profile()
+          : (isWaveshareProfile() ? new Set(['supervisor', 'flow_hard']) : new Set());
+        const hiddenValues = isWaveshareProfile()
           ? new Set(['supervisor', 'flow_hard'])
           : new Set();
         Array.from(rebootDeviceTargetSelect.options || []).forEach((option) => {
@@ -2083,19 +2085,19 @@
     const poolMeasureDomainAnimations = {};
     const upgradeReconnectFetchTimeoutMs = 1400;
     const upgradeTargetDefs = {
-      flowio: { manifestKey: 'flowio', target: 'flowio', endpoint: '/fwupdate/flowio', label: 'flow.io', order: 10 },
-      esp32s3: { manifestKey: 'esp32s3', target: 'esp32s3', endpoint: '/fwupdate/flowio', label: 'ESP32-S3', order: 11 },
-      'esp32s3-spiffs': { manifestKey: 'esp32s3-spiffs', target: 'spiffs', endpoint: '/fwupdate/spiffs', label: 'Assets ESP32-S3', order: 12 },
-      supervisor: { manifestKey: 'supervisor', target: 'supervisor', endpoint: '/fwupdate/supervisor', label: 'Supervisor', order: 20 },
-      nextion: { manifestKey: 'nextion', target: 'nextion', endpoint: '/fwupdate/nextion', label: 'Nextion', order: 30 },
-      spiffs: { manifestKey: 'spiffs', target: 'spiffs', endpoint: '/fwupdate/spiffs', label: 'Assets Supervisor', order: 40 },
-      cfgdocs: { manifestKey: 'cfgdocs', target: 'spiffs', endpoint: '/fwupdate/spiffs', label: 'Assets Supervisor', order: 41 }
+      flowios3: { manifestKey: 'flowios3', target: 'flowios3', endpoint: '/fwupdate/waveshare', label: 'FlowIOS3', order: 10 },
+      waveshare: { manifestKey: 'waveshare', target: 'waveshare', endpoint: '/fwupdate/waveshare', label: 'Waveshare', order: 10 },
+      esp32s3: { manifestKey: 'esp32s3', target: 'esp32s3', endpoint: '/fwupdate/waveshare', label: 'ESP32-S3', order: 11 },
+      'flowios3-spiffs': { manifestKey: 'flowios3-spiffs', target: 'spiffs', endpoint: '/fwupdate/spiffs', label: 'SPIFFS FlowIOS3', order: 39 },
+      'esp32s3-spiffs': { manifestKey: 'esp32s3-spiffs', target: 'spiffs', endpoint: '/fwupdate/spiffs', label: 'SPIFFS ESP32-S3', order: 39 },
+      'waveshare-spiffs': { manifestKey: 'waveshare-spiffs', target: 'spiffs', endpoint: '/fwupdate/spiffs', label: 'SPIFFS Waveshare', order: 39 },
+      spiffs: { manifestKey: 'spiffs', target: 'spiffs', endpoint: '/fwupdate/spiffs', label: 'SPIFFS', order: 40 }
     };
     const upgradeComponentDefs = [
       {
         key: 'flowio',
-        title: 'flow.io',
-        subtitle: 'Firmware',
+        title: 'FlowIOS3',
+        subtitle: 'Firmware Waveshare',
         icon: 'layers',
         tone: 'blue',
         commentsAvailable: 'Ajout de nouvelles fonctionnalités et améliorations système',
@@ -2109,15 +2111,6 @@
         tone: 'green',
         commentsAvailable: 'Nouveaux fichiers de configuration et ressources',
         commentsCurrent: 'Fichiers système actuels'
-      },
-      {
-        key: 'nextion',
-        title: 'Nextion',
-        subtitle: 'Interface',
-        icon: 'tab',
-        tone: 'orange',
-        commentsAvailable: 'Interface utilisateur disponible',
-        commentsCurrent: 'Interface utilisateur actuelle'
       }
     ];
 
@@ -2425,17 +2418,15 @@
 
     function upgradeTargetLabel(target) {
       const key = String(target || '').trim().toLowerCase();
-      if (key === 'flowio') return 'flow.io';
-      if (key === 'esp32s3') return 'ESP32-S3';
-      if (key === 'supervisor') return isMicronovaProfile() ? 'Micronova' : 'Superviseur';
-      if (key === 'nextion') return 'Nextion';
+      if (key === 'flowios3' || key === 'esp32s3') return 'FlowIOS3';
+      if (key === 'waveshare') return 'FlowIOS3';
       if (key === 'spiffs') return 'SPIFFS';
       return 'Firmware';
     }
 
     function upgradeUsesReconnect(target) {
       const key = String(target || '').trim().toLowerCase();
-      return key === 'supervisor' || key === 'spiffs';
+      return key === 'flowios3' || key === 'esp32s3' || key === 'waveshare' || key === 'spiffs';
     }
 
     function upgradeStepDefinitions(target) {
@@ -2984,11 +2975,9 @@
 
     function endpointForUpgradeTarget(target) {
       const key = String(target || '').trim().toLowerCase();
-      if (key === 'flowio') return '/fwupdate/flowio';
-      if (key === 'esp32s3') return isFlowIOS3Profile() ? '/fwupdate/supervisor' : '/fwupdate/flowio';
-      if (key === 'supervisor') return '/fwupdate/supervisor';
-      if (key === 'nextion') return '/fwupdate/nextion';
-      if (key === 'spiffs' || key === 'cfgdocs') return '/fwupdate/spiffs';
+      if (key === 'flowios3' || key === 'esp32s3') return '/fwupdate/waveshare';
+      if (key === 'waveshare') return '/fwupdate/waveshare';
+      if (key === 'spiffs') return '/fwupdate/spiffs';
       return '';
     }
 
@@ -3000,10 +2989,12 @@
       const key = String(category || '').trim().toLowerCase();
       if (!key) return false;
       if (isMicronovaProfile() || isSupervisorProfile()) {
-        return key === 'supervisor' || key === 'spiffs' || key === 'cfgdocs' || key === 'nextion';
+        return key === 'flowios3' || key === 'esp32s3' || key === 'waveshare'
+          || key === 'spiffs' || key === 'flowios3-spiffs' || key === 'esp32s3-spiffs' || key === 'waveshare-spiffs';
       }
-      if (isFlowIOS3Profile()) {
-        return key === 'esp32s3' || key === 'esp32s3-spiffs' || key === 'nextion';
+      if (isWaveshareProfile()) {
+        return key === 'flowios3' || key === 'esp32s3' || key === 'waveshare'
+          || key === 'spiffs' || key === 'flowios3-spiffs' || key === 'esp32s3-spiffs' || key === 'waveshare-spiffs';
       }
       if (isFlowIOProfile()) {
         return key === 'flowio';
@@ -3020,8 +3011,8 @@
 
     function resolveArtifactEndpoint(category, artifact, target) {
       const categoryKey = String(category || '').trim().toLowerCase();
-      if (isFlowIOS3Profile() && categoryKey === 'esp32s3') {
-        return '/fwupdate/supervisor';
+      if (categoryKey === 'flowios3' || categoryKey === 'esp32s3' || categoryKey === 'waveshare') {
+        return '/fwupdate/waveshare';
       }
       const explicit = String(artifact && (artifact.route || artifact.endpoint || artifact.update_route) ? (artifact.route || artifact.endpoint || artifact.update_route) : '').trim();
       if (explicit) {
@@ -3141,15 +3132,11 @@
     function upgradeManifestKeysForComponent(componentKey) {
       const key = String(componentKey || '').trim().toLowerCase();
       if (key === 'flowio') {
-        if (isFlowIOS3Profile()) return ['esp32s3', 'flowio'];
-        if (isMicronovaProfile() || isSupervisorProfile()) return ['supervisor'];
-        return ['flowio', 'esp32s3', 'supervisor'];
+        return ['flowios3', 'waveshare', 'esp32s3'];
       }
       if (key === 'spiffs') {
-        if (isFlowIOS3Profile()) return ['esp32s3-spiffs', 'spiffs'];
-        return ['spiffs', 'cfgdocs', 'esp32s3-spiffs'];
+        return ['spiffs', 'flowios3-spiffs', 'esp32s3-spiffs', 'waveshare-spiffs'];
       }
-      if (key === 'nextion') return ['nextion'];
       return [key];
     }
 
@@ -7716,16 +7703,15 @@
       return value;
     }
 
-    function configSupportsUnsetBindingPort(moduleName, key) {
+    function configIsBindingPortField(moduleName, key) {
       if (String(key || '').trim() !== 'binding_port') return false;
       const modulePath = String(moduleName || '').trim().toLowerCase();
-      return /^io\/input\/(?:a\d{2}|i\d{2})$/.test(modulePath);
+      return /^io\/(?:input\/(?:a\d{2}|i\d{2})|output\/d\d{2})$/.test(modulePath);
     }
 
-    function configUnsetBindingPortValue(doc) {
-      const typeName = String((doc && doc.type) || '').trim().toLowerCase();
-      if (typeName === 'uint8') return String(0xFF);
-      return String(0xFFFF);
+    function configNormalizeBindingPortSelectValue(value) {
+      const current = String(value ?? '').trim();
+      return (current.length === 0 || current === '65535') ? '0' : current;
     }
 
     function configDocFor(moduleName, key, extraSources) {
@@ -8003,25 +7989,13 @@
           if (doc && typeof doc.display_format === 'string') {
             select.dataset.format = doc.display_format;
           }
-          const currentValue = String(value);
+          const isBindingPortField = configIsBindingPortField(moduleName, key);
+          const currentValue = isBindingPortField ? configNormalizeBindingPortSelectValue(value) : String(value);
           let hasSelectedOption = false;
-          const supportsUnsetBindingPort = configSupportsUnsetBindingPort(moduleName, key);
-          const unsetBindingPortValue = supportsUnsetBindingPort ? configUnsetBindingPortValue(doc) : '';
-          if (supportsUnsetBindingPort) {
-            const unsetOption = document.createElement('option');
-            unsetOption.value = unsetBindingPortValue;
-            unsetOption.textContent = 'Valeur non definie';
-            if (currentValue === unsetBindingPortValue || currentValue.length === 0) {
-              unsetOption.selected = true;
-              hasSelectedOption = true;
-            }
-            select.appendChild(unsetOption);
-          }
           enumOptions.forEach((opt) => {
             if (!opt || typeof opt !== 'object') return;
             const optionEl = document.createElement('option');
             optionEl.value = String(opt.value);
-            if (supportsUnsetBindingPort && optionEl.value === unsetBindingPortValue) return;
             optionEl.textContent = (typeof opt.label === 'string' && opt.label.length > 0)
               ? opt.label
               : String(opt.value);
@@ -8037,11 +8011,13 @@
           if (!hasSelectedOption && currentValue.length > 0) {
             const placeholder = document.createElement('option');
             placeholder.value = currentValue;
-            placeholder.textContent = 'Valeur non definie';
+            placeholder.textContent = isBindingPortField
+              ? ('Port inconnu (' + currentValue + ')')
+              : 'Valeur inconnue';
             placeholder.selected = true;
             select.insertBefore(placeholder, select.firstChild);
           }
-          storeConfigFieldInitialValue(select, value);
+          storeConfigFieldInitialValue(select, isBindingPortField ? parseConfigNumericValue(currentValue, 'int', '') : value);
           inputEl = select;
           inputEl.dataset.module = moduleName;
           valueWrap.appendChild(select);
@@ -8278,7 +8254,7 @@
     }
 
     async function loadPrimarySupervisorPdmExtensionData(moduleName, dataObj) {
-      if (!isFlowIOS3Profile()) return null;
+      if (!isWaveshareProfile()) return null;
       const pdmModule = flowCfgPdmModuleForIoOutput(moduleName, dataObj);
       if (!pdmModule) return null;
       try {
@@ -8420,7 +8396,7 @@
           throw new Error('lecture module supervisor impossible');
         }
         await ensureCfgDocsForModule(m);
-        const pdmModule = isFlowIOS3Profile() ? flowCfgPdmModuleForIoOutput(m, data.data) : '';
+        const pdmModule = isWaveshareProfile() ? flowCfgPdmModuleForIoOutput(m, data.data) : '';
         if (pdmModule) {
           await ensureCfgDocsForModule(pdmModule);
         }
@@ -9351,7 +9327,7 @@
     }
 
     async function callSystemAction(target, action) {
-      const flowLocalProfile = isFlowIOS3Profile();
+      const flowLocalProfile = isWaveshareProfile();
       let endpoint = '/api/system/reboot';
       if (target === 'flow' && action === 'reboot') {
         endpoint = flowLocalProfile ? '/api/system/reboot' : '/api/flow/system/reboot';
