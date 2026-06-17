@@ -1760,6 +1760,12 @@ IoStatus IOModule::ioSensorStatus_(IoId id, IoSensorStatus* outStatus) const
             return IO_ERR_UNKNOWN_ID;
         }
 
+        if (analogIdx < ANALOG_CFG_SLOTS && analogCfg_[analogIdx].bindingPort == IO_PORT_INVALID) {
+            outStatus->enabled = 0U;
+            outStatus->invalidReasons = IO_SENSOR_INVALID_DISABLED | IO_SENSOR_INVALID_NO_BINDING;
+            return IO_OK;
+        }
+
         if (!analogSlotPublished_(analogIdx)) {
             outStatus->enabled = 0U;
             outStatus->invalidReasons = IO_SENSOR_INVALID_DISABLED;
