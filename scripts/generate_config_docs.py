@@ -381,31 +381,21 @@ def _apply_profile_specific_io_enum_sets(meta: dict, profile: str) -> dict:
         enum_sets[dout_key] = binding_entries_with_non_connected(filtered)
 
     # PoolLogic device slots: keep generic labels by default, but expose
-    # flow.io wiring-specific mapping in UI for faster setup.
+    # profile wiring-specific mapping in UI for faster setup.
     slot_key = "poollogic_device_slot"
     slot_entries = enum_sets.get(slot_key)
     if profile == "waveshare" and isinstance(slot_entries, list):
         current = [item for item in slot_entries if isinstance(item, dict)]
-        slot_labels_waveshare = {
-            0: "Filtration Pump -> d00 (EXIO1 / PortOut0) [0]",
-            1: "pH Pump -> d01 (EXIO2 / PortOut1) [1]",
-            2: "Chlorine Pump -> d02 (EXIO3 / PortOut2) [2]",
-            3: "Robot -> d03 (EXIO4 / PortOut3) [3]",
-            4: "Fill Pump -> d04 (EXIO5 / PortOut4) [4]",
-            5: "Chlorine Generator -> d05 (EXIO6 / PortOut5) [5]",
-            6: "Lights -> d06 (EXIO7 / PortOut6) [6]",
-            7: "Water Heater -> d07 (EXIO8 / PortOut7) [7]",
-        }
-        relabeled: List[dict] = []
+        slot_labels_waveshare = {slot: f"pd{slot} -> d{slot:02d} [{slot}]" for slot in range(16)}
+        current_by_value: Dict[int, dict] = {}
         for entry in current:
             value = _to_int(entry.get("value"))
-            if value is None:
-                continue
-            label = slot_labels_waveshare.get(value)
-            if label:
-                relabeled.append(sanitize_enum_entry(entry, label))
-            else:
-                relabeled.append(dict(entry))
+            if value is not None:
+                current_by_value[value] = entry
+        relabeled: List[dict] = []
+        for value in range(16):
+            entry = current_by_value.get(value, {"value": value})
+            relabeled.append(sanitize_enum_entry(entry, slot_labels_waveshare[value]))
         enum_sets[slot_key] = relabeled
 
     return meta

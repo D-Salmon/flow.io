@@ -27,9 +27,9 @@ enum PoolDeviceType : uint8_t {
 struct PoolDeviceDefinition {
     char label[24] = {0};
     uint8_t slot = 0xFF;
-    /** Domain actuator slot used by this pool device command path. */
+    /** Optional domain actuator slot used by this pool device command path. */
     DomainSlotId commandSlot = DOMAIN_SLOT_INVALID;
-    /** Generic IO slot resolved from the domain actuator slot at boot. */
+    /** Generic IO output slot driven by this pool device. */
     IoSlotId ioSlot = IO_SLOT_INVALID;
     uint8_t type = POOL_DEVICE_RELAY_STD;
     bool enabled = true;

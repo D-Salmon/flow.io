@@ -185,6 +185,9 @@ uint8_t dependsOnMaskForPreset(const DomainSpec& domain, const PoolDevicePreset&
 
 void configurePoolDevices(const AppContext& ctx, ModuleInstances& modules)
 {
+    static constexpr uint8_t kWaveshareCompDeviceBase = 8U;
+    static constexpr uint8_t kWaveshareCompDeviceCount = 8U;
+
     for (uint8_t i = 0; i < ctx.domain->poolDeviceCount; ++i) {
         const PoolDevicePreset& preset = ctx.domain->poolDevices[i];
         const IoSlotId ioSlot = findIoSlotForDomainSlot(*ctx.domain, preset.commandSlot);
@@ -204,6 +207,18 @@ void configurePoolDevices(const AppContext& ctx, ModuleInstances& modules)
         requireSetup(modules.poolDeviceModule.defineDevice(def), "define pool device");
     }
 
+#if defined(FLOW_BOARD_WAVESHARE_ESP32_S3)
+    for (uint8_t i = 0; i < kWaveshareCompDeviceCount; ++i) {
+        PoolDeviceDefinition def{};
+        snprintf(def.label, sizeof(def.label), "COMP%02u", (unsigned)(i + 1U));
+        def.slot = (uint8_t)(kWaveshareCompDeviceBase + i);
+        def.commandSlot = DOMAIN_SLOT_INVALID;
+        def.ioSlot = digitalOutputSlot((uint8_t)(8U + i));
+        def.type = POOL_DEVICE_RELAY_STD;
+        def.enabled = true;
+        requireSetup(modules.poolDeviceModule.defineDevice(def), "define comp pool device");
+    }
+#endif
 }
 
 void postInit(AppContext& ctx, ModuleInstances& modules)

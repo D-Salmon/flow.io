@@ -46,19 +46,19 @@ bool PoolDeviceModule::defineDevice(const PoolDeviceDefinition& def)
         strncpy(s.def.label, s.id, sizeof(s.def.label) - 1);
         s.def.label[sizeof(s.def.label) - 1] = '\0';
     }
-    if (s.def.commandSlot == DOMAIN_SLOT_INVALID || s.def.ioSlot == IO_SLOT_INVALID) {
-        LOGW("Pool device %s missing command slot binding", s.id);
+    if (s.def.ioSlot == IO_SLOT_INVALID) {
+        LOGW("Pool device %s missing IO slot binding", s.id);
         s.used = false;
         return false;
     }
     if (ioSlotKind(s.def.ioSlot) != IO_SLOT_DIGITAL_OUTPUT) {
-        LOGW("Pool device %s command slot is not a digital output", s.id);
+        LOGW("Pool device %s IO slot is not a digital output", s.id);
         s.used = false;
         return false;
     }
     s.ioId = ioIdFromSlot(s.def.ioSlot);
     if (s.ioId == IO_ID_INVALID) {
-        LOGW("Pool device %s command slot cannot resolve ioId", s.id);
+        LOGW("Pool device %s IO slot cannot resolve ioId", s.id);
         s.used = false;
         return false;
     }

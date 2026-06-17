@@ -65,7 +65,7 @@ constexpr uint32_t LoopDelayMs = 10;
 namespace Config {
 namespace Capacity {
 /** @brief Maximum number of unique config branches returned by `ConfigStore::listModules`. */
-constexpr uint8_t ModuleListMax = 96;
+constexpr uint8_t ModuleListMax = 160;
 }  // namespace Capacity
 }  // namespace Config
 

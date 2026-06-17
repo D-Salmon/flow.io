@@ -1961,6 +1961,7 @@
     let cfgTreeVirtualBranches = [];
     const cfgTreeNodeTextNames = { supervisor: {}, flow: {} };
     const cfgTreeNodeTextNamePending = { supervisor: new Set(), flow: new Set() };
+    const poolLogicDeviceIoOutputNames = { supervisor: {}, flow: {} };
     let supCfgCurrentModule = '';
     let supCfgCurrentData = {};
     let supCfgCurrentPdmExtension = null;
@@ -1976,7 +1977,15 @@
       4: 'Pompe remplissage',
       5: 'Electrolyse',
       6: 'Eclairage',
-      7: 'Chauffage eau'
+      7: 'Chauffage eau',
+      8: 'COMP01',
+      9: 'COMP02',
+      10: 'COMP03',
+      11: 'COMP04',
+      12: 'COMP05',
+      13: 'COMP06',
+      14: 'COMP07',
+      15: 'COMP08'
     });
     let wifiScanAutoRequested = false;
     let flowStatusReqSeq = 0;
@@ -7781,6 +7790,108 @@
       return resolved;
     }
 
+    function poolLogicDeviceSlotSource(source) {
+      return source === 'supervisor' ? 'supervisor' : 'flow';
+    }
+
+    function poolLogicDeviceSlotRef(slot) {
+      const n = Number.parseInt(slot, 10);
+      if (!Number.isFinite(n) || n < 0 || n > 15) return '';
+      return 'd' + String(n).padStart(2, '0');
+    }
+
+    function poolLogicDeviceIoOutputModule(slot) {
+      const ref = poolLogicDeviceSlotRef(slot);
+      return ref ? ('io/output/' + ref) : '';
+    }
+
+    function poolLogicDeviceIoOutputNameKey(slot) {
+      const ref = poolLogicDeviceSlotRef(slot);
+      return ref ? (ref + '_name') : '';
+    }
+
+    function isPoolLogicDeviceSlotField(moduleName, key, doc) {
+      const cleanModule = nettoyerNomFlowCfg(moduleName).toLowerCase();
+      const cleanKey = String(key || '').trim().toLowerCase();
+      if (cleanModule !== 'poollogic/devices') return false;
+      if (!cleanKey.endsWith('_slot')) return false;
+      return !doc || String(doc.enum_set || '').trim() === 'poollogic_device_slot';
+    }
+
+    function poolLogicDeviceSlotLabel(source, slot, fallback) {
+      const n = Number.parseInt(slot, 10);
+      const ref = poolLogicDeviceSlotRef(n);
+      if (!ref) return String(fallback || slot);
+      const src = poolLogicDeviceSlotSource(source);
+      const cache = poolLogicDeviceIoOutputNames[src] || {};
+      const ioName = typeof cache[n] === 'string' ? cache[n].trim() : '';
+      const baseName = ioName || String(ioOutputPdmLabels[n] || '').trim();
+      const suffix = baseName ? (' [' + baseName + ']') : '';
+      return 'pd' + String(n) + ' - ' + ref + suffix;
+    }
+
+    function dynamicPoolLogicDeviceSlotOptions(source, enumOptions) {
+      const byValue = {};
+      if (Array.isArray(enumOptions)) {
+        enumOptions.forEach((opt) => {
+          if (!opt || typeof opt !== 'object') return;
+          const value = Number.parseInt(opt.value, 10);
+          if (Number.isFinite(value)) byValue[value] = opt;
+        });
+      }
+      const out = [];
+      for (let slot = 0; slot <= 15; slot += 1) {
+        const base = byValue[slot] ? Object.assign({}, byValue[slot]) : { value: slot };
+        base.value = slot;
+        base.label = poolLogicDeviceSlotLabel(source, slot, base.label);
+        out.push(base);
+      }
+      return out;
+    }
+
+    function configEnumOptionsForField(source, moduleName, key, doc) {
+      const options = (doc && Array.isArray(doc._enumOptions)) ? doc._enumOptions : null;
+      if (!options) return null;
+      if (isWaveshareProfile() && isPoolLogicDeviceSlotField(moduleName, key, doc)) {
+        return dynamicPoolLogicDeviceSlotOptions(source, options);
+      }
+      return options;
+    }
+
+    async function loadPoolLogicDeviceSlotLabels(source, forceReload) {
+      const src = poolLogicDeviceSlotSource(source);
+      if (!poolLogicDeviceIoOutputNames[src]) poolLogicDeviceIoOutputNames[src] = {};
+      const cache = poolLogicDeviceIoOutputNames[src];
+      const fetchOne = async (slot) => {
+        if (!forceReload && Object.prototype.hasOwnProperty.call(cache, slot)) return;
+        const moduleName = poolLogicDeviceIoOutputModule(slot);
+        const nameKey = poolLogicDeviceIoOutputNameKey(slot);
+        if (!moduleName || !nameKey) return;
+        try {
+          const url = src === 'supervisor'
+            ? ('/api/supervisorcfg/module?name=' + encodeURIComponent(moduleName))
+            : ('/api/flowcfg/module?name=' + encodeURIComponent(moduleName));
+          const res = src === 'supervisor'
+            ? await fetchWithBusyRetry(url, { cache: 'no-store' })
+            : await fetchFlowRemoteQueued(url, { cache: 'no-store' });
+          const payload = await res.json().catch(() => null);
+          if (!res.ok || !payload || payload.ok !== true || !payload.data || typeof payload.data !== 'object') {
+            cache[slot] = '';
+            return;
+          }
+          const raw = payload.data[nameKey];
+          cache[slot] = (typeof raw === 'string') ? raw.trim() : '';
+        } catch (err) {
+          cache[slot] = '';
+        }
+      };
+      const jobs = [];
+      for (let slot = 0; slot <= 15; slot += 1) {
+        jobs.push(fetchOne(slot));
+      }
+      await Promise.all(jobs);
+    }
+
     function closeColorPickerPopover() {
       if (!activeColorPickerPopover) return;
       const state = activeColorPickerPopover;
@@ -8352,7 +8463,7 @@
         }
         row.appendChild(labelWrap);
 
-        const enumOptions = (doc && Array.isArray(doc._enumOptions)) ? doc._enumOptions : null;
+        const enumOptions = configEnumOptionsForField(opts.source || cfgTreeSelectedSource, moduleName, key, doc);
         let inputEl = null;
         const valueWrap = document.createElement('div');
         valueWrap.className = 'control-value-wrap';
@@ -8560,6 +8671,7 @@
 
     function renderFlowCfgFields(dataObj) {
       renderConfigFields(flowCfgFields, flowCfgCurrentModule, dataObj, {
+        source: 'flow',
         controlsPrimaryPane: true,
         perFieldApply: flowCfgApplyPerFieldEnabled(flowCfgCurrentModule),
         onApplyField: appliquerFlowCfgField
@@ -8573,6 +8685,7 @@
           Object.keys(flowCfgCurrentPdmExtension.data).length > 0) {
         renderConfigFields(flowCfgFields, flowCfgCurrentPdmExtension.module, flowCfgCurrentPdmExtension.data, {
           append: true,
+          source: 'flow',
           sectionTitle: flowCfgPdmSectionTitle(flowCfgCurrentModule, dataObj),
           controlsPrimaryPane: true,
           perFieldApply: flowCfgApplyPerFieldEnabled(flowCfgCurrentModule),
@@ -8587,7 +8700,7 @@
       const match = cleanModule.match(/^(?:io\/output\/)?d(\d{1,2})$/);
       if (match) {
         const slot = Number.parseInt(match[1], 10);
-        if (Number.isFinite(slot) && slot >= 0 && slot <= 7) return slot;
+        if (Number.isFinite(slot) && slot >= 0 && slot <= 15) return slot;
       }
       const data = (dataObj && typeof dataObj === 'object') ? dataObj : null;
       if (data) {
@@ -8595,7 +8708,7 @@
         if (key) {
           const keyMatch = String(key).match(/^d(\d{2})_name$/i);
           const slot = keyMatch ? Number.parseInt(keyMatch[1], 10) : -1;
-          if (Number.isFinite(slot) && slot >= 0 && slot <= 7) return slot;
+          if (Number.isFinite(slot) && slot >= 0 && slot <= 15) return slot;
         }
       }
       return -1;
@@ -8660,6 +8773,7 @@
 
     function renderPrimarySupervisorCfgFields(dataObj) {
       renderConfigFields(flowCfgFields, supCfgCurrentModule, dataObj, {
+        source: 'supervisor',
         controlsPrimaryPane: true,
         perFieldApply: flowCfgApplyPerFieldEnabled(supCfgCurrentModule),
         onApplyField: appliquerPrimaryCfgField
@@ -8673,6 +8787,7 @@
           Object.keys(supCfgCurrentPdmExtension.data).length > 0) {
         renderConfigFields(flowCfgFields, supCfgCurrentPdmExtension.module, supCfgCurrentPdmExtension.data, {
           append: true,
+          source: 'supervisor',
           sectionTitle: flowCfgPdmSectionTitle(supCfgCurrentModule, dataObj),
           controlsPrimaryPane: true,
           perFieldApply: flowCfgApplyPerFieldEnabled(supCfgCurrentModule),
@@ -8747,6 +8862,9 @@
         if (pdmModule) {
           await ensureCfgDocsForModule(pdmModule);
         }
+        if (isWaveshareProfile() && m === 'poollogic/devices') {
+          await loadPoolLogicDeviceSlotLabels('flow', true);
+        }
         flowCfgCurrentModule = m;
         flowCfgCurrentData = data.data;
         flowCfgCurrentPdmExtension = await loadFlowCfgPdmExtensionData(m, flowCfgCurrentData);
@@ -8782,6 +8900,9 @@
         const pdmModule = isWaveshareProfile() ? flowCfgPdmModuleForIoOutput(m, data.data) : '';
         if (pdmModule) {
           await ensureCfgDocsForModule(pdmModule);
+        }
+        if (isWaveshareProfile() && m === 'poollogic/devices') {
+          await loadPoolLogicDeviceSlotLabels('supervisor', true);
         }
         supCfgCurrentModule = m;
         supCfgCurrentData = data.data;
