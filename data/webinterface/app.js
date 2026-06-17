@@ -1696,6 +1696,12 @@
       return queued;
     }
 
+    function fetchFlowCfgEndpoint(url, options) {
+      return isWaveshareProfile()
+        ? fetchWithBusyRetry(url, options)
+        : fetchFlowRemoteQueued(url, options);
+    }
+
     function waitMs(ms) {
       return new Promise((resolve) => setTimeout(resolve, ms));
     }
@@ -1923,6 +1929,7 @@
     const flowCfgStatus = document.getElementById('flowCfgStatus');
     const flowCfgBackupStatus = document.getElementById('flowCfgBackupStatus');
     const flowCfgBackupProgress = document.getElementById('flowCfgBackupProgress');
+    const flowCfgBackupProgressLabel = document.getElementById('flowCfgBackupProgressLabel');
     const flowCfgBackupPct = document.getElementById('flowCfgBackupPct');
     const flowCfgBackupProgressBar = document.getElementById('flowCfgBackupProgressBar');
     const flowCfgBackupProgressDot = document.getElementById('flowCfgBackupProgressDot');
@@ -9268,9 +9275,12 @@
       if (tone === 'busy') flowCfgBackupStatus.classList.add('is-busy');
     }
 
-    function setFlowCfgBackupProgress(percent, visible) {
+    function setFlowCfgBackupProgress(percent, visible, label) {
       const show = !!visible;
       if (flowCfgBackupProgress) flowCfgBackupProgress.hidden = !show;
+      if (flowCfgBackupProgressLabel && typeof label === 'string' && label.trim().length > 0) {
+        flowCfgBackupProgressLabel.textContent = label.trim();
+      }
 
       if (!show) {
         if (flowCfgBackupPct) flowCfgBackupPct.textContent = '0%';
@@ -9299,15 +9309,20 @@
     }
 
     function flowCfgBackupStoreLabel(storeName) {
+      if (isWaveshareProfile()) return webProfileName || 'Waveshare';
       return storeName === 'supervisor' ? webProfileName : 'flow.io';
     }
 
     function flowCfgBackupStoreFetchImpl(storeName) {
-      return storeName === 'supervisor' ? fetch : fetchFlowRemoteQueued;
+      return storeName === 'supervisor' ? fetch : fetchFlowCfgEndpoint;
     }
 
     function flowCfgBackupStoreBasePath(storeName) {
       return storeName === 'supervisor' ? '/api/supervisorcfg' : '/api/flowcfg';
+    }
+
+    function flowCfgBackupStoreNames() {
+      return isWaveshareProfile() ? ['flow'] : ['supervisor', 'flow'];
     }
 
     function flowCfgBackupIsoDateForFile(dateLike) {
@@ -9619,7 +9634,7 @@
       const startedAt = Date.now();
       try {
         setFlowCfgBackupStatus('Préparation de l\'export ConfigStore...', 'busy');
-        setFlowCfgBackupProgress(0, true);
+        setFlowCfgBackupProgress(0, true, 'Export ConfigStore');
         const createdAt = new Date();
         const backupDoc = {
           format: flowCfgBackupFormat,
@@ -9645,7 +9660,7 @@
           }
         };
 
-        const stores = ['supervisor', 'flow'];
+        const stores = flowCfgBackupStoreNames();
         const modulesByStore = {};
         let totalModuleCount = 0;
         for (const storeName of stores) {
@@ -9659,7 +9674,7 @@
 
         let exportedModuleCount = 0;
         if (totalModuleCount === 0) {
-          setFlowCfgBackupProgress(100, true);
+          setFlowCfgBackupProgress(100, true, 'Export ConfigStore');
         }
 
         for (const storeName of stores) {
@@ -9681,7 +9696,7 @@
                 reason: String(err || '').trim() || 'lecture module impossible'
               });
               exportedModuleCount += 1;
-              setFlowCfgBackupProgress((exportedModuleCount / totalModuleCount) * 100, true);
+              setFlowCfgBackupProgress((exportedModuleCount / totalModuleCount) * 100, true, 'Export ConfigStore');
               continue;
             }
             if (modulePayload.truncated) {
@@ -9696,7 +9711,7 @@
               });
             });
             exportedModuleCount += 1;
-            setFlowCfgBackupProgress((exportedModuleCount / totalModuleCount) * 100, true);
+            setFlowCfgBackupProgress((exportedModuleCount / totalModuleCount) * 100, true, 'Export ConfigStore');
           }
           if (storeName === 'flow') {
             backupDoc.meta.flow_reachable = true;
@@ -9720,7 +9735,7 @@
         const fileName = 'flowio-configstore-backup-' + flowCfgBackupIsoDateForFile(createdAt) + '.json';
         flowCfgBackupDownloadText(fileName, serialized);
         const durationMs = Date.now() - startedAt;
-        setFlowCfgBackupProgress(100, true);
+        setFlowCfgBackupProgress(100, true, 'Export ConfigStore');
         const failedSummary = failedModuleErrors.length > 0
           ? ' Modules ignorés: ' + failedModuleErrors.length + ' (' + failedModuleErrors.join(', ') + ').'
           : '';
@@ -9740,7 +9755,7 @@
       setFlowCfgBackupBusy(true);
       const startedAt = Date.now();
       try {
-        setFlowCfgBackupProgress(0, false);
+        setFlowCfgBackupProgress(0, true, 'Import ConfigStore');
         let parsedDoc = null;
         try {
           parsedDoc = JSON.parse(String(rawText || ''));
@@ -9758,13 +9773,41 @@
           flow: { modules_applied: 0, modules_skipped: 0, patches_applied: 0 }
         };
 
-        const stores = ['supervisor', 'flow'];
+        const stores = flowCfgBackupStoreNames();
+        const importPlan = {};
+        let totalPatchCount = 0;
+        stores.forEach((storeName) => {
+          const storeData = backupDoc.stores[storeName];
+          const moduleNames = Object.keys(storeData.modules || {}).sort((left, right) => left.localeCompare(right));
+          const truncatedSet = new Set(storeData.truncated_modules || []);
+          const redactedSet = flowCfgBackupBuildRedactedFieldSet(storeData.redacted_fields);
+          importPlan[storeName] = {};
+          moduleNames.forEach((moduleName) => {
+            if (truncatedSet.has(moduleName)) return;
+            const modulePatch = flowCfgBackupBuildModulePatch(
+              moduleName,
+              storeData.modules[moduleName],
+              redactedSet
+            );
+            if (Object.keys(modulePatch).length === 0) return;
+            const chunkPatches = flowCfgBackupSplitModulePatch(
+              moduleName,
+              modulePatch,
+              flowCfgBackupPatchTargetBytes
+            );
+            importPlan[storeName][moduleName] = chunkPatches;
+            totalPatchCount += chunkPatches.length;
+          });
+        });
+        let appliedPatchCount = 0;
+        if (totalPatchCount === 0) {
+          setFlowCfgBackupProgress(100, true, 'Import ConfigStore');
+        }
         for (const storeName of stores) {
           const storeData = backupDoc.stores[storeName];
           const storeLabel = flowCfgBackupStoreLabel(storeName);
           const moduleNames = Object.keys(storeData.modules || {}).sort((left, right) => left.localeCompare(right));
           const truncatedSet = new Set(storeData.truncated_modules || []);
-          const redactedSet = flowCfgBackupBuildRedactedFieldSet(storeData.redacted_fields);
 
           for (let moduleIndex = 0; moduleIndex < moduleNames.length; moduleIndex += 1) {
             const moduleName = moduleNames[moduleIndex];
@@ -9773,21 +9816,13 @@
               continue;
             }
 
-            const modulePatch = flowCfgBackupBuildModulePatch(
-              moduleName,
-              storeData.modules[moduleName],
-              redactedSet
-            );
-            if (Object.keys(modulePatch).length === 0) {
+            const chunkPatches = (importPlan[storeName] && importPlan[storeName][moduleName])
+              ? importPlan[storeName][moduleName]
+              : [];
+            if (chunkPatches.length === 0) {
               report[storeName].modules_skipped += 1;
               continue;
             }
-
-            const chunkPatches = flowCfgBackupSplitModulePatch(
-              moduleName,
-              modulePatch,
-              flowCfgBackupPatchTargetBytes
-            );
 
             for (let chunkIndex = 0; chunkIndex < chunkPatches.length; chunkIndex += 1) {
               setFlowCfgBackupStatus(
@@ -9798,6 +9833,10 @@
               );
               await flowCfgBackupApplyPatch(storeName, JSON.stringify(chunkPatches[chunkIndex]));
               report[storeName].patches_applied += 1;
+              appliedPatchCount += 1;
+              if (totalPatchCount > 0) {
+                setFlowCfgBackupProgress((appliedPatchCount / totalPatchCount) * 100, true, 'Import ConfigStore');
+              }
             }
 
             report[storeName].modules_applied += 1;
@@ -9814,6 +9853,7 @@
             + report.flow.patches_applied + ' patch(s).',
           'ok'
         );
+        setFlowCfgBackupProgress(100, true, 'Import ConfigStore');
       } catch (err) {
         setFlowCfgBackupStatus('Import échoué: ' + err, 'error');
       } finally {

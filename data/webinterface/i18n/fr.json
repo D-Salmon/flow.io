@@ -135,6 +135,8 @@
     "config.variables": "Variables",
     "config.remoteReady": "Configuration distante prête.",
     "config.exportProgress": "Export ConfigStore",
+    "config.backupProgress": "Progression ConfigStore",
+    "config.backupReady": "Sauvegarde configuration prête.",
     "config.exportDesc": "Télécharge une sauvegarde de la configuration actuelle.",
     "config.importDesc": "Charge une configuration précédemment sauvegardée.",
     "config.apply": "Appliquer",
