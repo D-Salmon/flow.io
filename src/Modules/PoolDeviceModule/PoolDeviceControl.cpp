@@ -543,6 +543,7 @@ void PoolDeviceModule::tickDevices_(uint32_t nowMs, bool allowPersist)
     for (uint8_t i = 0; i < POOL_DEVICE_MAX; ++i) {
         PoolDeviceSlot& s = slots_[i];
         if (!s.used) continue;
+        if (runtimeReady_ && !s.runtimePublishable) continue;
         const bool wasActualOn = s.actualOn;
         bool stateChanged = false;
         bool metricsChanged = (pending != 0U) || s.forceMetricsCommit;

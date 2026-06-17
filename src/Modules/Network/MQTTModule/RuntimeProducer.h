@@ -9,6 +9,16 @@ public:
     static constexpr uint8_t ProducerId = 4;
     using InitialFullSnapshotCallback = void (*)(void* ctx);
 
+    struct DataChangeStats {
+        uint8_t routeCount = 0;
+        uint8_t checked = 0;
+        uint8_t matched = 0;
+        uint8_t enqueueOk = 0;
+        uint8_t enqueueFail = 0;
+        uint8_t pendingAlready = 0;
+        uint32_t enqueueUs = 0;
+    };
+
     void configure(const MqttService* mqttSvc,
                    InitialFullSnapshotCallback initialFullSnapshotCb = nullptr,
                    void* initialFullSnapshotCtx = nullptr);
@@ -16,7 +26,7 @@ public:
     void rebuildRoutes();
 
     void onConnected();
-    void onDataChanged(DataKey key);
+    DataChangeStats onDataChanged(DataKey key);
 
     MqttBuildResult buildMessage(uint16_t messageId, MqttBuildContext& ctx);
     void onMessagePublished(uint16_t messageId);
@@ -53,7 +63,7 @@ private:
 
     bool ensureStorage_();
     void markRoutePending_(uint8_t idx, bool force);
-    void enqueueRoute_(uint8_t idx);
+    bool enqueueRoute_(uint8_t idx);
     void completeInitialFullSnapshotRoute_(uint8_t idx);
     void notifyInitialFullSnapshotComplete_();
 };

@@ -68,6 +68,7 @@ bool PoolDeviceModule::defineDevice(const PoolDeviceDefinition& def)
     s.desiredOn = false;
     s.actualOn = false;
     s.blockReason = POOL_DEVICE_BLOCK_NONE;
+    s.runtimePublishable = false;
 
     if (s.def.tankCapacityMl > 0.0f) {
         float initial = (s.def.tankInitialMl > 0.0f) ? s.def.tankInitialMl : s.def.tankCapacityMl;
@@ -161,12 +162,20 @@ bool PoolDeviceModule::snapshotRouteFromIndex_(uint8_t snapshotIdx, uint8_t& slo
     return false;
 }
 
+bool PoolDeviceModule::slotRuntimePublishable_(uint8_t slotIdx) const
+{
+    if (slotIdx >= POOL_DEVICE_MAX) return false;
+    const PoolDeviceSlot& s = slots_[slotIdx];
+    if (!s.used) return false;
+    return runtimeReady_ ? s.runtimePublishable : true;
+}
+
 bool PoolDeviceModule::buildStateSnapshot_(uint8_t slotIdx, char* out, size_t len, uint32_t& maxTsOut) const
 {
     if (!out || len == 0) return false;
     if (!dataStore_) return false;
     if (slotIdx >= POOL_DEVICE_MAX) return false;
-    if (!slots_[slotIdx].used) return false;
+    if (!slotRuntimePublishable_(slotIdx)) return false;
 
     PoolDeviceRuntimeStateEntry entry{};
     if (!poolDeviceRuntimeState(*dataStore_, slotIdx, entry)) return false;
@@ -196,7 +205,7 @@ bool PoolDeviceModule::buildMetricsSnapshot_(uint8_t slotIdx, char* out, size_t 
     if (!out || len == 0) return false;
     if (!dataStore_) return false;
     if (slotIdx >= POOL_DEVICE_MAX) return false;
-    if (!slots_[slotIdx].used) return false;
+    if (!slotRuntimePublishable_(slotIdx)) return false;
 
     PoolDeviceRuntimeMetricsEntry entry{};
     if (!poolDeviceRuntimeMetrics(*dataStore_, slotIdx, entry)) return false;
@@ -232,6 +241,7 @@ const char* PoolDeviceModule::runtimeSnapshotSuffix(uint8_t idx) const
     uint8_t slotIdx = 0xFF;
     bool metrics = false;
     if (!snapshotRouteFromIndex_(idx, slotIdx, metrics)) return nullptr;
+    if (!slotRuntimePublishable_(slotIdx)) return nullptr;
 
     static char suffix[32];
     if (metrics) {
@@ -249,7 +259,9 @@ RuntimeRouteClass PoolDeviceModule::runtimeSnapshotClass(uint8_t idx) const
     if (!snapshotRouteFromIndex_(idx, slotIdx, metrics)) {
         return RuntimeRouteClass::NumericThrottled;
     }
-    (void)slotIdx;
+    if (!slotRuntimePublishable_(slotIdx)) {
+        return RuntimeRouteClass::NumericThrottled;
+    }
     return metrics ? RuntimeRouteClass::NumericThrottled : RuntimeRouteClass::ActuatorImmediate;
 }
 
@@ -258,6 +270,7 @@ bool PoolDeviceModule::runtimeSnapshotAffectsKey(uint8_t idx, DataKey key) const
     uint8_t slotIdx = 0xFF;
     bool metrics = false;
     if (!snapshotRouteFromIndex_(idx, slotIdx, metrics)) return false;
+    if (!slotRuntimePublishable_(slotIdx)) return false;
 
     const DataKey expected = metrics
         ? (DataKey)(DATAKEY_POOL_DEVICE_METRICS_BASE + slotIdx)
@@ -300,6 +313,7 @@ bool PoolDeviceModule::configureRuntime_()
             s.desiredOn = false;
             s.blockReason = s.def.enabled ? POOL_DEVICE_BLOCK_UNBOUND : POOL_DEVICE_BLOCK_DISABLED;
         }
+        s.runtimePublishable = ioReady;
 
         if (s.def.tankCapacityMl <= 0.0f) {
             s.tankRemainingMl = 0.0f;
@@ -349,7 +363,7 @@ bool PoolDeviceModule::configureRuntime_()
         rtMetrics.injectedMlTotal = s.injectedMlTotal;
         rtMetrics.tankRemainingMl = s.tankRemainingMl;
         rtMetrics.tsMs = s.metricsTsMs;
-        if (dataStore_) {
+        if (dataStore_ && s.runtimePublishable) {
             (void)setPoolDeviceRuntimeState(*dataStore_, i, rtState);
             (void)setPoolDeviceRuntimeMetrics(*dataStore_, i, rtMetrics);
         }
@@ -394,6 +408,7 @@ MqttBuildResult PoolDeviceModule::buildCfgBasePdm_(MqttBuildContext& buildCtx)
 
     for (uint8_t i = 0; i < POOL_DEVICE_MAX; ++i) {
         if (!slots_[i].used) continue;
+        if (runtimeReady_ && !slots_[i].runtimePublishable) continue;
 
         char moduleJson[640] = {0};
         bool truncatedModule = false;
@@ -407,17 +422,27 @@ MqttBuildResult PoolDeviceModule::buildCfgBasePdm_(MqttBuildContext& buildCtx)
         }
         if (!hasAny) continue;
 
-        const int w = snprintf(buildCtx.payload + pos,
-                               buildCtx.payloadCapacity - pos,
-                               "%s\"%s\":%s",
-                               any ? "," : "",
-                               slots_[i].id,
-                               moduleJson);
-        if (!(w > 0 && (size_t)w < (buildCtx.payloadCapacity - pos))) {
+        const char* prefix = any ? "," : "";
+        const char* slotId = slots_[i].id ? slots_[i].id : "";
+        const size_t prefixLen = strlen(prefix);
+        const size_t idLen = strlen(slotId);
+        const size_t jsonLen = strlen(moduleJson);
+        const size_t needed = prefixLen + 1U + idLen + 2U + jsonLen;
+        if (pos + needed + 1U > buildCtx.payloadCapacity) {
             truncatedPayload = true;
             break;
         }
-        pos += (size_t)w;
+
+        memcpy(buildCtx.payload + pos, prefix, prefixLen);
+        pos += prefixLen;
+        buildCtx.payload[pos++] = '"';
+        memcpy(buildCtx.payload + pos, slotId, idLen);
+        pos += idLen;
+        buildCtx.payload[pos++] = '"';
+        buildCtx.payload[pos++] = ':';
+        memcpy(buildCtx.payload + pos, moduleJson, jsonLen);
+        pos += jsonLen;
+        buildCtx.payload[pos] = '\0';
         any = true;
     }
 

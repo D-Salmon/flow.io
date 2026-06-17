@@ -95,9 +95,11 @@ public:
     bool analogSlotUsed(uint8_t idx) const;
     bool analogSlotPublished(uint8_t idx) const;
     bool digitalInputSlotUsed(uint8_t logicalIdx) const;
+    bool digitalInputSlotPublished(uint8_t logicalIdx) const;
     uint8_t digitalInputValueType(uint8_t logicalIdx) const;
     int32_t digitalInputPrecision(uint8_t logicalIdx) const;
     bool digitalOutputSlotUsed(uint8_t logicalIdx) const;
+    bool digitalOutputSlotWritable(uint8_t logicalIdx) const;
     int32_t analogPrecision(uint8_t idx) const;
     uint32_t takeAnalogConfigDirtyMask();
     const char* endpointLabel(const char* endpointId) const;
