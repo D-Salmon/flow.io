@@ -14,7 +14,9 @@
     const headerDeviceStatus = document.getElementById('headerDeviceStatus');
     const headerClockLabel = document.getElementById('headerClockLabel');
     const headerClockStatus = document.getElementById('headerClockStatus');
+    const themeToggle = document.getElementById('themeToggle');
     const flowWebAssetVersionStorageKey = 'flow_web_asset_version';
+    const flowWebThemeStorageKey = 'flow_web_theme';
     const deferredVisualAssetsStateKey = 'flow_web_deferred_visual_assets';
     const upgradeUiSessionStorageKey = 'flow_upgrade_ui_session';
     const upgradeStatusPollActiveMs = 900;
@@ -225,12 +227,14 @@
         applyStaticTranslations();
         syncMobileTopbarTitle(getActivePageId());
         updateInfoLoadButtonsText();
+        updateThemeToggleUi(currentThemePreference());
         refreshCfgDocLocaleRuntime(false).catch(() => {});
         ensureWebUiLocaleBundle(normalized, false).then((loaded) => {
           if (!loaded || webUiLocale !== normalized) return;
           applyStaticTranslations();
           syncMobileTopbarTitle(getActivePageId());
           updateInfoLoadButtonsText();
+          updateThemeToggleUi(currentThemePreference());
           applyProfileUiText();
           syncMenuIconFallbacks();
           renderInfoPanel();
@@ -259,6 +263,7 @@
       applyStaticTranslations();
       syncMobileTopbarTitle(getActivePageId());
       updateInfoLoadButtonsText();
+      updateThemeToggleUi(currentThemePreference());
       applyProfileUiText();
       syncMenuIconFallbacks();
       renderInfoPanel();
@@ -270,6 +275,7 @@
         applyStaticTranslations();
         syncMobileTopbarTitle(getActivePageId());
         updateInfoLoadButtonsText();
+        updateThemeToggleUi(currentThemePreference());
         applyProfileUiText();
         syncMenuIconFallbacks();
         renderInfoPanel();
@@ -737,6 +743,49 @@
         storage.setItem(key, value);
       } catch (err) {
       }
+    }
+
+    function normalizeThemePreference(raw) {
+      return String(raw || '').trim().toLowerCase() === 'dark' ? 'dark' : 'light';
+    }
+
+    function currentThemePreference() {
+      return normalizeThemePreference(getStorageValue(localStorage, flowWebThemeStorageKey));
+    }
+
+    function themeToggleLabel(theme) {
+      const isDark = theme === 'dark';
+      if (webUiLocale === 'en') return isDark ? 'Light mode' : 'Dark mode';
+      return isDark ? 'Mode clair' : 'Mode sombre';
+    }
+
+    function themeToggleTitle(theme) {
+      const isDark = theme === 'dark';
+      if (webUiLocale === 'en') return isDark ? 'Switch to light mode' : 'Switch to dark mode';
+      return isDark ? 'Activer le mode clair' : 'Activer le mode sombre';
+    }
+
+    function updateThemeToggleUi(theme) {
+      if (!themeToggle) return;
+      const currentTheme = normalizeThemePreference(theme);
+      const label = themeToggleLabel(currentTheme);
+      const title = themeToggleTitle(currentTheme);
+      const wrapper = themeToggle.closest('.theme-switch');
+      const labelNode = wrapper ? wrapper.querySelector('.theme-toggle-label') : null;
+      themeToggle.checked = currentTheme === 'dark';
+      themeToggle.setAttribute('aria-label', title);
+      if (wrapper) wrapper.setAttribute('title', title);
+      if (labelNode) labelNode.textContent = label;
+    }
+
+    function applyThemePreference(theme, persist) {
+      const currentTheme = normalizeThemePreference(theme);
+      document.documentElement.setAttribute('data-theme', currentTheme);
+      document.documentElement.style.colorScheme = currentTheme;
+      if (persist) {
+        setStorageValue(localStorage, flowWebThemeStorageKey, currentTheme);
+      }
+      updateThemeToggleUi(currentTheme);
     }
 
     async function fetchJsonResponse(url, options, fetchImpl) {
@@ -10887,6 +10936,11 @@
     }
 
     function initGlobalUiBindings() {
+      if (themeToggle) {
+        themeToggle.addEventListener('change', () => {
+          applyThemePreference(themeToggle.checked ? 'dark' : 'light', true);
+        });
+      }
       document.addEventListener('visibilitychange', () => {
         const activePageId = getActivePageId();
         const onUpgradePage = activePageId === 'page-system';
@@ -10936,6 +10990,7 @@
     initConfigBindings();
     initGlobalUiBindings();
 
+    applyThemePreference(currentThemePreference(), false);
     applyWebUiLocale(webUiLocale);
     syncMenuIconFallbacks();
     renderUpgradeJourney(readUpgradeUiSession() || { phase: 'idle', target: '', detail: tr('updates.none', 'Aucune opération en cours.') });
