@@ -1204,7 +1204,9 @@ bool IOModule::processAnalogDefinition_(uint8_t idx, uint32_t nowMs)
     }
 
     IOAnalogSample sample{};
-    if (!provider->readSample(slot.channel, sample)) {
+    const uint8_t readChannel =
+        (slot.source == IO_SRC_DS18_WATER || slot.source == IO_SRC_DS18_AIR) ? 0U : slot.channel;
+    if (!provider->readSample(readChannel, sample)) {
         invalidateAnalogSlot_(slot, nowMs);
         return false;
     }
@@ -2008,12 +2010,12 @@ bool IOModule::resolveAnalogBinding_(PhysicalPortId portId, uint8_t& sourceOut, 
             return true;
         case IO_PORT_KIND_DS18_WATER:
             sourceOut = IO_SRC_DS18_WATER;
-            channelOut = 0U;
+            channelOut = spec->param0;
             backendOut = IO_BACKEND_DS18B20;
             return true;
         case IO_PORT_KIND_DS18_AIR:
             sourceOut = IO_SRC_DS18_AIR;
-            channelOut = 0U;
+            channelOut = spec->param0;
             backendOut = IO_BACKEND_DS18B20;
             return true;
         case IO_PORT_KIND_SHT40:
