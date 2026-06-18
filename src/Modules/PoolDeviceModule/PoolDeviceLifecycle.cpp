@@ -156,6 +156,7 @@ void PoolDeviceModule::init(ConfigStore& cfg, ServiceRegistry& services)
     }
     cmdSvc_ = services.get<CommandService>(ServiceId::Command);
     haSvc_ = services.get<HAService>(ServiceId::Ha);
+    activityLogSvc_ = services.get<ActivityLogService>(ServiceId::ActivityLog);
     const EventBusService* ebSvc = services.get<EventBusService>(ServiceId::EventBus);
     eventBus_ = ebSvc ? ebSvc->bus : nullptr;
     const DataStoreService* dsSvc = services.get<DataStoreService>(ServiceId::DataStore);

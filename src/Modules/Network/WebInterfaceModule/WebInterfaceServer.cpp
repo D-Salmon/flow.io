@@ -222,6 +222,74 @@ struct BootLogJsonPageCtx {
     uint16_t count = 0;
 };
 
+struct ActivityLogJsonPageCtx {
+    AsyncResponseStream* response = nullptr;
+    bool first = true;
+    uint16_t count = 0;
+};
+
+static const char* activityDomainName_(uint8_t domain)
+{
+    switch ((ActivityDomain)domain) {
+        case ActivityDomain::System: return "system";
+        case ActivityDomain::PoolLogic: return "poollogic";
+        case ActivityDomain::PoolDevice: return "pooldevice";
+        default: return "unknown";
+    }
+}
+
+static const char* activitySourceName_(uint8_t source)
+{
+    switch ((ActivitySource)source) {
+        case ActivitySource::System: return "system";
+        case ActivitySource::Auto: return "auto";
+        case ActivitySource::Manual: return "manual";
+        case ActivitySource::Scheduler: return "scheduler";
+        case ActivitySource::Safety: return "safety";
+        case ActivitySource::Pid: return "pid";
+        case ActivitySource::Boot: return "boot";
+        default: return "unknown";
+    }
+}
+
+static const char* activitySeverityName_(uint8_t severity)
+{
+    switch ((ActivitySeverity)severity) {
+        case ActivitySeverity::Info: return "info";
+        case ActivitySeverity::Success: return "success";
+        case ActivitySeverity::Warning: return "warning";
+        case ActivitySeverity::Alarm: return "alarm";
+        default: return "info";
+    }
+}
+
+static const char* activityRoleName_(uint8_t role)
+{
+    switch ((ActivityRole)role) {
+        case ActivityRole::None: return "none";
+        case ActivityRole::Filtration: return "filtration";
+        case ActivityRole::Swg: return "swg";
+        case ActivityRole::Robot: return "robot";
+        case ActivityRole::Filling: return "filling";
+        case ActivityRole::Ph: return "ph";
+        case ActivityRole::Disinfection: return "disinfection";
+        case ActivityRole::Heater: return "heater";
+        default: return "unknown";
+    }
+}
+
+static const char* activityStateName_(uint8_t state)
+{
+    switch ((ActivityState)state) {
+        case ActivityState::None: return "none";
+        case ActivityState::RequestedOn: return "requested_on";
+        case ActivityState::RequestedOff: return "requested_off";
+        case ActivityState::On: return "on";
+        case ActivityState::Off: return "off";
+        default: return "unknown";
+    }
+}
+
 struct FirmwareManifestChunkState {
     static constexpr size_t kUrlLen = 192U;
     static constexpr size_t kPrefixLen = 384U;
@@ -4425,6 +4493,127 @@ void WebInterfaceModule::sendBootLogHttpResponse_(AsyncWebServerRequest* request
     request->send(response);
 }
 
+bool WebInterfaceModule::writeActivityLogJsonEvent_(void* writerCtx,
+                                                    const ActivityEvent& e,
+                                                    uint16_t,
+                                                    uint16_t)
+{
+    ActivityLogJsonPageCtx* ctx = static_cast<ActivityLogJsonPageCtx*>(writerCtx);
+    if (!ctx || !ctx->response) return false;
+
+    if (!ctx->first) {
+        ctx->response->print(',');
+    }
+    ctx->first = false;
+    ctx->response->print('{');
+    ctx->response->printf("\"seq\":%lu,\"ts_ms\":%lu,\"epoch_s\":%lu,\"code\":%u",
+                          (unsigned long)e.seq,
+                          (unsigned long)e.ts_ms,
+                          (unsigned long)e.epoch_s,
+                          (unsigned)e.code);
+    ctx->response->printf(",\"domain\":%u,\"source\":%u,\"severity\":%u,\"role\":%u,\"state\":%u,\"reason\":%u,\"slot\":%u",
+                          (unsigned)e.domain,
+                          (unsigned)e.source,
+                          (unsigned)e.severity,
+                          (unsigned)e.role,
+                          (unsigned)e.state,
+                          (unsigned)e.reason,
+                          (unsigned)e.targetSlot);
+    ctx->response->print(",\"domain_name\":");
+    printJsonEscaped_(*ctx->response, activityDomainName_(e.domain));
+    ctx->response->print(",\"source_name\":");
+    printJsonEscaped_(*ctx->response, activitySourceName_(e.source));
+    ctx->response->print(",\"severity_name\":");
+    printJsonEscaped_(*ctx->response, activitySeverityName_(e.severity));
+    ctx->response->print(",\"role_name\":");
+    printJsonEscaped_(*ctx->response, activityRoleName_(e.role));
+    ctx->response->print(",\"state_name\":");
+    printJsonEscaped_(*ctx->response, activityStateName_(e.state));
+    ctx->response->print(",\"title\":");
+    printJsonEscaped_(*ctx->response, e.title);
+    ctx->response->print(",\"detail\":");
+    printJsonEscaped_(*ctx->response, e.detail);
+    ctx->response->print(",\"icon\":");
+    printJsonEscaped_(*ctx->response, e.icon);
+    ctx->response->print('}');
+    ++ctx->count;
+    return true;
+}
+
+void WebInterfaceModule::sendActivityLogHttpResponse_(AsyncWebServerRequest* request, bool statusOnly)
+{
+    if (!request) return;
+    noteHttpActivity_();
+
+    ActivityLogStats stats{};
+    bool available = false;
+    if (activityLog_ && activityLog_->getStats) {
+        activityLog_->getStats(activityLog_->ctx, &stats);
+        available = (stats.capacity > 0U);
+    }
+
+    int32_t requestedOffset = statusOnly ? 0 : requestIntParam_(request, "offset", 0);
+    int32_t requestedLimit = statusOnly ? 0 : requestIntParam_(request, "limit", 64);
+    if (requestedOffset < 0) requestedOffset = 0;
+    if (requestedLimit <= 0) requestedLimit = statusOnly ? 0 : 64;
+    if (requestedLimit > 128) requestedLimit = 128;
+
+    const uint16_t offset = (requestedOffset > UINT16_MAX) ? UINT16_MAX : (uint16_t)requestedOffset;
+    const uint16_t limit = (requestedLimit > UINT16_MAX) ? UINT16_MAX : (uint16_t)requestedLimit;
+
+    AsyncResponseStream* response = request->beginResponseStream("application/json");
+    addNoCacheHeaders_(response);
+    response->printf("{\"available\":%s,\"capacity\":%u,\"entries\":%u,\"dropped\":%lu,\"persisted\":%lu,\"persist_dropped\":%lu,\"psram\":%s,\"spiffs\":%s",
+                     available ? "true" : "false",
+                     (unsigned)stats.capacity,
+                     (unsigned)stats.count,
+                     (unsigned long)stats.droppedCount,
+                     (unsigned long)stats.persistedCount,
+                     (unsigned long)stats.persistDropCount,
+                     stats.psram ? "true" : "false",
+                     stats.spiffs ? "true" : "false");
+
+    if (statusOnly) {
+        response->print('}');
+        request->send(response);
+        return;
+    }
+
+    ActivityLogJsonPageCtx pageCtx{};
+    pageCtx.response = response;
+
+    const uint16_t writableLimit = available ? limit : 0U;
+    uint16_t expectedCount = 0U;
+    if (available && activityLog_ && activityLog_->readPage && offset < stats.count && writableLimit > 0U) {
+        const uint16_t remaining = (uint16_t)(stats.count - offset);
+        expectedCount = (writableLimit < remaining) ? writableLimit : remaining;
+    }
+    const bool expectedComplete = ((uint32_t)offset + (uint32_t)expectedCount >= stats.count) ||
+                                  expectedCount == 0U;
+    const int32_t expectedNext = expectedComplete ? -1 : (int32_t)offset + (int32_t)expectedCount;
+
+    response->printf(",\"offset\":%u,\"limit\":%u,\"count\":%u,\"next\":",
+                     (unsigned)offset,
+                     (unsigned)limit,
+                     (unsigned)expectedCount);
+    if (expectedNext < 0) {
+        response->print("null");
+    } else {
+        response->print((unsigned)expectedNext);
+    }
+    response->printf(",\"complete\":%s,\"events\":[", expectedComplete ? "true" : "false");
+
+    if (available && activityLog_ && activityLog_->readPage && offset < stats.count && writableLimit > 0U) {
+        (void)activityLog_->readPage(activityLog_->ctx,
+                                     offset,
+                                     writableLimit,
+                                     &WebInterfaceModule::writeActivityLogJsonEvent_,
+                                     &pageCtx);
+    }
+    response->print("]}");
+    request->send(response);
+}
+
 void WebInterfaceModule::init(ConfigStore& cfg, ServiceRegistry& services)
 {
     cfgStore_ = &cfg;
@@ -4438,6 +4627,7 @@ void WebInterfaceModule::init(ConfigStore& cfg, ServiceRegistry& services)
 #else
     bootLogCapture_ = nullptr;
 #endif
+    activityLog_ = services.get<ActivityLogService>(ServiceId::ActivityLog);
     wifiSvc_ = services.get<WifiService>(ServiceId::Wifi);
     cmdSvc_ = services.get<CommandService>(ServiceId::Command);
     hmiSvc_ = services.get<HmiService>(ServiceId::Hmi);
@@ -4997,6 +5187,14 @@ void WebInterfaceModule::startServer_()
     server_.on("/api/logs/boot", HTTP_GET, [this](AsyncWebServerRequest* request) {
         HttpLatencyScope latency(request, "/api/logs/boot");
         sendBootLogHttpResponse_(request, false);
+    });
+    server_.on("/api/activity/status", HTTP_GET, [this](AsyncWebServerRequest* request) {
+        HttpLatencyScope latency(request, "/api/activity/status");
+        sendActivityLogHttpResponse_(request, true);
+    });
+    server_.on("/api/activity/logs", HTTP_GET, [this](AsyncWebServerRequest* request) {
+        HttpLatencyScope latency(request, "/api/activity/logs");
+        sendActivityLogHttpResponse_(request, false);
     });
     server_.on("/api/cfgdoc/index", HTTP_GET, [this, beginSpiffsAssetResponse, sendPreparedAssetResponse](AsyncWebServerRequest* request) {
         HttpLatencyScope latency(request, "/api/cfgdoc/index");

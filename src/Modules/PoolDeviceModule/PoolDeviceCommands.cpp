@@ -86,6 +86,45 @@ bool PoolDeviceModule::cmdPoolResetUptimeAll_(void* userCtx, const CommandReques
     return self->handlePoolResetUptimeAll_(req, reply, replyLen);
 }
 
+ActivityRole PoolDeviceModule::activityRoleForSlot_(uint8_t slot) const
+{
+    if (slot == PoolIds::DeviceFiltrationPump) return ActivityRole::Filtration;
+    if (slot == PoolIds::DeviceChlorineGenerator) return ActivityRole::Swg;
+    if (slot == PoolIds::DeviceRobot) return ActivityRole::Robot;
+    if (slot == PoolIds::DeviceFillPump) return ActivityRole::Filling;
+    if (slot == PoolIds::DevicePhPump) return ActivityRole::Ph;
+    if (slot == PoolIds::DeviceChlorinePump) return ActivityRole::Disinfection;
+    if (slot == PoolIds::DeviceWaterHeater) return ActivityRole::Heater;
+    return ActivityRole::None;
+}
+
+void PoolDeviceModule::emitActivity_(ActivityCode code,
+                                     ActivitySource source,
+                                     ActivitySeverity severity,
+                                     ActivityRole role,
+                                     ActivityState state,
+                                     ActivityReason reason,
+                                     uint8_t slot,
+                                     const char* title,
+                                     const char* detail,
+                                     const char* icon) const
+{
+    if (!activityLogSvc_ || !activityLogSvc_->emit) return;
+    ActivityEvent event{};
+    event.code = (uint16_t)code;
+    event.domain = (uint8_t)ActivityDomain::PoolDevice;
+    event.source = (uint8_t)source;
+    event.severity = (uint8_t)severity;
+    event.role = (uint8_t)role;
+    event.state = (uint8_t)state;
+    event.reason = (uint8_t)reason;
+    event.targetSlot = slot;
+    snprintf(event.title, sizeof(event.title), "%s", title ? title : "Action piscine");
+    snprintf(event.detail, sizeof(event.detail), "%s", detail ? detail : "");
+    snprintf(event.icon, sizeof(event.icon), "%s", icon ? icon : "touch_app");
+    (void)activityLogSvc_->emit(activityLogSvc_->ctx, &event);
+}
+
 bool PoolDeviceModule::handlePoolWrite_(const CommandRequest& req, char* reply, size_t replyLen)
 {
     JsonObjectConst args;
@@ -208,6 +247,21 @@ bool PoolDeviceModule::handlePoolWrite_(const CommandRequest& req, char* reply, 
          requested ? "Start" : "Stop",
          (label && label[0] != '\0') ? label : "Pool Device",
          (unsigned)slot);
+    char title[48] = {0};
+    char detail[128] = {0};
+    const char* display = (label && label[0] != '\0') ? label : "Équipement piscine";
+    snprintf(title, sizeof(title), "%s %s", display, requested ? "démarré manuellement" : "arrêté manuellement");
+    snprintf(detail, sizeof(detail), "Commande manuelle appliquée au slot %u.", (unsigned)slot);
+    emitActivity_(requested ? ActivityCode::PoolDeviceManualStart : ActivityCode::PoolDeviceManualStop,
+                  ActivitySource::Manual,
+                  requested ? ActivitySeverity::Success : ActivitySeverity::Info,
+                  activityRoleForSlot_(slot),
+                  requested ? ActivityState::RequestedOn : ActivityState::RequestedOff,
+                  ActivityReason::Manual,
+                  slot,
+                  title,
+                  detail,
+                  requested ? "play_arrow" : "stop");
     snprintf(reply, replyLen, "{\"ok\":true,\"slot\":%u}", (unsigned)slot);
     return true;
 }
@@ -253,6 +307,28 @@ bool PoolDeviceModule::handlePoolRefill_(const CommandRequest& req, char* reply,
     }
 
     const float applied = slots_[slot].tankRemainingMl;
+    const char* label = deviceLabel(slot);
+    char title[48] = {0};
+    char detail[128] = {0};
+    snprintf(title,
+             sizeof(title),
+             "%s rempli",
+             (label && label[0] != '\0') ? label : "Réservoir");
+    snprintf(detail,
+             sizeof(detail),
+             "Niveau réservoir mis à %.1f ml pour le slot %u.",
+             (double)applied,
+             (unsigned)slot);
+    emitActivity_(ActivityCode::PoolDeviceTankRefill,
+                  ActivitySource::Manual,
+                  ActivitySeverity::Success,
+                  activityRoleForSlot_(slot),
+                  ActivityState::None,
+                  ActivityReason::Manual,
+                  slot,
+                  title,
+                  detail,
+                  "water_drop");
     snprintf(reply, replyLen, "{\"ok\":true,\"slot\":%u,\"remaining_ml\":%.1f}", (unsigned)slot, (double)applied);
     return true;
 }
@@ -289,6 +365,23 @@ bool PoolDeviceModule::handlePoolResetUptime_(const CommandRequest& req, char* r
     LOGI("Reset uptime %s (slot=%u)",
          (label && label[0] != '\0') ? label : "Pool Device",
          (unsigned)slot);
+    char title[48] = {0};
+    char detail[128] = {0};
+    snprintf(title,
+             sizeof(title),
+             "Compteurs %s remis à zéro",
+             (label && label[0] != '\0') ? label : "équipement");
+    snprintf(detail, sizeof(detail), "Compteurs journaliers/hebdomadaires/mensuels remis à zéro pour le slot %u.", (unsigned)slot);
+    emitActivity_(ActivityCode::PoolDeviceUptimeReset,
+                  ActivitySource::Manual,
+                  ActivitySeverity::Info,
+                  activityRoleForSlot_(slot),
+                  ActivityState::None,
+                  ActivityReason::Manual,
+                  slot,
+                  title,
+                  detail,
+                  "restart_alt");
     snprintf(reply, replyLen, "{\"ok\":true,\"slot\":%u}", (unsigned)slot);
     return true;
 }
@@ -298,6 +391,18 @@ bool PoolDeviceModule::handlePoolResetUptimeAll_(const CommandRequest&, char* re
     const uint8_t resetCount = resetUptimeAll_();
     tickDevices_(millis(), false);
     LOGI("Reset uptime all (count=%u)", (unsigned)resetCount);
+    char detail[96] = {0};
+    snprintf(detail, sizeof(detail), "%u équipement(s) remis à zéro.", (unsigned)resetCount);
+    emitActivity_(ActivityCode::PoolDeviceUptimeReset,
+                  ActivitySource::Manual,
+                  ActivitySeverity::Info,
+                  ActivityRole::None,
+                  ActivityState::None,
+                  ActivityReason::Manual,
+                  ACTIVITY_TARGET_NONE,
+                  "Tous les compteurs piscine remis à zéro",
+                  detail,
+                  "restart_alt");
     snprintf(reply, replyLen, "{\"ok\":true,\"reset\":%u}", (unsigned)resetCount);
     return true;
 }

@@ -136,6 +136,7 @@ bool buildSystemSnapshot(MQTTModule* mqtt, char* out, size_t len)
 void registerModules(AppContext& ctx, ModuleInstances& modules)
 {
     ctx.moduleManager.add(&modules.logHubModule);
+    ctx.moduleManager.add(&modules.activityLogModule);
 #if FLOW_ENABLE_BOOT_LOG_CAPTURE
     ctx.moduleManager.add(&modules.bootLogCaptureModule);
 #endif

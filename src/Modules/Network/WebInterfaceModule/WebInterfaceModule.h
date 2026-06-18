@@ -153,8 +153,13 @@ private:
                                       const LogEntry& e,
                                       uint16_t index,
                                       uint16_t total);
+    static bool writeActivityLogJsonEvent_(void* writerCtx,
+                                           const ActivityEvent& e,
+                                           uint16_t index,
+                                           uint16_t total);
     void dumpBootLogCapture_(AsyncWebSocketClient* client);
     void sendBootLogHttpResponse_(AsyncWebServerRequest* request, bool statusOnly);
+    void sendActivityLogHttpResponse_(AsyncWebServerRequest* request, bool statusOnly);
     bool initLocalLogQueue_();
     void freeLocalLogQueue_();
 
@@ -185,6 +190,7 @@ private:
     const LogHubService* logHub_ = nullptr;
     const LogSinkRegistryService* logSinkReg_ = nullptr;
     const BootLogCaptureService* bootLogCapture_ = nullptr;
+    const ActivityLogService* activityLog_ = nullptr;
     const TimeService* timeSvc_ = nullptr;
     const WifiService* wifiSvc_ = nullptr;
     const CommandService* cmdSvc_ = nullptr;

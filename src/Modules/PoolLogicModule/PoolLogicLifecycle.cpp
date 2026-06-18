@@ -330,6 +330,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
     const HAService* haSvc = services.get<HAService>(ServiceId::Ha);
     const CommandService* cmdSvc = services.get<CommandService>(ServiceId::Command);
     alarmSvc_ = services.get<AlarmService>(ServiceId::Alarm);
+    activityLogSvc_ = services.get<ActivityLogService>(ServiceId::ActivityLog);
     if (!ioSvc_) {
         LOGW("PoolLogic waiting for IOServiceV2");
     }
@@ -1100,10 +1101,30 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
 
     if (!enabled_) {
         LOGI("PoolLogic disabled");
+        emitActivity_(ActivityCode::PoolLogicDisabled,
+                      ActivitySource::System,
+                      ActivitySeverity::Info,
+                      ActivityRole::None,
+                      ActivityState::None,
+                      ActivityReason::None,
+                      ACTIVITY_TARGET_NONE,
+                      "PoolLogic est désactivé",
+                      "Les automatismes piscine ne pilotent pas les équipements.",
+                      "toggle_off");
         return;
     }
 
     LOGI("PoolLogic ready");
+    emitActivity_(ActivityCode::PoolLogicReady,
+                  ActivitySource::System,
+                  ActivitySeverity::Success,
+                  ActivityRole::None,
+                  ActivityState::None,
+                  ActivityReason::None,
+                  ACTIVITY_TARGET_NONE,
+                  "PoolLogic est prêt",
+                  "Les automatismes piscine sont initialisés.",
+                  "pool");
     (void)cfgStore_;
 }
 

@@ -41,6 +41,7 @@
       'icon-io': 'lan',
       'icon-calibration': 'science',
       'icon-terminal': 'list_alt',
+      'icon-activity': 'history',
       'icon-system': 'system_update_alt',
       'icon-flowcfg': 'settings',
       'icon-info': 'info'
@@ -1803,12 +1804,9 @@
       pages.forEach((el) => el.classList.toggle('active', el.id === pageId));
       menuItems.forEach((el) => el.classList.toggle('active', el.dataset.page === pageId));
       syncMobileTopbarTitle(pageId);
-      terminalActive = pageId === 'page-terminal';
-      if (terminalActive) {
-        connectLogSocket();
-      } else {
-        closeLogSocket();
-        setWsStatusText(tr('terminal.inactive', 'inactif'));
+      if (!logsOverlayOpen) setWsStatusText(tr('terminal.inactive', 'inactif'));
+      if (pageId === 'page-activity-log') {
+        schedulePageTask(pageId, pageToken, deferredHeavyMs, () => refreshActivityLog(false));
       }
       if (pageId === 'page-pool-measures') {
         schedulePageTask(pageId, pageToken, deferredHeavyMs, () => onPoolMeasuresPageShown());
@@ -1918,8 +1916,20 @@
     const logSourceSelect = document.getElementById('logSourceSelect');
     const bootLogDumpBtn = document.getElementById('bootLogDumpBtn');
     const toggleAutoscrollInput = document.getElementById('toggleAutoscroll');
+    const logsOverlay = document.getElementById('logsOverlay');
+    const openLogsOverlayBtn = document.getElementById('openLogsOverlay');
+    const closeLogsOverlayBtn = document.getElementById('closeLogsOverlay');
+    const activityLogList = document.getElementById('activityLogList');
+    const activityLogStatus = document.getElementById('activityLogStatus');
+    const activityRefreshBtn = document.getElementById('activityRefreshBtn');
+    const activityPrevBtn = document.getElementById('activityPrevBtn');
+    const activityNextBtn = document.getElementById('activityNextBtn');
+    const activityRangeText = document.getElementById('activityRangeText');
+    const activityFilterBtns = Array.from(document.querySelectorAll('[data-activity-filter]'));
     let autoScrollEnabled = true;
-    let terminalActive = false;
+    let logsOverlayOpen = false;
+    let activityFilter = 'all';
+    let activityWindowShiftHours = 0;
 
     const checkUpdatesBtn = document.getElementById('checkUpdates');
     const cancelUpgradeUiBtn = document.getElementById('cancelUpgradeUi');
@@ -2384,6 +2394,11 @@
     }
 
     function connectLogSocket() {
+      if (!logsOverlayOpen || document.hidden) {
+        closeLogSocket();
+        setWsStatusText(tr('terminal.inactive', 'inactif'));
+        return;
+      }
       closeLogSocket();
       setWsStatusText(tr('terminal.connecting', 'connexion...'));
       const meta = activeLogSourceMeta();
@@ -2399,6 +2414,7 @@
       };
       socket.onclose = (ev) => {
         if (socket !== logSocket) return;
+        logSocket = null;
         const code = ev && Number.isFinite(ev.code) ? ev.code : 0;
         if (code === 1008) {
           setWsStatusText(meta.statusBusy);
@@ -2418,6 +2434,7 @@
     }
 
     function appendTerminalLine(raw, decodeAnsi) {
+      if (!term) return;
       const parsed = decodeAnsi ? decodeAnsiLine(raw) : { text: raw, color: null };
       const row = document.createElement('div');
       row.className = 'log-line';
@@ -2484,6 +2501,166 @@
       }
     }
 
+    function openLogsOverlay() {
+      if (!logsOverlay) return;
+      logsOverlay.hidden = false;
+      logsOverlay.setAttribute('aria-hidden', 'false');
+      logsOverlayOpen = true;
+      if (term) term.textContent = '';
+      connectLogSocket();
+    }
+
+    function closeLogsOverlay() {
+      if (!logsOverlay) return;
+      logsOverlayOpen = false;
+      closeLogSocket();
+      logsOverlay.hidden = true;
+      logsOverlay.setAttribute('aria-hidden', 'true');
+      setWsStatusText(tr('terminal.inactive', 'inactif'));
+    }
+
+    function activityEventDate(ev) {
+      const epoch = Number(ev && ev.epoch_s) || 0;
+      if (epoch > 0) return new Date(epoch * 1000);
+      return null;
+    }
+
+    function formatActivityTime(date) {
+      if (!date) return '--:--:--';
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+
+    function formatActivityDay(date) {
+      if (!date) return 'Date inconnue';
+      return date.toLocaleDateString([], { day: 'numeric', month: 'long', year: 'numeric' });
+    }
+
+    function formatActivityRelative(date) {
+      if (!date) return 'heure non synchronisée';
+      const diffSec = Math.max(0, Math.round((Date.now() - date.getTime()) / 1000));
+      if (diffSec < 60) return diffSec <= 3 ? 'Maintenant' : ('Il y a ' + diffSec + ' secondes');
+      const diffMin = Math.round(diffSec / 60);
+      if (diffMin < 60) return 'Il y a ' + diffMin + ' min';
+      const diffHour = Math.round(diffMin / 60);
+      if (diffHour < 24) return 'Il y a ' + diffHour + ' h';
+      const diffDay = Math.round(diffHour / 24);
+      return 'Il y a ' + diffDay + ' j';
+    }
+
+    function activityMatchesFilter(ev) {
+      const date = activityEventDate(ev);
+      if (date) {
+        const end = Date.now() - (activityWindowShiftHours * 3 * 3600000);
+        const start = end - (3 * 3600000);
+        const ts = date.getTime();
+        if (ts < start || ts > end) return false;
+      } else if (activityWindowShiftHours !== 0) {
+        return false;
+      }
+      if (activityFilter === 'all') return true;
+      if (activityFilter === 'poollogic') return ev.domain_name === 'poollogic' || ev.domain_name === 'pooldevice';
+      if (activityFilter === 'manual') return ev.source_name === 'manual';
+      if (activityFilter === 'safety') return ev.source_name === 'safety' || ev.severity_name === 'warning' || ev.severity_name === 'alarm';
+      if (activityFilter === 'system') return ev.domain_name === 'system';
+      return true;
+    }
+
+    function updateActivityRangeText() {
+      if (!activityRangeText) return;
+      const end = new Date(Date.now() - (activityWindowShiftHours * 3 * 3600000));
+      const start = new Date(end.getTime() - (3 * 3600000));
+      activityRangeText.textContent =
+        start.toLocaleDateString([], { day: 'numeric', month: 'short' }) + ' à ' +
+        start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' - ' +
+        end.toLocaleDateString([], { day: 'numeric', month: 'short' }) + ' à ' +
+        end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function renderActivityLog(events, stats) {
+      if (!activityLogList) return;
+      activityLogList.innerHTML = '';
+      updateActivityRangeText();
+      const filtered = (Array.isArray(events) ? events : [])
+        .filter(activityMatchesFilter)
+        .sort((a, b) => {
+          const ae = Number(a.epoch_s) || 0;
+          const be = Number(b.epoch_s) || 0;
+          if (ae !== be) return be - ae;
+          return (Number(b.seq) || 0) - (Number(a.seq) || 0);
+        });
+      if (!filtered.length) {
+        const empty = document.createElement('div');
+        empty.className = 'activity-empty';
+        empty.textContent = 'Aucune activité pour ce filtre.';
+        activityLogList.appendChild(empty);
+        return;
+      }
+      let currentDay = '';
+      filtered.forEach((ev) => {
+        const date = activityEventDate(ev);
+        const day = formatActivityDay(date);
+        if (day !== currentDay) {
+          currentDay = day;
+          const dayNode = document.createElement('div');
+          dayNode.className = 'activity-day-title';
+          dayNode.textContent = day;
+          activityLogList.appendChild(dayNode);
+        }
+        const row = document.createElement('div');
+        row.className = 'activity-row activity-severity-' + String(ev.severity_name || 'info');
+        const icon = document.createElement('span');
+        icon.className = 'ui-msr activity-row-icon';
+        icon.setAttribute('aria-hidden', 'true');
+        icon.textContent = String(ev.icon || 'history');
+        const main = document.createElement('div');
+        main.className = 'activity-row-main';
+        const title = document.createElement('div');
+        title.className = 'activity-row-title';
+        const strong = document.createElement('strong');
+        strong.textContent = String(ev.title || 'Activité');
+        title.appendChild(strong);
+        const meta = document.createElement('div');
+        meta.className = 'activity-row-meta';
+        meta.textContent = formatActivityTime(date) + ' - ' + formatActivityRelative(date);
+        main.appendChild(title);
+        if (ev.detail) {
+          const detail = document.createElement('div');
+          detail.className = 'activity-row-detail';
+          detail.textContent = String(ev.detail);
+          main.appendChild(detail);
+        }
+        main.appendChild(meta);
+        row.appendChild(icon);
+        row.appendChild(main);
+        activityLogList.appendChild(row);
+      });
+      if (activityLogStatus && stats) {
+        activityLogStatus.textContent =
+          filtered.length + '/' + (Number(stats.entries) || filtered.length) +
+          ' événement(s), persistés=' + (Number(stats.persisted) || 0);
+      }
+    }
+
+    async function refreshActivityLog(showBusy) {
+      if (!activityLogList) return;
+      if (showBusy && activityLogStatus) activityLogStatus.textContent = 'Chargement du journal...';
+      const limit = 128;
+      let offset = 0;
+      const events = [];
+      let stats = null;
+      while (true) {
+        const response = await fetch('/api/activity/logs?offset=' + encodeURIComponent(offset) + '&limit=' + limit, { cache: 'no-store' });
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        const page = await response.json();
+        stats = page;
+        if (Array.isArray(page.events)) events.push(...page.events);
+        if (page.complete || page.next == null || Number(page.count) === 0) break;
+        offset = Number(page.next);
+        if (!Number.isFinite(offset) || offset < 0 || events.length >= 768) break;
+      }
+      renderActivityLog(events, stats);
+    }
+
     function setLogSource(source) {
       let normalized = String(source || '').trim().toLowerCase();
       if (webLocalRuntime && normalized === 'flowio') {
@@ -2493,8 +2670,8 @@
       if (logSourceSelect && logSourceSelect.value !== logSource) {
         logSourceSelect.value = logSource;
       }
-      if (terminalActive) {
-        term.textContent = '';
+      if (logsOverlayOpen) {
+        if (term) term.textContent = '';
         connectLogSocket();
       } else {
         setWsStatusText(tr('terminal.inactive', 'inactif'));
@@ -2531,7 +2708,7 @@
     if (toggleAutoscrollInput) toggleAutoscrollInput.addEventListener('change', () => {
       autoScrollEnabled = !!toggleAutoscrollInput.checked;
       refreshAutoscrollUi();
-      if (autoScrollEnabled) term.scrollTop = term.scrollHeight;
+      if (autoScrollEnabled && term) term.scrollTop = term.scrollHeight;
     });
     if (logSourceSelect) {
       logSourceSelect.value = 'supervisor';
@@ -2542,6 +2719,46 @@
     if (bootLogDumpBtn) {
       bootLogDumpBtn.addEventListener('click', requestBootLogDump);
     }
+    if (openLogsOverlayBtn) {
+      openLogsOverlayBtn.addEventListener('click', openLogsOverlay);
+    }
+    if (closeLogsOverlayBtn) {
+      closeLogsOverlayBtn.addEventListener('click', closeLogsOverlay);
+    }
+    if (logsOverlay) {
+      logsOverlay.addEventListener('click', (ev) => {
+        if (ev.target === logsOverlay) closeLogsOverlay();
+      });
+    }
+    document.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Escape' && logsOverlayOpen) closeLogsOverlay();
+    });
+    if (activityRefreshBtn) {
+      activityRefreshBtn.addEventListener('click', () => refreshActivityLog(true).catch((err) => {
+        if (activityLogStatus) activityLogStatus.textContent = 'Journal indisponible: ' + (err && err.message ? err.message : String(err));
+      }));
+    }
+    if (activityPrevBtn) {
+      activityPrevBtn.addEventListener('click', () => {
+        activityWindowShiftHours += 1;
+        updateActivityRangeText();
+        refreshActivityLog(false).catch(() => {});
+      });
+    }
+    if (activityNextBtn) {
+      activityNextBtn.addEventListener('click', () => {
+        activityWindowShiftHours = Math.max(0, activityWindowShiftHours - 1);
+        updateActivityRangeText();
+        refreshActivityLog(false).catch(() => {});
+      });
+    }
+    activityFilterBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        activityFilter = String(btn.dataset.activityFilter || 'all');
+        activityFilterBtns.forEach((el) => el.classList.toggle('is-active', el === btn));
+        refreshActivityLog(false).catch(() => {});
+      });
+    });
     applyLogSourceUi();
     refreshAutoscrollUi();
     logSource = 'supervisor';
@@ -10944,7 +11161,6 @@
       document.addEventListener('visibilitychange', () => {
         const activePageId = getActivePageId();
         const onUpgradePage = activePageId === 'page-system';
-        const onTerminalPage = activePageId === 'page-terminal';
         if (document.hidden || !onUpgradePage) {
           stopUpgradeStatusPolling();
         } else {
@@ -10961,11 +11177,14 @@
           startIoSummaryTimer();
           refreshIoSummary(false).catch(() => {});
         }
-        if (document.hidden || !onTerminalPage) {
+        if (document.hidden || !logsOverlayOpen) {
           closeLogSocket();
-          setWsStatusText(tr('terminal.inactive', 'inactif'));
-        } else if (terminalActive) {
+          if (!logsOverlayOpen) setWsStatusText(tr('terminal.inactive', 'inactif'));
+        } else if (logsOverlayOpen) {
           connectLogSocket();
+        }
+        if (!document.hidden && activePageId === 'page-activity-log') {
+          refreshActivityLog(false).catch(() => {});
         }
         if (document.hidden || activePageId !== 'page-info') {
           stopInfoPolling();

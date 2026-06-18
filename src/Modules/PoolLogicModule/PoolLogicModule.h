@@ -421,6 +421,7 @@ private:
     const PoolDeviceService* poolSvc_ = nullptr;
     const MqttService* mqttSvc_ = nullptr;
     const AlarmService* alarmSvc_ = nullptr;
+    const ActivityLogService* activityLogSvc_ = nullptr;
     MqttConfigRouteProducer* cfgMqttPub_ = nullptr;
 
     // Lifecycle
@@ -471,6 +472,23 @@ private:
                           uint32_t& outputOnMsOut);
     void applyDeviceControl_(uint8_t deviceSlot, const char* label, DeviceFsm& fsm, bool desired, uint32_t nowMs);
     void runControlLoop_(uint32_t nowMs);
+    ActivityRole activityRoleForDeviceSlot_(uint8_t deviceSlot) const;
+    const char* activityRoleLabel_(ActivityRole role) const;
+    void emitActivity_(ActivityCode code,
+                       ActivitySource source,
+                       ActivitySeverity severity,
+                       ActivityRole role,
+                       ActivityState state,
+                       ActivityReason reason,
+                       uint8_t deviceSlot,
+                       const char* title,
+                       const char* detail,
+                       const char* icon) const;
+    void emitDeviceActivity_(bool requested,
+                             bool on,
+                             uint8_t deviceSlot,
+                             const char* label,
+                             ActivityReason reason) const;
     bool isDisinfectionType_(DisinfectionType type) const;
     bool readPoolDeviceFlowLh_(uint8_t deviceSlot, float& flowLhOut) const;
     bool currentO2LocalTime_(uint16_t& dayKeyOut,
