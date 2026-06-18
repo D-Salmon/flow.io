@@ -24,6 +24,7 @@ public:
                    void* initialFullSnapshotCtx = nullptr);
     bool registerProvider(const IRuntimeSnapshotProvider* provider);
     void rebuildRoutes();
+    uint8_t routeCount() const { return routeCount_; }
 
     void onConnected();
     DataChangeStats onDataChanged(DataKey key);

@@ -15,6 +15,7 @@
 #include "Core/Services/Services.h"
 #include "Core/CommandRegistry.h"
 #include "Core/ConfigTypes.h"
+#include "Core/Services/ITime.h"
 #include "Domain/DomainTypes.h"
 #include "Modules/PoolDeviceModule/PoolDeviceModuleDataModel.h"
 
@@ -205,6 +206,7 @@ private:
     // Services and shared runtime integrations
     const LogHubService* logHub_ = nullptr;
     const IOServiceV2* ioSvc_ = nullptr;
+    const TimeService* timeSvc_ = nullptr;
     const CommandService* cmdSvc_ = nullptr;
     const MqttService* mqttSvc_ = nullptr;
     const HAService* haSvc_ = nullptr;

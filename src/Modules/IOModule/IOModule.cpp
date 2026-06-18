@@ -805,10 +805,10 @@ uint8_t IOModule::runtimeSnapshotCount() const
 
     uint8_t count = 0;
     for (uint8_t i = 0; i < MAX_ANALOG_ENDPOINTS; ++i) {
-        if (analogSlotPublished_(i)) ++count;
+        if (analogRuntimeRoutePublished_(i)) ++count;
     }
     for (uint8_t i = 0; i < MAX_DIGITAL_SLOTS; ++i) {
-        if (digitalSlots_[i].used && digitalSlots_[i].endpoint) ++count;
+        if (digitalRuntimeRoutePublished_(i)) ++count;
     }
     return count;
 }
@@ -823,7 +823,7 @@ bool IOModule::runtimeSnapshotRouteFromIndex_(uint8_t snapshotIdx, uint8_t& rout
 
     uint8_t seen = 0;
     for (uint8_t i = 0; i < MAX_ANALOG_ENDPOINTS; ++i) {
-        if (!analogSlotPublished_(i)) continue;
+        if (!analogRuntimeRoutePublished_(i)) continue;
         if (seen == snapshotIdx) {
             routeTypeOut = ROUTE_ANALOG;
             slotIdxOut = i;
@@ -834,7 +834,7 @@ bool IOModule::runtimeSnapshotRouteFromIndex_(uint8_t snapshotIdx, uint8_t& rout
     for (uint8_t logical = 0; logical < MAX_DIGITAL_INPUTS; ++logical) {
         uint8_t slotIdx = 0xFF;
         if (!findDigitalSlotByLogical_(DIGITAL_SLOT_INPUT, logical, slotIdx)) continue;
-        if (!digitalSlots_[slotIdx].endpoint) continue;
+        if (!digitalRuntimeRoutePublished_(slotIdx)) continue;
         if (seen == snapshotIdx) {
             routeTypeOut = ROUTE_DIGITAL_INPUT;
             slotIdxOut = slotIdx;
@@ -845,7 +845,7 @@ bool IOModule::runtimeSnapshotRouteFromIndex_(uint8_t snapshotIdx, uint8_t& rout
     for (uint8_t logical = 0; logical < MAX_DIGITAL_OUTPUTS; ++logical) {
         uint8_t slotIdx = 0xFF;
         if (!findDigitalSlotByLogical_(DIGITAL_SLOT_OUTPUT, logical, slotIdx)) continue;
-        if (!digitalSlots_[slotIdx].endpoint) continue;
+        if (!digitalRuntimeRoutePublished_(slotIdx)) continue;
         if (seen == snapshotIdx) {
             routeTypeOut = ROUTE_DIGITAL_OUTPUT;
             slotIdxOut = slotIdx;
@@ -1165,6 +1165,35 @@ bool IOModule::analogSlotPublished_(uint8_t idx) const
 {
     if (idx >= MAX_ANALOG_ENDPOINTS) return false;
     return cfgData_.enabled && analogSlots_[idx].used && analogSlots_[idx].endpoint;
+}
+
+bool IOModule::analogRuntimeRoutePublished_(uint8_t idx) const
+{
+    if (idx >= MAX_ANALOG_ENDPOINTS) return false;
+    if (!cfgData_.enabled || !analogSlots_[idx].used) return false;
+
+    uint8_t source = IO_ANALOG_SOURCE_INVALID;
+    if (!resolveConfiguredAnalogSource_(idx, source)) return false;
+
+    if (!analogSourceRequiresDriverEnable_(source)) return true;
+    return analogSourceDriverEnabled_(source);
+}
+
+bool IOModule::digitalRuntimeRoutePublished_(uint8_t slotIdx) const
+{
+    if (slotIdx >= MAX_DIGITAL_SLOTS) return false;
+    const DigitalSlot& slot = digitalSlots_[slotIdx];
+    if (!cfgData_.enabled || !slot.used) return false;
+
+    if (slot.kind == DIGITAL_SLOT_INPUT) {
+        if (slot.logicalIdx >= MAX_DIGITAL_INPUTS) return false;
+        return digitalInCfg_[slot.logicalIdx].bindingPort != IO_PORT_INVALID;
+    }
+    if (slot.kind == DIGITAL_SLOT_OUTPUT) {
+        if (slot.logicalIdx >= DIGITAL_CFG_SLOTS) return false;
+        return digitalCfg_[slot.logicalIdx].bindingPort != IO_PORT_INVALID;
+    }
+    return false;
 }
 
 bool IOModule::analogSlotUsesUndefinedInvalidValue_(uint8_t idx) const

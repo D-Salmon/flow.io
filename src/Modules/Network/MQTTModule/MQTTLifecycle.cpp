@@ -496,6 +496,8 @@ void MQTTModule::onStart(ConfigStore&, ServiceRegistry&)
     (void)allocateScratchBuffers_();
     (void)allocateRxQueue_();
 #endif
+    runtimeProducerCore_.rebuildRoutes();
+    LOGI("runtime routes ready count=%u", (unsigned)runtimeProducerCore_.routeCount());
 }
 
 void MQTTModule::loop()

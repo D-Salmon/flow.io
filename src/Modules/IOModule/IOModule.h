@@ -180,6 +180,8 @@ private:
     bool resolveConfiguredAnalogSource_(uint8_t idx, uint8_t& sourceOut) const;
     bool analogSourceRequiresDriverEnable_(uint8_t source) const;
     bool analogSourceDriverEnabled_(uint8_t source) const;
+    bool analogRuntimeRoutePublished_(uint8_t idx) const;
+    bool digitalRuntimeRoutePublished_(uint8_t slotIdx) const;
     bool analogSlotPublished_(uint8_t idx) const;
     bool analogSlotUsesUndefinedInvalidValue_(uint8_t idx) const;
     void invalidateAnalogSlot_(AnalogSlot& slot, uint32_t nowMs);
