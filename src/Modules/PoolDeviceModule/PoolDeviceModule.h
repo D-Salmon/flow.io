@@ -18,6 +18,7 @@
 #include "Core/Services/ITime.h"
 #include "Domain/DomainTypes.h"
 #include "Modules/PoolDeviceModule/PoolDeviceModuleDataModel.h"
+#include <freertos/semphr.h>
 
 enum PoolDeviceType : uint8_t {
     POOL_DEVICE_FILTRATION = 0,
@@ -64,7 +65,7 @@ public:
     void init(ConfigStore& cfg, ServiceRegistry& services) override;
     void onConfigLoaded(ConfigStore& cfg, ServiceRegistry& services) override;
     void loop() override;
-    uint16_t taskStackSize() const override { return 2560; }
+    uint16_t taskStackSize() const override { return 4096; }
     uint32_t startDelayMs() const override {
 #if defined(FLOW_PROFILE_WAVESHARE)
         return 5000U;
@@ -199,8 +200,11 @@ private:
                        const char* title,
                        const char* detail,
                        const char* icon) const;
+    void emitAutoModeDisabledByManualActivity_(ActivityRole role, uint8_t slot, const char* autoLabel) const;
     ActivityRole activityRoleForSlot_(uint8_t slot) const;
     bool ensureStorage_();
+    bool lockState_(TickType_t timeoutTicks = pdMS_TO_TICKS(200)) const;
+    void unlockState_() const;
     size_t runtimePersistUsage_() const;
     size_t runtimePersistCapacity_() const { return (size_t)POOL_DEVICE_MAX * RUNTIME_PERSIST_BUF_LEN; }
 
@@ -208,6 +212,8 @@ private:
     bool runtimeReady_ = false;
     bool writesEnabled_ = false;
     portMUX_TYPE resetMux_ = portMUX_INITIALIZER_UNLOCKED;
+    mutable StaticSemaphore_t stateMutexBuf_{};
+    mutable SemaphoreHandle_t stateMutex_ = nullptr;
     uint8_t resetPendingMask_ = 0;
     bool periodReconcilePending_ = true;
 

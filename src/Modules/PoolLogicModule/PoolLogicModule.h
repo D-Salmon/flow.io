@@ -493,6 +493,7 @@ private:
                              uint8_t deviceSlot,
                              const char* label,
                              ActivityReason reason) const;
+    void emitAutoModeDisabledByManualActivity_(ActivityRole role, uint8_t deviceSlot, const char* autoLabel) const;
     bool isDisinfectionType_(DisinfectionType type) const;
     bool readPoolDeviceFlowLh_(uint8_t deviceSlot, float& flowLhOut) const;
     bool currentO2LocalTime_(uint16_t& dayKeyOut,

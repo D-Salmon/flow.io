@@ -162,9 +162,9 @@ static inline void sendProgmemLiteral_(AsyncWebServerRequest* request, const cha
 
 namespace {
 constexpr uint32_t kHttpLatencyInfoMs = 40U;
-constexpr uint32_t kHttpLatencyWarnMs = 120U;
+constexpr uint32_t kHttpLatencyWarnMs = 1000U;
 constexpr uint32_t kHttpLatencyFlowCfgInfoMs = 200U;
-constexpr uint32_t kHttpLatencyFlowCfgWarnMs = 900U;
+constexpr uint32_t kHttpLatencyFlowCfgWarnMs = 1000U;
 constexpr uint32_t kHeapGuardAssetFreeBytesLight = 8192U;
 constexpr uint32_t kHeapGuardAssetFreeBytesMinor = 12288U;
 constexpr uint32_t kHeapGuardAssetFreeBytesMajor = 15360U;
@@ -288,6 +288,56 @@ static const char* activityStateName_(uint8_t state)
         case ActivityState::Off: return "off";
         default: return "unknown";
     }
+}
+
+static void appendActivityModuleName_(char* out, size_t outLen, const char* moduleName)
+{
+    if (!out || outLen == 0U || !moduleName || moduleName[0] == '\0') return;
+    const size_t used = strnlen(out, outLen);
+    if (used >= outLen - 1U) return;
+
+    size_t pos = used;
+    if (pos > 0U) {
+        if (pos + 2U >= outLen) return;
+        out[pos++] = ',';
+        out[pos++] = ' ';
+    }
+
+    for (const char* p = moduleName; *p != '\0' && pos + 1U < outLen; ++p) {
+        const char c = *p;
+        out[pos++] = (c == '"' || c == '\\' || c == '\n' || c == '\r' || c == '\t') ? ' ' : c;
+    }
+    out[pos] = '\0';
+}
+
+static uint16_t summarizeConfigPatch_(const char* patchJson, char* modulesOut, size_t modulesOutLen)
+{
+    if (modulesOut && modulesOutLen > 0U) modulesOut[0] = '\0';
+    if (!patchJson || patchJson[0] == '\0') return 0;
+
+    DynamicJsonDocument doc(Limits::JsonConfigApplyBuf);
+    const DeserializationError err = deserializeJson(doc, patchJson);
+    if (err || !doc.is<JsonObjectConst>()) return 0;
+
+    uint16_t fieldCount = 0;
+    JsonObjectConst root = doc.as<JsonObjectConst>();
+    for (JsonPairConst moduleKv : root) {
+        const char* moduleName = moduleKv.key().c_str();
+        JsonVariantConst moduleVar = moduleKv.value();
+        if (!moduleVar.is<JsonObjectConst>()) continue;
+
+        uint16_t moduleFieldCount = 0;
+        JsonObjectConst moduleObj = moduleVar.as<JsonObjectConst>();
+        for (JsonPairConst valueKv : moduleObj) {
+            (void)valueKv;
+            if (fieldCount < UINT16_MAX) ++fieldCount;
+            if (moduleFieldCount < UINT16_MAX) ++moduleFieldCount;
+        }
+        if (moduleFieldCount > 0U) {
+            appendActivityModuleName_(modulesOut, modulesOutLen, moduleName);
+        }
+    }
+    return fieldCount;
 }
 
 struct FirmwareManifestChunkState {
@@ -3126,6 +3176,8 @@ void wavesharePrintIoSlotJson_(AsyncResponseStream& response,
     response.print(state.hasValue ? (unsigned long)state.value.tsMs : 0UL);
     response.print(",\"label\":");
     printJsonEscaped_(response, domainPreset && domainPreset->displayName ? domainPreset->displayName : "");
+    response.print(",\"config_name\":");
+    printJsonEscaped_(response, state.hasMeta ? state.meta.name : "");
     response.print(",\"error\":");
     printJsonEscaped_(response, state.error);
     response.print(",\"pool_device\":");
@@ -3275,6 +3327,8 @@ void sendWaveshareIoSummaryResponse_(AsyncResponseStream& response,
         response.print((unsigned)preset.id);
         response.print(",\"endpoint_id\":");
         printJsonEscaped_(response, preset.endpointId ? preset.endpointId : "");
+        response.print(",\"io_name\":");
+        printJsonEscaped_(response, state.hasMeta ? state.meta.name : "");
         response.print(",\"display_name\":");
         printJsonEscaped_(response, preset.displayName ? preset.displayName : "");
         response.print(",\"slot_kind\":");
@@ -4614,6 +4668,49 @@ void WebInterfaceModule::sendActivityLogHttpResponse_(AsyncWebServerRequest* req
     request->send(response);
 }
 
+void WebInterfaceModule::emitConfigActivity_(const char* contextLabel, const char* modulesLabel, uint16_t fieldCount)
+{
+    if (fieldCount == 0U) return;
+    if (!activityLog_ && services_) {
+        activityLog_ = services_->get<ActivityLogService>(ServiceId::ActivityLog);
+    }
+    if (!activityLog_ || !activityLog_->emit) return;
+
+    ActivityEvent event{};
+    event.code = (uint16_t)ActivityCode::SystemConfigChanged;
+    event.domain = (uint8_t)ActivityDomain::System;
+    event.source = (uint8_t)ActivitySource::Manual;
+    event.severity = (uint8_t)ActivitySeverity::Info;
+    event.role = (uint8_t)ActivityRole::None;
+    event.state = (uint8_t)ActivityState::None;
+    event.reason = (uint8_t)ActivityReason::Manual;
+    event.targetSlot = ACTIVITY_TARGET_NONE;
+    snprintf(event.title, sizeof(event.title), "Configuration modifiée");
+    if (modulesLabel && modulesLabel[0] != '\0') {
+        snprintf(event.detail,
+                 sizeof(event.detail),
+                 "%s: %u champ(s) appliqué(s) dans %s.",
+                 (contextLabel && contextLabel[0] != '\0') ? contextLabel : "Configuration",
+                 (unsigned)fieldCount,
+                 modulesLabel);
+    } else {
+        snprintf(event.detail,
+                 sizeof(event.detail),
+                 "%s: %u champ(s) appliqué(s).",
+                 (contextLabel && contextLabel[0] != '\0') ? contextLabel : "Configuration",
+                 (unsigned)fieldCount);
+    }
+    snprintf(event.icon, sizeof(event.icon), "settings");
+    (void)activityLog_->emit(activityLog_->ctx, &event);
+}
+
+void WebInterfaceModule::emitConfigPatchActivity_(const char* contextLabel, const char* patchJson)
+{
+    char modules[72] = {0};
+    const uint16_t fieldCount = summarizeConfigPatch_(patchJson, modules, sizeof(modules));
+    emitConfigActivity_(contextLabel, modules, fieldCount);
+}
+
 void WebInterfaceModule::init(ConfigStore& cfg, ServiceRegistry& services)
 {
     cfgStore_ = &cfg;
@@ -5710,6 +5807,7 @@ void WebInterfaceModule::startServer_()
             return;
         }
 
+        emitConfigActivity_("Mise à jour", "fwupdate", (uint16_t)((hasHost ? 1U : 0U) + (hasUpdatePath ? 1U : 0U)));
         request->send(200, "application/json", "{\"ok\":true}");
     });
 
@@ -5916,6 +6014,7 @@ void WebInterfaceModule::startServer_()
                           "{\"ok\":false,\"err\":{\"code\":\"Failed\",\"where\":\"wifi.config.set\"}}");
             return;
         }
+        emitConfigPatchActivity_("WiFi", patchJson);
 
         if (!netAccessSvc_ && services_) {
             netAccessSvc_ = services_->get<NetworkAccessService>(ServiceId::NetworkAccess);
@@ -6088,6 +6187,7 @@ void WebInterfaceModule::startServer_()
                           "{\"ok\":false,\"err\":{\"code\":\"Failed\",\"where\":\"mqtt.config.set\"}}");
             return;
         }
+        emitConfigPatchActivity_("MQTT", patchJson);
         const bool provisioningConfigured =
             provisioningOnly_ &&
             provisioningDisableAfterConfigured_ &&
@@ -6800,6 +6900,7 @@ void WebInterfaceModule::startServer_()
                           "{\"ok\":false,\"err\":{\"code\":\"Failed\",\"where\":\"flowcfg.apply.exec\"}}");
             return;
         }
+        emitConfigPatchActivity_("Config flow.io", patchStr.data);
         request->send(200, "application/json", "{\"ok\":true}");
         return;
 #else
@@ -7006,6 +7107,7 @@ void WebInterfaceModule::startServer_()
                           "{\"ok\":false,\"err\":{\"code\":\"Failed\",\"where\":\"supervisorcfg.apply.exec\"}}");
             return;
         }
+        emitConfigPatchActivity_("Config locale", patchStr.data);
         request->send(200, "application/json", "{\"ok\":true}");
     });
 

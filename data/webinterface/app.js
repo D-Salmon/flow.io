@@ -5182,11 +5182,11 @@
           tr('io.table.ioSlots', 'IOSlots'),
           [
             tr('io.col.slot', 'Slot'),
+            tr('io.col.configName', 'Nom config'),
             tr('io.col.kind', 'Type'),
             tr('io.col.driver', 'Driver'),
             tr('io.col.state', 'Etat'),
             tr('io.col.lastValue', 'Dernière valeur'),
-            tr('io.col.poolDevice', 'PoolDevice'),
             tr('io.col.error', 'Erreur')
           ],
           4
@@ -5195,11 +5195,10 @@
           tr('io.table.domainSlots', 'DomainSlots'),
           [
             tr('io.col.domainSlot', 'Domaine'),
-            tr('io.col.endpoint', 'Endpoint'),
-            tr('io.col.slot', 'Slot'),
+            tr('io.col.ioName', 'IONAME'),
+            tr('io.col.ioSlot', 'IOSlot'),
             tr('io.col.state', 'Etat'),
-            tr('io.col.lastValue', 'Dernière valeur'),
-            tr('io.col.poolDevice', 'PoolDevice')
+            tr('io.col.lastValue', 'Dernière valeur')
           ],
           4
         ));
@@ -5269,11 +5268,11 @@
           tr('io.table.ioSlots', 'IOSlots'),
           [
             { key: 'io_slot', label: tr('io.col.slot', 'Slot'), render: (row) => ioSummarySlotLabel(row) },
+            { key: 'config_name', label: tr('io.col.configName', 'Nom config'), render: (row) => ioSummaryText(row.config_name, '-') },
             { key: 'kind', label: tr('io.col.kind', 'Type') },
             { key: 'driver', label: tr('io.col.driver', 'Driver') },
             { key: 'state', label: tr('io.col.state', 'Etat'), render: (row) => createIoStateBadge(row.state) },
             { key: 'last_value', label: tr('io.col.lastValue', 'Dernière valeur') },
-            { key: 'pool_device', label: tr('io.col.poolDevice', 'PoolDevice'), render: (row) => row.pool_device && row.pool_device.label ? row.pool_device.label : '-' },
             { key: 'error', label: tr('io.col.error', 'Erreur') }
           ],
           ioSlots
@@ -5282,11 +5281,10 @@
           tr('io.table.domainSlots', 'DomainSlots'),
           [
             { key: 'display_name', label: tr('io.col.domainSlot', 'Domaine') },
-            { key: 'endpoint_id', label: tr('io.col.endpoint', 'Endpoint') },
-            { key: 'io_slot', label: tr('io.col.slot', 'Slot'), render: (row) => ioSummarySlotLabel(row) },
+            { key: 'io_name', label: tr('io.col.ioName', 'IONAME'), render: (row) => ioSummaryText(row.io_name, '-') },
+            { key: 'io_slot', label: tr('io.col.ioSlot', 'IOSlot'), render: (row) => ioSummarySlotLabel(row) },
             { key: 'state', label: tr('io.col.state', 'Etat'), render: (row) => createIoStateBadge(row.state) },
-            { key: 'last_value', label: tr('io.col.lastValue', 'Dernière valeur') },
-            { key: 'pool_device', label: tr('io.col.poolDevice', 'PoolDevice'), render: (row) => row.pool_device && row.pool_device.label ? row.pool_device.label : '-' }
+            { key: 'last_value', label: tr('io.col.lastValue', 'Dernière valeur') }
           ],
           domainSlots
         ));

@@ -160,6 +160,8 @@ private:
     void dumpBootLogCapture_(AsyncWebSocketClient* client);
     void sendBootLogHttpResponse_(AsyncWebServerRequest* request, bool statusOnly);
     void sendActivityLogHttpResponse_(AsyncWebServerRequest* request, bool statusOnly);
+    void emitConfigActivity_(const char* contextLabel, const char* modulesLabel, uint16_t fieldCount);
+    void emitConfigPatchActivity_(const char* contextLabel, const char* patchJson);
     bool initLocalLogQueue_();
     void freeLocalLogQueue_();
 

@@ -235,6 +235,35 @@ void PoolLogicModule::emitDeviceActivity_(bool requested,
                   icon);
 }
 
+void PoolLogicModule::emitAutoModeDisabledByManualActivity_(ActivityRole role,
+                                                            uint8_t deviceSlot,
+                                                            const char* autoLabel) const
+{
+    const char* roleLabel = activityRoleLabel_(role);
+    const char* label = (autoLabel && autoLabel[0] != '\0') ? autoLabel : roleLabel;
+    const char* icon = "settings";
+    if (role == ActivityRole::Filtration) icon = "pool";
+    else if (role == ActivityRole::Ph || role == ActivityRole::Disinfection) icon = "science";
+
+    char title[48] = {0};
+    char detail[128] = {0};
+    snprintf(title, sizeof(title), "Mode auto %s désactivé", label);
+    snprintf(detail,
+             sizeof(detail),
+             "Commande manuelle sur %s: l'automatisme a été désactivé.",
+             roleLabel);
+    emitActivity_(ActivityCode::SystemConfigChanged,
+                  ActivitySource::Manual,
+                  ActivitySeverity::Info,
+                  role,
+                  ActivityState::None,
+                  ActivityReason::Manual,
+                  deviceSlot,
+                  title,
+                  detail,
+                  icon);
+}
+
 bool PoolLogicModule::readPoolDeviceFlowLh_(uint8_t deviceSlot, float& flowLhOut) const
 {
     flowLhOut = 0.0f;
