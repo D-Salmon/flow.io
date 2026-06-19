@@ -262,6 +262,8 @@ private:
     bool pendingDayReset_ = false;
     bool pendingFiltrationReconcile_ = false;
     bool bootControlReady_ = false;
+    bool startupActivityPending_ = false;
+    uint32_t startupActivitySinceMs_ = 0;
 
     bool psiError_ = false;
     bool phTankLowError_ = false;
@@ -430,6 +432,8 @@ private:
     void normalizeDeviceSlots_();
     void logDeviceSlotConfig_() const;
     void logDeviceSlotBinding_(const char* role, uint8_t slot, int8_t expectedType) const;
+    bool activityTimeReady_() const;
+    void emitStartupActivityIfReady_(uint32_t nowMs);
 
     // Scheduler
     void ensureDailySlot_();

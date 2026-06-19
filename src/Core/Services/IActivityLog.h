@@ -127,6 +127,6 @@ struct ActivityLogService {
                          uint16_t limit,
                          ActivityLogReplayWriter writer,
                          void* writerCtx);
+    bool (*clear)(void* ctx);
     void* ctx;
 };
-

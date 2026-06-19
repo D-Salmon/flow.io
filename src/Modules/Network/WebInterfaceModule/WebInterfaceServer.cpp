@@ -5196,6 +5196,21 @@ void WebInterfaceModule::startServer_()
         HttpLatencyScope latency(request, "/api/activity/logs");
         sendActivityLogHttpResponse_(request, false);
     });
+    server_.on("/api/activity/purge", HTTP_POST, [this](AsyncWebServerRequest* request) {
+        HttpLatencyScope latency(request, "/api/activity/purge");
+        noteHttpActivity_();
+        if (!activityLog_ && services_) {
+            activityLog_ = services_->get<ActivityLogService>(ServiceId::ActivityLog);
+        }
+        if (!activityLog_ || !activityLog_->clear) {
+            request->send(503, "application/json", "{\"ok\":false,\"err\":{\"code\":\"NotReady\",\"where\":\"activity.clear\"}}");
+            return;
+        }
+        const bool ok = activityLog_->clear(activityLog_->ctx);
+        request->send(ok ? 200 : 500,
+                      "application/json",
+                      ok ? "{\"ok\":true}" : "{\"ok\":false,\"err\":{\"code\":\"Failed\",\"where\":\"activity.clear\"}}");
+    });
     server_.on("/api/cfgdoc/index", HTTP_GET, [this, beginSpiffsAssetResponse, sendPreparedAssetResponse](AsyncWebServerRequest* request) {
         HttpLatencyScope latency(request, "/api/cfgdoc/index");
         SpiffsAssetForensicMeta forensicMeta{};

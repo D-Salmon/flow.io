@@ -405,6 +405,8 @@ button:active{transform:translateY(1px);}
 .btn-primary:disabled,.btn-tonal:disabled,.secondary:disabled,.update-action-btn:disabled{opacity:0.45;cursor:not-allowed;}
 .cfg-tree-node.is-selected .cfg-tree-node-label{font-weight:600;}
 .btn-icon-only{width:30px;height:30px;min-width:30px;min-height:30px;padding:0;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;}
+.btn-tonal.danger-action{border-color:#F0B8B8;color:#B42318;background:#FFFFFF;}
+.btn-tonal.danger-action:hover,.btn-tonal.danger-action:active{background:#FFF4F2;color:#B42318;border-color:#E87870;}
 .btn-refresh-icon{color:var(--primary);}
 .refresh-icon-glyph{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;color:currentColor;font-size:16px;font-weight:800;line-height:1;}
 .refresh-icon-glyph::before{content:"↻";}
@@ -788,7 +790,7 @@ body.web-icons-disabled .control-field-apply{font-size:15px;font-weight:800;lett
 .pool-treatment-detail{align-content:start;}
 .pool-treatment-detail .pool-card-head{grid-template-columns:42px minmax(0,1fr);}
 .pool-treatment-detail .pool-card-icon{background:#EAF4FF;color:var(--primary);box-shadow:none;}
-.pool-config-card{min-width:0;border:1px solid var(--border);border-radius:var(--radius);background:#FFFFFF;box-shadow:0 8px 22px rgba(7,26,53,0.045);padding:16px;display:grid;gap:14px;}
+.pool-config-card{min-width:0;border:1px solid var(--border);border-radius:var(--radius);background:#FFFFFF;box-shadow:0 8px 22px rgba(7,26,53,0.045);padding:16px;display:grid;gap:14px;align-content:start;align-items:start;}
 .pool-config-error-card{grid-column:1 / -1;border-color:rgba(214,69,93,0.28);background:#FFF7F8;}
 .pool-config-error-card .pool-card-icon{background:var(--state-alert-bg);color:var(--state-alert-fg);box-shadow:inset 0 0 0 1px var(--state-alert-ring);}
 .pool-card-head{display:grid;grid-template-columns:42px minmax(0,1fr) auto;gap:12px;align-items:start;min-width:0;}
@@ -815,8 +817,8 @@ body.web-icons-disabled .control-field-apply{font-size:15px;font-weight:800;lett
 .pool-alarm-row b{min-width:0;color:#7A1F32;font-size:13px;font-weight:850;line-height:1.25;overflow-wrap:anywhere;}
 .pool-alarm-row span{color:#B33249;font-size:12px;font-weight:800;line-height:1.2;white-space:nowrap;}
 .pool-config-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;}
-.pool-field-list{display:grid;gap:0;border:1px solid #E6EDF4;border-radius:var(--radius);overflow:hidden;background:#FFFFFF;}
-.pool-field-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(86px,auto);gap:12px;align-items:center;min-height:40px;padding:9px 12px;border-top:1px solid #E6EDF4;background:#FFFFFF;}
+.pool-field-list{display:grid;grid-auto-rows:minmax(40px,max-content);align-content:start;align-self:start;gap:0;border:1px solid #E6EDF4;border-radius:var(--radius);overflow:hidden;background:#FFFFFF;}
+.pool-field-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(86px,auto);gap:12px;align-items:center;min-height:40px;padding:0 12px;border-top:1px solid #E6EDF4;background:#FFFFFF;}
 .pool-field-row:first-child{border-top:0;}
 .pool-field-row:nth-child(even){background:#FBFDFF;}
 .pool-field-label{min-width:0;color:#60758B;font-size:13px;font-weight:700;line-height:1.25;}
@@ -858,7 +860,7 @@ body.web-icons-disabled .control-field-apply{font-size:15px;font-weight:800;lett
   .pool-alarm-icon{width:36px;height:36px;font-size:21px;}
   .pool-alarm-row{grid-template-columns:1fr;gap:4px;}
   .pool-alarm-row span{white-space:normal;}
-  .pool-field-row{grid-template-columns:1fr;gap:4px;min-height:0;}
+  .pool-field-row{grid-template-columns:1fr;gap:4px;min-height:54px;padding:7px 12px;}
   .pool-field-value{text-align:left;}
   .pool-field-value.has-active-dot{justify-content:flex-start;}
   .pool-filtration-times{padding-left:48px;}

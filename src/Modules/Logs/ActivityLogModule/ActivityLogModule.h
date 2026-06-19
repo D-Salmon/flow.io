@@ -31,6 +31,7 @@ private:
     static constexpr uint8_t kPersistQueueLen = 24;
     static constexpr size_t kFileMaxBytes = 96U * 1024U;
     static constexpr size_t kLineMax = 448U;
+    static constexpr uint32_t kBootEventMaxDelayMs = 30000U;
     static constexpr const char* kLogPath = "/activity.log";
     static constexpr const char* kRotatedLogPath = "/activity.1.log";
 
@@ -41,8 +42,10 @@ private:
                                      uint16_t limit,
                                      ActivityLogReplayWriter writer,
                                      void* writerCtx);
+    static bool serviceClear_(void* ctx);
 
     bool emit_(const ActivityEvent& in);
+    bool clear_();
     void getStats_(ActivityLogStats& out) const;
     uint16_t readPage_(uint16_t offset,
                        uint16_t limit,
@@ -57,6 +60,7 @@ private:
     uint32_t epochNow_();
     void normalizeEvent_(ActivityEvent& event);
     void emitBootEvent_();
+    void emitBootEventIfReady_();
 
     ActivityEvent* entries_ = nullptr;
     uint16_t capacity_ = 0;
@@ -68,6 +72,8 @@ private:
     uint32_t nextSeq_ = 1;
     bool inPsram_ = false;
     bool spiffsReady_ = false;
+    bool bootEventPending_ = false;
+    uint32_t bootEventSinceMs_ = 0;
     mutable portMUX_TYPE mux_ = portMUX_INITIALIZER_UNLOCKED;
 
     QueueHandle_t persistQueue_ = nullptr;
@@ -75,4 +81,3 @@ private:
     ServiceRegistry* services_ = nullptr;
     const TimeService* timeSvc_ = nullptr;
 };
-

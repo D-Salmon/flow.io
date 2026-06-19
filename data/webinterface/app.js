@@ -1922,6 +1922,7 @@
     const activityLogList = document.getElementById('activityLogList');
     const activityLogStatus = document.getElementById('activityLogStatus');
     const activityRefreshBtn = document.getElementById('activityRefreshBtn');
+    const activityPurgeBtn = document.getElementById('activityPurgeBtn');
     const activityPrevBtn = document.getElementById('activityPrevBtn');
     const activityNextBtn = document.getElementById('activityNextBtn');
     const activityRangeText = document.getElementById('activityRangeText');
@@ -2593,6 +2594,15 @@
         empty.className = 'activity-empty';
         empty.textContent = 'Aucune activité pour ce filtre.';
         activityLogList.appendChild(empty);
+        if (activityLogStatus) {
+          if (stats) {
+            activityLogStatus.textContent =
+              '0/' + (Number(stats.entries) || 0) +
+              ' événement(s), persistés=' + (Number(stats.persisted) || 0);
+          } else {
+            activityLogStatus.textContent = 'Aucune activité.';
+          }
+        }
         return;
       }
       let currentDay = '';
@@ -2659,6 +2669,27 @@
         if (!Number.isFinite(offset) || offset < 0 || events.length >= 768) break;
       }
       renderActivityLog(events, stats);
+    }
+
+    async function purgeActivityLog() {
+      if (!confirm('Confirmer la purge du Journal d’Activité ? Cette action efface l’historique en mémoire et dans le SPIFFS.')) {
+        return;
+      }
+      if (activityPurgeBtn) activityPurgeBtn.disabled = true;
+      if (activityLogStatus) activityLogStatus.textContent = 'Purge du journal...';
+      try {
+        const response = await fetch('/api/activity/purge', { method: 'POST', cache: 'no-store' });
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        const payload = await response.json().catch(() => ({}));
+        if (payload && payload.ok === false) throw new Error('Purge refusée');
+        activityWindowShiftHours = 0;
+        await refreshActivityLog(false);
+        if (activityLogStatus) activityLogStatus.textContent = 'Journal purgé.';
+      } catch (err) {
+        if (activityLogStatus) activityLogStatus.textContent = 'Purge impossible: ' + (err && err.message ? err.message : String(err));
+      } finally {
+        if (activityPurgeBtn) activityPurgeBtn.disabled = false;
+      }
     }
 
     function setLogSource(source) {
@@ -2737,6 +2768,13 @@
       activityRefreshBtn.addEventListener('click', () => refreshActivityLog(true).catch((err) => {
         if (activityLogStatus) activityLogStatus.textContent = 'Journal indisponible: ' + (err && err.message ? err.message : String(err));
       }));
+    }
+    if (activityPurgeBtn) {
+      activityPurgeBtn.addEventListener('click', () => {
+        purgeActivityLog().catch((err) => {
+          if (activityLogStatus) activityLogStatus.textContent = 'Purge impossible: ' + (err && err.message ? err.message : String(err));
+        });
+      });
     }
     if (activityPrevBtn) {
       activityPrevBtn.addEventListener('click', () => {

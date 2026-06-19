@@ -71,6 +71,13 @@ uint16_t ActivityLogModule::serviceReadPage_(void* ctx,
     return self->readPage_(offset, limit, writer, writerCtx);
 }
 
+bool ActivityLogModule::serviceClear_(void* ctx)
+{
+    ActivityLogModule* self = static_cast<ActivityLogModule*>(ctx);
+    if (!self) return false;
+    return self->clear_();
+}
+
 void ActivityLogModule::init(ConfigStore&, ServiceRegistry& services)
 {
     services_ = &services;
@@ -97,6 +104,7 @@ void ActivityLogModule::init(ConfigStore&, ServiceRegistry& services)
     service_.emit = &ActivityLogModule::serviceEmit_;
     service_.getStats = &ActivityLogModule::serviceGetStats_;
     service_.readPage = &ActivityLogModule::serviceReadPage_;
+    service_.clear = &ActivityLogModule::serviceClear_;
     service_.ctx = this;
 
     if (!services.add(ServiceId::ActivityLog, &service_)) {
@@ -117,7 +125,8 @@ void ActivityLogModule::init(ConfigStore&, ServiceRegistry& services)
         replayFile_(kLogPath);
     }
 
-    emitBootEvent_();
+    bootEventPending_ = true;
+    bootEventSinceMs_ = millis();
     LOGI("Activity log ready entries=%u psram=%u spiffs=%u",
          (unsigned)capacity_,
          inPsram_ ? 1U : 0U,
@@ -126,6 +135,8 @@ void ActivityLogModule::init(ConfigStore&, ServiceRegistry& services)
 
 void ActivityLogModule::loop()
 {
+    emitBootEventIfReady_();
+
     ActivityEvent event{};
     if (persistQueue_ && xQueueReceive(persistQueue_, &event, pdMS_TO_TICKS(1000)) == pdTRUE) {
         if (!persist_(event)) {
@@ -177,6 +188,30 @@ bool ActivityLogModule::emit_(const ActivityEvent& in)
         }
     }
     return true;
+}
+
+bool ActivityLogModule::clear_()
+{
+    if (persistQueue_) {
+        xQueueReset(persistQueue_);
+    }
+
+    portENTER_CRITICAL(&mux_);
+    head_ = 0;
+    count_ = 0;
+    droppedCount_ = 0;
+    persistedCount_ = 0;
+    persistDropCount_ = 0;
+    nextSeq_ = 1;
+    portEXIT_CRITICAL(&mux_);
+
+    bool ok = true;
+    if (spiffsReady_) {
+        if (SPIFFS.exists(kLogPath) && !SPIFFS.remove(kLogPath)) ok = false;
+        if (SPIFFS.exists(kRotatedLogPath) && !SPIFFS.remove(kRotatedLogPath)) ok = false;
+    }
+    LOGI("Activity log cleared ok=%u spiffs=%u", ok ? 1U : 0U, spiffsReady_ ? 1U : 0U);
+    return ok;
 }
 
 void ActivityLogModule::appendRing_(const ActivityEvent& event)
@@ -363,3 +398,14 @@ void ActivityLogModule::emitBootEvent_()
     (void)emit_(event);
 }
 
+void ActivityLogModule::emitBootEventIfReady_()
+{
+    if (!bootEventPending_) return;
+
+    const uint32_t nowMs = millis();
+    const bool timedOut = (uint32_t)(nowMs - bootEventSinceMs_) >= kBootEventMaxDelayMs;
+    if (epochNow_() == 0U && !timedOut) return;
+
+    emitBootEvent_();
+    bootEventPending_ = false;
+}

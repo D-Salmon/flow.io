@@ -345,16 +345,18 @@ void PoolLogicModule::setO2ProtocolState_(uint8_t state, uint8_t blockReason, ui
                  o2BlockReasonStr_(o2BlockReason_),
                  (double)o2PendingMl_,
                  (double)o2WeeklyDoneMl_);
-        emitActivity_(ActivityCode::PoolLogicO2StateChanged,
-                      (blockReason == O2BlockNone) ? ActivitySource::Auto : ActivitySource::Safety,
-                      (blockReason == O2BlockNone) ? ActivitySeverity::Info : ActivitySeverity::Warning,
-                      ActivityRole::Disinfection,
-                      ActivityState::None,
-                      ActivityReason::O2,
-                      orpPumpDeviceSlot_,
-                      "Protocole oxygène actif mis à jour",
-                      detail,
-                      "science");
+        if (isDisinfectionType_(DisinfectionActiveOxygen)) {
+            emitActivity_(ActivityCode::PoolLogicO2StateChanged,
+                          (blockReason == O2BlockNone) ? ActivitySource::Auto : ActivitySource::Safety,
+                          (blockReason == O2BlockNone) ? ActivitySeverity::Info : ActivitySeverity::Warning,
+                          ActivityRole::Disinfection,
+                          ActivityState::None,
+                          ActivityReason::O2,
+                          orpPumpDeviceSlot_,
+                          "Protocole oxygène actif mis à jour",
+                          detail,
+                          "science");
+        }
     }
     persistO2Protocol_(nowMs, false);
 }
