@@ -1,0 +1,102 @@
+# Home Assistant package for the Flow.io 2.4.0 dashboard.
+#
+# Install this file under the Home Assistant `packages` directory. See
+# `home-assistant-2.4.0.md` for the required configuration.
+#
+# The alarm source is the MQTT Discovery entity `sensor.fio_alm_pack`.
+# AlarmModule packs five bits per slot; the least significant bit of each
+# slot reports whether the alarm is active.
+
+input_boolean:
+  flowio_admin_mode:
+    name: Réglages avancés Flow.io
+    icon: mdi:cog
+
+input_select:
+  flowio_menu_tab:
+    name: Section Flow.io
+    options:
+      - Chimie
+      - Filtration
+      - Eau
+      - Système
+    initial: Chimie
+    icon: mdi:menu
+
+template:
+  - binary_sensor:
+      - name: flowio_alarm_any_active
+        unique_id: flowio_240_alarm_any_active
+        icon: mdi:alarm-multiple
+        availability: >
+          {{ states('sensor.fio_alm_pack') not in
+             ['unknown', 'unavailable', 'none'] }}
+        state: >
+          {% set pack = states('sensor.fio_alm_pack') | int(0) %}
+          {% set ns = namespace(active=false) %}
+          {% for slot in range(0, 8) %}
+            {% if ((pack // (32 ** slot)) % 2) == 1 %}
+              {% set ns.active = true %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.active }}
+
+      - name: flowio_pressure_alarm
+        unique_id: flowio_240_pressure_alarm
+        icon: mdi:gauge-alert
+        availability: >
+          {{ states('sensor.fio_alm_pack') not in
+             ['unknown', 'unavailable', 'none'] }}
+        state: >
+          {% set pack = states('sensor.fio_alm_pack') | int(0) %}
+          {{ ((pack // 1) % 2) == 1 or ((pack // 32) % 2) == 1 }}
+
+      - name: flowio_ph_tank_low
+        unique_id: flowio_240_ph_tank_low
+        icon: mdi:flask-empty-off-outline
+        availability: >
+          {{ states('sensor.fio_alm_pack') not in
+             ['unknown', 'unavailable', 'none'] }}
+        state: >
+          {% set pack = states('sensor.fio_alm_pack') | int(0) %}
+          {{ ((pack // 1024) % 2) == 1 }}
+
+      - name: flowio_chlorine_tank_low
+        unique_id: flowio_240_chlorine_tank_low
+        icon: mdi:beaker-alert-outline
+        availability: >
+          {{ states('sensor.fio_alm_pack') not in
+             ['unknown', 'unavailable', 'none'] }}
+        state: >
+          {% set pack = states('sensor.fio_alm_pack') | int(0) %}
+          {{ ((pack // 32768) % 2) == 1 }}
+
+      - name: flowio_ph_pump_max_uptime
+        unique_id: flowio_240_ph_pump_max_uptime
+        icon: mdi:timer-alert-outline
+        availability: >
+          {{ states('sensor.fio_alm_pack') not in
+             ['unknown', 'unavailable', 'none'] }}
+        state: >
+          {% set pack = states('sensor.fio_alm_pack') | int(0) %}
+          {{ ((pack // 1048576) % 2) == 1 }}
+
+      - name: flowio_chlorine_pump_max_uptime
+        unique_id: flowio_240_chlorine_pump_max_uptime
+        icon: mdi:timer-alert-outline
+        availability: >
+          {{ states('sensor.fio_alm_pack') not in
+             ['unknown', 'unavailable', 'none'] }}
+        state: >
+          {% set pack = states('sensor.fio_alm_pack') | int(0) %}
+          {{ ((pack // 33554432) % 2) == 1 }}
+
+      - name: flowio_water_level_low
+        unique_id: flowio_240_water_level_low
+        icon: mdi:waves-arrow-down
+        availability: >
+          {{ states('sensor.fio_alm_pack') not in
+             ['unknown', 'unavailable', 'none'] }}
+        state: >
+          {% set pack = states('sensor.fio_alm_pack') | int(0) %}
+          {{ ((pack // 1073741824) % 2) == 1 }}
