@@ -53,6 +53,12 @@ static void poolLogicCfgDocsAnchor_(PoolLogicModule& self)
     self.levelIdVar_.moduleName = kCfgModuleSensors;
     self.phLevelIdVar_.moduleName = kCfgModuleSensors;
     self.chlorineLevelIdVar_.moduleName = kCfgModuleSensors;
+    self.tankLevelMonitoringEnabledVar_.moduleName = kCfgModuleSensors;
+    self.pressureMonitoringEnabledVar_.moduleName = kCfgModuleSensors;
+    self.filtrationFeedbackIdVar_.moduleName = kCfgModuleSensors;
+    self.chlorineGeneratorFeedbackIdVar_.moduleName = kCfgModuleSensors;
+    self.filtrationFeedbackMonitoringEnabledVar_.moduleName = kCfgModuleSensors;
+    self.chlorineGeneratorFeedbackMonitoringEnabledVar_.moduleName = kCfgModuleSensors;
 
     self.psiLowVar_.moduleName = kCfgModuleSafety;
     self.psiHighVar_.moduleName = kCfgModuleSafety;

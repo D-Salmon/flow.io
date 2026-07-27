@@ -422,6 +422,8 @@ cards:
                 name: Forcer la pompe de remplissage
               - entity: number.fio_pd4_max_upt
                 name: Temps maximal de remplissage
+              - entity: switch.fio_pl_psi_monitor
+                name: Surveillance de la pression
               - entity: number.fio_pl_psi_high
                 name: Seuil de pression haut
               - entity: number.fio_pl_psi_low

@@ -89,6 +89,18 @@ def verify_security_defaults() -> None:
     provisioning = (
         ROOT / "src/Modules/Network/WifiProvisioningModule/WifiProvisioningModule.cpp"
     ).read_text(encoding="utf-8")
+    ethernet_header = (
+        ROOT / "src/Modules/Network/EthernetModule/EthernetModule.h"
+    ).read_text(encoding="utf-8")
+    pool_logic_header = (
+        ROOT / "src/Modules/PoolLogicModule/PoolLogicModule.h"
+    ).read_text(encoding="utf-8")
+    pool_logic_control = (
+        ROOT / "src/Modules/PoolLogicModule/PoolLogicControl.cpp"
+    ).read_text(encoding="utf-8")
+    pool_logic_lifecycle = (
+        ROOT / "src/Modules/PoolLogicModule/PoolLogicLifecycle.cpp"
+    ).read_text(encoding="utf-8")
     config_store = (ROOT / "src/Core/ConfigStore.cpp").read_text(encoding="utf-8")
     required = (
         ("HTTP authentication middleware", "requestAuthentication(\"Flow.io\", true)", web),
@@ -117,6 +129,23 @@ def verify_security_defaults() -> None:
         ("MQTT TLS default-on", "#define FLOW_MQTT_REQUIRE_TLS 1", mqtt),
         ("MQTT CA bundle", "esp_crt_bundle_attach", mqtt),
         ("random provisioning password", "esp_random()", provisioning),
+        ("Waveshare Ethernet commissioning default", "bool enabled = true;", ethernet_header),
+        ("manual pool commissioning default", "bool autoMode_ = false;", pool_logic_header),
+        (
+            "pressure monitoring commissioning default",
+            "bool pressureMonitoringEnabled_ = false;",
+            pool_logic_header,
+        ),
+        (
+            "disabled pressure safety bypass",
+            "if (!self->pressureMonitoringEnabled_) return AlarmCondState::False;",
+            pool_logic_control,
+        ),
+        (
+            "Home Assistant pressure monitoring switch",
+            '"pl_psi_monitor"',
+            pool_logic_lifecycle,
+        ),
         ("JSON string escaping", "writeJsonEncodedString_", config_store),
         ("valid truncated JSON objects", "appendConfigJsonEntry_", config_store),
     )

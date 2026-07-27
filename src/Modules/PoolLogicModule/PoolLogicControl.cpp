@@ -563,6 +563,7 @@ AlarmCondState PoolLogicModule::condPsiLowStatic_(void* ctx, uint32_t nowMs)
 {
     PoolLogicModule* self = static_cast<PoolLogicModule*>(ctx);
     if (!self || !self->enabled_) return AlarmCondState::False;
+    if (!self->pressureMonitoringEnabled_) return AlarmCondState::False;
     if (!self->filtrationFsm_.on) return AlarmCondState::False;
     const uint32_t runSec = self->stateUptimeSec_(self->filtrationFsm_, nowMs);
     if (runSec <= self->psiStartupDelaySec_) return AlarmCondState::False;
@@ -579,6 +580,7 @@ AlarmCondState PoolLogicModule::condPsiHighStatic_(void* ctx, uint32_t)
 {
     PoolLogicModule* self = static_cast<PoolLogicModule*>(ctx);
     if (!self || !self->enabled_) return AlarmCondState::False;
+    if (!self->pressureMonitoringEnabled_) return AlarmCondState::False;
     if (!self->filtrationFsm_.on) return AlarmCondState::False;
 
     float psi = 0.0f;
@@ -997,7 +999,9 @@ void PoolLogicModule::runControlLoop_(uint32_t nowMs)
     } else {
         phTankLowError_ = havePhTankLow && phTankLow;
         chlorineTankLowError_ = haveChlorineTankLow && chlorineTankLow;
-        if (filtrationFsm_.on && havePsi) {
+        if (!pressureMonitoringEnabled_) {
+            psiError_ = false;
+        } else if (filtrationFsm_.on && havePsi) {
             const uint32_t runSec = stateUptimeSec_(filtrationFsm_, nowMs);
             const bool underPressure = (runSec > psiStartupDelaySec_) && (psi < psiLowThreshold_);
             const bool overPressure = (psi > psiHighThreshold_);

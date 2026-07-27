@@ -14,6 +14,12 @@ une CSP compatible avec les pages de secours, et l'alarme native
 scinde : politiques, en-tetes et verification ECDSA sont maintenant des
 composants separes ; la page de secours reste embarquee.
 
+Sur une NVS vierge, le profil Waveshare active maintenant Ethernet avec DHCP et
+laisse `poollogic/mode/auto_mode` desactive. Une configuration persistante
+existante reste prioritaire. La surveillance de pression est également
+désactivée par défaut et peut être activée depuis la configuration ou Home
+Assistant une fois le capteur installé et étalonné.
+
 Cette version convient aux essais sur banc et a un pilote controle, administre
 par USB sur un reseau local isole. Elle ne doit pas etre exposee directement a
 Internet.
@@ -33,6 +39,9 @@ dans `alm_pack`; ce dernier reste publie pour compatibilite et diagnostic.
    - cavalier `GPIO21`-`GND`, AP `FlowIO-RECOVERY`, remplacement des acces,
      extinction effective des huit relais et fermeture apres dix minutes;
    - Wi-Fi, Ethernet et MQTT TLS;
+   - premier demarrage vierge avec Ethernet DHCP actif et automatisme piscine
+     inactif, surveillance de pression inactive, puis conservation de ces choix
+     apres redemarrage;
    - interface Web et SPIFFS;
    - decouverte Home Assistant de `binary_sensor.fio_alm_any`, des neuf
      alarmes PoolLogic et de l'alarme OTA `id1200`, puis restitution immediate
@@ -40,6 +49,8 @@ dans `alm_pack`; ce dernier reste publie pour compatibilite et diagnostic.
      redemarrage de Home Assistant;
    - ecran Nextion et liaison HMI;
    - bus Qwiic, DS2484, ADS1115 et sondes;
+   - fonctionnement automatique avec la seule température d'eau, puis arrêt
+     sur pression basse/haute uniquement après activation de la surveillance;
    - huit relais, retours de contacteurs et securites filtration/electrolyseur;
    - redemarrage et persistance de la configuration.
 2. Documenter la procedure de mise en service, de sauvegarde et de restauration

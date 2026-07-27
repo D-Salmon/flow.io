@@ -427,6 +427,18 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
             "mdi:thermometer-lines",
             "config"
         };
+        const HASwitchEntry pressureMonitoringSwitch{
+            "poollogic",
+            "pl_psi_monitor",
+            "Pressure monitoring",
+            "cfg/poollogic/sensors",
+            "{% if value_json.psi_monitoring %}ON{% else %}OFF{% endif %}",
+            MqttTopics::SuffixCfgSet,
+            "{\\\"poollogic/sensors\\\":{\\\"psi_monitoring\\\":true}}",
+            "{\\\"poollogic/sensors\\\":{\\\"psi_monitoring\\\":false}}",
+            "mdi:gauge",
+            "config"
+        };
         (void)haSvc->addSwitch(haSvc->ctx, &autoModeSwitch);
         (void)haSvc->addSwitch(haSvc->ctx, &winterModeSwitch);
         (void)haSvc->addSwitch(haSvc->ctx, &phAutoModeSwitch);

@@ -37,6 +37,12 @@ Les fonctions historiques suivantes ne sont pas reprises :
 Le bouton `button.fio_alm_reset_all` n’efface pas une condition encore active.
 Il acquitte uniquement les alarmes mémorisées dont la condition a disparu.
 
+`switch.fio_pl_psi_monitor` active les alarmes de pression basse/haute et
+l'arrêt de sécurité associé. Il est désactivé par défaut : laissez-le ainsi si
+aucun capteur de pression n'est installé. Une entrée absente est signalée
+indisponible ; une mesure valide à `0 bar` n'arrête la filtration que lorsque
+cette surveillance est activée.
+
 ## Identifiants d’entités
 
 Les fichiers utilisent le préfixe Discovery par défaut :
@@ -50,6 +56,7 @@ Exemples :
 ```text
 sensor.fio_io_ph
 switch.fio_io_flt_pmp
+switch.fio_pl_psi_monitor
 number.fio_pl_psi_high
 button.fio_alm_reset_all
 ```

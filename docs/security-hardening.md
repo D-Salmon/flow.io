@@ -2,6 +2,12 @@
 
 This kit uses fail-closed defaults for its network attack surface.
 
+On a blank NVS, the Ethernet-equipped Waveshare profile enables W5500 DHCP by
+default so that commissioning can be performed with a wired connection. Web
+Digest authentication remains mandatory, and the controller must be connected
+only to a trusted administration LAN. Wi-Fi stays inactive while Ethernet is
+enabled. If DHCP is unavailable, physical recovery remains the local fallback.
+
 ## Web administration
 
 Outside access-point provisioning mode, every HTTP route and the WebSocket
