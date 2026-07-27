@@ -300,6 +300,26 @@ cards:
           secondary: Vérifier le bassin et le skimmer
           icon: mdi:waves-arrow-down
           icon_color: red
+      - type: conditional
+        conditions:
+          - entity: binary_sensor.flowio_filtration_contactor_mismatch
+            state: "on"
+        card:
+          type: custom:mushroom-template-card
+          primary: Défaut contacteur filtration
+          secondary: Le retour du contacteur ne correspond pas à la commande
+          icon: mdi:electric-switch-closed
+          icon_color: red
+      - type: conditional
+        conditions:
+          - entity: binary_sensor.flowio_chlorine_generator_contactor_mismatch
+            state: "on"
+        card:
+          type: custom:mushroom-template-card
+          primary: Défaut contacteur électrolyseur
+          secondary: Le retour du contacteur ne correspond pas à la commande
+          icon: mdi:electric-switch-closed
+          icon_color: red
 
   - type: custom:mushroom-entity-card
     entity: input_boolean.flowio_admin_mode

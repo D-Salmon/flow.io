@@ -82,3 +82,24 @@ template:
           {{ states('binary_sensor.fio_alm_water_level_low') in ['on', 'off'] }}
         state: >
           {{ is_state('binary_sensor.fio_alm_water_level_low', 'on') }}
+
+      - name: flowio_filtration_contactor_mismatch
+        unique_id: flowio_240_filtration_contactor_mismatch
+        icon: mdi:electric-switch-closed
+        availability: >
+          {{ states('binary_sensor.fio_alm_filtration_contactor_mismatch')
+             in ['on', 'off'] }}
+        state: >
+          {{ is_state('binary_sensor.fio_alm_filtration_contactor_mismatch',
+                      'on') }}
+
+      - name: flowio_chlorine_generator_contactor_mismatch
+        unique_id: flowio_240_chlorine_generator_contactor_mismatch
+        icon: mdi:electric-switch-closed
+        availability: >
+          {{ states('binary_sensor.fio_alm_chlorine_generator_contactor_mismatch')
+             in ['on', 'off'] }}
+        state: >
+          {{ is_state(
+               'binary_sensor.fio_alm_chlorine_generator_contactor_mismatch',
+               'on') }}

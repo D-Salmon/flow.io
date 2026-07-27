@@ -96,8 +96,10 @@ d’incidence sur Home Assistant.
 | 1007 | `binary_sensor.fio_alm_filtration_contactor_mismatch` |
 | 1008 | `binary_sensor.fio_alm_chlorine_generator_contactor_mismatch` |
 
-Le package conserve les anciennes entités `binary_sensor.flowio_*` utilisées
-par le tableau de bord, mais elles recopient désormais ces capteurs natifs.
+Le package fournit les alias `binary_sensor.flowio_*` utilisés par le tableau
+de bord. Ils recopient les capteurs natifs, y compris
+`binary_sensor.flowio_filtration_contactor_mismatch` et
+`binary_sensor.flowio_chlorine_generator_contactor_mismatch`.
 `sensor.fio_alm_pack` reste disponible pour compatibilité et diagnostic ; il
 n’est plus décodé par le package.
 
