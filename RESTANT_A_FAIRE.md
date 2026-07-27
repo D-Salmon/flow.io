@@ -18,7 +18,8 @@ Sur une NVS vierge, le profil Waveshare active maintenant Ethernet avec DHCP et
 laisse `poollogic/mode/auto_mode` desactive. Une configuration persistante
 existante reste prioritaire. La surveillance de pression est également
 désactivée par défaut et peut être activée depuis la configuration ou Home
-Assistant une fois le capteur installé et étalonné.
+Assistant une fois le capteur installé et étalonné. Le cycle automatique du
+robot est lui aussi désactivé par défaut.
 
 Cette version convient aux essais sur banc et a un pilote controle, administre
 par USB sur un reseau local isole. Elle ne doit pas etre exposee directement a
@@ -43,7 +44,7 @@ dans `alm_pack`; ce dernier reste publie pour compatibilite et diagnostic.
      inactif, surveillance de pression inactive, puis conservation de ces choix
      apres redemarrage;
    - interface Web et SPIFFS;
-   - decouverte Home Assistant de `binary_sensor.fio_alm_any`, des neuf
+   - decouverte Home Assistant de `binary_sensor.fio_alm_any`, des dix
      alarmes PoolLogic et de l'alarme OTA `id1200`, puis restitution immediate
      de leur etat apres un
      redemarrage de Home Assistant;
@@ -51,6 +52,10 @@ dans `alm_pack`; ce dernier reste publie pour compatibilite et diagnostic.
    - bus Qwiic, DS2484, ADS1115 et sondes;
    - fonctionnement automatique avec la seule température d'eau, puis arrêt
      sur pression basse/haute uniquement après activation de la surveillance;
+   - alarme `id1009` après cinq minutes sans température d'eau en automatique,
+     maintien du dernier plan valide et effacement au retour de la mesure;
+   - relais robot maintenu à l'arrêt tant que son cycle automatique n'est pas
+     explicitement activé;
    - huit relais, retours de contacteurs et securites filtration/electrolyseur;
    - redemarrage et persistance de la configuration.
 2. Documenter la procedure de mise en service, de sauvegarde et de restauration

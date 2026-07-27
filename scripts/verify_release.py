@@ -85,6 +85,10 @@ def verify_security_defaults() -> None:
     alarm_module = (ROOT / "src/Modules/AlarmModule/AlarmModule.cpp").read_text(
         encoding="utf-8"
     )
+    alarm_ids = (ROOT / "include/Core/AlarmIds.h").read_text(encoding="utf-8")
+    board_capacities = (ROOT / "src/Board/FlowIODINBoards.h").read_text(
+        encoding="utf-8"
+    )
     mqtt = (ROOT / "src/Modules/Network/MQTTModule/MQTTTransport.cpp").read_text(encoding="utf-8")
     provisioning = (
         ROOT / "src/Modules/Network/WifiProvisioningModule/WifiProvisioningModule.cpp"
@@ -131,6 +135,37 @@ def verify_security_defaults() -> None:
         ("random provisioning password", "esp_random()", provisioning),
         ("Waveshare Ethernet commissioning default", "bool enabled = true;", ethernet_header),
         ("manual pool commissioning default", "bool autoMode_ = false;", pool_logic_header),
+        ("robot automatic cycle default-off", "bool robotAutoMode_ = false;", pool_logic_header),
+        (
+            "robot automatic cycle gate",
+            "robotAutoMode_ && filtrationFsm_.on",
+            pool_logic_control,
+        ),
+        (
+            "Home Assistant robot automatic switch",
+            '"pl_robot_auto"',
+            pool_logic_lifecycle,
+        ),
+        (
+            "water temperature unavailable AlarmId",
+            "PoolWaterTemperatureUnavailable = 1009",
+            alarm_ids,
+        ),
+        (
+            "water temperature unavailable condition",
+            "condWaterTemperatureUnavailableStatic_",
+            pool_logic_control,
+        ),
+        (
+            "water temperature Home Assistant alarm",
+            "alm_water_temperature_unavailable",
+            alarm_module,
+        ),
+        (
+            "Home Assistant switch capacity",
+            "kFlowIODINHaCapacity{40, 20, 20, 22, 24, 10}",
+            board_capacities,
+        ),
         (
             "pressure monitoring commissioning default",
             "bool pressureMonitoringEnabled_ = false;",

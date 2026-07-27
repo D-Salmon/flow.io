@@ -167,6 +167,7 @@ private:
     bool phAutoMode_ = false;
     bool orpAutoMode_ = false;
     bool heaterAutoMode_ = false;
+    bool robotAutoMode_ = false;
     bool phDosePlus_ = false;
     bool pressureMonitoringEnabled_ = false;
     uint8_t disinfectionType_ = DisinfectionChlorineBromine;

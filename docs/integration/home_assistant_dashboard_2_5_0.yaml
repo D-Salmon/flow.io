@@ -252,6 +252,19 @@ cards:
             entity: sensor.fio_io_psi
       - type: conditional
         conditions:
+          - entity: binary_sensor.flowio_water_temperature_unavailable
+            state: "on"
+        card:
+          type: custom:mushroom-template-card
+          primary: Température d'eau indisponible
+          secondary: Le dernier programme de filtration est conservé
+          icon: mdi:thermometer-alert
+          icon_color: orange
+          tap_action:
+            action: more-info
+            entity: sensor.fio_io_wat_tmp
+      - type: conditional
+        conditions:
           - entity: binary_sensor.flowio_ph_tank_low
             state: "on"
         card:
@@ -398,6 +411,8 @@ cards:
             entities:
               - entity: switch.fio_pl_auto
                 name: Mode automatique
+              - entity: switch.fio_pl_robot_auto
+                name: Cycle automatique du robot
               - entity: switch.fio_pl_winter
                 name: Mode hivernage
               - entity: sensor.fio_pl_flt_start

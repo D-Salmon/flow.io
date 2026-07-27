@@ -83,6 +83,16 @@ template:
         state: >
           {{ is_state('binary_sensor.fio_alm_water_level_low', 'on') }}
 
+      - name: flowio_water_temperature_unavailable
+        unique_id: flowio_250_water_temperature_unavailable
+        icon: mdi:thermometer-alert
+        availability: >
+          {{ states('binary_sensor.fio_alm_water_temperature_unavailable')
+             in ['on', 'off'] }}
+        state: >
+          {{ is_state('binary_sensor.fio_alm_water_temperature_unavailable',
+                      'on') }}
+
       - name: flowio_filtration_contactor_mismatch
         unique_id: flowio_240_filtration_contactor_mismatch
         icon: mdi:electric-switch-closed

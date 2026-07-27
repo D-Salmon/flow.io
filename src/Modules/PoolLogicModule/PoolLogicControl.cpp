@@ -17,7 +17,7 @@
 
 namespace {
 constexpr float kHeaterHysteresisC = 0.3f;
-constexpr uint32_t kHeaterTempFreshMaxMs = 10UL * 60UL * 1000UL;
+constexpr uint32_t kWaterTempFreshMaxMs = 10UL * 60UL * 1000UL;
 constexpr uint16_t kHeatAssistProbeRunSec = 5U * 60U;
 constexpr uint16_t kHeatAssistIdleSlowSec = 30U * 60U;
 constexpr uint16_t kHeatAssistIdleFastSec = 20U * 60U;
@@ -615,6 +615,22 @@ AlarmCondState PoolLogicModule::condChlorineTankLowStatic_(void* ctx, uint32_t)
     return low ? AlarmCondState::True : AlarmCondState::False;
 }
 
+AlarmCondState PoolLogicModule::condWaterTemperatureUnavailableStatic_(void* ctx, uint32_t nowMs)
+{
+    PoolLogicModule* self = static_cast<PoolLogicModule*>(ctx);
+    if (!self || !self->enabled_ || !self->autoMode_) return AlarmCondState::False;
+
+    float waterTemp = 0.0f;
+    uint32_t tsMs = 0U;
+    if (!self->loadAnalogSensor_(self->waterTempIoId_, waterTemp, &tsMs)) {
+        return AlarmCondState::True;
+    }
+    if (!std::isfinite(waterTemp) || tsMs == 0U) return AlarmCondState::True;
+    return ((uint32_t)(nowMs - tsMs) > kWaterTempFreshMaxMs)
+               ? AlarmCondState::True
+               : AlarmCondState::False;
+}
+
 AlarmCondState PoolLogicModule::condWaterLevelLowStatic_(void* ctx, uint32_t)
 {
     PoolLogicModule* self = static_cast<PoolLogicModule*>(ctx);
@@ -979,7 +995,7 @@ void PoolLogicModule::runControlLoop_(uint32_t nowMs)
     const bool waterTempFresh =
         haveWaterTemp &&
         (waterTempTsMs != 0U) &&
-        ((uint32_t)(nowMs - waterTempTsMs) <= kHeaterTempFreshMaxMs);
+        ((uint32_t)(nowMs - waterTempTsMs) <= kWaterTempFreshMaxMs);
     const bool haveAirTemp = loadAnalogSensor_(airTempIoId_, airTemp);
     const bool haveOrp = loadAnalogSensor_(orpIoId_, orp);
     const bool haveLevel = loadDigitalSensor_(levelIoId_, poolLevelOn);
@@ -1176,11 +1192,11 @@ void PoolLogicModule::runControlLoop_(uint32_t nowMs)
     portEXIT_CRITICAL(&pendingMux_);
     if (autoMode_) {
         robotDesired = false;
-        if (filtrationFsm_.on && !cleaningDone_) {
+        if (robotAutoMode_ && filtrationFsm_.on && !cleaningDone_) {
             const uint32_t filtrationRunMin = stateUptimeSec_(filtrationFsm_, nowMs) / 60U;
             if (filtrationRunMin >= robotDelayMin_) robotDesired = true;
         }
-        if (robotFsm_.on) {
+        if (robotAutoMode_ && robotFsm_.on) {
             const uint32_t robotRunMin = stateUptimeSec_(robotFsm_, nowMs) / 60U;
             if (robotRunMin >= robotDurationMin_) robotDesired = false;
         }

@@ -392,6 +392,7 @@ constexpr char WinterMode[] = "pl_wint"; // Pool logic module persisted key for 
 constexpr char PhAutoMode[] = "pl_pha"; // Pool logic module persisted key for field `pl_pha`.
 constexpr char OrpAutoMode[] = "pl_orpa"; // Pool logic module persisted key for field `pl_orpa`.
 constexpr char HeaterAutoMode[] = "pl_hta"; // Pool logic module persisted key for field `pl_hta`.
+constexpr char RobotAutoMode[] = "pl_rba"; // Pool robot automatic cycle enable.
 constexpr char PhDosePlus[] = "pl_phpl"; // Pool logic module persisted key for field `pl_phpl`.
 constexpr char DisinfectionType[] = "pl_dtype"; // Pool logic module persisted key for field `disinfection_type`.
 constexpr char SwgControlMode[] = "pl_swgm"; // Pool logic module persisted key for field `swg_control_mode`.

@@ -429,6 +429,18 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
             "mdi:thermometer-lines",
             "config"
         };
+        const HASwitchEntry robotAutoModeSwitch{
+            "poollogic",
+            "pl_robot_auto",
+            "Robot automatic cycle",
+            "cfg/poollogic/mode",
+            "{% if value_json.robot_auto_mode %}ON{% else %}OFF{% endif %}",
+            MqttTopics::SuffixCfgSet,
+            "{\\\"poollogic/mode\\\":{\\\"robot_auto_mode\\\":true}}",
+            "{\\\"poollogic/mode\\\":{\\\"robot_auto_mode\\\":false}}",
+            "mdi:robot-vacuum",
+            "config"
+        };
         const HASwitchEntry pressureMonitoringSwitch{
             "poollogic",
             "pl_psi_monitor",
@@ -446,6 +458,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
         (void)haSvc->addSwitch(haSvc->ctx, &phAutoModeSwitch);
         (void)haSvc->addSwitch(haSvc->ctx, &orpAutoModeSwitch);
         (void)haSvc->addSwitch(haSvc->ctx, &heaterAutoModeSwitch);
+        (void)haSvc->addSwitch(haSvc->ctx, &robotAutoModeSwitch);
         (void)haSvc->addSwitch(haSvc->ctx, &phDosePlusSwitch);
         (void)haSvc->addSwitch(haSvc->ctx, &o2TempCompSwitch);
         (void)haSvc->addSwitch(haSvc->ctx, &pressureMonitoringSwitch);

@@ -43,6 +43,10 @@ aucun capteur de pression n'est installé. Une entrée absente est signalée
 indisponible ; une mesure valide à `0 bar` n'arrête la filtration que lorsque
 cette surveillance est activée.
 
+`switch.fio_pl_robot_auto` autorise séparément le cycle automatique du robot.
+Il est désactivé par défaut : même si `switch.fio_pl_auto` est actif, le relais
+robot reste arrêté tant que cette autorisation n'est pas donnée.
+
 ## Identifiants d’entités
 
 Les fichiers utilisent le préfixe Discovery par défaut :
@@ -84,7 +88,9 @@ helpers, puis :
 1. vérifier la configuration ;
 2. redémarrer Home Assistant ;
 3. confirmer la présence de `binary_sensor.fio_alm_any`,
-   `binary_sensor.fio_alm_psi_low`, `binary_sensor.flowio_pressure_alarm` et
+   `binary_sensor.fio_alm_psi_low`, `binary_sensor.flowio_pressure_alarm`,
+   `binary_sensor.fio_alm_water_temperature_unavailable` et
+   `binary_sensor.flowio_water_temperature_unavailable`, ainsi que
    `binary_sensor.fio_alm_ota_signature_failures`, puis de
    `input_boolean.flowio_admin_mode`.
 
@@ -105,12 +111,14 @@ d’incidence sur Home Assistant.
 | 1006 | `binary_sensor.fio_alm_water_level_low` |
 | 1007 | `binary_sensor.fio_alm_filtration_contactor_mismatch` |
 | 1008 | `binary_sensor.fio_alm_chlorine_generator_contactor_mismatch` |
+| 1009 | `binary_sensor.fio_alm_water_temperature_unavailable` |
 | 1200 | `binary_sensor.fio_alm_ota_signature_failures` |
 
 Le package fournit les alias `binary_sensor.flowio_*` utilisés par le tableau
 de bord. Ils recopient les capteurs natifs, y compris
 `binary_sensor.flowio_filtration_contactor_mismatch` et
-`binary_sensor.flowio_chlorine_generator_contactor_mismatch`.
+`binary_sensor.flowio_chlorine_generator_contactor_mismatch`, ainsi que
+`binary_sensor.flowio_water_temperature_unavailable`.
 Les `unique_id` des alias déjà présents en 2.4.0 sont volontairement conservés
 afin qu’une mise à niveau du package ne crée pas de doublons dans le registre
 d’entités Home Assistant.
