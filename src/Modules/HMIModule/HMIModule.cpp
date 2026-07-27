@@ -13,6 +13,7 @@
 #include "Core/AlarmIds.h"
 #include "Core/Generated/RuntimeUiAlarmText_Generated.h"
 #include "Core/SystemLimits.h"
+#include "Core/PsramJsonAllocator.h"
 #include "Domain/Pool/PoolIds.h"
 #include "Domain/Pool/PoolDefaults.h"
 #include "Modules/IOModule/IORuntime.h"
@@ -2805,7 +2806,7 @@ bool HMIModule::buildMenuJson_(char* out, size_t outLen)
     menu_.buildView(view);
     view.contextRef = cacheCurrentConfigContext_();
 
-    JsonDocument doc;
+    JsonDocument doc(psramPreferredJsonAllocator());
     JsonObject root = doc.to<JsonObject>();
     root["ok"] = true;
     root["driver"] = driver_ ? driver_->driverId() : "";

@@ -22,6 +22,16 @@ Sortie `xtensa-esp32-elf-size -A .pio/build/FlowIO/firmware.elf`:
 
 Ce total correspond au `RAM: used 121648 bytes` reporte par PlatformIO.
 
+## Branche 3.1.0 - ArduinoJson 7
+
+Les documents ArduinoJson volumineux du menu HMI, du manifeste de mise à jour
+et de la requête Web Runtime UI utilisent un allocateur qui privilégie la
+PSRAM. Si celle-ci est indisponible ou saturée, l'allocation est retentée en
+RAM interne. Les petits documents de commande restent en RAM interne.
+
+Les mesures exactes de la 3.1.0 sont ajoutées après la compilation complète du
+profil Waveshare.
+
 ## Methode
 
 Il faut distinguer trois niveaux:

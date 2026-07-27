@@ -11,6 +11,7 @@
 #include "Core/Generated/RuntimeUiManifest_Generated.h"
 #include "Core/Generated/RuntimeUiManifestJson_Generated.h"
 #include "Core/I2cCfgProtocol.h"
+#include "Core/PsramJsonAllocator.h"
 #include "Core/Services/IAlarm.h"
 #include "Core/SystemLimits.h"
 #include "Core/SystemStats.h"
@@ -6536,7 +6537,7 @@ void WebInterfaceModule::startServer_()
             char* body = static_cast<char*>(request->_tempObject);
             request->_tempObject = nullptr;
 
-            JsonDocument reqDoc;
+            JsonDocument reqDoc(psramPreferredJsonAllocator());
             const DeserializationError reqErr = deserializeJson(reqDoc, body);
             releaseRuntimeValuesBodyScratch_();
             if (reqErr) {

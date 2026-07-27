@@ -18,6 +18,7 @@
 #include "Board/BoardSpec.h"
 #include "Core/ErrorCodes.h"
 #include "Core/FirmwareVersion.h"
+#include "Core/PsramJsonAllocator.h"
 #include "Core/SystemLimits.h"
 
 #include <ESPNexUpload.h>
@@ -502,7 +503,7 @@ bool FirmwareUpdateModule::checkManifestJsonStream_(Print& out, char* errOut, si
         return false;
     }
 
-    JsonDocument doc;
+    JsonDocument doc(psramPreferredJsonAllocator());
     const DeserializationError jsonErr = deserializeJson(doc, payload);
     if (jsonErr || !doc.is<JsonObjectConst>()) {
         writeSimpleError_(errOut, errOutLen, "manifest invalid json");
