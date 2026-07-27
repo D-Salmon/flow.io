@@ -764,7 +764,7 @@ bool isModuleFlagAndStringConfigured_(ConfigStore* cfgStore,
     char moduleJson[512] = {0};
     if (!cfgStore->toJsonModule(moduleName, moduleJson, sizeof(moduleJson), nullptr, false)) return false;
 
-    StaticJsonDocument<512> doc;
+    JsonDocument doc;
     const DeserializationError err = deserializeJson(doc, moduleJson);
     if (err || !doc.is<JsonObjectConst>()) return false;
 
@@ -807,7 +807,7 @@ bool sendFlowStatusCompactResponse_(AsyncWebServerRequest* request, const FlowCf
     response->print("{\"ok\":true");
 
     char domainBuf[640] = {0};
-    StaticJsonDocument<768> domainDoc;
+    JsonDocument domainDoc;
     bool anyDomainOk = false;
     char debugSummary[512] = {0};
     size_t debugPos = 0;
@@ -1223,7 +1223,7 @@ bool appendRuntimeUiJsonValues_(JsonArray values, const uint8_t* payload, size_t
         const RuntimeUiWireType wireType = (RuntimeUiWireType)payload[offset++];
         const RuntimeUiManifestItem* manifestItem = findRuntimeUiManifestItem(runtimeId);
 
-        JsonObject value = values.createNestedObject();
+        JsonObject value = values.add<JsonObject>();
         value["id"] = runtimeId;
         if (manifestItem) {
             value["key"] = manifestItem->key;
@@ -1688,7 +1688,7 @@ bool waveshareLoadPoolModeFlags_(ConfigStore* cfgStore,
         return false;
     }
 
-    StaticJsonDocument<384> doc;
+    JsonDocument doc;
     if (deserializeJson(doc, moduleJson)) return false;
     JsonObjectConst root = doc.as<JsonObjectConst>();
     if (root.isNull()) return false;
@@ -1729,7 +1729,7 @@ void waveshareLoadMqttServer_(ConfigStore* cfgStore, char* out, size_t outLen)
     bool truncated = false;
     if (!cfgStore->toJsonModule("mqtt", moduleJson, sizeof(moduleJson), &truncated, true)) return;
 
-    StaticJsonDocument<384> doc;
+    JsonDocument doc;
     if (deserializeJson(doc, moduleJson)) return;
     JsonObjectConst root = doc.as<JsonObjectConst>();
     if (root.isNull()) return;
@@ -1760,7 +1760,7 @@ void waveshareLoadAlarmMasks_(const AlarmService* alarmSvc,
         char stateJson[144] = {0};
         if (!alarmSvc->buildAlarmState(alarmSvc->ctx, ids[i], stateJson, sizeof(stateJson))) continue;
 
-        StaticJsonDocument<192> doc;
+        JsonDocument doc;
         if (deserializeJson(doc, stateJson)) continue;
         const uint8_t slot = doc["slot"] | 255U;
         if (slot >= 32U) continue;
@@ -2111,7 +2111,7 @@ bool waveshareBuildStatusDomainJson_(FlowStatusDomain domain,
     }
 
     if (domain == FlowStatusDomain::Wifi) {
-        JsonObject wifi = doc.createNestedObject("wifi");
+        JsonObject wifi = doc["wifi"].to<JsonObject>();
         const bool wifiUp = dataStore ? networkReady(*dataStore) : false;
         const bool wifiConnected = WiFi.isConnected();
         wifi["rdy"] = wifiUp;
@@ -2138,7 +2138,7 @@ bool waveshareBuildStatusDomainJson_(FlowStatusDomain domain,
     }
 
     if (domain == FlowStatusDomain::Mqtt) {
-        JsonObject mqtt = doc.createNestedObject("mqtt");
+        JsonObject mqtt = doc["mqtt"].to<JsonObject>();
         mqtt["rdy"] = dataStore ? mqttReady(*dataStore) : false;
         waveshareEnsureMqttServer_(ctx, cfgStore);
         mqtt["srv"] = ctx.mqttServer;
@@ -2150,7 +2150,7 @@ bool waveshareBuildStatusDomainJson_(FlowStatusDomain domain,
     }
 
     if (domain == FlowStatusDomain::Pool) {
-        JsonObject pool = doc.createNestedObject("pool");
+        JsonObject pool = doc["pool"].to<JsonObject>();
         bool hasMode = false;
         bool autoMode = false;
         bool winterMode = false;
@@ -2194,7 +2194,7 @@ bool waveshareBuildStatusDomainJson_(FlowStatusDomain domain,
     }
 
     if (domain == FlowStatusDomain::I2c) {
-        JsonObject i2c = doc.createNestedObject("i2c");
+        JsonObject i2c = doc["i2c"].to<JsonObject>();
         i2c["ena"] = false;
         i2c["sta"] = false;
         i2c["adr"] = 0;
@@ -2218,7 +2218,7 @@ bool waveshareBuildStatusDomainJson_(FlowStatusDomain domain,
             if ((activeMask & (1UL << bit)) != 0U) ++count;
         }
         alm["cnt"] = count;
-        JsonArray codes = alm.createNestedArray("codes");
+        JsonArray codes = alm["codes"].to<JsonArray>();
         for (uint8_t bit = 0U; bit < 32U; ++bit) {
             if ((activeMask & (1UL << bit)) == 0U) continue;
             char code[20] = {0};
@@ -2248,11 +2248,11 @@ bool sendWaveshareStatusCompactResponse_(AsyncWebServerRequest* request,
     if (!waveshareBuildStatusDomainJson_(FlowStatusDomain::Pool, dataStore, cfgStore, alarmSvc, poolJson, sizeof(poolJson))) return false;
     if (!waveshareBuildStatusDomainJson_(FlowStatusDomain::I2c, dataStore, cfgStore, alarmSvc, i2cJson, sizeof(i2cJson))) return false;
 
-    StaticJsonDocument<768> systemDoc;
-    StaticJsonDocument<512> wifiDoc;
-    StaticJsonDocument<512> mqttDoc;
-    StaticJsonDocument<640> poolDoc;
-    StaticJsonDocument<320> i2cDoc;
+    JsonDocument systemDoc;
+    JsonDocument wifiDoc;
+    JsonDocument mqttDoc;
+    JsonDocument poolDoc;
+    JsonDocument i2cDoc;
     if (deserializeJson(systemDoc, systemJson)) return false;
     if (deserializeJson(wifiDoc, wifiJson)) return false;
     if (deserializeJson(mqttDoc, mqttJson)) return false;
@@ -5484,7 +5484,7 @@ void WebInterfaceModule::startServer_()
         SystemStats::collect(snap);
 
         doc["upms"] = snap.uptimeMs;
-        JsonObject heap = doc.createNestedObject("heap");
+        JsonObject heap = doc["heap"].to<JsonObject>();
         heap["free"] = snap.heap.freeBytes;
         heap["min_free"] = snap.heap.minFreeBytes;
         heap["largest"] = snap.heap.largestFreeBlock;
@@ -5826,7 +5826,7 @@ void WebInterfaceModule::startServer_()
             return;
         }
 
-        StaticJsonDocument<320> doc;
+        JsonDocument doc;
         const DeserializationError err = deserializeJson(doc, wifiJson);
         if (err || !doc.is<JsonObjectConst>()) {
             request->send(500, "application/json",
@@ -5923,7 +5923,7 @@ void WebInterfaceModule::startServer_()
 
         char mqttJson[640] = {0};
         if (cfgStore_->toJsonModule("mqtt", mqttJson, sizeof(mqttJson), nullptr, false)) {
-            StaticJsonDocument<640> doc;
+            JsonDocument doc;
             const DeserializationError err = deserializeJson(doc, mqttJson);
             if (err || !doc.is<JsonObjectConst>()) {
                 request->send(500, "application/json",
@@ -5995,9 +5995,9 @@ void WebInterfaceModule::startServer_()
         copyRequestParamValue_(request, "ssid", true, ssid, sizeof(ssid), "");
         copyRequestParamValue_(request, "pass", true, pass, sizeof(pass), "");
 
-        StaticJsonDocument<320> patch;
+        JsonDocument patch;
         JsonObject root = patch.to<JsonObject>();
-        JsonObject wifi = root.createNestedObject("wifi");
+        JsonObject wifi = root["wifi"].to<JsonObject>();
         wifi["enabled"] = enabled;
         wifi["ssid"] = ssid;
         wifi["pass"] = pass;
@@ -6032,9 +6032,9 @@ void WebInterfaceModule::startServer_()
         if (flowCfgSvc_ && flowCfgSvc_->applyPatchJson) {
             flowSyncAttempted = true;
 
-            StaticJsonDocument<320> flowPatchDoc;
+            JsonDocument flowPatchDoc;
             JsonObject flowRoot = flowPatchDoc.to<JsonObject>();
-            JsonObject flowWifi = flowRoot.createNestedObject("wifi");
+            JsonObject flowWifi = flowRoot["wifi"].to<JsonObject>();
             flowWifi["enabled"] = enabled;
             flowWifi["ssid"] = ssid;
             flowWifi["pass"] = pass;
@@ -6536,7 +6536,7 @@ void WebInterfaceModule::startServer_()
             char* body = static_cast<char*>(request->_tempObject);
             request->_tempObject = nullptr;
 
-            StaticJsonDocument<kRuntimeValuesJsonDocCapacity> reqDoc;
+            JsonDocument reqDoc;
             const DeserializationError reqErr = deserializeJson(reqDoc, body);
             releaseRuntimeValuesBodyScratch_();
             if (reqErr) {

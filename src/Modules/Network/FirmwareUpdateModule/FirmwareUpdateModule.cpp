@@ -97,7 +97,7 @@ static bool writeSimpleError_(char* out, size_t outLen, const char* msg)
     return n > 0 && (size_t)n < outLen;
 }
 
-static bool parseReqJsonObject_(const char* json, StaticJsonDocument<256>& doc)
+static bool parseReqJsonObject_(const char* json, JsonDocument& doc)
 {
     if (!json || json[0] == '\0') return false;
     const auto err = deserializeJson(doc, json);
@@ -373,7 +373,7 @@ bool FirmwareUpdateModule::parseUrlArg_(const CommandRequest& req, char* out, si
     if (!out || outLen == 0) return false;
     out[0] = '\0';
 
-    StaticJsonDocument<256> doc;
+    JsonDocument doc;
     if (parseReqJsonObject_(req.args, doc)) {
         const char* url = doc["url"] | nullptr;
         if (url && url[0] != '\0') {

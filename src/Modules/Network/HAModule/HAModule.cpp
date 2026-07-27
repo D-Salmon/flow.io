@@ -945,7 +945,7 @@ void HAModule::refreshDeviceNameFromMqttConfig_()
     bool truncated = false;
     if (!cfgSvc_->toJsonModule(cfgSvc_->ctx, "mqtt", mqttJson, sizeof(mqttJson), &truncated)) return;
 
-    StaticJsonDocument<512> doc;
+    JsonDocument doc;
     const DeserializationError err = deserializeJson(doc, mqttJson);
     if (err || !doc.is<JsonObjectConst>()) return;
 

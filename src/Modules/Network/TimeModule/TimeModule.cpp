@@ -215,7 +215,7 @@ static uint32_t dayStampFromEpochLocal_(uint64_t epochSec)
 static bool parseCmdArgsObject_(const CommandRequest& req, JsonObjectConst& outObj)
 {
     static constexpr size_t CMD_DOC_CAPACITY = Limits::JsonCmdTimeBuf;
-    static StaticJsonDocument<CMD_DOC_CAPACITY> doc;
+    static JsonDocument doc;
     doc.clear();
     const char* json = req.args ? req.args : req.json;
     if (!json || json[0] == '\0') return false;
@@ -249,7 +249,7 @@ static void writeCmdError_(char* reply, size_t replyLen, const char* where, Erro
 
 static bool parseBoolField_(JsonObjectConst obj, const char* key, bool& out, bool required)
 {
-    if (!obj.containsKey(key)) return !required;
+    if (obj[key].isUnbound()) return !required;
     JsonVariantConst v = obj[key];
     if (v.is<bool>()) {
         out = v.as<bool>();
@@ -281,7 +281,7 @@ static bool parseBoolField_(JsonObjectConst obj, const char* key, bool& out, boo
 
 static bool parseU32Field_(JsonObjectConst obj, const char* key, uint32_t& out, bool required)
 {
-    if (!obj.containsKey(key)) return !required;
+    if (obj[key].isUnbound()) return !required;
     JsonVariantConst v = obj[key];
     if (v.is<uint32_t>()) {
         out = v.as<uint32_t>();
@@ -307,7 +307,7 @@ static bool parseU32Field_(JsonObjectConst obj, const char* key, uint32_t& out, 
 
 static bool parseU64Field_(JsonObjectConst obj, const char* key, uint64_t& out, bool required)
 {
-    if (!obj.containsKey(key)) return !required;
+    if (obj[key].isUnbound()) return !required;
     JsonVariantConst v = obj[key];
     if (v.is<uint64_t>()) {
         out = v.as<uint64_t>();
@@ -1662,7 +1662,7 @@ bool TimeModule::handleCmdSchedSet_(const CommandRequest& req, char* reply, size
     def.slot = (uint8_t)slot;
 
     uint32_t eventId = 0;
-    const bool hasEventId = args.containsKey("event_id");
+    const bool hasEventId = !args["event_id"].isUnbound();
     if (hasEventId) {
         if (!parseU32Field_(args, "event_id", eventId, true)) {
             writeCmdError_(reply, replyLen, "time.scheduler.set", ErrorCode::InvalidEventId);
@@ -1674,7 +1674,7 @@ bool TimeModule::handleCmdSchedSet_(const CommandRequest& req, char* reply, size
         return false;
     }
 
-    if (args.containsKey("mode")) {
+    if (!args["mode"].isUnbound()) {
         JsonVariantConst modeVar = args["mode"];
         if (modeVar.is<const char*>()) {
             const char* modeBuf = modeVar.as<const char*>();
@@ -1714,42 +1714,42 @@ bool TimeModule::handleCmdSchedSet_(const CommandRequest& req, char* reply, size
         writeCmdError_(reply, replyLen, "time.scheduler.set", ErrorCode::InvalidBool);
         return false;
     }
-    if (!args.containsKey("replay_on_boot") &&
+    if (args["replay_on_boot"].isUnbound() &&
         !parseBoolField_(args, "replay_start_on_boot", def.replayStartOnBoot, false)) {
         writeCmdError_(reply, replyLen, "time.scheduler.set", ErrorCode::InvalidBool);
         return false;
     }
 
     uint32_t value = 0;
-    if (args.containsKey("weekday_mask")) {
+    if (!args["weekday_mask"].isUnbound()) {
         if (!parseU32Field_(args, "weekday_mask", value, true)) {
             writeCmdError_(reply, replyLen, "time.scheduler.set", ErrorCode::InvalidWeekdayMask);
             return false;
         }
         def.weekdayMask = (uint8_t)value;
     }
-    if (args.containsKey("start_hour")) {
+    if (!args["start_hour"].isUnbound()) {
         if (!parseU32Field_(args, "start_hour", value, true)) {
             writeCmdError_(reply, replyLen, "time.scheduler.set", ErrorCode::InvalidStartHour);
             return false;
         }
         def.startHour = (uint8_t)value;
     }
-    if (args.containsKey("start_minute")) {
+    if (!args["start_minute"].isUnbound()) {
         if (!parseU32Field_(args, "start_minute", value, true)) {
             writeCmdError_(reply, replyLen, "time.scheduler.set", ErrorCode::InvalidStartMinute);
             return false;
         }
         def.startMinute = (uint8_t)value;
     }
-    if (args.containsKey("end_hour")) {
+    if (!args["end_hour"].isUnbound()) {
         if (!parseU32Field_(args, "end_hour", value, true)) {
             writeCmdError_(reply, replyLen, "time.scheduler.set", ErrorCode::InvalidEndHour);
             return false;
         }
         def.endHour = (uint8_t)value;
     }
-    if (args.containsKey("end_minute")) {
+    if (!args["end_minute"].isUnbound()) {
         if (!parseU32Field_(args, "end_minute", value, true)) {
             writeCmdError_(reply, replyLen, "time.scheduler.set", ErrorCode::InvalidEndMinute);
             return false;
@@ -1758,14 +1758,14 @@ bool TimeModule::handleCmdSchedSet_(const CommandRequest& req, char* reply, size
     }
 
     uint64_t value64 = 0;
-    if (args.containsKey("start_epoch_sec")) {
+    if (!args["start_epoch_sec"].isUnbound()) {
         if (!parseU64Field_(args, "start_epoch_sec", value64, true)) {
             writeCmdError_(reply, replyLen, "time.scheduler.set", ErrorCode::InvalidStartEpoch);
             return false;
         }
         def.startEpochSec = value64;
     }
-    if (args.containsKey("end_epoch_sec")) {
+    if (!args["end_epoch_sec"].isUnbound()) {
         if (!parseU64Field_(args, "end_epoch_sec", value64, true)) {
             writeCmdError_(reply, replyLen, "time.scheduler.set", ErrorCode::InvalidEndEpoch);
             return false;
@@ -1773,7 +1773,7 @@ bool TimeModule::handleCmdSchedSet_(const CommandRequest& req, char* reply, size
         def.endEpochSec = value64;
     }
 
-    if (args.containsKey("label")) {
+    if (!args["label"].isUnbound()) {
         JsonVariantConst labelVar = args["label"];
         if (!labelVar.is<const char*>()) {
             writeCmdError_(reply, replyLen, "time.scheduler.set", ErrorCode::InvalidLabel);

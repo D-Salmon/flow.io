@@ -45,7 +45,7 @@ static uint32_t clampEvalPeriodMs_(int32_t inMs)
 static bool parseCmdArgsObject_(const CommandRequest& req, JsonObjectConst& outObj)
 {
     static constexpr size_t CMD_DOC_CAPACITY = Limits::Alarm::JsonCmdBuf;
-    static StaticJsonDocument<CMD_DOC_CAPACITY> doc;
+    static JsonDocument doc;
 
     doc.clear();
     const char* json = req.args ? req.args : req.json;
@@ -503,7 +503,7 @@ bool AlarmModule::handleCmdReset_(const CommandRequest& req, char* reply, size_t
         }
         return false;
     }
-    if (!args.containsKey("id")) {
+    if (args["id"].isUnbound()) {
         if (!writeErrorJson(reply, replyLen, ErrorCode::MissingValue, "alarms.reset.id")) {
             snprintf(reply, replyLen, "{\"ok\":false}");
         }
@@ -538,7 +538,7 @@ bool AlarmModule::handleCmdResetSlot_(const CommandRequest& req, char* reply, si
         }
         return false;
     }
-    if (!args.containsKey("slot")) {
+    if (args["slot"].isUnbound()) {
         if (!writeErrorJson(reply, replyLen, ErrorCode::MissingSlot, "alarms.reset_slot.slot")) {
             snprintf(reply, replyLen, "{\"ok\":false}");
         }

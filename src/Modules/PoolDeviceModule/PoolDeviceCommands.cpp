@@ -17,7 +17,7 @@ namespace {
 bool parseCmdArgsObject_(const CommandRequest& req, JsonObjectConst& outObj)
 {
     static constexpr size_t CMD_DOC_CAPACITY = Limits::JsonCmdPoolDeviceBuf;
-    static StaticJsonDocument<CMD_DOC_CAPACITY> doc;
+    static JsonDocument doc;
 
     doc.clear();
     const char* json = req.args ? req.args : req.json;
@@ -201,7 +201,7 @@ bool PoolDeviceModule::handlePoolWrite_(const CommandRequest& req, char* reply, 
         return false;
     }
 
-    if (!args.containsKey("slot")) {
+    if (args["slot"].isUnbound()) {
         writeCmdError_(reply, replyLen, "pooldevice.write", ErrorCode::MissingSlot);
         return false;
     }
@@ -215,7 +215,7 @@ bool PoolDeviceModule::handlePoolWrite_(const CommandRequest& req, char* reply, 
         return false;
     }
 
-    if (!args.containsKey("value")) {
+    if (args["value"].isUnbound()) {
         writeCmdError_(reply, replyLen, "pooldevice.write", ErrorCode::MissingValue);
         return false;
     }
@@ -373,7 +373,7 @@ bool PoolDeviceModule::handlePoolRefill_(const CommandRequest& req, char* reply,
         return false;
     }
 
-    if (!args.containsKey("slot")) {
+    if (args["slot"].isUnbound()) {
         writeCmdError_(reply, replyLen, "pool.refill", ErrorCode::MissingSlot);
         return false;
     }
@@ -462,7 +462,7 @@ bool PoolDeviceModule::handlePoolResetUptime_(const CommandRequest& req, char* r
         return false;
     }
 
-    if (!args.containsKey("slot")) {
+    if (args["slot"].isUnbound()) {
         writeCmdError_(reply, replyLen, "pool.uptime.reset", ErrorCode::MissingSlot);
         return false;
     }

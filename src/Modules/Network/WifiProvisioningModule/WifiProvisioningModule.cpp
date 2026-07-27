@@ -348,7 +348,7 @@ void WifiProvisioningModule::refreshWifiConfig_()
     ethernetEnabled_ = false;
     char ethernetJson[96] = {0};
     if (cfgStore_->toJsonModule("ethernet", ethernetJson, sizeof(ethernetJson), nullptr)) {
-        StaticJsonDocument<96> ethDoc;
+        JsonDocument ethDoc;
         if (deserializeJson(ethDoc, ethernetJson) == DeserializationError::Ok && ethDoc.is<JsonObjectConst>()) {
             JsonObjectConst ethRoot = ethDoc.as<JsonObjectConst>();
             ethernetEnabled_ = ethRoot["enabled"] | false;
@@ -374,7 +374,7 @@ void WifiProvisioningModule::refreshWifiConfig_()
         return;
     }
 
-    StaticJsonDocument<320> doc;
+    JsonDocument doc;
     const DeserializationError err = deserializeJson(doc, wifiJson);
     if (err || !doc.is<JsonObjectConst>()) {
         LOGW("Cannot parse wifi config for provisioning");

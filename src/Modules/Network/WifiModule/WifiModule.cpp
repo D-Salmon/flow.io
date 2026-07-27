@@ -277,7 +277,7 @@ bool WifiModule::cmdDumpCfg_(void* userCtx, const CommandRequest& req, char* rep
     const size_t passLen = strnlen(self->cfgData.pass, sizeof(self->cfgData.pass));
     const size_t deviceNameLen = strnlen(self->deviceName_, sizeof(self->deviceName_));
 
-    StaticJsonDocument<512> doc;
+    JsonDocument doc;
     doc["ok"] = true;
     doc["enabled"] = self->cfgData.enabled;
     doc["state"] = stateName_(self->state);
@@ -698,7 +698,7 @@ bool WifiModule::buildScanStatusJson_(char* out, size_t outLen)
     }
     portEXIT_CRITICAL(&scanMux_);
 
-    StaticJsonDocument<Limits::Wifi::Buffers::ScanStatusJson> doc;
+    JsonDocument doc;
     doc["ok"] = true;
     doc["running"] = running;
     doc["requested"] = requested;
@@ -710,9 +710,9 @@ bool WifiModule::buildScanStatusJson_(char* out, size_t outLen)
     doc["started_ms"] = startedMs;
     doc["updated_ms"] = doneMs;
 
-    JsonArray nets = doc.createNestedArray("networks");
+    JsonArray nets = doc["networks"].to<JsonArray>();
     for (uint8_t i = 0; i < count; ++i) {
-        JsonObject n = nets.createNestedObject();
+        JsonObject n = nets.add<JsonObject>();
         n["ssid"] = local[i].ssid;
         n["rssi"] = local[i].rssi;
         n["auth"] = local[i].auth;
@@ -905,7 +905,7 @@ void WifiModule::refreshEthernetConfig_(ConfigStore& cfg)
     char ethJson[96] = {0};
     if (!cfg.toJsonModule("ethernet", ethJson, sizeof(ethJson), nullptr)) return;
 
-    StaticJsonDocument<96> doc;
+    JsonDocument doc;
     if (deserializeJson(doc, ethJson) != DeserializationError::Ok || !doc.is<JsonObjectConst>()) {
         return;
     }
