@@ -5,7 +5,7 @@ version alignée sur les entités MQTT Discovery du profil `FlowIOS3`.
 
 Fichiers :
 
-- `home_assistant_dashboard_2.4.0.yaml` : carte Lovelace complète ;
+- `home_assistant_dashboard_2_4_0.yaml` : carte Lovelace complète ;
 - `home_assistant_package_2_4_0.yaml` : helpers de navigation et adaptation des
   alarmes.
 
@@ -115,7 +115,7 @@ Dans un tableau de bord Home Assistant :
 
 1. choisir `Modifier le tableau de bord` ;
 2. ajouter une carte manuelle ;
-3. coller le contenu de `home_assistant_dashboard_2.4.0.yaml` ;
+3. coller le contenu de `home_assistant_dashboard_2_4_0.yaml` ;
 4. enregistrer.
 
 ## Correspondances principales avec l’ancien tableau
