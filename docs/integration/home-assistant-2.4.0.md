@@ -6,7 +6,7 @@ version alignée sur les entités MQTT Discovery du profil `FlowIOS3`.
 Fichiers :
 
 - `home_assistant_dashboard_2.4.0.yaml` : carte Lovelace complète ;
-- `home_assistant_package_2.4.0.yaml` : helpers de navigation et décodage des
+- `home_assistant_package_2_4_0.yaml` : helpers de navigation et adaptation des
   alarmes.
 
 ## Périmètre de compatibilité
@@ -69,7 +69,7 @@ homeassistant:
   packages: !include_dir_named packages
 ```
 
-Copier ensuite `home_assistant_package_2.4.0.yaml` dans le dossier
+Copier ensuite `home_assistant_package_2_4_0.yaml` dans le dossier
 `config/packages/` de Home Assistant, puis :
 
 1. vérifier la configuration ;
