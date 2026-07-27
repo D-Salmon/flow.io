@@ -1,0 +1,10 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Runtime sensor identifiers and NVS key member names are not credentials"
+regexTarget = "match"
+regexes = [
+  '''(?i)"key"\s*:\s*"(?:io\.)?(?:bmp280|bme680|sht40)[._][a-z0-9_.-]+"''',
+  '''i2c(?:Sda|Scl)Var_\.nvsKey''',
+]
