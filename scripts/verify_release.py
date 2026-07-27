@@ -72,6 +72,19 @@ def verify_security_defaults() -> None:
     web_header = (
         ROOT / "src/Modules/Network/WebInterfaceModule/WebInterfaceModule.h"
     ).read_text(encoding="utf-8")
+    web_policy = (ROOT / "src/Core/Security/WebSecurityPolicy.cpp").read_text(
+        encoding="utf-8"
+    )
+    web_policy_header = (ROOT / "src/Core/Security/WebSecurityPolicy.h").read_text(
+        encoding="utf-8"
+    )
+    web_headers = (
+        ROOT / "src/Modules/Network/WebInterfaceModule/WebSecurityHeaders.cpp"
+    ).read_text(encoding="utf-8")
+    web_index = (ROOT / "data/webinterface/index.html").read_text(encoding="utf-8")
+    alarm_module = (ROOT / "src/Modules/AlarmModule/AlarmModule.cpp").read_text(
+        encoding="utf-8"
+    )
     mqtt = (ROOT / "src/Modules/Network/MQTTModule/MQTTTransport.cpp").read_text(encoding="utf-8")
     provisioning = (
         ROOT / "src/Modules/Network/WifiProvisioningModule/WifiProvisioningModule.cpp"
@@ -81,16 +94,21 @@ def verify_security_defaults() -> None:
         ("HTTP authentication middleware", "requestAuthentication(\"Flow.io\", true)", web),
         ("Web authentication rate limit", "webAuthRateLimited_(request", web),
         ("Web authentication failure log", "noteWebAuthFailure_(request)", web),
-        ("Web authentication global rate limit", "webAuthGlobalBlockedUntilMs_", web),
-        ("Web authentication protected eviction", "oldestEvictable", web),
-        ("Web authentication 32-source table", "kWebAuthThrottleSlots = 32U", web_header),
+        ("Web authentication global rate limit", "globalBlockedUntilMs", web_policy),
+        ("Web authentication protected eviction", "oldestEvictable", web_policy),
+        ("Web authentication 32-source table", "WebAuthThrottleSlots = 32U", web_policy_header),
         ("CSRF middleware", "csrfRequestAllowed_(request)", web),
         ("CSRF response token", 'doc["csrf_token"] = csrfToken_', web),
         ("WebSocket origin validation", "websocketHandshakeAllowed_(request)", web),
-        ("HTTP security headers", 'response->addHeader("Content-Security-Policy"', web),
+        ("HTTP security headers", 'response->addHeader("Content-Security-Policy"', web_headers),
+        ("strict application CSP", "script-src 'self';", web_policy),
+        ("recovery CSP profile", "InlineRecovery", web_policy),
         ("unsigned update default-off", "#define FLOW_ALLOW_UNSIGNED_UPDATES 0", updater),
-        ("signed local OTA verification", "verifyOtaSignature_(digest", web),
+        ("signed local OTA verification", "verifyOtaSignature(digest", web),
         ("signed local OTA header", 'hasHeader("X-Flow-Signature")', web),
+        ("repeated invalid OTA signature alarm", "noteInvalidOtaSignature_()", web),
+        ("OTA signature AlarmId", "AlarmId::OtaSignatureFailures", web),
+        ("OTA signature Home Assistant entity", "alm_ota_signature_failures", alarm_module),
         (
             "local upload authentication and CSRF",
             "!webRequestAuthorized_(request) || !csrfRequestAllowed_(request)",
@@ -107,6 +125,8 @@ def verify_security_defaults() -> None:
             fail(f"security invariant missing: {label}")
     if re.search(r'\\"pass\\":\\"%s\\"', web):
         fail("web response appears to serialize a password")
+    if re.search(r"<script(?![^>]*\bsrc=)[^>]*>", web_index, re.IGNORECASE):
+        fail("strict-CSP application index contains an inline script")
     if "flowio1234" in provisioning.lower():
         fail("legacy shared provisioning password is still present")
 

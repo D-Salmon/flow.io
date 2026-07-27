@@ -121,6 +121,10 @@ Le module est générique. Dans le projet actuel, `PoolLogicModule` enregistre:
 Lorsque `LogAlarmSinkModule` est présent, il ajoute également
 `AlarmId::LogWarningSeen` et `AlarmId::LogErrorSeen`.
 
+`WebInterfaceModule` ajoute `AlarmId::OtaSignatureFailures` (`1200`) lorsque
+trois signatures ECDSA invalides sont reçues en moins de dix minutes. Cette
+alarme mémorisée devient réarmable dix minutes après la dernière tentative.
+
 Pour `PoolLogic`, ces alarmes servent d'interlock sécurité:
 - `PoolLogic` lit `isActive()` sur ces IDs
 - si l'une est active, la filtration est forcée OFF (auto et manuel)

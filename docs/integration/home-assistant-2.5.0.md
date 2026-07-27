@@ -5,8 +5,8 @@ version alignée sur les entités MQTT Discovery du profil `FlowIOS3`.
 
 Fichiers :
 
-- `home_assistant_dashboard_2_4_0.yaml` : carte Lovelace complète ;
-- `home_assistant_package_2_4_0.yaml` : helpers de navigation et adaptation des
+- `home_assistant_dashboard_2_5_0.yaml` : carte Lovelace complète ;
+- `home_assistant_package_2_5_0.yaml` : helpers de navigation et adaptation des
   alarmes.
 
 ## Périmètre de compatibilité
@@ -23,7 +23,7 @@ Le tableau de bord couvre :
 
 Les fonctions historiques suivantes ne sont pas reprises :
 
-- les interrupteurs séparés `ph_pid` et `orp_pid` : la 2.4.0 utilise
+- les interrupteurs séparés `ph_pid` et `orp_pid` : la 2.5.0 utilise
   `pl_ph_auto` et `pl_orp_auto` ;
 - le relais générique `Aux` : les huit relais ont maintenant un rôle défini ;
 - `publish_settings` : les modifications envoyées par les entités Discovery
@@ -69,13 +69,16 @@ homeassistant:
   packages: !include_dir_named packages
 ```
 
-Copier ensuite `home_assistant_package_2_4_0.yaml` dans le dossier
-`config/packages/` de Home Assistant, puis :
+Copier ensuite `home_assistant_package_2_5_0.yaml` dans le dossier
+`config/packages/` de Home Assistant. En cas de mise à niveau, retirer
+`home_assistant_package_2_4_0.yaml` pour ne pas déclarer deux fois les mêmes
+helpers, puis :
 
 1. vérifier la configuration ;
 2. redémarrer Home Assistant ;
 3. confirmer la présence de `binary_sensor.fio_alm_any`,
    `binary_sensor.fio_alm_psi_low`, `binary_sensor.flowio_pressure_alarm` et
+   `binary_sensor.fio_alm_ota_signature_failures`, puis de
    `input_boolean.flowio_admin_mode`.
 
 Le firmware expose directement les alarmes par MQTT Discovery. Chaque
@@ -95,11 +98,15 @@ d’incidence sur Home Assistant.
 | 1006 | `binary_sensor.fio_alm_water_level_low` |
 | 1007 | `binary_sensor.fio_alm_filtration_contactor_mismatch` |
 | 1008 | `binary_sensor.fio_alm_chlorine_generator_contactor_mismatch` |
+| 1200 | `binary_sensor.fio_alm_ota_signature_failures` |
 
 Le package fournit les alias `binary_sensor.flowio_*` utilisés par le tableau
 de bord. Ils recopient les capteurs natifs, y compris
 `binary_sensor.flowio_filtration_contactor_mismatch` et
 `binary_sensor.flowio_chlorine_generator_contactor_mismatch`.
+Les `unique_id` des alias déjà présents en 2.4.0 sont volontairement conservés
+afin qu’une mise à niveau du package ne crée pas de doublons dans le registre
+d’entités Home Assistant.
 `sensor.fio_alm_pack` reste disponible pour compatibilité et diagnostic ; il
 n’est plus décodé par le package.
 
@@ -115,12 +122,12 @@ Dans un tableau de bord Home Assistant :
 
 1. choisir `Modifier le tableau de bord` ;
 2. ajouter une carte manuelle ;
-3. coller le contenu de `home_assistant_dashboard_2_4_0.yaml` ;
+3. coller le contenu de `home_assistant_dashboard_2_5_0.yaml` ;
 4. enregistrer.
 
 ## Correspondances principales avec l’ancien tableau
 
-| Ancienne entité | Entité 2.4.0 |
+| Ancienne entité | Entité 2.5.0 |
 |---|---|
 | `sensor.poolmaster_ph_sensor` | `sensor.fio_io_ph` |
 | `sensor.poolmaster_orp_redox_sensor` | `sensor.fio_io_orp` |

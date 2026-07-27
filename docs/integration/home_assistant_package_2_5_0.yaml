@@ -1,7 +1,7 @@
-# Home Assistant package for the Flow.io 2.4.0 dashboard.
+# Home Assistant package for the Flow.io 2.5.0 dashboard.
 #
 # Install this file under the Home Assistant `packages` directory. See
-# `home-assistant-2.4.0.md` for the required configuration.
+# `home-assistant-2.5.0.md` for the required configuration.
 #
 # Alarm states come from native MQTT Discovery binary sensors keyed by stable
 # AlarmId values. These compatibility aliases preserve the entity IDs used by
@@ -103,3 +103,12 @@ template:
           {{ is_state(
                'binary_sensor.fio_alm_chlorine_generator_contactor_mismatch',
                'on') }}
+
+      - name: flowio_ota_signature_failures
+        unique_id: flowio_250_ota_signature_failures
+        icon: mdi:shield-alert
+        availability: >
+          {{ states('binary_sensor.fio_alm_ota_signature_failures')
+             in ['on', 'off'] }}
+        state: >
+          {{ is_state('binary_sensor.fio_alm_ota_signature_failures', 'on') }}

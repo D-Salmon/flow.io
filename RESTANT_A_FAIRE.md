@@ -2,10 +2,17 @@
 
 ## Etat actuel
 
-La version `2.4.0` est une edition durcie et allegee consacree au controleur
+La version `2.5.0` est une edition durcie et allegee consacree au controleur
 Waveshare ESP32-S3 N16R8 avec bus Qwiic. Elle utilise ArduinoJson 7, contient un
 seul profil PlatformIO, ainsi que le firmware ESP32-S3, le SPIFFS et le firmware
 compatible de l'ecran Nextion.
+
+La 2.5.0 ajoute le scan de secrets et l'analyse C++ en CI, des tests natifs des
+regles d'authentification/CSRF/CSP/OTA, une CSP stricte pour l'application Web,
+une CSP compatible avec les pages de secours, et l'alarme native
+`OtaSignatureFailures` (`AlarmId 1200`). Le serveur Web a commence a etre
+scinde : politiques, en-tetes et verification ECDSA sont maintenant des
+composants separes ; la page de secours reste embarquee.
 
 Cette version convient aux essais sur banc et a un pilote controle, administre
 par USB sur un reseau local isole. Elle ne doit pas etre exposee directement a
@@ -27,8 +34,9 @@ dans `alm_pack`; ce dernier reste publie pour compatibilite et diagnostic.
      extinction effective des huit relais et fermeture apres dix minutes;
    - Wi-Fi, Ethernet et MQTT TLS;
    - interface Web et SPIFFS;
-   - decouverte Home Assistant de `binary_sensor.fio_alm_any` et des neuf
-     alarmes PoolLogic, puis restitution immediate de leur etat apres un
+   - decouverte Home Assistant de `binary_sensor.fio_alm_any`, des neuf
+     alarmes PoolLogic et de l'alarme OTA `id1200`, puis restitution immediate
+     de leur etat apres un
      redemarrage de Home Assistant;
    - ecran Nextion et liaison HMI;
    - bus Qwiic, DS2484, ADS1115 et sondes;
@@ -43,8 +51,8 @@ dans `alm_pack`; ce dernier reste publie pour compatibilite et diagnostic.
    connexions anonymes et appliquer les ACL de `docs/mqtt-hardening.md`.
    Le firmware refuse deja les identifiants vides, limite les rafales et
    interdit par MQTT les mises a jour et imports de configuration.
-2. Remplacer l'OTA non signee actuellement desactivee par une OTA HTTPS signee,
-   avec verification cryptographique, rollback et protection anti-downgrade.
+2. Completer la signature locale deja verifiee par une OTA reseau HTTPS signee,
+   avec rollback et protection anti-downgrade.
 3. Preparer Secure Boot v2, le chiffrement flash/NVS et une procedure de
    programmation controlee des eFuses pour la fabrication.
 4. Signer le manifeste de livraison: les sommes SHA-256 actuelles assurent
@@ -52,17 +60,17 @@ dans `alm_pack`; ce dernier reste publie pour compatibilite et diagnostic.
 
 ## Industrialisation et maintenance
 
-1. Ajouter une integration continue qui compile le profil
-   `Waveshare-ESP32-S3`, construit le SPIFFS et execute la verification de
-   release.
-2. Ajouter des tests d'integration pour l'authentification Web, la rotation des
-   identifiants, MQTT TLS et les coupures pendant une mise a
-   jour.
-3. Verrouiller les dependances transitives et produire un SBOM CycloneDX ou
+1. Surveiller et ajuster les nouveaux controles CI `cppcheck` et `gitleaks`.
+2. Completer les tests natifs existants par des tests d'integration materiels
+   pour la rotation des identifiants, MQTT TLS et les coupures pendant une mise
+   a jour.
+3. Continuer le decoupage progressif de `WebInterfaceServer.cpp`, sans sortir
+   de la flash la page de secours critique.
+4. Verrouiller les dependances transitives et produire un SBOM CycloneDX ou
    SPDX avec les licences tierces.
-4. Rendre les builds reproductibles avec `SOURCE_DATE_EPOCH`, l'identifiant du
+5. Rendre les builds reproductibles avec `SOURCE_DATE_EPOCH`, l'identifiant du
    commit et la version exacte de la chaine d'outils.
-5. Definir et ajouter la licence du projet.
+6. Definir et ajouter la licence du projet.
 
 ## Ordre recommande
 

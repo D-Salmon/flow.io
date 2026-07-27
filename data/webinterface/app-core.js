@@ -246,4 +246,5 @@
     applyStoredTheme: applyStoredTheme,
     setBootStatus: setBootStatus
   };
+  void bootstrap();
 })();

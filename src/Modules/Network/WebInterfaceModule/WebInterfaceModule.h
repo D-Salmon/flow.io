@@ -8,8 +8,10 @@
  */
 
 #include "Core/Module.h"
+#include "Core/Security/WebSecurityPolicy.h"
 #include "Core/ServiceBinding.h"
 #include "Core/Services/Services.h"
+#include "Core/Services/IAlarm.h"
 #include "Core/Services/ILogger.h"
 #include <HardwareSerial.h>
 #include <ESPAsyncWebServer.h>
@@ -52,6 +54,8 @@ public:
         return 6;
 #else
         return 7;
+#else
+        return 8;
 #endif
     }
     ModuleId dependency(uint8_t i) const override {

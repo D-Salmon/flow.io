@@ -12,6 +12,7 @@
 #include "Core/Generated/RuntimeUiManifestJson_Generated.h"
 #include "Core/I2cCfgProtocol.h"
 #include "Core/PsramJsonAllocator.h"
+#include "Core/Security/WebSecurityPolicy.h"
 #include "Core/Services/IAlarm.h"
 #include "Core/SystemLimits.h"
 #include "Core/SystemStats.h"
@@ -4737,6 +4738,25 @@ void WebInterfaceModule::init(ConfigStore& cfg, ServiceRegistry& services)
     auto* ebSvc = services.get<EventBusService>(ServiceId::EventBus);
     eventBus_ = ebSvc ? ebSvc->bus : nullptr;
     fwUpdateSvc_ = services.get<FirmwareUpdateService>(ServiceId::FirmwareUpdate);
+    if (alarmSvc_ && alarmSvc_->registerAlarm) {
+        const AlarmRegistration otaSignatureAlarm{
+            AlarmId::OtaSignatureFailures,
+            AlarmSeverity::Warning,
+            true,
+            0,
+            1000,
+            60000,
+            "ota_sig_fail",
+            "Repeated invalid OTA signatures",
+            "webinterface"
+        };
+        if (!alarmSvc_->registerAlarm(alarmSvc_->ctx,
+                                      &otaSignatureAlarm,
+                                      &WebInterfaceModule::condOtaSignatureFailuresStatic_,
+                                      this)) {
+            LOGW("WebInterface failed to register AlarmId::OtaSignatureFailures");
+        }
+    }
     if (eventBus_) {
         eventBus_->subscribe(EventId::DataChanged, &WebInterfaceModule::onEventStatic_, this);
     }
@@ -5507,7 +5527,6 @@ void WebInterfaceModule::startServer_()
                                            spiffsAssetExists,
                                            beginSpiffsAssetResponse,
                                            sendPreparedAssetResponse,
-                                           sendRescuePage,
                                            lightUiAssetsAvailable,
                                            fullUiAssetsAvailable,
                                            provisioningUiAssetsAvailable](AsyncWebServerRequest* request) {
@@ -5572,8 +5591,8 @@ void WebInterfaceModule::startServer_()
                 sendPreparedAssetResponse(request, response, &forensicMeta);
                 return;
             }
-            LOGW("Light web assets missing; serving PROGMEM rescue UI");
-            sendRescuePage(request);
+            LOGW("Light web assets missing; redirecting to PROGMEM rescue UI");
+            request->redirect("/rescue");
             return;
         }
         if (!request->hasParam("page")) {
@@ -5604,8 +5623,8 @@ void WebInterfaceModule::startServer_()
             sendPreparedAssetResponse(request, response, &forensicMeta);
             return;
         }
-        LOGW("Full web assets missing; serving PROGMEM rescue UI");
-        sendRescuePage(request);
+        LOGW("Full web assets missing; redirecting to PROGMEM rescue UI");
+        request->redirect("/rescue");
     });
     server_.on("/webinterface/", HTTP_GET, [webInterfaceLandingUrl](AsyncWebServerRequest* request) {
         request->redirect(webInterfaceLandingUrl());

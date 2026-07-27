@@ -22,6 +22,9 @@ enum class AlarmId : uint16_t {
     // Log pipeline domain
     LogWarningSeen = 1100,
     LogErrorSeen = 1101,
+
+    // Web and update security domain
+    OtaSignatureFailures = 1200,
 };
 
 /** Alarm severity used for prioritization and summaries. */

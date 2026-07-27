@@ -1,4 +1,4 @@
-# Lovelace dashboard card for Flow.io 2.4.0.
+# Lovelace dashboard card for Flow.io 2.5.0.
 #
 # Prerequisites and installation:
 # `docs/integration/home-assistant-2.4.0.md`
@@ -319,6 +319,16 @@ cards:
           primary: Défaut contacteur électrolyseur
           secondary: Le retour du contacteur ne correspond pas à la commande
           icon: mdi:electric-switch-closed
+          icon_color: red
+      - type: conditional
+        conditions:
+          - entity: binary_sensor.flowio_ota_signature_failures
+            state: "on"
+        card:
+          type: custom:mushroom-template-card
+          primary: Tentatives OTA invalides répétées
+          secondary: Vérifier l’origine des téléversements et la clé de signature
+          icon: mdi:shield-alert
           icon_color: red
 
   - type: custom:mushroom-entity-card

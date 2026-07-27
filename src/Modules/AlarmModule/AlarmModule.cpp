@@ -87,6 +87,10 @@ static constexpr AlarmHaBinarySpec kAlarmHaBinarySensors[] = {
     {AlarmId::LogErrorSeen,
      {"alarms", "alm_log_error", "Log Error Seen", "rt/alarms/id1101",
       kAlarmActiveValueTemplate, "problem", "diagnostic", "mdi:alert-circle-outline"}},
+    {AlarmId::OtaSignatureFailures,
+     {"alarms", "alm_ota_signature_failures", "Repeated Invalid OTA Signatures",
+      "rt/alarms/id1200", kAlarmActiveValueTemplate, "problem", "diagnostic",
+      "mdi:shield-alert"}},
 };
 }
 
