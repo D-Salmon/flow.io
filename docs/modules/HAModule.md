@@ -99,15 +99,19 @@ Réactions:
   - `unique_id` construit avec `ha/device_id` (ou fallback MAC hex si vide)
   - le segment `<nodeTopicId>` du topic Discovery est dérivé de `ha/device_id` (ou fallback MAC hex si vide)
   - `availability` basée sur topic `status`
-- capteurs diagnostic natifs publiés:
+- entités d’alarme natives publiées :
   - `alm_pack` (`rt/alarms/p`)
+  - `alm_any` (`rt/alarms/m`)
+  - un `binary_sensor` `alm_*` par `AlarmId` enregistré
+- capteurs diagnostic système publiés :
   - `sys_upt_mn` (`rt/system/state`, conversion en minutes depuis `upt_ms`)
   - `sys_hp_free` (`rt/system/state`, conversion en `ko`)
   - `sys_hp_min_free` (`rt/system/state`, conversion en `ko`)
   - `sys_hp_frag` (`rt/system/state`, valeur `%`)
 
-Avec le préfixe par défaut, les quatre dernières entités deviennent par exemple
-`sensor.fio_sys_upt_mn` et `sensor.fio_sys_hp_free`.
+Avec le préfixe par défaut, les entités deviennent par exemple
+`binary_sensor.fio_alm_psi_low`, `sensor.fio_sys_upt_mn` et
+`sensor.fio_sys_hp_free`.
 
 ## Comportement refresh
 

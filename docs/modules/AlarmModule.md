@@ -88,6 +88,11 @@ Abonnements:
 Aucun accès direct au DataStore.
 MQTT consomme les événements alarmes via `MQTTModule`.
 
+Les états MQTT `rt/alarms/m`, `rt/alarms/p` et
+`rt/alarms/id<AlarmId>` sont conservés par le broker. Home Assistant expose
+`alm_any` et un `binary_sensor` natif par alarme enregistrée, à partir de
+l’identifiant stable et non de la position dans le tableau d’alarmes.
+
 ## Notifications et anti-spam
 
 Les transitions utiles sont publiées immédiatement sur l'EventBus:
@@ -107,6 +112,14 @@ Le module est générique. Dans le projet actuel, `PoolLogicModule` enregistre:
 - `AlarmId::PoolPsiHigh`
 - `AlarmId::PoolPhTankLow`
 - `AlarmId::PoolChlorineTankLow`
+- `AlarmId::PoolPhPumpMaxUptime`
+- `AlarmId::PoolChlorinePumpMaxUptime`
+- `AlarmId::PoolWaterLevelLow`
+- `AlarmId::PoolFiltrationContactorMismatch`
+- `AlarmId::PoolChlorineGeneratorContactorMismatch`
+
+Lorsque `LogAlarmSinkModule` est présent, il ajoute également
+`AlarmId::LogWarningSeen` et `AlarmId::LogErrorSeen`.
 
 Pour `PoolLogic`, ces alarmes servent d'interlock sécurité:
 - `PoolLogic` lit `isActive()` sur ces IDs

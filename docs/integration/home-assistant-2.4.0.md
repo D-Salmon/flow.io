@@ -74,24 +74,32 @@ Copier ensuite `home_assistant_package_2.4.0.yaml` dans le dossier
 
 1. vérifier la configuration ;
 2. redémarrer Home Assistant ;
-3. confirmer la présence de `binary_sensor.flowio_pressure_alarm` et
+3. confirmer la présence de `binary_sensor.fio_alm_any`,
+   `binary_sensor.fio_alm_psi_low`, `binary_sensor.flowio_pressure_alarm` et
    `input_boolean.flowio_admin_mode`.
 
-Le package décode `sensor.fio_alm_pack`. Le format firmware affecte cinq bits
-par emplacement d’alarme :
+Le firmware expose directement les alarmes par MQTT Discovery. Chaque
+`binary_sensor` utilise un `AlarmId` stable et le topic
+`rt/alarms/id<AlarmId>` ; l’ordre d’enregistrement interne n’a donc plus
+d’incidence sur Home Assistant.
 
-| Emplacement | Alarme utilisée par le tableau |
+| AlarmId | Entité Discovery par défaut |
 |---:|---|
-| 0 | pression basse |
-| 1 | pression haute |
-| 2 | niveau bidon pH |
-| 3 | niveau bidon chlore |
-| 4 | durée maximale pompe pH |
-| 5 | durée maximale pompe chlore |
-| 6 | niveau d’eau bas |
+| résumé | `binary_sensor.fio_alm_any` |
+| 1000 | `binary_sensor.fio_alm_psi_low` |
+| 1001 | `binary_sensor.fio_alm_psi_high` |
+| 1002 | `binary_sensor.fio_alm_ph_tank_low` |
+| 1003 | `binary_sensor.fio_alm_chlorine_tank_low` |
+| 1004 | `binary_sensor.fio_alm_ph_pump_max_uptime` |
+| 1005 | `binary_sensor.fio_alm_chlorine_pump_max_uptime` |
+| 1006 | `binary_sensor.fio_alm_water_level_low` |
+| 1007 | `binary_sensor.fio_alm_filtration_contactor_mismatch` |
+| 1008 | `binary_sensor.fio_alm_chlorine_generator_contactor_mismatch` |
 
-Cette correspondance dépend de l’ordre d’enregistrement des alarmes dans le
-firmware 2.4.0. Elle doit être revue si cet ordre change.
+Le package conserve les anciennes entités `binary_sensor.flowio_*` utilisées
+par le tableau de bord, mais elles recopient désormais ces capteurs natifs.
+`sensor.fio_alm_pack` reste disponible pour compatibilité et diagnostic ; il
+n’est plus décodé par le package.
 
 ## Installation du tableau de bord
 
