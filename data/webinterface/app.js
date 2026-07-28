@@ -11157,6 +11157,19 @@
     }
 
     function initSystemBindings() {
+      let rpiKioskSession = false;
+      try {
+        rpiKioskSession = new URLSearchParams(window.location.search).get('flowio_kiosk') === 'rpi';
+      } catch (err) {
+        rpiKioskSession = false;
+      }
+      if (kioskShutdownAction) {
+        kioskShutdownAction.hidden = !rpiKioskSession;
+      }
+      bindClickAction(kioskShutdownActionBtn, () => {
+        if (!rpiKioskSession) return;
+        window.location.assign('http://127.0.0.1:8765/');
+      });
       bindClickAction(rebootDeviceActionBtn, () => {
         if (!rebootDeviceTargetSelect || !rebootDeviceActionBtn) return;
         const selected = String(rebootDeviceTargetSelect.value || 'supervisor');

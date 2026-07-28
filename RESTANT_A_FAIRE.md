@@ -18,7 +18,10 @@ La 2.5.1 retire du profil Waveshare les declarations GPIO heritees des cartes
 DIN et d'un second ESP32. Elle neutralise egalement les commandes materielles
 qui ne disposent pas de broches explicitement declarees, securise la sortie
 RF433 Venice et ajoute dans la branche Web `PoolLogic > Filtration` un bouton
-de recalcul immediat de la duree et de la plage de filtration.
+de recalcul immediat de la duree et de la plage de filtration. Le paquet
+Raspberry Pi ajoute aussi un bouton d'arret propre visible uniquement en mode
+kiosque. La confirmation est servie sur `127.0.0.1`, exige un maintien de trois
+secondes et n'expose aucune commande sur le reseau.
 
 Sur une NVS vierge, le profil Waveshare active maintenant Ethernet avec DHCP et
 laisse `poollogic/mode/auto_mode` desactive. Une configuration persistante
@@ -50,6 +53,9 @@ dans `alm_pack`; ce dernier reste publie pour compatibilite et diagnostic.
      inactif, surveillance de pression inactive, puis conservation de ces choix
      apres redemarrage;
    - interface Web et SPIFFS;
+   - bouton kiosk `Arreter l'ecran`, confirmation locale pendant trois
+     secondes, arret propre du Raspberry Pi et absence d'acces au service
+     depuis une autre machine;
    - bouton Web `Recalculer la duree`, avec mise a jour du plan lorsque la
      temperature d'eau est disponible et conservation du plan sinon;
    - depart de la plage a 22 h jusqu'a 20 degres d'eau inclus, notamment

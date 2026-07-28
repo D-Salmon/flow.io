@@ -1,0 +1,32 @@
+[Unit]
+Description=Flow.io kiosk local shutdown control
+After=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+EnvironmentFile=-/etc/flowio-kiosk/config.env
+ExecStart=/usr/bin/python3 /usr/local/lib/flowio-kiosk/shutdown-server.py
+Restart=on-failure
+RestartSec=3
+UMask=0077
+CapabilityBoundingSet=CAP_SYS_BOOT
+NoNewPrivileges=true
+PrivateDevices=true
+PrivateTmp=true
+ProtectClock=true
+ProtectControlGroups=true
+ProtectHome=true
+ProtectKernelLogs=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectSystem=strict
+RestrictAddressFamilies=AF_INET AF_UNIX
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

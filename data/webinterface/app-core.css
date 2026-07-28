@@ -480,6 +480,8 @@ body.web-icons-disabled .step-ic.done{font-size:12px;font-weight:800;letter-spac
 .reboot-selector-card{background:#FFFFFF;gap:10px;width:100%;max-width:256px;}
 .reboot-selector-card .field{gap:6px;}
 .reboot-selector-card .system-action-actions{margin-top:0;justify-content:stretch;}
+.kiosk-shutdown-card{border-color:rgba(209,76,102,0.28);background:rgba(250,226,232,0.38);}
+.kiosk-shutdown-card .system-action-actions{margin-top:auto;}
 .system-groups{display:grid;gap:16px;align-items:start;}
 .system-card{min-width:0;}
 .system-card-actions{width:100%;justify-self:stretch;align-self:start;}
