@@ -1,2 +1,6 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# 3D-printing and CAD assets must not be normalized or rendered as text diffs.
+*.stl binary
+*.step binary
