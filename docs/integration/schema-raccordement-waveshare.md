@@ -1,7 +1,7 @@
-# Schéma de raccordement Waveshare Qwiic 2.5.0
+# Schéma de raccordement Waveshare Qwiic 2.5.1
 
 Ce document décrit le raccordement fonctionnel correspondant au profil
-`Waveshare-ESP32-S3` du firmware 2.5.0. Il ne remplace pas le schéma unifilaire
+`Waveshare-ESP32-S3` du firmware 2.5.1. Il ne remplace pas le schéma unifilaire
 du coffret, le dimensionnement des protections, ni la validation par un
 électricien qualifié.
 
@@ -23,7 +23,7 @@ flowchart LR
     HMI ---|"GND commun"| CTRL
 
     subgraph C["Waveshare ESP32-S3-ETH-8DI-8RO"]
-        CTRL["Contrôleur FlowIO 2.5.0"]
+        CTRL["Contrôleur FlowIO 2.5.1"]
         I2C["Bus Qwiic / I²C<br/>SDA GPIO42 - SCL GPIO41<br/>3,3 V - GND"]
         CTRL --> I2C
     end

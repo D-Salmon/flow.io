@@ -2013,6 +2013,7 @@
     const flowCfgImportBtn = document.getElementById('flowCfgImport');
     const flowCfgImportFileInput = document.getElementById('flowCfgImportFile');
     const flowCfgApplyBtn = document.getElementById('flowCfgApply');
+    const flowCfgFiltrationRecalcBtn = document.getElementById('flowCfgFiltrationRecalc');
     const flowCfgTree = document.getElementById('flowCfgTree');
     const flowCfgPathLabel = document.getElementById('flowCfgCurrentPath');
     const flowCfgPathMeta = document.getElementById('flowCfgPathMeta');
@@ -9312,6 +9313,7 @@
       flowCfgFields.innerHTML = '';
       flowCfgApplyBtn.hidden = false;
       flowCfgApplyBtn.disabled = true;
+      updateFiltrationRecalcActionVisibility();
       if (message) {
         flowCfgStatus.textContent = message;
       }
@@ -9902,6 +9904,15 @@
       return buildPatchJsonFromFields(flowCfgFields, flowCfgCurrentModule);
     }
 
+    function updateFiltrationRecalcActionVisibility() {
+      if (!flowCfgFiltrationRecalcBtn) return;
+      const visible =
+        cfgTreeSelectedSource === 'flow'
+        && nettoyerNomFlowCfg(flowCfgCurrentModule) === 'poollogic/filtration';
+      flowCfgFiltrationRecalcBtn.hidden = !visible;
+      flowCfgFiltrationRecalcBtn.disabled = !visible;
+    }
+
     async function chargerFlowCfgModule(moduleName) {
       beginFlowCfgLoading('Chargement de la branche distante...', { tree: false, detail: true });
       const m = nettoyerNomFlowCfg(moduleName);
@@ -10325,6 +10336,35 @@
         return;
       }
       await appliquerFlowCfg();
+    }
+
+    async function recalculerDureeFiltration() {
+      if (!flowCfgFiltrationRecalcBtn || flowCfgFiltrationRecalcBtn.hidden) return;
+      flowCfgFiltrationRecalcBtn.disabled = true;
+      flowCfgStatus.textContent = tr(
+        'config.filtrationRecalculatePending',
+        'Demande de recalcul de la filtration...'
+      );
+      try {
+        await fetchOkJson(
+          '/api/poollogic/filtration/recalculate',
+          { method: 'POST' },
+          tr('config.filtrationRecalculateFailed', 'Recalcul de la filtration impossible'),
+          fetch
+        );
+        // The PoolLogic task consumes the queued command on its next 200 ms loop.
+        await new Promise((resolve) => setTimeout(resolve, 350));
+        await chargerFlowCfgModule('poollogic/filtration');
+        flowCfgStatus.textContent = tr(
+          'config.filtrationRecalculateQueued',
+          'Recalcul demandé. La durée et la plage seront actualisées avec la température d’eau courante.'
+        );
+      } catch (err) {
+        flowCfgStatus.textContent =
+          tr('config.filtrationRecalculateFailed', 'Recalcul de la filtration impossible') + ': ' + err;
+      } finally {
+        updateFiltrationRecalcActionVisibility();
+      }
     }
 
     function setFlowCfgBackupStatus(message, tone) {
@@ -11171,6 +11211,7 @@
     function initConfigBindings() {
       bindClickAction(flowCfgRefreshBtn, () => ensureFlowCfgLoaded(true));
       bindClickAction(flowCfgApplyBtn, () => appliquerPrimaryCfg());
+      bindClickAction(flowCfgFiltrationRecalcBtn, () => recalculerDureeFiltration());
       bindClickAction(flowCfgExportBtn, () => exportFlowCfgBackup());
       bindClickAction(flowCfgImportBtn, () => {
         if (!flowCfgImportFileInput || flowCfgBackupBusy) return;

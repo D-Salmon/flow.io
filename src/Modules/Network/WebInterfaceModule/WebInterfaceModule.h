@@ -188,8 +188,8 @@ private:
 
     HardwareSerial& uart_ = Serial2;
     uint32_t uartBaud_ = 115200U;
-    int uartRxPin_ = 16;
-    int uartTxPin_ = 17;
+    int uartRxPin_ = -1;
+    int uartTxPin_ = -1;
     bool bridgeUartConfigured_ = false;
     bool bridgeUartEnabled_ = false;
     AsyncWebServer server_{kServerPort};

@@ -163,7 +163,7 @@ def verify_security_defaults() -> None:
         ),
         (
             "Home Assistant switch capacity",
-            "kFlowIODINHaCapacity{40, 20, 20, 22, 24, 10}",
+            "kFlowIOS3HaCapacity{40, 20, 20, 22, 24, 10}",
             board_capacities,
         ),
         (

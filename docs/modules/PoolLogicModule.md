@@ -502,6 +502,10 @@ Commande utilitaire:
 - `poollogic.filtration.recalc`
   - met en file une recomputation de la fenêtre
   - traitement asynchrone dans la loop
+  - accessible dans l'interface Web avec `Configuration > PoolLogic >
+    Filtration > Recalculer la durée`
+  - conserve le dernier plan valide si la température d'eau n'est pas
+    disponible
 
 Les réponses d'erreur suivent `ErrorCode` (`MissingArgs`, `MissingValue`, `NotReady`, `Disabled`, `InterlockBlocked`, etc.).
 

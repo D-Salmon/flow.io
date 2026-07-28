@@ -2,17 +2,23 @@
 
 ## Etat actuel
 
-La version `2.5.0` est une edition durcie et allegee consacree au controleur
+La version `2.5.1` est une edition durcie et allegee consacree au controleur
 Waveshare ESP32-S3 N16R8 avec bus Qwiic. Elle utilise ArduinoJson 7, contient un
 seul profil PlatformIO, ainsi que le firmware ESP32-S3, le SPIFFS et le firmware
 compatible de l'ecran Nextion.
 
-La 2.5.0 ajoute le scan de secrets et l'analyse C++ en CI, des tests natifs des
+La base 2.5.0 ajoute le scan de secrets et l'analyse C++ en CI, des tests natifs des
 regles d'authentification/CSRF/CSP/OTA, une CSP stricte pour l'application Web,
 une CSP compatible avec les pages de secours, et l'alarme native
 `OtaSignatureFailures` (`AlarmId 1200`). Le serveur Web a commence a etre
 scinde : politiques, en-tetes et verification ECDSA sont maintenant des
 composants separes ; la page de secours reste embarquee.
+
+La 2.5.1 retire du profil Waveshare les declarations GPIO heritees des cartes
+DIN et d'un second ESP32. Elle neutralise egalement les commandes materielles
+qui ne disposent pas de broches explicitement declarees, securise la sortie
+RF433 Venice et ajoute dans la branche Web `PoolLogic > Filtration` un bouton
+de recalcul immediat de la duree et de la plage de filtration.
 
 Sur une NVS vierge, le profil Waveshare active maintenant Ethernet avec DHCP et
 laisse `poollogic/mode/auto_mode` desactive. Une configuration persistante
@@ -44,6 +50,10 @@ dans `alm_pack`; ce dernier reste publie pour compatibilite et diagnostic.
      inactif, surveillance de pression inactive, puis conservation de ces choix
      apres redemarrage;
    - interface Web et SPIFFS;
+   - bouton Web `Recalculer la duree`, avec mise a jour du plan lorsque la
+     temperature d'eau est disponible et conservation du plan sinon;
+   - absence d'initialisation parasite des anciens GPIO DIN, interlink et
+     mise a jour du second ESP32;
    - decouverte Home Assistant de `binary_sensor.fio_alm_any`, des dix
      alarmes PoolLogic et de l'alarme OTA `id1200`, puis restitution immediate
      de leur etat apres un
