@@ -52,6 +52,8 @@ dans `alm_pack`; ce dernier reste publie pour compatibilite et diagnostic.
    - interface Web et SPIFFS;
    - bouton Web `Recalculer la duree`, avec mise a jour du plan lorsque la
      temperature d'eau est disponible et conservation du plan sinon;
+   - depart de la plage a 22 h jusqu'a 20 degres d'eau inclus, notamment
+     `22:00-00:00` a 12 degres et `22:00-06:28` a 20 degres;
    - absence d'initialisation parasite des anciens GPIO DIN, interlink et
      mise a jour du second ESP32;
    - decouverte Home Assistant de `binary_sensor.fio_alm_any`, des dix

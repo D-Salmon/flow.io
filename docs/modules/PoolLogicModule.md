@@ -383,6 +383,12 @@ Les curseurs `protocol_state`, `last_dose_day`, `weekly_done_ml` et `pending_ml`
 - `filtr_start_clc` (calculé)
 - `filtr_stop_clc` (calculé)
 
+La durée vaut 2 heures jusqu'à 12 °C, augmente linéairement jusqu'à 24 heures
+à 30 °C, puis reste continue. Pour privilégier les heures creuses, toute plage
+calculée avec une température d'eau inférieure ou égale à 20 °C commence à
+22 h 00 et peut se terminer le lendemain. Au-dessus de 20 °C, la plage est
+centrée autour de 15 h.
+
 ### Bindings capteurs IO
 
 - `ph_io_id`
