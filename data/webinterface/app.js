@@ -723,7 +723,10 @@
 
     async function fetchWithBusyRetry(url, options, fetchImpl) {
       if (typeof fetchImpl === 'function') {
-        return fetchImpl(url, options);
+        const secured = window.FlowWebCore && typeof window.FlowWebCore.secureFetchOptions === 'function'
+          ? window.FlowWebCore.secureFetchOptions(options)
+          : options;
+        return fetchImpl(url, secured);
       }
       if (window.FlowWebCore && typeof window.FlowWebCore.supervisorFetch === 'function') {
         return window.FlowWebCore.supervisorFetch(url, options, { retries: 4 });
@@ -2679,7 +2682,7 @@
       if (activityPurgeBtn) activityPurgeBtn.disabled = true;
       if (activityLogStatus) activityLogStatus.textContent = 'Purge du journal...';
       try {
-        const response = await fetch('/api/activity/purge', { method: 'POST', cache: 'no-store' });
+        const response = await fetchWithBusyRetry('/api/activity/purge', { method: 'POST', cache: 'no-store' });
         if (!response.ok) throw new Error('HTTP ' + response.status);
         const payload = await response.json().catch(() => ({}));
         if (payload && payload.ok === false) throw new Error('Purge refusée');

@@ -18,15 +18,20 @@ notre version 2.5.1.
 - recalcul manuel de la filtration à la minute, filtration nocturne à partir de
   22 h pour l’eau froide ou tempérée et fonctionnement continu à 30 °C ;
 - sécurisation des GPIO RF433 et des broches inutilisées du pont série Web ;
-- primitives de sécurité Web, en-têtes HTTP et vérificateur ECDSA OTA ;
+- jeton CSRF aléatoire par démarrage, validation d’origine et protection de
+  toutes les requêtes Web d’écriture, y compris les interfaces de
+  configuration réseau et de secours ;
+- primitives d’authentification, en-têtes HTTP et vérificateur ECDSA OTA ;
 - éléments de tableau de bord Home Assistant, arrêt sûr du kiosque Raspberry Pi
   et fichiers du boîtier compact.
 
 ## Écarts encore ouverts
 
-- Les primitives d’authentification/CSRF et de signature OTA sont présentes,
-  mais le flux de mise à jour distant propre à la 3.x ne les appelle pas encore
-  de bout en bout.
+- Le lot authentification/CSRF est partiellement raccordé : la protection CSRF
+  est active de bout en bout, mais l’authentification attend encore une
+  procédure de récupération physique compatible avec le bouton BOOT.
+- Le vérificateur de signature OTA est présent, mais le flux de mise à jour
+  distant propre à la 3.x ne l’appelle pas encore de bout en bout.
 - MQTT utilise encore `mqtt://` sans TLS dans cette base expérimentale.
 - Les deux alarmes de discordance de contacteur sont cataloguées, mais leurs
   conditions matérielles restent à raccorder dans le PoolLogic 3.x.

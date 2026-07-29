@@ -1087,6 +1087,16 @@ const char* webAssetVersion_()
     return version;
 }
 
+bool isMutatingRequest_(AsyncWebServerRequest* request)
+{
+    if (!request) return false;
+    const WebRequestMethodComposite method = request->method();
+    return method == HTTP_POST ||
+           method == HTTP_PUT ||
+           method == HTTP_PATCH ||
+           method == HTTP_DELETE;
+}
+
 void addNoCacheHeaders_(AsyncWebServerResponse* response)
 {
     if (!response) return;
@@ -3884,6 +3894,7 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
   const fwCfgMsg = $("fwCfgMsg");
   const updateMsg = $("updateMsg");
   const buttons = Array.from(document.querySelectorAll("button"));
+  let csrfToken = "";
 
   const setBusy = (busy) => buttons.forEach((b) => { b.disabled = busy; });
   const formBody = (data) => {
@@ -3894,7 +3905,14 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
     return body;
   };
   const api = async (url, options = {}) => {
-    const res = await fetch(url, Object.assign({ cache: "no-store" }, options));
+    const secured = Object.assign({ cache: "no-store" }, options);
+    const method = String(secured.method || "GET").toUpperCase();
+    if (method === "POST" || method === "PUT" || method === "PATCH" || method === "DELETE") {
+      const headers = new Headers(secured.headers || {});
+      if (csrfToken) headers.set("X-Flow-CSRF", csrfToken);
+      secured.headers = headers;
+    }
+    const res = await fetch(url, secured);
     const text = await res.text();
     let json = null;
     try { json = text ? JSON.parse(text) : null; } catch (_) {}
@@ -3902,6 +3920,8 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
       const msg = json && json.err ? (json.err.msg || json.err.code || "failed") : (text || res.statusText);
       throw new Error(msg);
     }
+    const token = json && typeof json.csrf_token === "string" ? json.csrf_token.trim() : "";
+    if (/^[0-9a-f]{32}$/i.test(token)) csrfToken = token;
     return json || { ok: true, text };
   };
   const put = (node, obj, cls) => {
@@ -4851,6 +4871,7 @@ void WebInterfaceModule::startLocalRuntime_()
 void WebInterfaceModule::startServer_()
 {
     if (started_) return;
+    ensureCsrfToken_();
     gHttpActivityHook = &WebInterfaceModule::onHttpActivityHook_;
     gHttpActivityHookCtx = this;
 
@@ -4860,6 +4881,16 @@ void WebInterfaceModule::startServer_()
             const String& path = request->url();
             addWebSecurityHeaders(request->getResponse(), path.c_str());
         }
+    });
+
+    server_.addMiddleware([this](AsyncWebServerRequest* request, ArMiddlewareNext next) {
+        if (!csrfRequestAllowed_(request)) {
+            request->send(403,
+                          "application/json",
+                          "{\"ok\":false,\"err\":{\"code\":\"CsrfRejected\",\"where\":\"web.security\"}}");
+            return;
+        }
+        next();
     });
 
     spiffsReady_ = SPIFFS.begin(false);
@@ -5476,6 +5507,7 @@ void WebInterfaceModule::startServer_()
         const char* transportTxt = networkTransport_(mode);
 
         doc["ok"] = true;
+        doc["csrf_token"] = csrfToken_;
         doc["web_asset_version"] = webAssetVersion_();
         doc["firmware_version"] = FirmwareVersion::Full;
         doc["profile"] = FLOW_BUILD_PROFILE_NAME;
@@ -7412,6 +7444,59 @@ void WebInterfaceModule::handleUpdateRequest_(AsyncWebServerRequest* request, Fi
     }
 
     request->send(202, "application/json", "{\"ok\":true,\"accepted\":true}");
+}
+
+void WebInterfaceModule::ensureCsrfToken_()
+{
+    if (csrfToken_[0] != '\0') return;
+    const uint32_t r0 = esp_random();
+    const uint32_t r1 = esp_random();
+    const uint32_t r2 = esp_random();
+    const uint32_t r3 = esp_random();
+    snprintf(csrfToken_,
+             sizeof(csrfToken_),
+             "%08lx%08lx%08lx%08lx",
+             (unsigned long)r0,
+             (unsigned long)r1,
+             (unsigned long)r2,
+             (unsigned long)r3);
+}
+
+bool WebInterfaceModule::requestOriginAllowed_(AsyncWebServerRequest* request,
+                                               bool originRequired) const
+{
+    if (!request) return false;
+    if (!request->hasHeader("Origin")) return !originRequired;
+
+    const String& origin = request->header("Origin");
+    const String& host = request->host();
+    if (origin.length() == 0U || host.length() == 0U ||
+        origin.equalsIgnoreCase("null")) {
+        return false;
+    }
+
+    const String httpOrigin = String("http://") + host;
+    const String httpsOrigin = String("https://") + host;
+    return origin.equalsIgnoreCase(httpOrigin) ||
+           origin.equalsIgnoreCase(httpsOrigin);
+}
+
+bool WebInterfaceModule::csrfRequestAllowed_(AsyncWebServerRequest* request) const
+{
+    if (!request) return false;
+    const bool tokenPresent = request->hasHeader("X-Flow-CSRF");
+    const String suppliedToken = tokenPresent ? request->header("X-Flow-CSRF") : String();
+    const Security::CsrfRequestFacts facts{
+        isMutatingRequest_(request),
+        requestOriginAllowed_(request, false),
+        request->hasHeader("Sec-Fetch-Site") &&
+            request->header("Sec-Fetch-Site").equalsIgnoreCase("cross-site"),
+        tokenPresent
+    };
+    return Security::csrfRequestAllowed(facts,
+                                        csrfToken_,
+                                        suppliedToken.c_str(),
+                                        suppliedToken.length());
 }
 
 void WebInterfaceModule::noteInvalidOtaSignature_()

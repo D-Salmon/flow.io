@@ -3,6 +3,7 @@
   var themeKey = 'flow_web_theme';
   var scriptLoads = new Map();
   var cssLoads = new Map();
+  var csrfToken = '';
 
   function sleep(ms) {
     return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -66,6 +67,22 @@
     return path + '?v=' + encodeURIComponent(version);
   }
 
+  function ingestSecurityMeta(meta) {
+    var token = meta && typeof meta.csrf_token === 'string' ? meta.csrf_token.trim() : '';
+    if (/^[0-9a-f]{32}$/i.test(token)) csrfToken = token;
+  }
+
+  function secureFetchOptions(options) {
+    var secured = Object.assign({}, options || {});
+    var method = String(secured.method || 'GET').toUpperCase();
+    if (method === 'POST' || method === 'PUT' || method === 'PATCH' || method === 'DELETE') {
+      var headers = new Headers(secured.headers || {});
+      if (csrfToken) headers.set('X-Flow-CSRF', csrfToken);
+      secured.headers = headers;
+    }
+    return secured;
+  }
+
   async function supervisorFetch(url, options, policy) {
     var cfg = policy || {};
     var retries = Number.isFinite(cfg.retries) ? cfg.retries : 4;
@@ -76,7 +93,7 @@
     var lastError = null;
     for (var attempt = 0; attempt <= retries; attempt += 1) {
       try {
-        var response = await fetch(url, options || {});
+        var response = await fetch(url, secureFetchOptions(options));
         if (response.status !== 503) return response;
         if (attempt >= retries) return response;
         var retryAfterHeader = response.headers ? response.headers.get('Retry-After') : '';
@@ -202,6 +219,7 @@
     if (!res.ok) throw new Error('meta');
     var data = await res.json();
     if (!data || data.ok !== true) throw new Error('meta');
+    ingestSecurityMeta(data);
     window.__FLOW_WEB_META__ = data;
     var version = '';
     if (typeof data.web_asset_version === 'string') {
@@ -239,6 +257,9 @@
     sleep: sleep,
     assetUrl: assetUrl,
     parseRetryAfterMs: parseRetryAfterMs,
+    csrfToken: function () { return csrfToken; },
+    ingestSecurityMeta: ingestSecurityMeta,
+    secureFetchOptions: secureFetchOptions,
     supervisorFetch: supervisorFetch,
     loadScriptOnce: loadScriptOnce,
     loadCssOnce: loadCssOnce,

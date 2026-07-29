@@ -5,6 +5,11 @@ Ce document décrit le raccordement fonctionnel correspondant au profil
 du coffret, le dimensionnement des protections, ni la validation par un
 électricien qualifié.
 
+> [!WARNING]
+> Ne pas relier GPIO21 à la masse avec le firmware 3.1.0 : cette broche pilote
+> désormais le rétroéclairage TFT. L’ancien cavalier de récupération 2.5.1
+> n’est pas compatible avec le matériel actuel.
+
 Une version éditable avec Fritzing est disponible dans
 [`fritzing/FlowIO-Waveshare-Qwiic-2.3.0.fzz`](fritzing/FlowIO-Waveshare-Qwiic-2.3.0.fzz).
 
@@ -14,7 +19,6 @@ Une version éditable avec Fritzing est disponible dans
 flowchart LR
     DC["Alimentation DC protégée<br/>7 à 36 VDC"] -->|"Bornier +V / GND"| CTRL
     LAN["Réseau local"] -->|"RJ45 Ethernet"| CTRL
-    REC["Cavalier de récupération<br/>GPIO21 - GND"] -.-> CTRL
     P5["Alimentation 5 V protégée<br/>dimensionnée pour l'écran"] --> HMI
     HMI["Nextion Intelligent 800x480<br/>UART logique 5 V"] -->|"TX écran"| LS["Level-shifter UART<br/>2 voies push-pull<br/>5 V ↔ 3,3 V"]
     LS -->|"vers RX GPIO44"| CTRL

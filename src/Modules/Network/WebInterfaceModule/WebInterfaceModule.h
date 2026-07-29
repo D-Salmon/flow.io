@@ -118,6 +118,9 @@ private:
     void startServer_();
     void startLocalRuntime_();
     void handleUpdateRequest_(AsyncWebServerRequest* request, FirmwareUpdateTarget target);
+    void ensureCsrfToken_();
+    bool csrfRequestAllowed_(AsyncWebServerRequest* request) const;
+    bool requestOriginAllowed_(AsyncWebServerRequest* request, bool originRequired) const;
     bool isWebReachable_() const;
     bool getNetworkIp_(char* out, size_t len, NetworkAccessMode* modeOut) const;
     const char* networkTransport_(NetworkAccessMode mode) const;
@@ -194,6 +197,7 @@ private:
     bool bridgeUartEnabled_ = false;
     AsyncWebServer server_{kServerPort};
     AsyncWebSocket wsLog_{"/wslog"};
+    char csrfToken_[33] = {0};
 
     const LogHubService* logHub_ = nullptr;
     const LogSinkRegistryService* logSinkReg_ = nullptr;
