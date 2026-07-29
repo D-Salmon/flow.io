@@ -19,7 +19,6 @@
 #include "Modules/Network/EthernetModule/EthernetModule.h"
 #include "Modules/Network/HAModule/HAModule.h"
 #include "Modules/Network/FirmwareUpdateModule/FirmwareUpdateModule.h"
-#include "Modules/Network/HmiUdpServerModule/HmiUdpServerModule.h"
 #include "Modules/Network/MQTTModule/MQTTModule.h"
 #include "Modules/Network/TimeModule/TimeModule.h"
 #include "Modules/Network/WebInterfaceModule/WebInterfaceModule.h"
@@ -75,7 +74,6 @@ struct ModuleInstances {
     LogHubModule logHubModule{};
     EventBusModule eventBusModule{};
     AlarmModule alarmModule{};
-    HmiUdpServerModule hmiUdpServerModule{};
     HMIModule hmiModule;
     HMIBuzzerModule hmiBuzzerModule;
     IOModule ioModule;

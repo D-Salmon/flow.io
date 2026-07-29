@@ -28,7 +28,13 @@ enum class EthernetState : uint8_t {
 };
 
 struct EthernetConfig {
+#if defined(FLOW_PROFILE_WAVESHARE)
+    // The Waveshare hardware has an onboard W5500. Enable it on first boot
+    // when no persisted `eth_en` preference exists.
+    bool enabled = true;
+#else
     bool enabled = false;
+#endif
 };
 
 class EthernetModule : public Module {
