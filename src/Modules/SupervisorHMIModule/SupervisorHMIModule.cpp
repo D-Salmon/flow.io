@@ -386,7 +386,7 @@ void SupervisorHMIModule::pollFirmwareStatus_()
     char json[320] = {0};
     if (!fwUpdateSvc_->statusJson(fwUpdateSvc_->ctx, json, sizeof(json))) return;
 
-    StaticJsonDocument<320> doc;
+    JsonDocument doc;
     const DeserializationError err = deserializeJson(doc, json);
     if (err || !doc.is<JsonObjectConst>()) return;
 

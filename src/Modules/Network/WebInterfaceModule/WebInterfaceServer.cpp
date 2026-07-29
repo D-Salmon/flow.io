@@ -315,7 +315,7 @@ static uint16_t summarizeConfigPatch_(const char* patchJson, char* modulesOut, s
     if (modulesOut && modulesOutLen > 0U) modulesOut[0] = '\0';
     if (!patchJson || patchJson[0] == '\0') return 0;
 
-    DynamicJsonDocument doc(Limits::JsonConfigApplyBuf);
+    JsonDocument doc;
     const DeserializationError err = deserializeJson(doc, patchJson);
     if (err || !doc.is<JsonObjectConst>()) return 0;
 
@@ -746,7 +746,7 @@ void loadConfiguredDeviceName_(ConfigStore* cfgStore, char* out, size_t outLen)
     char systemJson[128] = {0};
     if (!cfgStore->toJsonModule("system", systemJson, sizeof(systemJson), nullptr, false)) return;
 
-    StaticJsonDocument<128> doc;
+    JsonDocument doc;
     if (deserializeJson(doc, systemJson) != DeserializationError::Ok || !doc.is<JsonObjectConst>()) return;
 
     const char* configured = doc.as<JsonObjectConst>()["devicename"] | "";
@@ -1700,7 +1700,7 @@ bool waveshareLoadPoolModeFlags_(ConfigStore* cfgStore,
     memset(moduleJson, 0, sizeof(moduleJson));
     truncated = false;
     if (cfgStore->toJsonModule("poollogic/ph", moduleJson, sizeof(moduleJson), &truncated, true)) {
-        StaticJsonDocument<128> phDoc;
+        JsonDocument phDoc;
         if (!deserializeJson(phDoc, moduleJson)) {
             JsonObjectConst phRoot = phDoc.as<JsonObjectConst>();
             if (!phRoot.isNull()) phAutoMode = phRoot["ph_auto_mode"] | false;
@@ -1710,7 +1710,7 @@ bool waveshareLoadPoolModeFlags_(ConfigStore* cfgStore,
     memset(moduleJson, 0, sizeof(moduleJson));
     truncated = false;
     if (cfgStore->toJsonModule("poollogic/chlorine", moduleJson, sizeof(moduleJson), &truncated, true)) {
-        StaticJsonDocument<128> disDoc;
+        JsonDocument disDoc;
         if (!deserializeJson(disDoc, moduleJson)) {
             JsonObjectConst disRoot = disDoc.as<JsonObjectConst>();
             if (!disRoot.isNull()) orpAutoMode = disRoot["dis_auto_mode"] | false;
@@ -2084,7 +2084,7 @@ bool waveshareBuildStatusDomainJson_(FlowStatusDomain domain,
     out[0] = '\0';
 
     WaveshareRuntimeContext ctx{};
-    StaticJsonDocument<768> doc;
+    JsonDocument doc;
     doc["ok"] = true;
 
     if (domain == FlowStatusDomain::System) {
@@ -2094,7 +2094,7 @@ bool waveshareBuildStatusDomainJson_(FlowStatusDomain domain,
         doc["devicename"] = deviceName;
         doc["fw"] = FirmwareVersion::Full;
         doc["upms"] = (uint64_t)ctx.systemStats.uptimeMs64;
-        JsonObject time = doc.createNestedObject("time");
+        JsonObject time = doc["time"].to<JsonObject>();
         time["rdy"] = dataStore ? (timeReady(*dataStore) || timeSource(*dataStore) != TimeSource::None) : false;
         time["src"] = dataStore ? timeSourceText(*dataStore) : "none";
         time["src_id"] = dataStore ? (uint8_t)timeSource(*dataStore) : 0U;
@@ -2102,7 +2102,7 @@ bool waveshareBuildStatusDomainJson_(FlowStatusDomain domain,
         time["qlt_id"] = dataStore ? (uint8_t)timeQuality(*dataStore) : 0U;
         time["last_ntp"] = dataStore ? (uint32_t)timeLastNtpSyncUtc(*dataStore) : 0U;
         time["last_rtc"] = dataStore ? (uint32_t)timeLastRtcSyncUtc(*dataStore) : 0U;
-        JsonObject heap = doc.createNestedObject("heap");
+        JsonObject heap = doc["heap"].to<JsonObject>();
         heap["free"] = ctx.systemStats.heap.freeBytes;
         heap["min_free"] = ctx.systemStats.heap.minFreeBytes;
         heap["larg"] = ctx.systemStats.heap.largestFreeBlock;
@@ -2211,7 +2211,7 @@ bool waveshareBuildStatusDomainJson_(FlowStatusDomain domain,
 
     if (domain == FlowStatusDomain::Alarm) {
         waveshareEnsureAlarmMasks_(ctx, alarmSvc);
-        JsonObject alm = doc.createNestedObject("alm");
+        JsonObject alm = doc["alm"].to<JsonObject>();
         const uint32_t activeMask = ctx.alarmActiveMask;
         uint8_t count = 0U;
         for (uint8_t bit = 0U; bit < 32U; ++bit) {
@@ -2480,12 +2480,12 @@ void waveshareLoadDashboardSlotConfig_(ConfigStore* cfgStore, uint8_t slot, Wave
     bool truncated = false;
     if (!cfgStore->toJsonModule(moduleName, moduleJson, sizeof(moduleJson), &truncated, true) || truncated) return;
 
-    StaticJsonDocument<448> doc;
+    JsonDocument doc;
     if (deserializeJson(doc, moduleJson)) return;
-    if (doc.containsKey("enabled")) out.enabled = doc["enabled"].as<bool>();
-    if (doc.containsKey("runtime_ui_id")) out.runtimeUiId = (RuntimeUiId)(doc["runtime_ui_id"].as<uint32_t>() & 0xFFFFU);
-    if (doc.containsKey("color_id")) out.colorId = (uint8_t)(doc["color_id"].as<uint32_t>() & 0xFFU);
-    if (doc.containsKey("label")) {
+    if (!doc["enabled"].isUnbound()) out.enabled = doc["enabled"].as<bool>();
+    if (!doc["runtime_ui_id"].isUnbound()) out.runtimeUiId = (RuntimeUiId)(doc["runtime_ui_id"].as<uint32_t>() & 0xFFFFU);
+    if (!doc["color_id"].isUnbound()) out.colorId = (uint8_t)(doc["color_id"].as<uint32_t>() & 0xFFU);
+    if (!doc["label"].isUnbound()) {
         const char* label = doc["label"].as<const char*>();
         snprintf(out.label, sizeof(out.label), "%s", label ? label : "");
     }
@@ -2508,12 +2508,12 @@ void waveshareLoadAlarmDashboardSlotConfig_(ConfigStore* cfgStore, uint8_t slot,
     bool truncated = false;
     if (!cfgStore->toJsonModule(moduleName, moduleJson, sizeof(moduleJson), &truncated, true) || truncated) return;
 
-    StaticJsonDocument<448> doc;
+    JsonDocument doc;
     if (deserializeJson(doc, moduleJson)) return;
-    if (doc.containsKey("enabled")) out.enabled = doc["enabled"].as<bool>();
-    if (doc.containsKey("alarm_id")) out.alarmId = (uint16_t)(doc["alarm_id"].as<uint32_t>() & 0xFFFFU);
-    if (doc.containsKey("color_id")) out.colorId = (uint8_t)(doc["color_id"].as<uint32_t>() & 0xFFU);
-    if (doc.containsKey("label")) {
+    if (!doc["enabled"].isUnbound()) out.enabled = doc["enabled"].as<bool>();
+    if (!doc["alarm_id"].isUnbound()) out.alarmId = (uint16_t)(doc["alarm_id"].as<uint32_t>() & 0xFFFFU);
+    if (!doc["color_id"].isUnbound()) out.colorId = (uint8_t)(doc["color_id"].as<uint32_t>() & 0xFFU);
+    if (!doc["label"].isUnbound()) {
         const char* label = doc["label"].as<const char*>();
         snprintf(out.label, sizeof(out.label), "%s", label ? label : "");
     }
@@ -3379,7 +3379,7 @@ bool waveshareReadAlarmDashboardSlotState_(const AlarmService* alarmSvc,
     char stateJson[144] = {0};
     if (!alarmSvc->buildAlarmState(alarmSvc->ctx, (AlarmId)alarmId, stateJson, sizeof(stateJson))) return false;
 
-    StaticJsonDocument<192> doc;
+    JsonDocument doc;
     if (deserializeJson(doc, stateJson)) return false;
     out.available = true;
     out.latched = (doc["a"] | 0U) != 0U;
@@ -5429,7 +5429,7 @@ void WebInterfaceModule::startServer_()
     });
     server_.on("/api/web/meta", HTTP_GET, [this](AsyncWebServerRequest* request) {
         HttpLatencyScope latency(request, "/api/web/meta");
-        StaticJsonDocument<1024> doc;
+        JsonDocument doc;
         NetworkAccessMode mode = NetworkAccessMode::None;
         if (!netAccessSvc_ && services_) {
             netAccessSvc_ = services_->get<NetworkAccessService>(ServiceId::NetworkAccess);

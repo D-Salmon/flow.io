@@ -1662,7 +1662,7 @@ bool TFTModuleS3::readAlarmRuntimeState_(uint16_t alarmId, AlarmSlotRenderState&
     char stateJson[144] = {0};
     if (!alarmSvc_->buildAlarmState(alarmSvc_->ctx, (AlarmId)alarmId, stateJson, sizeof(stateJson))) return false;
 
-    StaticJsonDocument<192> doc;
+    JsonDocument doc;
     if (deserializeJson(doc, stateJson)) return false;
     state.available = true;
     state.latched = (doc["a"] | 0U) != 0U;
@@ -1695,7 +1695,7 @@ void TFTModuleS3::loadAlarmMasks_(uint32_t& activeMask, uint32_t& resettableMask
         char stateJson[144] = {0};
         if (!alarmSvc_->buildAlarmState(alarmSvc_->ctx, ids[i], stateJson, sizeof(stateJson))) continue;
 
-        StaticJsonDocument<192> doc;
+        JsonDocument doc;
         if (deserializeJson(doc, stateJson)) continue;
         const uint8_t slot = doc["slot"] | 255U;
         if (slot >= 32U) continue;
@@ -1723,7 +1723,7 @@ bool TFTModuleS3::loadPoolModeFlags_(bool& autoMode,
     bool truncated = false;
     if (!cfgStore_->toJsonModule("poollogic/modes", moduleJson, sizeof(moduleJson), &truncated, true) || truncated) return false;
 
-    StaticJsonDocument<384> doc;
+    JsonDocument doc;
     if (deserializeJson(doc, moduleJson)) return false;
     JsonObjectConst root = doc.as<JsonObjectConst>();
     if (root.isNull()) return false;
@@ -1734,7 +1734,7 @@ bool TFTModuleS3::loadPoolModeFlags_(bool& autoMode,
     memset(moduleJson, 0, sizeof(moduleJson));
     truncated = false;
     if (cfgStore_->toJsonModule("poollogic/ph", moduleJson, sizeof(moduleJson), &truncated, true) && !truncated) {
-        StaticJsonDocument<128> phDoc;
+        JsonDocument phDoc;
         if (!deserializeJson(phDoc, moduleJson)) {
             JsonObjectConst phRoot = phDoc.as<JsonObjectConst>();
             if (!phRoot.isNull()) phAutoMode = phRoot["ph_auto_mode"] | false;
@@ -1744,7 +1744,7 @@ bool TFTModuleS3::loadPoolModeFlags_(bool& autoMode,
     memset(moduleJson, 0, sizeof(moduleJson));
     truncated = false;
     if (cfgStore_->toJsonModule("poollogic/chlorine", moduleJson, sizeof(moduleJson), &truncated, true) && !truncated) {
-        StaticJsonDocument<128> disDoc;
+        JsonDocument disDoc;
         if (!deserializeJson(disDoc, moduleJson)) {
             JsonObjectConst disRoot = disDoc.as<JsonObjectConst>();
             if (!disRoot.isNull()) orpAutoMode = disRoot["dis_auto_mode"] | false;

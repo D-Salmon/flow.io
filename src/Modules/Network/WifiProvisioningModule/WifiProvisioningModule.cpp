@@ -1072,7 +1072,7 @@ void WifiProvisioningModule::sendWifiConfigJson_(WiFiClient& client)
     const char* ssid = "";
     const char* pass = "";
     char wifiJson[320] = {0};
-    StaticJsonDocument<320> doc;
+    JsonDocument doc;
     if (cfgStore_ && cfgStore_->toJsonModule("wifi", wifiJson, sizeof(wifiJson), nullptr, false)) {
         const DeserializationError err = deserializeJson(doc, wifiJson);
         if (!err && doc.is<JsonObjectConst>()) {

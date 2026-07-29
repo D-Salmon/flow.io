@@ -502,9 +502,7 @@ bool FirmwareUpdateModule::checkManifestJsonStream_(Print& out, char* errOut, si
         return false;
     }
 
-    size_t jsonCapacity = payload.length() + 1024U;
-    if (jsonCapacity < 4096U) jsonCapacity = 4096U;
-    DynamicJsonDocument doc(jsonCapacity);
+    JsonDocument doc;
     const DeserializationError jsonErr = deserializeJson(doc, payload);
     if (jsonErr || !doc.is<JsonObjectConst>()) {
         writeSimpleError_(errOut, errOutLen, "manifest invalid json");

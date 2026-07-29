@@ -431,7 +431,7 @@ bool PoolLogicModule::cmdMqttControl_(const CommandRequest& req, char* reply, si
             writeCmdError_(reply, replyLen, where, ErrorCode::MissingArgs);
             return false;
         }
-        if (!args.containsKey("value")) {
+        if (args["value"].isUnbound()) {
             writeCmdError_(reply, replyLen, where, ErrorCode::MissingValue);
             return false;
         }

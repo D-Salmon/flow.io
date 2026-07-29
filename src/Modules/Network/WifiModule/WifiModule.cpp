@@ -945,7 +945,7 @@ void WifiModule::loadSystemDeviceName_()
     if (cfgStore_) {
         char systemJson[128] = {0};
         if (cfgStore_->toJsonModule("system", systemJson, sizeof(systemJson), nullptr, false)) {
-            StaticJsonDocument<128> doc;
+            JsonDocument doc;
             if (deserializeJson(doc, systemJson) == DeserializationError::Ok && doc.is<JsonObjectConst>()) {
                 const char* configured = doc.as<JsonObjectConst>()["devicename"] | "";
                 if (!isBlank_(configured, sizeof(deviceName_))) {

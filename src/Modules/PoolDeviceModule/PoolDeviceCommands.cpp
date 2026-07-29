@@ -64,7 +64,7 @@ bool readConfigBool_(ConfigStore* cfgStore, const char* moduleName, const char* 
     bool truncated = false;
     if (!cfgStore->toJsonModule(moduleName, json, sizeof(json), &truncated) || truncated) return false;
 
-    StaticJsonDocument<192> doc;
+    JsonDocument doc;
     const DeserializationError err = deserializeJson(doc, json);
     if (err || !doc.is<JsonObjectConst>()) return false;
     JsonVariantConst value = doc.as<JsonObjectConst>()[key];
@@ -80,7 +80,7 @@ bool readConfigUInt8_(ConfigStore* cfgStore, const char* moduleName, const char*
     bool truncated = false;
     if (!cfgStore->toJsonModule(moduleName, json, sizeof(json), &truncated) || truncated) return false;
 
-    StaticJsonDocument<192> doc;
+    JsonDocument doc;
     const DeserializationError err = deserializeJson(doc, json);
     if (err || !doc.is<JsonObjectConst>()) return false;
     JsonVariantConst value = doc.as<JsonObjectConst>()[key];
@@ -260,7 +260,7 @@ bool PoolDeviceModule::handlePoolWrite_(const CommandRequest& req, char* reply, 
         char modeJson[160]{};
         bool truncated = false;
         if (cfgStore_->toJsonModule("poollogic/devices", modeJson, sizeof(modeJson), &truncated) && !truncated) {
-            StaticJsonDocument<192> modeDoc;
+            JsonDocument modeDoc;
             const DeserializationError modeErr = deserializeJson(modeDoc, modeJson);
             if (!modeErr && modeDoc.is<JsonObjectConst>()) {
                 const JsonObjectConst obj = modeDoc.as<JsonObjectConst>();
@@ -400,7 +400,7 @@ bool PoolDeviceModule::handlePoolRefill_(const CommandRequest& req, char* reply,
     remaining = slots_[slot].def.tankCapacityMl;
     unlockState_();
 
-    if (args.containsKey("remaining_ml")) {
+    if (!args["remaining_ml"].isUnbound()) {
         JsonVariantConst rem = args["remaining_ml"];
         if (rem.is<float>() || rem.is<double>() || rem.is<int32_t>() || rem.is<uint32_t>()) {
             remaining = rem.as<float>();
