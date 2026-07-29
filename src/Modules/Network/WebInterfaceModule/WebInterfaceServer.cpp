@@ -1972,7 +1972,7 @@ bool appendWaveshareLocalRuntimeValue_(Print& out,
             } else if (id == 2206) {
                 runtimeIndex = 2;
                 key = "pool.psi";
-                unit = "PSI";
+                unit = "bar";
             }
 
             float value = 0.0f;

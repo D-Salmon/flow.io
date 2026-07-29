@@ -2152,7 +2152,7 @@
       },
       psi: {
         key: 'psi',
-        label: 'Pression PSI',
+        label: 'Pression (bar)',
         mode: 'two',
         poollogicKey: 'psi_io_id',
         ioSlot: 2,
@@ -2307,8 +2307,8 @@
     ]);
     const poolEditableFieldSpecs = Object.freeze({
       'poollogic/modes': Object.freeze([
-        Object.freeze({ key: 'enabled', type: 'bool', label: 'Pilotage PoolLogic' }),
-        Object.freeze({ key: 'auto_mode', type: 'bool', label: 'Mode automatique' }),
+        Object.freeze({ key: 'enabled', type: 'bool', label: 'PoolLogic actif' }),
+        Object.freeze({ key: 'auto_mode', type: 'bool', label: 'Mode automatique PoolLogic' }),
         Object.freeze({ key: 'winter_mode', type: 'bool', label: 'Mode hiver' }),
         Object.freeze({ key: 'robot_auto_mode', type: 'bool', label: 'Robot automatique' })
       ]),
@@ -7934,6 +7934,13 @@
         calibrationModeHint.textContent = twoPoint
           ? tr('calibration.mode.two.hint', 'Mode 2 points actif: recalcul de C0 et C1.')
           : tr('calibration.mode.one.hint', 'Mode 1 point actif: C0 conservé, ajustement de C1 (offset).');
+      }
+      if (twoPoint && sensorDef && sensorDef.key === 'psi') {
+        if (calibrationPoint1Reference) calibrationPoint1Reference.placeholder = 'ex : 0,00 bar';
+        if (calibrationPoint2Reference) calibrationPoint2Reference.placeholder = 'ex : 1,50 bar';
+      } else if (twoPoint) {
+        if (calibrationPoint1Reference) calibrationPoint1Reference.placeholder = 'ex : 7,00';
+        if (calibrationPoint2Reference) calibrationPoint2Reference.placeholder = 'ex : 10,00';
       }
       if (!twoPoint && sensorDef) {
         const isOrp = sensorDef.key === 'orp_one';
