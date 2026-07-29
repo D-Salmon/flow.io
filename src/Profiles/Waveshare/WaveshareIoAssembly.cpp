@@ -23,6 +23,10 @@
 #define FLOW_HA_BOOT_TRACE 0
 #endif
 
+#ifndef FLOW_DS18_DS2484_ADDRESS
+#define FLOW_DS18_DS2484_ADDRESS 0x18u
+#endif
+
 #if FLOW_HA_BOOT_TRACE
 #define WAVESHARE_HA_BOOT_TRACE(FMT, ...) Board::SerialMap::logSerial().printf("[HA-BOOT] " FMT "\r\n", ##__VA_ARGS__)
 #else
@@ -504,7 +508,10 @@ void configureIoModule(const AppContext& ctx, ModuleInstances& modules)
 {
     requireSetup(ctx.domain != nullptr, "missing domain spec");
 
-    modules.ioModule.setOneWireBuses(&modules.oneWireWater, &modules.oneWireAir);
+    modules.ioModule.useDs2484OneWireBus(
+        (uint8_t)FLOW_DS18_DS2484_ADDRESS,
+        0U,
+        1U);
     modules.ioModule.setBindingPorts(
         FlowIoLayout::kBindingPorts,
         (uint8_t)(sizeof(FlowIoLayout::kBindingPorts) / sizeof(FlowIoLayout::kBindingPorts[0]))

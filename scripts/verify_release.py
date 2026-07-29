@@ -78,6 +78,8 @@ def verify_gzip_assets() -> None:
 def verify_profile_and_safety_defaults() -> None:
     ini = read("platformio.ini")
     board = read("src/Board/WaveshareBoard.h")
+    io_module = read("src/Modules/IOModule/IOModule.cpp")
+    waveshare_io = read("src/Profiles/Waveshare/WaveshareIoAssembly.cpp")
     hmi = read("src/Modules/HMIModule/HMIModule.cpp")
     web = read("src/Modules/Network/WebInterfaceModule/WebInterfaceServer.cpp")
     web_headers = read("src/Modules/Network/WebInterfaceModule/WebSecurityHeaders.cpp")
@@ -98,6 +100,10 @@ def verify_profile_and_safety_defaults() -> None:
         ("octal PSRAM", "board_build.psram_type = opi", ini),
         ("ArduinoJson 7.4.3", "bblanchon/ArduinoJson @ 7.4.3", ini),
         ("Ethernet default enabled", "kWaveshareESP32S3EthernetW5500{\n    true,", board),
+        ("DS2484 build address", "FLOW_DS18_DS2484_ADDRESS=0x18u", ini),
+        ("DS2484 Waveshare assembly", "useDs2484OneWireBus(", waveshare_io),
+        ("DS2484 runtime probe", 'LOGI("DS2484 probe 0x%02X: %s"', io_module),
+        ("no direct Waveshare 1-Wire table", "nullptr,\n    0,\n    kWaveshareESP32S3IoPoints", board),
         ("Web security-header middleware", "addWebSecurityHeaders(request->getResponse()", web),
         ("Content-Security-Policy header", '"Content-Security-Policy"', web_headers),
         ("OTA ECDSA verifier", "mbedtls_pk_verify(", ota_verifier),

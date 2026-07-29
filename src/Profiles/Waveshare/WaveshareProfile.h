@@ -7,7 +7,6 @@
 #include "Modules/EventBusModule/EventBusModule.h"
 #include "Modules/HMIModule/HMIModule.h"
 #include "Modules/HMIBuzzerModule/HMIBuzzerModule.h"
-#include "Modules/IOModule/IOBus/OneWireBus.h"
 #include "Modules/IOModule/IOModule.h"
 #if FLOW_ENABLE_BOOT_LOG_CAPTURE
 #include "Modules/Logs/BootLogCaptureModule/BootLogCaptureModule.h"
@@ -79,8 +78,6 @@ struct ModuleInstances {
     IOModule ioModule;
     PoolDeviceModule poolDeviceModule{};
     PoolLogicModule poolLogicModule{};
-    OneWireBus oneWireWater;
-    OneWireBus oneWireAir;
     DataStore* ioDataStore = nullptr;
     const HAService* haService = nullptr;
     char topicNetworkState[Limits::TopicBuf] = {0};

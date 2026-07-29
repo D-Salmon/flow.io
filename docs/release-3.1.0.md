@@ -9,6 +9,8 @@ notre version 2.5.1.
 
 - Ethernet Waveshare activé par défaut et profil N16R8 avec 16 Mo de flash et
   8 Mo de PSRAM ;
+- sondes DS18B20 raccordées au pont Qwiic DS2484 à l’adresse I²C `0x18`, avec
+  cache NVS distinct pour les ROM eau et air ;
 - migration ArduinoJson 7.4.3 et allocation PSRAM des gros documents JSON ;
 - mise en service prudente : automatique, robot automatique et surveillance de
   pression désactivés par défaut ;
@@ -22,8 +24,6 @@ notre version 2.5.1.
 
 ## Écarts encore ouverts
 
-- Les sondes DS18B20 utilisent encore les bus 1-Wire directs des GPIO 20 et 19
-  de la base 3.x. Le pont Qwiic DS2484 de notre 2.5.1 n’est pas encore porté.
 - Le planificateur 3.x travaille avec une précision à l’heure. La fenêtre
   nocturne est donc 22:00–05:00 à 20 °C, et non le calcul à la minute de la
   2.5.1.
@@ -36,4 +36,4 @@ notre version 2.5.1.
 
 Cette construction est une base 3.1.0 compilable destinée à poursuivre le
 portage. Elle ne doit pas encore être flashée sur le Waveshare de production
-avant la reprise du DS2484 et la validation fonctionnelle des flux de sécurité.
+avant la validation matérielle du DS2484 et des flux de sécurité.

@@ -15,8 +15,8 @@ enum : PhysicalPortId {
     PortAdsInternal3 = 103, // ADS1115 interne, entree single-ended A3.
     PortAdsExternal0 = 110, // ADS1115 externe, paire differentielle 0.
     PortAdsExternal1 = 111, // ADS1115 externe, paire differentielle 1.
-    PortOneWire1 = 120, // DS18B20 bus 1.
-    PortOneWire2 = 121, // DS18B20 bus 2.
+    PortOneWire1 = 120, // First DS18B20 discovered through the Qwiic DS2484.
+    PortOneWire2 = 121, // Second DS18B20 discovered through the Qwiic DS2484.
     PortSht40Temp = 130, // SHT40: temperature.
     PortSht40Humidity = 131, // SHT40: humidite.
     PortBmp280Temp = 132, // BMP280: temperature.
@@ -72,8 +72,8 @@ inline constexpr IOBindingPortSpec kBindingPorts[] = {
     {PortAdsInternal3, IO_PORT_KIND_ADS_INTERNAL_SINGLE, 3, 0}, // ADS1115 interne canal 3.
     {PortAdsExternal0, IO_PORT_KIND_ADS_EXTERNAL_DIFF, 0, 0}, // ADS1115 externe paire 0.
     {PortAdsExternal1, IO_PORT_KIND_ADS_EXTERNAL_DIFF, 1, 0}, // ADS1115 externe paire 1.
-    {PortOneWire1, IO_PORT_KIND_DS18_WATER, 20, 0}, // DS18B20 bus 1 GPIO20.
-    {PortOneWire2, IO_PORT_KIND_DS18_AIR, 19, 0}, // DS18B20 bus 2 GPIO19.
+    {PortOneWire1, IO_PORT_KIND_DS18_WATER, 0, 0}, // DS2484 ROM index 0: water probe.
+    {PortOneWire2, IO_PORT_KIND_DS18_AIR, 1, 0}, // DS2484 ROM index 1: air probe.
     {PortSht40Temp, IO_PORT_KIND_SHT40, 0, 0}, // SHT40 temperature.
     {PortSht40Humidity, IO_PORT_KIND_SHT40, 1, 0}, // SHT40 humidite.
     {PortBmp280Temp, IO_PORT_KIND_BMP280, 0, 0}, // BMP280 temperature.

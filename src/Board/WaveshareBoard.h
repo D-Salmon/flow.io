@@ -167,30 +167,10 @@ inline constexpr I2cBusSpec kWaveshareESP32S3I2c[] = {
 };
 
 /*
- * 1-Wire temperature probe buses.
- *
- * Each entry uses:
- *   name, signal, pin.
- *
- * name:
- *   Logical bus name used in logs/configuration.
- *
- * signal:
- *   BoardSignal identifier used to bind the physical bus to a domain role.
- *
- * pin:
- *   GPIO carrying the 1-Wire data line.
- *
- * NVS behavior:
- *   Not stored in NVS. The OneWireBus objects are constructed from these pins
- *   before module config is loaded, so the compiled pin values always apply.
- *   DS18B20 ROM addresses may be stored separately by the IO module, but the
- *   bus GPIO pins are not.
+ * The Waveshare Qwiic profile does not drive a direct 1-Wire GPIO. Both
+ * DS18B20 probes share the main I2C bus through a DS2484 bridge at 0x18.
+ * Their ROM addresses are cached independently by IOModule.
  */
-inline constexpr OneWireBusSpec kWaveshareESP32S3OneWire[] = {
-    {"temp_probe_1", BoardSignal::TempProbe1, 20}, // Water DS18B20 probe bus on GPIO20.
-    {"temp_probe_2", BoardSignal::TempProbe2, 19}, // Air DS18B20 probe bus on GPIO19.
-};
 
 /*
  * W5500 Ethernet wiring for the Waveshare board.
@@ -290,8 +270,8 @@ inline constexpr IoPointSpec kWaveshareESP32S3IoPoints[] = {
     {"digital_in6_unused", IoCapability::DigitalIn, BoardSignal::DigitalIn6, 9, false, 0},
     {"digital_in7_unused", IoCapability::DigitalIn, BoardSignal::DigitalIn7, 10, false, 0},
     {"digital_in8_unused", IoCapability::DigitalIn, BoardSignal::DigitalIn8, 11, false, 0},
-    {"water_temperature_ds18b20", IoCapability::OneWireTemp, BoardSignal::TempProbe1, 20, false, 0},
-    {"air_temperature_ds18b20", IoCapability::OneWireTemp, BoardSignal::TempProbe2, 19, false, 0},
+    {"water_temperature_ds18b20", IoCapability::OneWireTemp, BoardSignal::TempProbe1, 0, false, 0},
+    {"air_temperature_ds18b20", IoCapability::OneWireTemp, BoardSignal::TempProbe2, 1, false, 0},
     {"venice_tx433", IoCapability::DigitalOut, BoardSignal::Tx433, 03, false, 0},
 };
 
@@ -463,8 +443,8 @@ inline constexpr BoardSpec kWaveshareESP32S3{
     (uint8_t)(sizeof(kWaveshareESP32S3Uarts) / sizeof(kWaveshareESP32S3Uarts[0])),
     kWaveshareESP32S3I2c,
     (uint8_t)(sizeof(kWaveshareESP32S3I2c) / sizeof(kWaveshareESP32S3I2c[0])),
-    kWaveshareESP32S3OneWire,
-    (uint8_t)(sizeof(kWaveshareESP32S3OneWire) / sizeof(kWaveshareESP32S3OneWire[0])),
+    nullptr,
+    0,
     kWaveshareESP32S3IoPoints,
     (uint8_t)(sizeof(kWaveshareESP32S3IoPoints) / sizeof(kWaveshareESP32S3IoPoints[0])),
     kWaveshareESP32S3IoCapacity,
