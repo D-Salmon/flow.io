@@ -2245,7 +2245,7 @@
     let poolConfigAlarmSlotsCache = [];
     let poolConfigLiveState = {};
     const poolConfigModuleDefs = Object.freeze([
-      Object.freeze({ module: 'poollogic/modes', titleKey: 'pool.card.modes.title', title: 'Pilotage général', icon: 'tune', noteKey: 'pool.card.modes.note', note: 'Ces interrupteurs définissent si PoolLogic pilote la piscine et quelle stratégie de traitement est retenue.' }),
+      Object.freeze({ module: 'poollogic/modes', titleKey: 'pool.card.modes.title', title: 'Pilotage général', icon: 'tune', noteKey: 'pool.card.modes.note', note: 'Choisissez entre Manuel / maintenance, Manuel sécurisé et Automatique.' }),
       Object.freeze({ module: 'hmi/buzzer', titleKey: 'pool.card.alarmSound.title', title: 'Signal sonore', icon: 'notifications_active', noteKey: 'pool.card.alarmSound.note', note: 'Le son des alarmes peut être coupé sans masquer les alarmes affichées.' }),
       Object.freeze({ module: 'poollogic/filtration', titleKey: 'pool.card.filtration.title', title: 'Filtration', icon: 'waves', noteKey: 'pool.card.filtration.note', note: 'La plage de filtration combine contraintes horaires et température d’eau pour protéger le bassin.' }),
       Object.freeze({ module: 'poollogic/ph', titleKey: 'pool.card.ph.title', title: 'Régulation pH', icon: 'science', noteKey: 'pool.card.ph.note', note: 'Consigne, sens de dosage et fenêtre de régulation de la pompe pH.' }),
@@ -2307,8 +2307,13 @@
     ]);
     const poolEditableFieldSpecs = Object.freeze({
       'poollogic/modes': Object.freeze([
-        Object.freeze({ key: 'enabled', type: 'bool', label: 'PoolLogic actif' }),
-        Object.freeze({ key: 'auto_mode', type: 'bool', label: 'Mode automatique PoolLogic' }),
+        Object.freeze({
+          key: 'operating_mode',
+          type: 'pool_mode',
+          enabledKey: 'enabled',
+          autoModeKey: 'auto_mode',
+          label: 'Mode de fonctionnement'
+        }),
         Object.freeze({ key: 'winter_mode', type: 'bool', label: 'Mode hiver' }),
         Object.freeze({ key: 'robot_auto_mode', type: 'bool', label: 'Robot automatique' })
       ]),
@@ -6949,7 +6954,63 @@
       const entries = [];
 
       specs.forEach((spec, index) => {
-        if (!spec || !Object.prototype.hasOwnProperty.call(data, spec.key)) return;
+        if (!spec) return;
+        if (spec.type === 'pool_mode') {
+          if (!spec.enabledKey || !spec.autoModeKey
+              || !Object.prototype.hasOwnProperty.call(data, spec.enabledKey)
+              || !Object.prototype.hasOwnProperty.call(data, spec.autoModeKey)) return;
+
+          const field = document.createElement('div');
+          field.className = 'pool-setting-field';
+          const controlId = 'pool-setting-' + runtimeMeasureCssSlug(moduleName + '-' + spec.key) + '-' + index;
+          const label = document.createElement('label');
+          label.className = 'pool-setting-label';
+          label.htmlFor = controlId;
+          label.textContent = spec.label;
+          const control = document.createElement('select');
+          control.id = controlId;
+          control.className = 'pool-setting-control';
+          control.name = spec.key;
+          [
+            { value: 'maintenance', label: tr('pool.mode.maintenance', 'Manuel / maintenance') },
+            { value: 'safe_manual', label: tr('pool.mode.safeManual', 'Manuel sécurisé') },
+            { value: 'automatic', label: tr('pool.mode.automatic', 'Automatique') }
+          ].forEach((entry) => {
+            const option = document.createElement('option');
+            option.value = entry.value;
+            option.textContent = entry.label;
+            control.appendChild(option);
+          });
+          control.value = !toBool(data[spec.enabledKey])
+            ? 'maintenance'
+            : (toBool(data[spec.autoModeKey]) ? 'automatic' : 'safe_manual');
+
+          const controlWrap = document.createElement('div');
+          controlWrap.className = 'pool-setting-control-wrap';
+          controlWrap.appendChild(control);
+          field.appendChild(label);
+          field.appendChild(controlWrap);
+          const help = document.createElement('p');
+          help.className = 'pool-setting-help';
+          help.textContent = tr(
+            'pool.mode.help',
+            'Manuel / maintenance désactive PoolLogic. Manuel sécurisé conserve la surveillance et les sécurités. Automatique ajoute le pilotage selon les horaires, les mesures et les consignes.'
+          );
+          field.appendChild(help);
+          fields.appendChild(field);
+          entries.push({
+            spec: { key: spec.enabledKey, label: spec.label },
+            input: control,
+            read: () => control.value !== 'maintenance'
+          });
+          entries.push({
+            spec: { key: spec.autoModeKey, label: spec.label },
+            input: control,
+            read: () => control.value === 'automatic'
+          });
+          return;
+        }
+        if (!Object.prototype.hasOwnProperty.call(data, spec.key)) return;
         if (spec.type === 'feedback') {
           if (!spec.activeHighKey || !Object.prototype.hasOwnProperty.call(data, spec.activeHighKey)) return;
 
@@ -7170,9 +7231,13 @@
       if (!poolModeBadges) return;
       poolModeBadges.innerHTML = '';
       const modes = modules['poollogic/modes'] || {};
+      const poolLogicEnabled = toBool(modes.enabled);
+      const automatic = poolLogicEnabled && toBool(modes.auto_mode);
+      const operatingMode = !poolLogicEnabled
+        ? tr('pool.mode.maintenance', 'Manuel / maintenance')
+        : (automatic ? tr('pool.mode.automatic', 'Automatique') : tr('pool.mode.safeManual', 'Manuel sécurisé'));
       const items = [
-        [tr('pool.badge.poollogic', 'PoolLogic'), poolConfigBoolLabel(modes.enabled, tr('pool.state.active', 'Actif'), tr('pool.state.disabled', 'Désactivé')), toBool(modes.enabled), 'bolt'],
-        [tr('pool.badge.auto', 'Auto'), poolConfigBoolLabel(modes.auto_mode, tr('pool.state.automatic', 'Automatique'), tr('pool.state.manual', 'Manuel')), toBool(modes.auto_mode), 'settings'],
+        [tr('pool.badge.operatingMode', 'Mode'), operatingMode, poolLogicEnabled, automatic ? 'settings' : 'build'],
         [tr('pool.badge.winter', 'Hiver'), poolConfigBoolLabel(modes.winter_mode, tr('pool.state.forced', 'Forcé'), tr('pool.state.normal', 'Normal')), toBool(modes.winter_mode), 'ac_unit']
       ];
       items.forEach((item) => {
@@ -7201,10 +7266,10 @@
       const heaterState = poolConfigBoolLabel(heater.heater_auto_mode, tr('pool.state.autoShort', 'auto'), tr('pool.state.off', 'arrêt'));
 
       if (!poolLogicEnabled) {
-        return tr('pool.summary.poollogicOff', 'PoolLogic désactivé : le système reste en manuel et ne pilote pas la piscine.');
+        return tr('pool.summary.poollogicOff', 'Manuel / maintenance : commandes directes, sans automatismes ni sécurités gérés par PoolLogic.');
       }
       if (!autoMode) {
-        return tr('pool.summary.manual', 'Mode manuel : PoolLogic est actif, mais les automatismes sont suspendus. Traitement configuré : {treatment}.')
+        return tr('pool.summary.manual', 'Manuel sécurisé : commandes manuelles avec surveillance et sécurités PoolLogic. Traitement configuré : {treatment}.')
           .replace('{treatment}', treatment);
       }
       if (winterMode) {
