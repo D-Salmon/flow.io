@@ -376,18 +376,16 @@ Les curseurs `protocol_state`, `last_dose_day`, `weekly_done_ml` et `pending_ml`
 
 ### Fenêtre de filtration (calcul quotidien)
 
-- `wat_temp_lo_th`
-- `wat_temp_setpt`
-- `filtr_start_min`
-- `filtr_stop_max`
-- `filtr_start_clc` (calculé)
-- `filtr_stop_clc` (calculé)
+- `filtr_start_minute` (minute du jour calculée)
+- `filtr_stop_minute` (minute du jour calculée)
+- `filtr_duration_minute` (durée calculée)
 
 La durée vaut 2 heures jusqu'à 12 °C, augmente linéairement jusqu'à 24 heures
 à 30 °C, puis reste continue. Pour privilégier les heures creuses, toute plage
 calculée avec une température d'eau inférieure ou égale à 20 °C commence à
 22 h 00 et peut se terminer le lendemain. Au-dessus de 20 °C, la plage est
-centrée autour de 15 h.
+centrée autour de 15 h. Le calcul et le planificateur conservent la précision à
+la minute ; à 20 °C, la plage obtenue est 22:00–06:28.
 
 ### Bindings capteurs IO
 

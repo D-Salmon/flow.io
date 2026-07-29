@@ -78,37 +78,21 @@
       "help_t": "cfgdocs.poollogic.devices.swg_slot.help",
       "enum_set": "poollogic_device_slot"
     },
-    "poollogic/filtration/filtr_start_clc": {
-      "type": "UInt8",
-      "label_t": "cfgdocs.poollogic.filtration.filtr_start_clc.label",
-      "help_t": "cfgdocs.poollogic.filtration.filtr_start_clc.help"
+    "poollogic/filtration/filtr_start_minute": {
+      "type": "UInt16",
+      "label_t": "cfgdocs.poollogic.filtration.filtr_start_minute.label",
+      "help_t": "cfgdocs.poollogic.filtration.filtr_start_minute.help"
     },
-    "poollogic/filtration/filtr_start_min": {
-      "type": "UInt8",
-      "label_t": "cfgdocs.poollogic.filtration.filtr_start_min.label",
-      "help_t": "cfgdocs.poollogic.filtration.filtr_start_min.help"
+    "poollogic/filtration/filtr_stop_minute": {
+      "type": "UInt16",
+      "label_t": "cfgdocs.poollogic.filtration.filtr_stop_minute.label",
+      "help_t": "cfgdocs.poollogic.filtration.filtr_stop_minute.help"
     },
-    "poollogic/filtration/filtr_stop_clc": {
-      "type": "UInt8",
-      "label_t": "cfgdocs.poollogic.filtration.filtr_stop_clc.label",
-      "help_t": "cfgdocs.poollogic.filtration.filtr_stop_clc.help"
-    },
-    "poollogic/filtration/filtr_stop_max": {
-      "type": "UInt8",
-      "label_t": "cfgdocs.poollogic.filtration.filtr_stop_max.label",
-      "help_t": "cfgdocs.poollogic.filtration.filtr_stop_max.help"
-    },
-    "poollogic/filtration/wat_temp_lo_th": {
-      "type": "Float",
-      "label_t": "cfgdocs.poollogic.filtration.wat_temp_lo_th.label",
-      "help_t": "cfgdocs.poollogic.filtration.wat_temp_lo_th.help",
-      "unit": "C"
-    },
-    "poollogic/filtration/wat_temp_setpt": {
-      "type": "Float",
-      "label_t": "cfgdocs.poollogic.filtration.wat_temp_setpt.label",
-      "help_t": "cfgdocs.poollogic.filtration.wat_temp_setpt.help",
-      "unit": "C"
+    "poollogic/filtration/filtr_duration_minute": {
+      "type": "UInt16",
+      "label_t": "cfgdocs.poollogic.filtration.filtr_duration_minute.label",
+      "help_t": "cfgdocs.poollogic.filtration.filtr_duration_minute.help",
+      "unit": "min"
     },
     "poollogic/heater/heater_auto_mode": {
       "type": "Bool",

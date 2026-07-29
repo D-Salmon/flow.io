@@ -1104,7 +1104,10 @@ void PoolLogicModule::runControlLoop_(uint32_t nowMs)
     portEXIT_CRITICAL(&pendingMux_);
 
     bool clockWindowActive = false;
-    if (currentFiltrationWindowActive_(filtrationCalcStart_, filtrationCalcStop_, clockWindowActive)) {
+    if (currentFiltrationWindowActive_(filtrationCalcStartMinute_,
+                                       filtrationCalcStopMinute_,
+                                       filtrationCalcDurationMinute_,
+                                       clockWindowActive)) {
         if (clockWindowActive != windowActive || forceFiltrationReconcile) {
             windowActive = clockWindowActive;
             portENTER_CRITICAL(&pendingMux_);

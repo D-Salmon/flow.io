@@ -15,8 +15,8 @@ notre version 2.5.1.
 - mise en service prudente : automatique, robot automatique et surveillance de
   pression désactivés par défaut ;
 - alarmes et entités Home Assistant ajoutées en 2.5.1 ;
-- recalcul manuel de la filtration et filtration nocturne à partir de 22 h pour
-  l’eau froide ou tempérée ;
+- recalcul manuel de la filtration à la minute, filtration nocturne à partir de
+  22 h pour l’eau froide ou tempérée et fonctionnement continu à 30 °C ;
 - sécurisation des GPIO RF433 et des broches inutilisées du pont série Web ;
 - primitives de sécurité Web, en-têtes HTTP et vérificateur ECDSA OTA ;
 - éléments de tableau de bord Home Assistant, arrêt sûr du kiosque Raspberry Pi
@@ -24,9 +24,6 @@ notre version 2.5.1.
 
 ## Écarts encore ouverts
 
-- Le planificateur 3.x travaille avec une précision à l’heure. La fenêtre
-  nocturne est donc 22:00–05:00 à 20 °C, et non le calcul à la minute de la
-  2.5.1.
 - Les primitives d’authentification/CSRF et de signature OTA sont présentes,
   mais le flux de mise à jour distant propre à la 3.x ne les appelle pas encore
   de bout en bout.

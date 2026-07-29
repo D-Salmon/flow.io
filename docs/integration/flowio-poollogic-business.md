@@ -267,12 +267,9 @@ Si le service alarme n’est pas disponible, `PoolLogic` utilise un fallback loc
 
 ### `poollogic/filtration`
 
-- `wat_temp_lo_th`
-- `wat_temp_setpt`
-- `filtr_start_min`
-- `filtr_stop_max`
-- `filtr_start_clc`
-- `filtr_stop_clc`
+- `filtr_start_minute`
+- `filtr_stop_minute`
+- `filtr_duration_minute`
 
 ### `poollogic/sensors`
 

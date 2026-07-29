@@ -174,12 +174,9 @@ private:
     uint8_t swgControlMode_ = SwgControlContinuous;
 
     // Schedule / filtration window from water temperature
-    float waterTempLowThreshold_ = PoolDefaults::TempLow;
-    float waterTempSetpoint_ = PoolDefaults::TempHigh;
-    uint8_t filtrationStartMin_ = PoolDefaults::FiltrationStartMinHour;
-    uint8_t filtrationStopMax_ = PoolDefaults::FiltrationStopMaxHour;
-    uint8_t filtrationCalcStart_ = PoolDefaults::FiltrationStartMinHour;
-    uint8_t filtrationCalcStop_ = PoolDefaults::FiltrationStopMaxHour;
+    uint16_t filtrationCalcStartMinute_ = 22U * 60U;
+    uint16_t filtrationCalcStopMinute_ = 0U;
+    uint16_t filtrationCalcDurationMinute_ = 120U;
 
     // Sensor IO ids for IOServiceV2 reads.
     IoId phIoId_ = IO_ID_PH_DEFAULT;
@@ -300,18 +297,12 @@ private:
     ConfigVariable<uint8_t,0> swgControlModeVar_{NVS_KEY(NvsKeys::PoolLogic::SwgControlMode), "swg_control_mode", "poollogic/swg", ConfigType::UInt8,
                                                  &swgControlMode_, ConfigPersistence::Persistent, 0};
 
-    ConfigVariable<float,0> tempLowVar_{NVS_KEY(NvsKeys::PoolLogic::TempLow), "wat_temp_lo_th", "poollogic/filtration", ConfigType::Float,
-                                        &waterTempLowThreshold_, ConfigPersistence::Persistent, 0};
-    ConfigVariable<float,0> tempSetpointVar_{NVS_KEY(NvsKeys::PoolLogic::TempSetpoint), "wat_temp_setpt", "poollogic/filtration", ConfigType::Float,
-                                             &waterTempSetpoint_, ConfigPersistence::Persistent, 0};
-    ConfigVariable<uint8_t,0> startMinVar_{NVS_KEY(NvsKeys::PoolLogic::FiltrationStartMin), "filtr_start_min", "poollogic/filtration", ConfigType::UInt8,
-                                           &filtrationStartMin_, ConfigPersistence::Persistent, 0};
-    ConfigVariable<uint8_t,0> stopMaxVar_{NVS_KEY(NvsKeys::PoolLogic::FiltrationStopMax), "filtr_stop_max", "poollogic/filtration", ConfigType::UInt8,
-                                          &filtrationStopMax_, ConfigPersistence::Persistent, 0};
-    ConfigVariable<uint8_t,0> calcStartVar_{NVS_KEY(NvsKeys::PoolLogic::FiltrationCalcStart), "filtr_start_clc", "poollogic/filtration", ConfigType::UInt8,
-                                            &filtrationCalcStart_, ConfigPersistence::Persistent, 0};
-    ConfigVariable<uint8_t,0> calcStopVar_{NVS_KEY(NvsKeys::PoolLogic::FiltrationCalcStop), "filtr_stop_clc", "poollogic/filtration", ConfigType::UInt8,
-                                           &filtrationCalcStop_, ConfigPersistence::Persistent, 0};
+    ConfigVariable<uint16_t,0> calcStartVar_{NVS_KEY(NvsKeys::PoolLogic::FiltrationCalcStart), "filtr_start_minute", "poollogic/filtration", ConfigType::UInt16,
+                                             &filtrationCalcStartMinute_, ConfigPersistence::Persistent, 0};
+    ConfigVariable<uint16_t,0> calcStopVar_{NVS_KEY(NvsKeys::PoolLogic::FiltrationCalcStop), "filtr_stop_minute", "poollogic/filtration", ConfigType::UInt16,
+                                            &filtrationCalcStopMinute_, ConfigPersistence::Persistent, 0};
+    ConfigVariable<uint16_t,0> calcDurationVar_{NVS_KEY(NvsKeys::PoolLogic::FiltrationCalcDuration), "filtr_duration_minute", "poollogic/filtration", ConfigType::UInt16,
+                                                &filtrationCalcDurationMinute_, ConfigPersistence::Persistent, 0};
 
     ConfigVariable<IoId,0> phIdVar_{NVS_KEY(NvsKeys::PoolLogic::PhIoId), "ph_io_id", "poollogic/sensors", ConfigType::UInt16,
                                        &phIoId_, ConfigPersistence::Persistent, 0};
@@ -443,12 +434,20 @@ private:
 
     // Scheduler
     void ensureDailySlot_();
-    bool applyFiltrationWindowSlot_(uint8_t startHour, uint8_t stopHour);
-    bool currentFiltrationWindowActive_(uint8_t startHour, uint8_t stopHour, bool& activeOut) const;
-    bool computeFiltrationWindow_(float waterTemp, uint8_t& startHourOut, uint8_t& stopHourOut, uint8_t& durationOut);
-    bool recalcAndApplyFiltrationWindow_(uint8_t* startHourOut = nullptr,
-                                         uint8_t* stopHourOut = nullptr,
-                                         uint8_t* durationOut = nullptr);
+    bool applyFiltrationWindowSlot_(uint16_t startMinute,
+                                    uint16_t stopMinute,
+                                    uint16_t durationMinutes);
+    bool currentFiltrationWindowActive_(uint16_t startMinute,
+                                        uint16_t stopMinute,
+                                        uint16_t durationMinutes,
+                                        bool& activeOut) const;
+    bool computeFiltrationWindow_(float waterTemp,
+                                  uint16_t& startMinuteOut,
+                                  uint16_t& stopMinuteOut,
+                                  uint16_t& durationMinutesOut);
+    bool recalcAndApplyFiltrationWindow_(uint16_t* startMinuteOut = nullptr,
+                                         uint16_t* stopMinuteOut = nullptr,
+                                         uint16_t* durationMinutesOut = nullptr);
 
     // Control
     static AlarmCondState condPsiLowStatic_(void* ctx, uint32_t nowMs);

@@ -117,8 +117,11 @@ def verify_profile_and_safety_defaults() -> None:
         ("pressure Home Assistant switch", '"pl_psi_monitor"', pool_lifecycle),
         ("water-temperature alarm id", "PoolWaterTemperatureUnavailable = 1009", alarm_ids),
         ("water-temperature alarm entity", "alm_water_temperature_unavailable", alarm_module),
-        ("off-peak filtration start", "out.startHour = 22U;", filtration),
-        ("overnight filtration support", "stopMinute <= startMinute", filtration),
+        ("minute-precision filtration output", "uint16_t durationMinutes", filtration),
+        ("off-peak filtration start", "out.startMinuteOfDay = kOffPeakStartMinute;", filtration),
+        ("overnight filtration support", "stopMinuteOfDay <= startMinuteOfDay", filtration),
+        ("continuous filtration support", "durationMinutes >= kMinutesPerDay", filtration),
+        ("Home Assistant minute formatting", "filtr_start_minute", pool_lifecycle),
         ("Waveshare RF433 allowlist", "flowIOS3PinAllowed", hmi),
         ("Waveshare Web serial unused pins", "int uartRxPin_ = -1;", read(
             "src/Modules/Network/WebInterfaceModule/WebInterfaceModule.h"
@@ -141,7 +144,6 @@ def verify_declared_limits() -> None:
     status = read("docs/release-3.1.0.md")
     required = (
         "DS2484",
-        "précision à l’heure",
         "authentification/CSRF",
         "MQTT utilise encore",
         "ne doit pas encore être flashée",

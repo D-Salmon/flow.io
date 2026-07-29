@@ -39,12 +39,9 @@ static void poolLogicCfgDocsAnchor_(PoolLogicModule& self)
     self.robotAutoModeVar_.moduleName = kCfgModuleModes;
     self.phDosePlusVar_.moduleName = kCfgModulePh;
     self.disinfectionTypeVar_.moduleName = kCfgModuleModes;
-    self.tempLowVar_.moduleName = kCfgModuleFiltration;
-    self.tempSetpointVar_.moduleName = kCfgModuleFiltration;
-    self.startMinVar_.moduleName = kCfgModuleFiltration;
-    self.stopMaxVar_.moduleName = kCfgModuleFiltration;
     self.calcStartVar_.moduleName = kCfgModuleFiltration;
     self.calcStopVar_.moduleName = kCfgModuleFiltration;
+    self.calcDurationVar_.moduleName = kCfgModuleFiltration;
 
     self.phIdVar_.moduleName = kCfgModuleSensors;
     self.orpIdVar_.moduleName = kCfgModuleSensors;

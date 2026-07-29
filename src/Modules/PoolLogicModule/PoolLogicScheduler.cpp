@@ -13,6 +13,10 @@
 #define LOG_MODULE_ID ((LogModuleId)LogModuleIdValue::PoolLogicModule)
 #include "Core/ModuleLog.h"
 
+namespace {
+constexpr uint16_t kMinutesPerDay = 24U * 60U;
+}
+
 void PoolLogicModule::ensureDailySlot_()
 {
     if (!schedSvc_ || !schedSvc_->setSlot) {
@@ -44,26 +48,26 @@ void PoolLogicModule::ensureDailySlot_()
     }
 }
 
-bool PoolLogicModule::computeFiltrationWindow_(float waterTemp, uint8_t& startHourOut, uint8_t& stopHourOut, uint8_t& durationOut)
+bool PoolLogicModule::computeFiltrationWindow_(float waterTemp,
+                                               uint16_t& startMinuteOut,
+                                               uint16_t& stopMinuteOut,
+                                               uint16_t& durationMinutesOut)
 {
-    // The actual deterministic formula stays isolated in FiltrationWindow.cpp;
-    // this method only adapts module config into that pure helper.
     FiltrationWindowInput in{};
     in.waterTemp = waterTemp;
-    in.lowThreshold = waterTempLowThreshold_;
-    in.setpoint = waterTempSetpoint_;
-    in.startMinHour = filtrationStartMin_;
-    in.stopMaxHour = filtrationStopMax_;
 
     FiltrationWindowOutput out{};
     if (!computeFiltrationWindowDeterministic(in, out)) return false;
-    startHourOut = out.startHour;
-    stopHourOut = out.stopHour;
-    durationOut = out.durationHours;
+    startMinuteOut = out.startMinuteOfDay;
+    stopMinuteOut = out.stopMinuteOfDay;
+    durationMinutesOut = out.durationMinutes;
     return true;
 }
 
-bool PoolLogicModule::currentFiltrationWindowActive_(uint8_t startHour, uint8_t stopHour, bool& activeOut) const
+bool PoolLogicModule::currentFiltrationWindowActive_(uint16_t startMinute,
+                                                     uint16_t stopMinute,
+                                                     uint16_t durationMinutes,
+                                                     bool& activeOut) const
 {
     if (!timeSvc_ || !timeSvc_->isSynced || !timeSvc_->epoch) return false;
     if (!timeSvc_->isSynced(timeSvc_->ctx)) return false;
@@ -76,29 +80,45 @@ bool PoolLogicModule::currentFiltrationWindowActive_(uint8_t startHour, uint8_t 
     if (!localtime_r(&now, &localNow)) return false;
 
     const uint16_t minuteOfDay = (uint16_t)((localNow.tm_hour * 60) + localNow.tm_min);
-    activeOut = isFiltrationWindowActiveAtMinute(startHour, stopHour, minuteOfDay);
+    activeOut = isFiltrationWindowActiveAtMinute(startMinute,
+                                                 stopMinute,
+                                                 durationMinutes,
+                                                 minuteOfDay);
     return true;
 }
 
-bool PoolLogicModule::applyFiltrationWindowSlot_(uint8_t startHour, uint8_t stopHour)
+bool PoolLogicModule::applyFiltrationWindowSlot_(uint16_t startMinute,
+                                                 uint16_t stopMinute,
+                                                 uint16_t durationMinutes)
 {
     if (!schedSvc_ || !schedSvc_->setSlot) {
         LOGW("No time.scheduler service available");
         return false;
     }
+    if (startMinute >= kMinutesPerDay ||
+        stopMinute >= kMinutesPerDay ||
+        durationMinutes < 120U ||
+        durationMinutes > kMinutesPerDay) {
+        LOGW("Invalid filtration window start=%u stop=%u duration=%u",
+             (unsigned)startMinute,
+             (unsigned)stopMinute,
+             (unsigned)durationMinutes);
+        return false;
+    }
 
+    const bool continuous = durationMinutes == kMinutesPerDay;
     TimeSchedulerSlot window{};
     window.slot = SLOT_FILTR_WINDOW;
     window.eventId = POOLLOGIC_EVENT_FILTRATION_WINDOW;
-    window.enabled = true;
+    window.enabled = !continuous;
     window.hasEnd = true;
     window.replayStartOnBoot = true;
     window.mode = TimeSchedulerMode::RecurringClock;
     window.weekdayMask = TIME_WEEKDAY_ALL;
-    window.startHour = (startHour < 24U) ? startHour : 23U;
-    window.startMinute = 0;
-    window.endHour = (stopHour < 24U) ? stopHour : 23U;
-    window.endMinute = 0;
+    window.startHour = (uint8_t)(startMinute / 60U);
+    window.startMinute = (uint8_t)(startMinute % 60U);
+    window.endHour = (uint8_t)(stopMinute / 60U);
+    window.endMinute = (uint8_t)(stopMinute % 60U);
     window.startEpochSec = 0;
     window.endEpochSec = 0;
     strncpy(window.label, "poollogic_filtration", sizeof(window.label) - 1);
@@ -109,11 +129,11 @@ bool PoolLogicModule::applyFiltrationWindowSlot_(uint8_t startHour, uint8_t stop
         return false;
     }
 
-    bool windowActive = filtrationWindowActive_;
-    if (currentFiltrationWindowActive_(startHour, stopHour, windowActive)) {
+    bool windowActive = continuous;
+    if (currentFiltrationWindowActive_(startMinute, stopMinute, durationMinutes, windowActive)) {
         // Keep PoolLogic deterministic during the short gap after setSlot(),
         // before TimeModule has rebuilt its active mask.
-    } else if (schedSvc_->isActive) {
+    } else if (!continuous && schedSvc_->isActive) {
         windowActive = schedSvc_->isActive(schedSvc_->ctx, SLOT_FILTR_WINDOW);
     }
 
@@ -121,12 +141,20 @@ bool PoolLogicModule::applyFiltrationWindowSlot_(uint8_t startHour, uint8_t stop
     filtrationWindowActive_ = windowActive;
     pendingFiltrationReconcile_ = true;
     portEXIT_CRITICAL(&pendingMux_);
+
+    LOGI("Filtration window duration=%umin start=%02u:%02u stop=%02u:%02u continuous=%u",
+         (unsigned)durationMinutes,
+         (unsigned)(startMinute / 60U),
+         (unsigned)(startMinute % 60U),
+         (unsigned)(stopMinute / 60U),
+         (unsigned)(stopMinute % 60U),
+         continuous ? 1U : 0U);
     return true;
 }
 
-bool PoolLogicModule::recalcAndApplyFiltrationWindow_(uint8_t* startHourOut,
-                                                      uint8_t* stopHourOut,
-                                                      uint8_t* durationOut)
+bool PoolLogicModule::recalcAndApplyFiltrationWindow_(uint16_t* startMinuteOut,
+                                                      uint16_t* stopMinuteOut,
+                                                      uint16_t* durationMinutesOut)
 {
     if (!schedSvc_ || !schedSvc_->setSlot) {
         LOGW("No time.scheduler service available");
@@ -139,92 +167,77 @@ bool PoolLogicModule::recalcAndApplyFiltrationWindow_(uint8_t* startHourOut,
         hasWaterTemp = loadAnalogSensor_(waterTempIoId_, waterTemp);
     }
     if (!ioSvc_ || !ioSvc_->readAnalog) {
-        LOGW("No IOServiceV2 available for water temperature; using widest filtration window");
+        LOGW("No IOServiceV2 available for water temperature; keeping previous filtration window");
     } else if (!hasWaterTemp) {
-        LOGW("Water temperature unavailable on ioId=%u; using widest filtration window", (unsigned)waterTempIoId_);
+        LOGW("Water temperature unavailable on ioId=%u; keeping previous filtration window",
+             (unsigned)waterTempIoId_);
     }
 
-    uint8_t startHour = 0;
-    uint8_t stopHour = 0;
-    uint8_t duration = 0;
-    if (!computeFiltrationWindow_(waterTemp, startHour, stopHour, duration)) {
-        LOGW("Invalid water temperature value");
+    uint16_t startMinute = 0U;
+    uint16_t stopMinute = 0U;
+    uint16_t durationMinutes = 0U;
+    if (!computeFiltrationWindow_(waterTemp, startMinute, stopMinute, durationMinutes)) {
+        LOGW("Filtration window unchanged: water temperature is invalid");
         return false;
     }
 
     // PoolLogic stores the computed window back into the shared scheduler so
     // filtration state changes continue to arrive as regular scheduler events.
-    if (!applyFiltrationWindowSlot_(startHour, stopHour)) return false;
+    if (!applyFiltrationWindowSlot_(startMinute, stopMinute, durationMinutes)) return false;
 
     bool startStored = false;
     bool stopStored = false;
+    bool durationStored = false;
     if (cfgStore_) {
-        startStored = cfgStore_->set(calcStartVar_, startHour);
-        stopStored = cfgStore_->set(calcStopVar_, stopHour);
-        if (!startStored || !stopStored) {
-            LOGW("Failed to persist calculated filtration window start=%u stop=%u",
-                 (unsigned)startHour,
-                 (unsigned)stopHour);
+        startStored = cfgStore_->set(calcStartVar_, startMinute);
+        stopStored = cfgStore_->set(calcStopVar_, stopMinute);
+        durationStored = cfgStore_->set(calcDurationVar_, durationMinutes);
+        if (!startStored || !stopStored || !durationStored) {
+            LOGW("Failed to persist filtration window start=%u stop=%u duration=%u",
+                 (unsigned)startMinute,
+                 (unsigned)stopMinute,
+                 (unsigned)durationMinutes);
         }
     }
-    if (!cfgStore_ || !startStored) filtrationCalcStart_ = startHour;
-    if (!cfgStore_ || !stopStored) filtrationCalcStop_ = stopHour;
+    if (!cfgStore_ || !startStored) filtrationCalcStartMinute_ = startMinute;
+    if (!cfgStore_ || !stopStored) filtrationCalcStopMinute_ = stopMinute;
+    if (!cfgStore_ || !durationStored) filtrationCalcDurationMinute_ = durationMinutes;
 
     if (cfgMqttPub_) {
         // Recompute commands should always refresh MQTT cfg consumers, even if
         // computed values stayed identical and ConfigStore emitted no change.
         cfgMqttPub_->requestFullSync(MqttPublishPriority::Normal);
     }
-    if (startHourOut) *startHourOut = startHour;
-    if (stopHourOut) *stopHourOut = stopHour;
-    if (durationOut) *durationOut = duration;
+    if (startMinuteOut) *startMinuteOut = startMinute;
+    if (stopMinuteOut) *stopMinuteOut = stopMinute;
+    if (durationMinutesOut) *durationMinutesOut = durationMinutes;
 
-    if (hasWaterTemp) {
-        LOGI("Filtration duration=%uh water=%.2fC start=%uh stop=%uh",
-             (unsigned)duration,
+    LOGI("Filtration duration=%umin water=%.2fC start=%02u:%02u stop=%02u:%02u",
+         (unsigned)durationMinutes,
+         (double)waterTemp,
+         (unsigned)(startMinute / 60U),
+         (unsigned)(startMinute % 60U),
+         (unsigned)(stopMinute / 60U),
+         (unsigned)(stopMinute % 60U));
+    char detail[128] = {0};
+    snprintf(detail,
+             sizeof(detail),
+             "Température eau %.2f °C, durée %u min, plage %02u:%02u-%02u:%02u.",
              (double)waterTemp,
-             (unsigned)startHour,
-             (unsigned)stopHour);
-        char detail[128] = {0};
-        snprintf(detail,
-                 sizeof(detail),
-                 "Température eau %.2f °C, durée %u h, plage %02u:00-%02u:00.",
-                 (double)waterTemp,
-                 (unsigned)duration,
-                 (unsigned)startHour,
-                 (unsigned)stopHour);
-        emitActivity_(ActivityCode::PoolLogicFiltrationWindowCalculated,
-                      ActivitySource::Scheduler,
-                      ActivitySeverity::Info,
-                      ActivityRole::Filtration,
-                      ActivityState::None,
-                      ActivityReason::Scheduler,
-                      filtrationDeviceSlot_,
-                      "Plage de filtration recalculée",
-                      detail,
-                      "schedule");
-    } else {
-        LOGI("Filtration duration=%uh water=unavailable start=%uh stop=%uh",
-             (unsigned)duration,
-             (unsigned)startHour,
-             (unsigned)stopHour);
-        char detail[128] = {0};
-        snprintf(detail,
-                 sizeof(detail),
-                 "Température eau indisponible, durée %u h, plage %02u:00-%02u:00.",
-                 (unsigned)duration,
-                 (unsigned)startHour,
-                 (unsigned)stopHour);
-        emitActivity_(ActivityCode::PoolLogicFiltrationWindowCalculated,
-                      ActivitySource::Scheduler,
-                      ActivitySeverity::Warning,
-                      ActivityRole::Filtration,
-                      ActivityState::None,
-                      ActivityReason::Scheduler,
-                      filtrationDeviceSlot_,
-                      "Plage de filtration recalculée",
-                      detail,
-                      "schedule");
-    }
+             (unsigned)durationMinutes,
+             (unsigned)(startMinute / 60U),
+             (unsigned)(startMinute % 60U),
+             (unsigned)(stopMinute / 60U),
+             (unsigned)(stopMinute % 60U));
+    emitActivity_(ActivityCode::PoolLogicFiltrationWindowCalculated,
+                  ActivitySource::Scheduler,
+                  ActivitySeverity::Info,
+                  ActivityRole::Filtration,
+                  ActivityState::None,
+                  ActivityReason::Scheduler,
+                  filtrationDeviceSlot_,
+                  "Plage de filtration recalculée",
+                  detail,
+                  "schedule");
     return true;
 }

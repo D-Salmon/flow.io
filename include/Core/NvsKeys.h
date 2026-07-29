@@ -451,8 +451,9 @@ constexpr char FillingSlot[] = "pl_sfill"; // Pool logic module persisted key fo
 constexpr char PhPumpSlot[] = "pl_sphp"; // Pool logic module persisted key for field `pl_sphp`.
 constexpr char OrpPumpSlot[] = "pl_sorp"; // Pool logic module persisted key for field `pl_sorp`.
 constexpr char HeaterSlot[] = "pl_shea"; // Pool logic module persisted key for field `pl_shea`.
-constexpr char FiltrationCalcStart[] = "pl_fcst"; // Pool logic runtime key for calculated filtration start hour.
-constexpr char FiltrationCalcStop[] = "pl_fcen"; // Pool logic runtime key for calculated filtration stop hour.
+constexpr char FiltrationCalcStart[] = "pl_fcst"; // Calculated filtration start, minute of day.
+constexpr char FiltrationCalcStop[] = "pl_fcen"; // Calculated filtration stop, minute of day.
+constexpr char FiltrationCalcDuration[] = "pl_fdur"; // Calculated duration in minutes; zero means invalid.
 }  // namespace PoolLogic
 
 namespace PoolDevice {
