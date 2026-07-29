@@ -5539,7 +5539,8 @@ void WebInterfaceModule::startServer_()
                                            sendPreparedAssetResponse,
                                            lightUiAssetsAvailable,
                                            fullUiAssetsAvailable,
-                                           provisioningUiAssetsAvailable](AsyncWebServerRequest* request) {
+                                           provisioningUiAssetsAvailable,
+                                           sendRescuePage](AsyncWebServerRequest* request) {
         HttpLatencyScope latency(request, "/webinterface");
         NetworkAccessMode mode = NetworkAccessMode::None;
         if (!netAccessSvc_ && services_) {

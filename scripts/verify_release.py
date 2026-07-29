@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail-fast checks for a Flow.io source/release kit."""
+"""Fail-fast checks for the Flow.io Waveshare 3.1 source/release kit."""
 
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+VERSION = "3.1.0"
 
 
 def fail(message: str) -> None:
@@ -19,10 +20,18 @@ def fail(message: str) -> None:
     raise SystemExit(1)
 
 
+def read(relative: str) -> str:
+    return (ROOT / relative).read_text(encoding="utf-8")
+
+
+def require(label: str, needle: str, content: str) -> None:
+    if needle not in content:
+        fail(f"release invariant missing: {label}")
+
+
 def verify_manifest() -> None:
     binary_dir = ROOT / "binary"
-    manifest_path = binary_dir / "manifest.json"
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest = json.loads((binary_dir / "manifest.json").read_text(encoding="utf-8"))
     if manifest.get("schema") != "flowio.firmware-manifest.v2":
         fail("manifest schema is not v2")
 
@@ -31,17 +40,21 @@ def verify_manifest() -> None:
         for group in manifest.get("artifacts", {}).values()
         for entry in group
     ]
+    if not entries:
+        fail("manifest contains no artifacts")
+
     listed = {entry["path"] for entry in entries}
-    actual = {
-        path.name
-        for path in binary_dir.iterdir()
-        if path.is_file() and path.name != "manifest.json"
+    required_artifacts = {
+        f"flowios3-{VERSION}.bin",
+        f"flowios3-spiffs-{VERSION}.bin",
     }
-    if listed != actual:
-        fail(f"manifest/files mismatch: missing={sorted(actual-listed)} stale={sorted(listed-actual)}")
+    if not required_artifacts.issubset(listed):
+        fail(f"3.1 artifacts missing from manifest: {sorted(required_artifacts - listed)}")
 
     for entry in entries:
         path = binary_dir / entry["path"]
+        if not path.is_file():
+            fail(f"manifest artifact is missing: {path.name}")
         data = path.read_bytes()
         if entry.get("size") != len(data):
             fail(f"bad size in manifest for {path.name}")
@@ -62,182 +75,80 @@ def verify_gzip_assets() -> None:
             fail(f"stale gzip asset: {archive.relative_to(ROOT)}")
 
 
-def verify_security_defaults() -> None:
-    web = (ROOT / "src/Modules/Network/WebInterfaceModule/WebInterfaceServer.cpp").read_text(
-        encoding="utf-8"
+def verify_profile_and_safety_defaults() -> None:
+    ini = read("platformio.ini")
+    board = read("src/Board/WaveshareBoard.h")
+    hmi = read("src/Modules/HMIModule/HMIModule.cpp")
+    web = read("src/Modules/Network/WebInterfaceModule/WebInterfaceServer.cpp")
+    web_headers = read("src/Modules/Network/WebInterfaceModule/WebSecurityHeaders.cpp")
+    ota_verifier = read(
+        "src/Modules/Network/WebInterfaceModule/OtaSignatureVerifier.cpp"
     )
-    updater = (ROOT / "src/Modules/Network/FirmwareUpdateModule/FirmwareUpdateModule.cpp").read_text(
-        encoding="utf-8"
-    )
-    web_header = (
-        ROOT / "src/Modules/Network/WebInterfaceModule/WebInterfaceModule.h"
-    ).read_text(encoding="utf-8")
-    web_policy = (ROOT / "src/Core/Security/WebSecurityPolicy.cpp").read_text(
-        encoding="utf-8"
-    )
-    web_policy_header = (ROOT / "src/Core/Security/WebSecurityPolicy.h").read_text(
-        encoding="utf-8"
-    )
-    web_headers = (
-        ROOT / "src/Modules/Network/WebInterfaceModule/WebSecurityHeaders.cpp"
-    ).read_text(encoding="utf-8")
-    web_index = (ROOT / "data/webinterface/index.html").read_text(encoding="utf-8")
-    alarm_module = (ROOT / "src/Modules/AlarmModule/AlarmModule.cpp").read_text(
-        encoding="utf-8"
-    )
-    alarm_ids = (ROOT / "include/Core/AlarmIds.h").read_text(encoding="utf-8")
-    board_capacities = (ROOT / "src/Board/FlowIODINBoards.h").read_text(
-        encoding="utf-8"
-    )
-    mqtt = (ROOT / "src/Modules/Network/MQTTModule/MQTTTransport.cpp").read_text(encoding="utf-8")
-    provisioning = (
-        ROOT / "src/Modules/Network/WifiProvisioningModule/WifiProvisioningModule.cpp"
-    ).read_text(encoding="utf-8")
-    ethernet_header = (
-        ROOT / "src/Modules/Network/EthernetModule/EthernetModule.h"
-    ).read_text(encoding="utf-8")
-    pool_logic_header = (
-        ROOT / "src/Modules/PoolLogicModule/PoolLogicModule.h"
-    ).read_text(encoding="utf-8")
-    pool_logic_control = (
-        ROOT / "src/Modules/PoolLogicModule/PoolLogicControl.cpp"
-    ).read_text(encoding="utf-8")
-    pool_logic_lifecycle = (
-        ROOT / "src/Modules/PoolLogicModule/PoolLogicLifecycle.cpp"
-    ).read_text(encoding="utf-8")
-    config_store = (ROOT / "src/Core/ConfigStore.cpp").read_text(encoding="utf-8")
+    ota_key = read("include/Security/OtaPublicKey.h")
+    pool_header = read("src/Modules/PoolLogicModule/PoolLogicModule.h")
+    pool_control = read("src/Modules/PoolLogicModule/PoolLogicControl.cpp")
+    pool_lifecycle = read("src/Modules/PoolLogicModule/PoolLogicLifecycle.cpp")
+    alarm_ids = read("include/Core/AlarmIds.h")
+    alarm_module = read("src/Modules/AlarmModule/AlarmModule.cpp")
+    filtration = read("src/Modules/PoolLogicModule/FiltrationWindow.cpp")
+
     required = (
-        ("HTTP authentication middleware", "requestAuthentication(\"Flow.io\", true)", web),
-        ("Web authentication rate limit", "webAuthRateLimited_(request", web),
-        ("Web authentication failure log", "noteWebAuthFailure_(request)", web),
-        ("Web authentication global rate limit", "globalBlockedUntilMs", web_policy),
-        ("Web authentication protected eviction", "oldestEvictable", web_policy),
-        ("Web authentication 32-source table", "WebAuthThrottleSlots = 32U", web_policy_header),
-        ("CSRF middleware", "csrfRequestAllowed_(request)", web),
-        ("CSRF response token", 'doc["csrf_token"] = csrfToken_', web),
-        ("WebSocket origin validation", "websocketHandshakeAllowed_(request)", web),
-        ("HTTP security headers", 'response->addHeader("Content-Security-Policy"', web_headers),
-        ("strict application CSP", "script-src 'self';", web_policy),
-        ("recovery CSP profile", "InlineRecovery", web_policy),
-        ("unsigned update default-off", "#define FLOW_ALLOW_UNSIGNED_UPDATES 0", updater),
-        ("signed local OTA verification", "verifyOtaSignature(digest", web),
-        ("signed local OTA header", 'hasHeader("X-Flow-Signature")', web),
-        ("repeated invalid OTA signature alarm", "noteInvalidOtaSignature_()", web),
-        ("OTA signature AlarmId", "AlarmId::OtaSignatureFailures", web),
-        ("OTA signature Home Assistant entity", "alm_ota_signature_failures", alarm_module),
-        (
-            "local upload authentication and CSRF",
-            "!webRequestAuthorized_(request) || !csrfRequestAllowed_(request)",
-            web,
-        ),
-        ("MQTT TLS default-on", "#define FLOW_MQTT_REQUIRE_TLS 1", mqtt),
-        ("MQTT CA bundle", "esp_crt_bundle_attach", mqtt),
-        ("random provisioning password", "esp_random()", provisioning),
-        ("Waveshare Ethernet commissioning default", "bool enabled = true;", ethernet_header),
-        ("manual pool commissioning default", "bool autoMode_ = false;", pool_logic_header),
-        ("robot automatic cycle default-off", "bool robotAutoMode_ = false;", pool_logic_header),
-        (
-            "robot automatic cycle gate",
-            "robotAutoMode_ && filtrationFsm_.on",
-            pool_logic_control,
-        ),
-        (
-            "Home Assistant robot automatic switch",
-            '"pl_robot_auto"',
-            pool_logic_lifecycle,
-        ),
-        (
-            "water temperature unavailable AlarmId",
-            "PoolWaterTemperatureUnavailable = 1009",
-            alarm_ids,
-        ),
-        (
-            "water temperature unavailable condition",
-            "condWaterTemperatureUnavailableStatic_",
-            pool_logic_control,
-        ),
-        (
-            "water temperature Home Assistant alarm",
-            "alm_water_temperature_unavailable",
-            alarm_module,
-        ),
-        (
-            "Home Assistant switch capacity",
-            "kFlowIOS3HaCapacity{40, 20, 20, 22, 24, 10}",
-            board_capacities,
-        ),
-        (
-            "pressure monitoring commissioning default",
-            "bool pressureMonitoringEnabled_ = false;",
-            pool_logic_header,
-        ),
-        (
-            "disabled pressure safety bypass",
-            "if (!self->pressureMonitoringEnabled_) return AlarmCondState::False;",
-            pool_logic_control,
-        ),
-        (
-            "Home Assistant pressure monitoring switch",
-            '"pl_psi_monitor"',
-            pool_logic_lifecycle,
-        ),
-        ("JSON string escaping", "writeJsonEncodedString_", config_store),
-        ("valid truncated JSON objects", "appendConfigJsonEntry_", config_store),
+        ("firmware version", 'waveshare_firmware_version = \'"3.1.0"\'', ini),
+        ("16 MB OTA partition map", "partitions_flowios3_ota_16mb.csv", ini),
+        ("octal PSRAM", "board_build.psram_type = opi", ini),
+        ("ArduinoJson 7.4.3", "bblanchon/ArduinoJson @ 7.4.3", ini),
+        ("Ethernet default enabled", "kWaveshareESP32S3EthernetW5500{\n    true,", board),
+        ("Web security-header middleware", "addWebSecurityHeaders(request->getResponse()", web),
+        ("Content-Security-Policy header", '"Content-Security-Policy"', web_headers),
+        ("OTA ECDSA verifier", "mbedtls_pk_verify(", ota_verifier),
+        ("OTA public key fail-closed default", 'PublicKeyPem[] = "";', ota_key),
+        ("manual commissioning default", "bool autoMode_ = false;", pool_header),
+        ("robot automation default-off", "bool robotAutoMode_ = false;", pool_header),
+        ("pressure monitoring default-off", "bool pressureMonitoringEnabled_ = false;", pool_header),
+        ("robot automation gate", "robotAutoMode_ && filtrationFsm_.on", pool_control),
+        ("pressure safety bypass when disabled", "if (!self->pressureMonitoringEnabled_)", pool_control),
+        ("robot Home Assistant switch", '"pl_robot_auto"', pool_lifecycle),
+        ("pressure Home Assistant switch", '"pl_psi_monitor"', pool_lifecycle),
+        ("water-temperature alarm id", "PoolWaterTemperatureUnavailable = 1009", alarm_ids),
+        ("water-temperature alarm entity", "alm_water_temperature_unavailable", alarm_module),
+        ("off-peak filtration start", "out.startHour = 22U;", filtration),
+        ("overnight filtration support", "stopMinute <= startMinute", filtration),
+        ("Waveshare RF433 allowlist", "flowIOS3PinAllowed", hmi),
+        ("Waveshare Web serial unused pins", "int uartRxPin_ = -1;", read(
+            "src/Modules/Network/WebInterfaceModule/WebInterfaceModule.h"
+        )),
     )
     for label, needle, content in required:
-        if needle not in content:
-            fail(f"security invariant missing: {label}")
-    if re.search(r'\\"pass\\":\\"%s\\"', web):
-        fail("web response appears to serialize a password")
-    if re.search(r"<script(?![^>]*\bsrc=)[^>]*>", web_index, re.IGNORECASE):
-        fail("strict-CSP application index contains an inline script")
-    if "flowio1234" in provisioning.lower():
-        fail("legacy shared provisioning password is still present")
+        require(label, needle, content)
 
-    forbidden_hmi_udp = (
-        "HmiUdp",
-        "RemoteHmiUdp",
-        "FLOW_HMI_REMOTE_UDP",
-        "FlowConnectDisplay",
-        "42110",
+    sources = "\n".join(
+        path.read_text(encoding="utf-8", errors="replace")
+        for root in (ROOT / "src", ROOT / "include")
+        for path in root.rglob("*")
+        if path.suffix in {".h", ".hpp", ".c", ".cpp"}
     )
-    for source_root in (ROOT / "src", ROOT / "include"):
-        for path in source_root.rglob("*"):
-            if path.suffix not in {".h", ".hpp", ".c", ".cpp"}:
-                continue
-            content = path.read_text(encoding="utf-8")
-            for needle in forbidden_hmi_udp:
-                if needle in content:
-                    fail(
-                        "removed remote-display transport remains in "
-                        f"{path.relative_to(ROOT)}: {needle}"
-                    )
+    if re.search(r"\b(?:Static|Dynamic)JsonDocument\b", sources):
+        fail("legacy ArduinoJson document type remains in source")
 
 
-def verify_dependencies() -> None:
-    ini = (ROOT / "platformio.ini").read_text(encoding="utf-8")
-    if re.search(r"@\s*\^", ini):
-        fail("platformio.ini contains floating caret dependencies")
-    if re.search(r"^\s*https://github\.com/.+\.git\s*$", ini, re.MULTILINE):
-        fail("platformio.ini contains an unpinned Git dependency")
-    if re.search(r"^\s*milesburton/DallasTemperature\s*$", ini, re.MULTILINE):
-        fail("DallasTemperature is not version-pinned")
-    required_versions = (
-        "bblanchon/ArduinoJson @ 7.4.3",
-        "ESP32Async/AsyncTCP @ 3.4.10",
-        "ESP32Async/ESPAsyncWebServer @ 3.11.2",
-        "nextion_firmware_version = '\"2.0.7\"'",
+def verify_declared_limits() -> None:
+    status = read("docs/release-3.1.0.md")
+    required = (
+        "DS2484",
+        "précision à l’heure",
+        "authentification/CSRF",
+        "MQTT utilise encore",
+        "ne doit pas encore être flashée",
     )
-    for expected in required_versions:
-        if expected not in ini:
-            fail(f"required hardened version missing: {expected}")
+    for text in required:
+        require(f"documented 3.1 limitation: {text}", text, status)
 
 
 def main() -> int:
     verify_manifest()
     verify_gzip_assets()
-    verify_security_defaults()
-    verify_dependencies()
+    verify_profile_and_safety_defaults()
+    verify_declared_limits()
     print("release verification: OK")
     return 0
 

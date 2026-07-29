@@ -4,10 +4,24 @@
 from __future__ import annotations
 
 import base64
+import os
+import shutil
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
+
+
+def find_openssl() -> str:
+    discovered = shutil.which("openssl")
+    if discovered:
+        return discovered
+    program_files = os.environ.get("ProgramFiles", "")
+    if program_files:
+        bundled = Path(program_files) / "Git" / "usr" / "bin" / "openssl.exe"
+        if bundled.is_file():
+            return str(bundled)
+    raise FileNotFoundError("OpenSSL is required for the OTA signing test")
 
 
 def run(*args: str, expect_success: bool = True) -> subprocess.CompletedProcess[bytes]:
@@ -22,6 +36,7 @@ def run(*args: str, expect_success: bool = True) -> subprocess.CompletedProcess[
 def main() -> int:
     repository = Path(__file__).resolve().parents[1]
     signing_script = repository / "scripts" / "sign_ota.py"
+    openssl = find_openssl()
 
     with tempfile.TemporaryDirectory() as temp_name:
         temp = Path(temp_name)
@@ -31,9 +46,9 @@ def main() -> int:
         signature_b64 = temp / "firmware.bin.sig"
         signature_der = temp / "firmware.bin.sig.der"
 
-        run("openssl", "ecparam", "-name", "prime256v1", "-genkey",
+        run(openssl, "ecparam", "-name", "prime256v1", "-genkey",
             "-noout", "-out", str(private_key))
-        run("openssl", "ec", "-in", str(private_key), "-pubout",
+        run(openssl, "ec", "-in", str(private_key), "-pubout",
             "-out", str(public_key))
 
         artifact.write_bytes(b"Flow.io deterministic OTA signing test\n")
@@ -41,11 +56,11 @@ def main() -> int:
             "--private-key", str(private_key), "--output", str(signature_b64))
         signature_der.write_bytes(base64.b64decode(signature_b64.read_text(encoding="ascii")))
 
-        run("openssl", "dgst", "-sha256", "-verify", str(public_key),
+        run(openssl, "dgst", "-sha256", "-verify", str(public_key),
             "-signature", str(signature_der), str(artifact))
 
         artifact.write_bytes(b"Flow.io tampered OTA signing test\n")
-        run("openssl", "dgst", "-sha256", "-verify", str(public_key),
+        run(openssl, "dgst", "-sha256", "-verify", str(public_key),
             "-signature", str(signature_der), str(artifact), expect_success=False)
 
     print("OTA signing workflow: valid signature accepted, tampered image rejected")

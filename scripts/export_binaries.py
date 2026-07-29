@@ -1,4 +1,5 @@
 from datetime import datetime
+import hashlib
 import json
 from pathlib import Path
 import re
@@ -123,11 +124,12 @@ def _update_manifest():
             "kind": spec["kind"],
             "route": spec["route"],
             "size": stat.st_size,
+            "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
         }
         artifacts.setdefault(spec["category"], []).append(entry)
 
     manifest = {
-        "schema": "flowio.firmware-manifest.v1",
+        "schema": "flowio.firmware-manifest.v2",
         "generated_at": now_iso,
         "release": datetime.fromtimestamp(newest_ts).strftime("%Y.%m.%d") if newest_ts is not None else datetime.now().strftime("%Y.%m.%d"),
         "artifacts": artifacts,

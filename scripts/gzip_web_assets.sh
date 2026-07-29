@@ -3,12 +3,22 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+python_bin="${FLOW_PYTHON:-}"
+if [[ -z "$python_bin" ]]; then
+  python_bin="$(command -v python3 || command -v python || true)"
+fi
+if [[ -z "$python_bin" ]]; then
+  echo "Python 3 is required (set FLOW_PYTHON when it is not on PATH)" >&2
+  exit 1
+fi
+cfgdocs_env="${PIOENV:-Waveshare-ESP32-S3}"
+
 if [[ -f "scripts/generate_config_docs.py" ]]; then
-  python3 scripts/generate_config_docs.py
+  PIOENV="$cfgdocs_env" "$python_bin" scripts/generate_config_docs.py
 fi
 
 if [[ -f "scripts/generate_cfgdoc_chunks.py" ]]; then
-  python3 scripts/generate_cfgdoc_chunks.py
+  PIOENV="$cfgdocs_env" "$python_bin" scripts/generate_cfgdoc_chunks.py
 fi
 
 assets=(

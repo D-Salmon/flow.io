@@ -42,7 +42,7 @@ jobs:
       - name: Regenerate compressed web assets
         run: bash scripts/gzip_web_assets.sh
       - name: Run native unit tests
-        run: platformio test -e native
+        run: platformio test -c platformio.native.ini -e native
       - name: Build firmware
         run: platformio run -e Waveshare-ESP32-S3
       - name: Enforce firmware partition budget

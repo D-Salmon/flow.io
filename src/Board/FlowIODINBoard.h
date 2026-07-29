@@ -4,7 +4,9 @@
 
 namespace BoardProfiles {
 
-inline constexpr uint32_t kFlowIOS3I2cHz = 400000U;
+inline constexpr uint32_t kFlowIODINv1IoI2cHz = 400000U;
+inline constexpr uint32_t kFlowIODINv1InterlinkI2cHz = 400000U;
+inline constexpr uint16_t kFlowIODINMomentaryPulseMs = 500U;
 
 inline constexpr IoCapacitySpec kFlowIODINIoCapacity{17, 5, 10, 17, 5, 10};
 inline constexpr MqttCapacitySpec kFlowIODINMqttCapacity{5712, 8, 8, 48, 24, 16, 2, 192, 80, 80, 128};
