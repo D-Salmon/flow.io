@@ -312,25 +312,25 @@
                 <div class="calibration-fields-title" data-i18n="calibration.mode.two.title">Étalonnage 2 points</div>
                 <div class="calibration-grid calibration-grid-points">
                   <div class="field">
-                    <label for="calibrationPoint1Measured" data-i18n="calibration.point1.measured">Point 1 - Mesure affichée</label>
+                    <label for="calibrationPoint1Measured" data-i18n="calibration.point1.measured">Point 1 - Mesure lue automatiquement</label>
                     <div class="calibration-measured-input-row">
-                      <input id="calibrationPoint1Measured" inputmode="decimal" placeholder="ex: 7.42" data-i18n-placeholder="calibration.placeholder.phMeasured" />
-                      <button id="calibrationPoint1LiveBtn" type="button" class="btn-tonal btn-icon-only btn-refresh-icon calibration-live-fill-btn" aria-label="Reporter la mesure live sur Point 1" title="Reporter la mesure live" data-i18n-aria-label="calibration.liveToPoint1" data-i18n-title="calibration.liveToPoint1"><span class="refresh-icon-glyph" aria-hidden="true"></span></button>
+                      <input id="calibrationPoint1Measured" inputmode="decimal" placeholder="Lecture du Waveshare…" data-i18n-placeholder="calibration.placeholder.phMeasured" readonly />
+                      <button id="calibrationPoint1LiveBtn" type="button" class="btn-tonal btn-refresh-icon calibration-live-fill-btn" aria-label="Lire la sonde pour le point 1" title="Lire la sonde pour le point 1" data-i18n-aria-label="calibration.liveToPoint1" data-i18n-title="calibration.liveToPoint1"><span class="refresh-icon-glyph" aria-hidden="true"></span><span data-i18n="calibration.readNow">Lire</span></button>
                     </div>
                   </div>
                   <div class="field">
-                    <label for="calibrationPoint1Reference" data-i18n="calibration.point1.reference">Point 1 - Référence connue (solution tampon, manomètre, etc.)</label>
+                    <label for="calibrationPoint1Reference" data-i18n="calibration.point1.reference">Point 1 - Valeur de consigne / référence à saisir</label>
                     <input id="calibrationPoint1Reference" inputmode="decimal" placeholder="ex: 7.00" data-i18n-placeholder="calibration.placeholder.phReferenceLow" />
                   </div>
                   <div class="field">
-                    <label for="calibrationPoint2Measured" data-i18n="calibration.point2.measured">Point 2 - Mesure affichée</label>
+                    <label for="calibrationPoint2Measured" data-i18n="calibration.point2.measured">Point 2 - Mesure lue automatiquement</label>
                     <div class="calibration-measured-input-row">
-                      <input id="calibrationPoint2Measured" inputmode="decimal" placeholder="ex: 9.68" data-i18n-placeholder="calibration.placeholder.phMeasuredHigh" />
-                      <button id="calibrationPoint2LiveBtn" type="button" class="btn-tonal btn-icon-only btn-refresh-icon calibration-live-fill-btn" aria-label="Reporter la mesure live sur Point 2" title="Reporter la mesure live" data-i18n-aria-label="calibration.liveToPoint2" data-i18n-title="calibration.liveToPoint2"><span class="refresh-icon-glyph" aria-hidden="true"></span></button>
+                      <input id="calibrationPoint2Measured" inputmode="decimal" placeholder="Lecture du Waveshare…" data-i18n-placeholder="calibration.placeholder.phMeasuredHigh" readonly />
+                      <button id="calibrationPoint2LiveBtn" type="button" class="btn-tonal btn-refresh-icon calibration-live-fill-btn" aria-label="Lire la sonde pour le point 2" title="Lire la sonde pour le point 2" data-i18n-aria-label="calibration.liveToPoint2" data-i18n-title="calibration.liveToPoint2"><span class="refresh-icon-glyph" aria-hidden="true"></span><span data-i18n="calibration.readNow">Lire</span></button>
                     </div>
                   </div>
                   <div class="field">
-                    <label for="calibrationPoint2Reference" data-i18n="calibration.point2.reference">Point 2 - Référence connue (solution tampon, manomètre, etc.)</label>
+                    <label for="calibrationPoint2Reference" data-i18n="calibration.point2.reference">Point 2 - Valeur de consigne / référence à saisir</label>
                     <input id="calibrationPoint2Reference" inputmode="decimal" placeholder="ex: 10.00" data-i18n-placeholder="calibration.placeholder.phReferenceHigh" />
                   </div>
                 </div>
@@ -340,14 +340,14 @@
                 <div class="calibration-fields-title" data-i18n="calibration.mode.one.title">Étalonnage 1 point</div>
                 <div class="calibration-grid calibration-grid-points">
                   <div class="field">
-                    <label for="calibrationSingleMeasured" data-i18n="calibration.single.measured">Mesure affichée</label>
+                    <label for="calibrationSingleMeasured" data-i18n="calibration.single.measured">Mesure lue automatiquement</label>
                     <div class="calibration-measured-input-row">
-                      <input id="calibrationSingleMeasured" inputmode="decimal" placeholder="ex: 24.4" data-i18n-placeholder="calibration.placeholder.tempMeasured" />
-                      <button id="calibrationSingleLiveBtn" type="button" class="btn-tonal btn-icon-only btn-refresh-icon calibration-live-fill-btn" aria-label="Reporter la mesure live" title="Reporter la mesure live" data-i18n-aria-label="calibration.liveToMeasure" data-i18n-title="calibration.liveToMeasure"><span class="refresh-icon-glyph" aria-hidden="true"></span></button>
+                      <input id="calibrationSingleMeasured" inputmode="decimal" placeholder="Lecture du Waveshare…" data-i18n-placeholder="calibration.placeholder.tempMeasured" readonly />
+                      <button id="calibrationSingleLiveBtn" type="button" class="btn-tonal btn-refresh-icon calibration-live-fill-btn" aria-label="Lire la sonde" title="Lire la sonde" data-i18n-aria-label="calibration.liveToMeasure" data-i18n-title="calibration.liveToMeasure"><span class="refresh-icon-glyph" aria-hidden="true"></span><span data-i18n="calibration.readNow">Lire</span></button>
                     </div>
                   </div>
                   <div class="field">
-                    <label for="calibrationSingleReference" data-i18n="calibration.single.reference">Référence connue (solution tampon, manomètre, etc.)</label>
+                    <label for="calibrationSingleReference" data-i18n="calibration.single.reference">Valeur de consigne / référence à saisir</label>
                     <input id="calibrationSingleReference" inputmode="decimal" placeholder="ex: 25.0" data-i18n-placeholder="calibration.placeholder.tempReference" />
                   </div>
                 </div>

@@ -2396,11 +2396,21 @@
         Object.freeze({ key: 'pool_lvl_io_id', type: 'enum', label: 'Niveau du bassin', options: poolOptionalDigitalIoOptions }),
         Object.freeze({ key: 'ph_lvl_io_id', type: 'enum', label: 'Niveau produit pH', options: poolOptionalDigitalIoOptions }),
         Object.freeze({ key: 'chl_lvl_io_id', type: 'enum', label: 'Niveau désinfectant', options: poolOptionalDigitalIoOptions }),
-        Object.freeze({ key: 'psi_monitoring', type: 'bool', label: 'Surveillance de pression' }),
-        Object.freeze({ key: 'filtr_fb_io_id', type: 'enum', label: 'Retour contacteur filtration', options: poolOptionalDigitalIoOptions }),
-        Object.freeze({ key: 'filtr_fb_active_high', type: 'bool', label: 'Retour filtration actif à 1' }),
-        Object.freeze({ key: 'swg_fb_io_id', type: 'enum', label: 'Retour contacteur électrolyseur', options: poolOptionalDigitalIoOptions }),
-        Object.freeze({ key: 'swg_fb_active_high', type: 'bool', label: 'Retour électrolyseur actif à 1' })
+        Object.freeze({
+          key: 'filtr_fb_io_id',
+          activeHighKey: 'filtr_fb_active_high',
+          type: 'feedback',
+          label: 'Retour contacteur filtration',
+          options: poolDigitalIoOptions
+        }),
+        Object.freeze({
+          key: 'swg_fb_io_id',
+          activeHighKey: 'swg_fb_active_high',
+          type: 'feedback',
+          label: 'Retour contacteur électrolyseur',
+          options: poolDigitalIoOptions
+        }),
+        Object.freeze({ key: 'psi_monitoring', type: 'bool', label: 'Surveillance de pression' })
       ]),
       'poollogic/devices': Object.freeze([
         Object.freeze({ key: 'filtr_slot', type: 'enum', label: 'Pompe de filtration', options: poolDeviceSlotOptions }),
@@ -6883,7 +6893,9 @@
       if (poolConfigFieldApplyBusy || !form.reportValidity()) return;
       const changes = {};
       entries.forEach((entry) => {
-        const nextValue = poolConfigEditorStoredValue(entry.spec, entry.input);
+        const nextValue = typeof entry.read === 'function'
+          ? entry.read()
+          : poolConfigEditorStoredValue(entry.spec, entry.input);
         if (!poolConfigValuesEqual(nextValue, data[entry.spec.key])) {
           changes[entry.spec.key] = nextValue;
         }
@@ -6894,9 +6906,9 @@
         status.textContent = 'Aucune modification à enregistrer.';
         return;
       }
-      const changedLabels = entries
+      const changedLabels = Array.from(new Set(entries
         .filter((entry) => Object.prototype.hasOwnProperty.call(changes, entry.spec.key))
-        .map((entry) => entry.spec.label || poolConfigFieldLabel(moduleName, entry.spec.key));
+        .map((entry) => entry.spec.label || poolConfigFieldLabel(moduleName, entry.spec.key))));
       if (!window.confirm('Enregistrer ces réglages ?\n\n• ' + changedLabels.join('\n• '))) return;
 
       poolConfigFieldApplyBusy = true;
@@ -6938,6 +6950,110 @@
 
       specs.forEach((spec, index) => {
         if (!spec || !Object.prototype.hasOwnProperty.call(data, spec.key)) return;
+        if (spec.type === 'feedback') {
+          if (!spec.activeHighKey || !Object.prototype.hasOwnProperty.call(data, spec.activeHighKey)) return;
+
+          const field = document.createElement('div');
+          field.className = 'pool-setting-field pool-setting-feedback';
+          const heading = document.createElement('div');
+          heading.className = 'pool-setting-label';
+          heading.textContent = spec.label;
+          field.appendChild(heading);
+
+          const modeRow = document.createElement('div');
+          modeRow.className = 'pool-feedback-row';
+          const modeId = 'pool-setting-' + runtimeMeasureCssSlug(moduleName + '-' + spec.activeHighKey) + '-' + index;
+          const modeLabel = document.createElement('label');
+          modeLabel.className = 'pool-setting-sublabel';
+          modeLabel.htmlFor = modeId;
+          modeLabel.textContent = 'Fonctionnement du retour';
+          const mode = document.createElement('select');
+          mode.id = modeId;
+          mode.className = 'pool-setting-control';
+          mode.name = spec.activeHighKey;
+          [
+            { value: 'disabled', label: 'Désactivé / non câblé' },
+            { value: 'closed', label: 'Actif si fermé' },
+            { value: 'open', label: 'Actif si ouvert' }
+          ].forEach((entry) => {
+            const option = document.createElement('option');
+            option.value = entry.value;
+            option.textContent = entry.label;
+            mode.appendChild(option);
+          });
+
+          const configuredIoId = Number(data[spec.key]);
+          const feedbackEnabled = configuredIoId !== 65535;
+          let lastActiveHigh = toBool(data[spec.activeHighKey]);
+          mode.value = feedbackEnabled ? (lastActiveHigh ? 'closed' : 'open') : 'disabled';
+          modeRow.appendChild(modeLabel);
+          modeRow.appendChild(mode);
+          const modeDoc = poolConfigDoc(moduleName, spec.activeHighKey);
+          if (modeDoc && typeof modeDoc.help === 'string' && modeDoc.help.trim()) {
+            const help = document.createElement('p');
+            help.className = 'pool-setting-help';
+            help.textContent = modeDoc.help.trim();
+            modeRow.appendChild(help);
+          }
+          field.appendChild(modeRow);
+
+          const inputRow = document.createElement('div');
+          inputRow.className = 'pool-feedback-row';
+          const inputId = 'pool-setting-' + runtimeMeasureCssSlug(moduleName + '-' + spec.key) + '-' + index;
+          const inputLabel = document.createElement('label');
+          inputLabel.className = 'pool-setting-sublabel';
+          inputLabel.htmlFor = inputId;
+          inputLabel.textContent = 'Entrée numérique';
+          const input = document.createElement('select');
+          input.id = inputId;
+          input.className = 'pool-setting-control';
+          input.name = spec.key;
+          const placeholder = document.createElement('option');
+          placeholder.value = '';
+          placeholder.textContent = 'Choisir une entrée…';
+          input.appendChild(placeholder);
+          (spec.options || []).forEach((entry) => {
+            const option = document.createElement('option');
+            option.value = String(entry.value);
+            option.textContent = entry.label;
+            input.appendChild(option);
+          });
+          if (feedbackEnabled) input.value = String(data[spec.key]);
+          inputRow.appendChild(inputLabel);
+          inputRow.appendChild(input);
+          const inputDoc = poolConfigDoc(moduleName, spec.key);
+          if (inputDoc && typeof inputDoc.help === 'string' && inputDoc.help.trim()) {
+            const help = document.createElement('p');
+            help.className = 'pool-setting-help';
+            help.textContent = inputDoc.help.trim();
+            inputRow.appendChild(help);
+          }
+          field.appendChild(inputRow);
+
+          const syncFeedback = () => {
+            const enabled = mode.value !== 'disabled';
+            if (enabled) lastActiveHigh = mode.value === 'closed';
+            inputRow.hidden = !enabled;
+            input.disabled = !enabled;
+            input.required = enabled;
+          };
+          mode.addEventListener('change', syncFeedback);
+          syncFeedback();
+
+          fields.appendChild(field);
+          entries.push({
+            spec: { key: spec.key, label: spec.label },
+            input,
+            read: () => mode.value === 'disabled' ? 65535 : Number(input.value)
+          });
+          entries.push({
+            spec: { key: spec.activeHighKey, label: spec.label },
+            input: mode,
+            read: () => mode.value === 'disabled' ? lastActiveHigh : mode.value === 'closed'
+          });
+          return;
+        }
+
         const field = document.createElement('div');
         field.className = 'pool-setting-field';
         const controlId = 'pool-setting-' + runtimeMeasureCssSlug(moduleName + '-' + spec.key) + '-' + index;
@@ -7823,7 +7939,7 @@
         const isOrp = sensorDef.key === 'orp_one';
         const isPh = sensorDef.key === 'ph_one';
         if (calibrationSingleMeasured) {
-          calibrationSingleMeasured.placeholder = isOrp ? 'ex : 682 mV' : (isPh ? 'ex : 7,18' : 'ex : 24,4 °C');
+          calibrationSingleMeasured.placeholder = 'Lecture automatique du Waveshare…';
         }
         if (calibrationSingleReference) {
           calibrationSingleReference.placeholder = isOrp ? 'ex : 700 mV' : (isPh ? 'ex : 7,00' : 'ex : 25,0 °C');
@@ -7914,6 +8030,12 @@
       if (calibrationSingleLiveBtn) calibrationSingleLiveBtn.disabled = disabled;
     }
 
+    function calibrationClearMeasuredValues() {
+      if (calibrationPoint1Measured) calibrationPoint1Measured.value = '';
+      if (calibrationPoint2Measured) calibrationPoint2Measured.value = '';
+      if (calibrationSingleMeasured) calibrationSingleMeasured.value = '';
+    }
+
     async function loadCalibrationSensorConfig(prefillLive) {
       const def = calibrationCurrentSensorDef();
       if (calibrationSensorSelect && calibrationSensorSelect.value !== def.key) {
@@ -7921,6 +8043,7 @@
       }
       calibrationSetModeUi(def.mode, def);
       calibrationResetComputedUi();
+      calibrationClearMeasuredValues();
       calibrationSetStatus(tr('calibration.loadingSensorCfg', 'Chargement de la configuration sonde...'), 'busy');
       if (calibrationLoadBtn) calibrationLoadBtn.disabled = true;
       calibrationSetLiveFillButtonsDisabled(true);
@@ -7967,7 +8090,17 @@
         calibrationSetLiveFillButtonsDisabled(false);
 
         if (prefillLive) {
-          await calibrationPrefillLiveValue({ silent: true });
+          try {
+            await calibrationPrefillLiveValue({ silent: true });
+          } catch (readErr) {
+            calibrationSetStatus(
+              tr(
+                'calibration.liveUnavailableAfterLoad',
+                'Sonde chargée, mais mesure automatique indisponible: {err}. Réessayez avec « Lire ».'
+              ).replace('{err}', String(readErr)),
+              'error'
+            );
+          }
         }
       } catch (err) {
         calibrationContext = null;
