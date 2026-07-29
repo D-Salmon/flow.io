@@ -10595,10 +10595,45 @@
           input.dataset.key = key;
           input.dataset.kind = 'string';
           input.dataset.label = label.textContent || key;
+          if (isSecret) {
+            input.autocomplete = 'new-password';
+            input.addEventListener('input', () => {
+              input.dataset.masked = '0';
+            });
+          }
+          if (isSecret && String(moduleName).toLowerCase() === 'mqtt' && /(^|\/)pass$/i.test(key)) {
+            input.maxLength = 63;
+          }
           storeConfigFieldInitialValue(input, value);
           inputEl = input;
           inputEl.dataset.module = moduleName;
-          valueWrap.appendChild(input);
+          if (isSecret) {
+            const secretWrap = document.createElement('span');
+            secretWrap.className = 'control-secret-input-wrap';
+            const toggleBtn = document.createElement('button');
+            toggleBtn.type = 'button';
+            toggleBtn.className = 'password-toggle control-secret-toggle';
+            mettreAJourEtatVisibiliteMotDePasse(
+              input,
+              toggleBtn,
+              'Afficher le mot de passe saisi',
+              'Masquer le mot de passe saisi'
+            );
+            toggleBtn.addEventListener('click', () => {
+              basculerVisibiliteMotDePasse(
+                input,
+                toggleBtn,
+                'Afficher le mot de passe saisi',
+                'Masquer le mot de passe saisi'
+              );
+              input.focus();
+            });
+            secretWrap.appendChild(input);
+            secretWrap.appendChild(toggleBtn);
+            valueWrap.appendChild(secretWrap);
+          } else {
+            valueWrap.appendChild(input);
+          }
         }
 
         if (normalizeDigitalInputConfigKey(moduleName, key) === 'mode') {

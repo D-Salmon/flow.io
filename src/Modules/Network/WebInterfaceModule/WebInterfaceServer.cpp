@@ -6227,7 +6227,7 @@ void WebInterfaceModule::startServer_()
         char deviceName[48] = {0};
 
         char mqttJson[640] = {0};
-        if (cfgStore_->toJsonModule("mqtt", mqttJson, sizeof(mqttJson), nullptr, false)) {
+        if (cfgStore_->toJsonModule("mqtt", mqttJson, sizeof(mqttJson), nullptr, true)) {
             JsonDocument doc;
             const DeserializationError err = deserializeJson(doc, mqttJson);
             if (err || !doc.is<JsonObjectConst>()) {
