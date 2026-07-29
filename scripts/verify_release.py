@@ -82,6 +82,9 @@ def verify_profile_and_safety_defaults() -> None:
     waveshare_io = read("src/Profiles/Waveshare/WaveshareIoAssembly.cpp")
     hmi = read("src/Modules/HMIModule/HMIModule.cpp")
     web = read("src/Modules/Network/WebInterfaceModule/WebInterfaceServer.cpp")
+    web_lifecycle = read(
+        "src/Modules/Network/WebInterfaceModule/WebInterfaceLifecycle.cpp"
+    )
     web_headers = read("src/Modules/Network/WebInterfaceModule/WebSecurityHeaders.cpp")
     ota_verifier = read(
         "src/Modules/Network/WebInterfaceModule/OtaSignatureVerifier.cpp"
@@ -108,6 +111,11 @@ def verify_profile_and_safety_defaults() -> None:
         ("DS2484 runtime probe", 'LOGI("DS2484 probe 0x%02X: %s"', io_module),
         ("no direct Waveshare 1-Wire table", "nullptr,\n    0,\n    kWaveshareESP32S3IoPoints", board),
         ("Web security-header middleware", "addWebSecurityHeaders(request->getResponse()", web),
+        ("Web Digest authentication", "request->authenticate(webSecurity_.user", web),
+        ("Web authentication throttle", "Security::checkWebAuthLimit(", web),
+        ("BOOT physical recovery pin", "digitalRead(kBootRecoveryPin)", web_lifecycle),
+        ("BOOT physical recovery hold", "kBootRecoveryHoldMs", web_lifecycle),
+        ("physical recovery credentials route", '"/api/recovery/web-credentials"', web),
         ("Content-Security-Policy header", '"Content-Security-Policy"', web_headers),
         ("OTA ECDSA verifier", "mbedtls_pk_verify(", ota_verifier),
         ("OTA public key fail-closed default", 'PublicKeyPem[] = "";', ota_key),
@@ -150,7 +158,7 @@ def verify_declared_limits() -> None:
     status = read("docs/release-3.1.0.md")
     required = (
         "DS2484",
-        "authentification/CSRF",
+        "récupération physique par appui long de 5 secondes sur BOOT",
         "MQTT utilise encore",
         "ne doit pas encore être flashée",
     )

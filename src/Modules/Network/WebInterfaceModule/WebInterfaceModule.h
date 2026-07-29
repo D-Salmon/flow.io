@@ -8,6 +8,7 @@
  */
 
 #include "Core/Module.h"
+#include "Core/NvsKeys.h"
 #include "Core/Security/WebSecurityPolicy.h"
 #include "Core/ServiceBinding.h"
 #include "Core/Services/Services.h"
@@ -75,6 +76,7 @@ public:
     }
 
     void init(ConfigStore& cfg, ServiceRegistry& services) override;
+    void onConfigLoaded(ConfigStore& cfg, ServiceRegistry& services) override;
     bool canStart(ConfigStore&, ServiceRegistry& services) override {
 #if defined(FLOW_PROFILE_WAVESHARE)
         const NetworkAccessService* net = services.get<NetworkAccessService>(ServiceId::NetworkAccess);
@@ -121,6 +123,14 @@ private:
     void ensureCsrfToken_();
     bool csrfRequestAllowed_(AsyncWebServerRequest* request) const;
     bool requestOriginAllowed_(AsyncWebServerRequest* request, bool originRequired) const;
+    bool webRequestAuthorized_(AsyncWebServerRequest* request) const;
+    bool webAuthRateLimited_(AsyncWebServerRequest* request, uint32_t& retryAfterSeconds);
+    void noteWebAuthFailure_(AsyncWebServerRequest* request);
+    void noteWebAuthSuccess_(AsyncWebServerRequest* request);
+    bool allowUnauthenticatedRequest_(AsyncWebServerRequest* request) const;
+    bool physicalRecoveryActive_() const;
+    uint32_t physicalRecoveryRemainingMs_() const;
+    void pollBootRecoveryButton_();
     bool isWebReachable_() const;
     bool getNetworkIp_(char* out, size_t len, NetworkAccessMode* modeOut) const;
     const char* networkTransport_(NetworkAccessMode mode) const;
@@ -198,6 +208,19 @@ private:
     AsyncWebServer server_{kServerPort};
     AsyncWebSocket wsLog_{"/wslog"};
     char csrfToken_[33] = {0};
+    struct WebSecurityConfig {
+        char user[33]{};
+        char pass[33]{};
+    } webSecurity_{};
+    bool webCredentialsReady_ = false;
+    Security::WebAuthThrottleState webAuthThrottleState_{};
+    portMUX_TYPE webAuthThrottleMux_ = portMUX_INITIALIZER_UNLOCKED;
+    uint32_t bootButtonPressedAtMs_ = 0U;
+    uint32_t physicalRecoveryDeadlineMs_ = 0U;
+    bool bootRecoveryLatched_ = false;
+    static constexpr int kBootRecoveryPin = 0;
+    static constexpr uint32_t kBootRecoveryHoldMs = 5000U;
+    static constexpr uint32_t kPhysicalRecoveryWindowMs = 600000U;
 
     const LogHubService* logHub_ = nullptr;
     const LogSinkRegistryService* logSinkReg_ = nullptr;

@@ -1,65 +1,53 @@
 # Security hardening
 
-This kit uses fail-closed defaults for its network attack surface.
+This kit layers physical recovery, Web authentication, CSRF protection and
+signed firmware updates around its network attack surface.
 
 On a blank NVS, the Ethernet-equipped Waveshare profile enables W5500 DHCP by
-default so that commissioning can be performed with a wired connection. Web
-Digest authentication remains mandatory, and the controller must be connected
-only to a trusted administration LAN. Wi-Fi stays inactive while Ethernet is
-enabled. If DHCP is unavailable, physical recovery remains the local fallback.
+default so that commissioning can be performed with a wired connection. Wi-Fi
+stays inactive while Ethernet is enabled. The controller must be connected only
+to a trusted administration LAN.
 
 ## Web administration
 
-Outside access-point provisioning mode, every HTTP route and the WebSocket
-handshake require HTTP Digest authentication. During first boot, the firmware
-uses `FLOW_WEB_ADMIN_USER` (default: `admin`) and either:
+On a blank NVS, Web access remains open for initial commissioning. No default or
+random administrator password is generated. The installer enables protection
+explicitly through the physical BOOT recovery procedure described below.
 
-- the build-time `FLOW_WEB_ADMIN_PASSWORD`, when non-empty; or
-- a random 24-character password generated once and persisted in NVS.
-
-The generated password is printed once to the physical serial console. The
-random provisioning access-point password is also printed when that portal is
-started. This is an intentional physical-access recovery channel: anyone with
-access to the USB/UART console at those moments can obtain the credentials.
-Production installations must keep the controller in a controlled enclosure,
-restrict access to its debug connector and capture credentials only during the
-commissioning procedure. Wi-Fi, MQTT and web passwords are never returned by
-configuration GET endpoints.
+Once both an administrator user and password are stored, every operational HTTP
+route and the WebSocket handshake require HTTP Digest authentication. The
+credentials are never returned by configuration GET endpoints.
 Submitting an empty Wi-Fi or MQTT password preserves the existing secret. Send
 `clear_pass=1` only when the password must be erased.
 
 The access-point portal exposes only captive-portal assets and Wi-Fi/MQTT
 provisioning endpoints without authentication. Operational controls, diagnostics,
 configuration import, reboot, reset and update routes remain protected.
-Its WPA2 password comes from `FLOW_PROVISIONING_AP_PASSWORD`, or is generated
-randomly at boot and printed to the physical serial console when that build-time
-value is empty. The former shared `flowio1234` password is no longer used.
 
 ## Physical access recovery
 
-The Waveshare profile reserves `GPIO21` for physical recovery. Holding it to
-`GND` continuously for 500 ms during boot starts the open
-`FlowIO-RECOVERY-xxxxxx` access point for ten minutes. The embedded rescue page
-at `http://192.168.4.1/rescue` can then replace the Web administrator
-credentials and, when needed, update Wi-Fi or MQTT settings.
+After a normal boot, hold the Waveshare `BOOT` button (`GPIO0`) for five
+seconds. This opens a ten-minute recovery window on the controller's existing
+Ethernet or Wi-Fi address. Do not hold BOOT while resetting or powering on the
+ESP32-S3, because that selects the ROM download/flashing mode.
 
-Recovery does not expose firmware update, diagnostics, reset or operational
-control routes. All pool-device outputs are held off and ON requests are
-rejected for the duration of the window. The jumper must be removed before the
-scheduled reboot; leaving it fitted requests a new recovery window on every
-boot.
+During the window, the embedded `/rescue` page, `/api/web/meta`, the recovery
+status endpoint and the credential replacement endpoint are reachable without
+the previous Digest credentials. CSRF validation remains mandatory. Firmware
+update, diagnostics, reset, configuration and operational control routes remain
+protected. Saving new credentials closes the window immediately and schedules
+a reboot after eight seconds.
 
-The recovery AP is intentionally open. Its security boundary is physical access
-to the controller plus the short boot-time and ten-minute windows, not a shared
-fallback password. Do not leave the jumper installed, and keep the enclosure
-physically controlled.
+`GPIO21` must never be connected to GND for recovery: on this Waveshare profile
+it drives the TFT backlight. Physical access to BOOT plus access to the trusted
+administration LAN is the recovery security boundary.
 
 Digest authentication prevents sending the password itself in clear text, but
 HTTP traffic is not encrypted. Put the device on a trusted management VLAN and
 do not expose port 80 to the Internet.
 
 State-changing HTTP requests require the 128-bit per-boot token exposed as
-`csrf_token` by the authenticated `/api/web/meta` response. Browser clients
+`csrf_token` by the `/api/web/meta` response. Browser clients
 send it in `X-Flow-CSRF`; requests with a cross-site `Origin` or
 `Sec-Fetch-Site` are rejected. The `/wslog` handshake requires an `Origin`
 matching the request `Host`. Command-line clients must first read

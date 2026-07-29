@@ -21,15 +21,15 @@ notre version 2.5.1.
 - jeton CSRF aléatoire par démarrage, validation d’origine et protection de
   toutes les requêtes Web d’écriture, y compris les interfaces de
   configuration réseau et de secours ;
-- primitives d’authentification, en-têtes HTTP et vérificateur ECDSA OTA ;
+- authentification HTTP Digest configurable, limitation des tentatives et
+  récupération physique par appui long de 5 secondes sur BOOT, sans utiliser
+  le GPIO21 réservé au rétroéclairage ;
+- en-têtes HTTP et vérificateur ECDSA OTA ;
 - éléments de tableau de bord Home Assistant, arrêt sûr du kiosque Raspberry Pi
   et fichiers du boîtier compact.
 
 ## Écarts encore ouverts
 
-- Le lot authentification/CSRF est partiellement raccordé : la protection CSRF
-  est active de bout en bout, mais l’authentification attend encore une
-  procédure de récupération physique compatible avec le bouton BOOT.
 - La mise à jour distante du firmware vérifie désormais un fichier `.sig`
   ECDSA P-256 avant d’activer la partition. Elle reste indisponible tant que la
   clé publique de production n’est pas provisionnée ; les mises à jour
@@ -40,4 +40,4 @@ notre version 2.5.1.
 
 Cette construction est une base 3.1.0 compilable destinée à poursuivre le
 portage. Elle ne doit pas encore être flashée sur le Waveshare de production
-avant la validation matérielle du DS2484 et des flux de sécurité.
+avant la validation matérielle du DS2484 et du parcours BOOT/authentification.

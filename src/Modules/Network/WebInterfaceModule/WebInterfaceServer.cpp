@@ -3842,7 +3842,25 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
     <div class="status" id="status">Chargement...</div>
   </section>
 
-  <div class="grid">
+  <section class="wide">
+    <h2>Securite Web</h2>
+    <p>
+      Pour creer ou remplacer les acces, demarrez normalement le Waveshare puis
+      maintenez le bouton BOOT pendant 5 secondes. La recuperation reste active 10 minutes.
+    </p>
+    <label for="adminUser">Utilisateur administrateur</label>
+    <input id="adminUser" value="admin" maxlength="32" autocomplete="username" />
+    <label for="adminPass">Nouveau mot de passe (12 a 32 caracteres)</label>
+    <input id="adminPass" type="password" minlength="12" maxlength="32" autocomplete="new-password" />
+    <label for="adminConfirm">Confirmation</label>
+    <input id="adminConfirm" type="password" minlength="12" maxlength="32" autocomplete="new-password" />
+    <div class="row">
+      <button id="saveCredentials" type="button" disabled>Enregistrer les acces Web</button>
+    </div>
+    <div class="status note" id="securityMsg">Verification de la recuperation BOOT...</div>
+  </section>
+
+  <div class="grid" id="serviceGrid">
     <section>
       <h2>Réseau Waveshare</h2>
       <label><input id="wifiEnabled" type="checkbox" checked />Activer le réseau station</label>
@@ -3891,12 +3909,17 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
   const $ = (id) => document.getElementById(id);
   const status = $("status");
   const wifiMsg = $("wifiMsg");
+  const securityMsg = $("securityMsg");
   const fwCfgMsg = $("fwCfgMsg");
   const updateMsg = $("updateMsg");
   const buttons = Array.from(document.querySelectorAll("button"));
   let csrfToken = "";
+  let recoveryAllowed = false;
 
-  const setBusy = (busy) => buttons.forEach((b) => { b.disabled = busy; });
+  const setBusy = (busy) => {
+    buttons.forEach((b) => { b.disabled = busy; });
+    $("saveCredentials").disabled = busy || !recoveryAllowed;
+  };
   const formBody = (data) => {
     const body = new URLSearchParams();
     Object.keys(data).forEach((k) => {
@@ -3948,10 +3971,70 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
         $("host").value = fw.update_host || "";
         $("basePath").value = fw.update_path || "";
       }
+      if (meta.ok !== false) {
+        recoveryAllowed = meta.physical_recovery_active === true;
+        $("serviceGrid").hidden = recoveryAllowed;
+        $("saveCredentials").disabled = !recoveryAllowed;
+        if (recoveryAllowed) {
+          put(
+            securityMsg,
+            `Recuperation BOOT active encore ${meta.physical_recovery_remaining_s || 0} s. ` +
+            "Vous pouvez definir de nouveaux acces.",
+            "note"
+          );
+        } else if (meta.auth_enabled === true) {
+          put(
+            securityMsg,
+            "Authentification active. Maintenez BOOT 5 secondes pour remplacer les acces.",
+            "ok"
+          );
+        } else {
+          put(
+            securityMsg,
+            "Acces Web actuellement ouvert. Maintenez BOOT 5 secondes pour activer l'authentification.",
+            "note"
+          );
+        }
+      }
       put(status, { web: meta, network: net, updater: fwst }, "ok");
     } catch (e) {
       put(status, e.message, "bad");
     } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveCredentials() {
+    const user = $("adminUser").value.trim();
+    const pass = $("adminPass").value;
+    const confirmPass = $("adminConfirm").value;
+    if (!recoveryAllowed) {
+      put(securityMsg, "Maintenez d'abord BOOT pendant 5 secondes, puis rafraichissez.", "bad");
+      return;
+    }
+    if (!user || pass.length < 12 || pass.length > 32 || pass !== confirmPass) {
+      put(
+        securityMsg,
+        "Utilisateur requis; mot de passe de 12 a 32 caracteres et confirmation identique.",
+        "bad"
+      );
+      return;
+    }
+    if (!confirm("Enregistrer les nouveaux acces Web et redemarrer dans 8 secondes ?")) return;
+    setBusy(true);
+    try {
+      const out = await api("/api/recovery/web-credentials", {
+        method: "POST",
+        body: formBody({ user, pass, confirm: confirmPass })
+      });
+      recoveryAllowed = false;
+      put(
+        securityMsg,
+        `Acces enregistres. Redemarrage dans ${out.reboot_in_s || 8} secondes.`,
+        "ok"
+      );
+    } catch (e) {
+      put(securityMsg, e.message, "bad");
       setBusy(false);
     }
   }
@@ -4077,6 +4160,7 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
   });
   $("refresh").addEventListener("click", refreshAll);
   $("scan").addEventListener("click", scanWifi);
+  $("saveCredentials").addEventListener("click", saveCredentials);
   $("saveWifi").addEventListener("click", saveWifi);
   $("saveFwCfg").addEventListener("click", saveFwConfig);
   $("checkManifest").addEventListener("click", checkManifest);
@@ -4801,11 +4885,45 @@ void WebInterfaceModule::init(ConfigStore& cfg, ServiceRegistry& services)
     health_.paused = uartPaused_;
     portEXIT_CRITICAL(&healthMux_);
 
+#if defined(FLOW_PROFILE_WAVESHARE)
+    pinMode(kBootRecoveryPin, INPUT_PULLUP);
+    LOGI("Web physical recovery armed on BOOT GPIO%d hold=%lus window=%lus",
+         kBootRecoveryPin,
+         (unsigned long)(kBootRecoveryHoldMs / 1000U),
+         (unsigned long)(kPhysicalRecoveryWindowMs / 1000U));
+#endif
+
 #if defined(FLOW_PROFILE_MICRONOVA) || defined(FLOW_PROFILE_WAVESHARE)
     LOGI("WebInterface local runtime deferred (server deferred)");
 #else
     startLocalRuntime_();
 #endif
+}
+
+void WebInterfaceModule::onConfigLoaded(ConfigStore& cfg, ServiceRegistry&)
+{
+    size_t actualLen = 0U;
+    WebSecurityConfig stored{};
+    if (cfg.readRuntimeBlob(
+            NvsKeys::WebSecurity::Credentials,
+            &stored,
+            sizeof(stored),
+            &actualLen) &&
+        actualLen == sizeof(stored)) {
+        stored.user[sizeof(stored.user) - 1U] = '\0';
+        stored.pass[sizeof(stored.pass) - 1U] = '\0';
+        webSecurity_ = stored;
+    } else {
+        webSecurity_ = WebSecurityConfig{};
+    }
+    webCredentialsReady_ =
+        webSecurity_.user[0] != '\0' &&
+        webSecurity_.pass[0] != '\0';
+    if (webCredentialsReady_) {
+        LOGI("Web authentication enabled for configured administrator");
+    } else {
+        LOGW("Web authentication disabled until credentials are configured through physical BOOT recovery");
+    }
 }
 
 void WebInterfaceModule::onStart(ConfigStore&, ServiceRegistry&)
@@ -4881,6 +4999,33 @@ void WebInterfaceModule::startServer_()
             const String& path = request->url();
             addWebSecurityHeaders(request->getResponse(), path.c_str());
         }
+    });
+
+    server_.addMiddleware([this](AsyncWebServerRequest* request, ArMiddlewareNext next) {
+        if (!allowUnauthenticatedRequest_(request)) {
+            uint32_t retryAfterSeconds = 0U;
+            if (webAuthRateLimited_(request, retryAfterSeconds)) {
+                AsyncWebServerResponse* response = request->beginResponse(
+                    429,
+                    "application/json",
+                    "{\"ok\":false,\"err\":{\"code\":\"AuthRateLimited\",\"where\":\"web.security\"}}"
+                );
+                char retryAfter[12] = {0};
+                snprintf(retryAfter, sizeof(retryAfter), "%lu", (unsigned long)retryAfterSeconds);
+                response->addHeader("Retry-After", retryAfter);
+                request->send(response);
+                return;
+            }
+            if (!webRequestAuthorized_(request)) {
+                // The browser's initial Digest challenge has no Authorization header
+                // and must not consume the source failure budget.
+                if (request->hasHeader("Authorization")) noteWebAuthFailure_(request);
+                request->requestAuthentication("Flow.io", true);
+                return;
+            }
+            noteWebAuthSuccess_(request);
+        }
+        next();
     });
 
     server_.addMiddleware([this](AsyncWebServerRequest* request, ArMiddlewareNext next) {
@@ -5077,8 +5222,8 @@ void WebInterfaceModule::startServer_()
         return provisioningUiAssetsReady;
     };
 
-    server_.on("/", HTTP_GET, [webInterfaceLandingUrl](AsyncWebServerRequest* request) {
-        request->redirect(webInterfaceLandingUrl());
+    server_.on("/", HTTP_GET, [this, webInterfaceLandingUrl](AsyncWebServerRequest* request) {
+        request->redirect(physicalRecoveryActive_() ? "/rescue" : webInterfaceLandingUrl());
     });
 
     server_.on("/rescue", HTTP_GET, [sendRescuePage](AsyncWebServerRequest* request) {
@@ -5508,6 +5653,13 @@ void WebInterfaceModule::startServer_()
 
         doc["ok"] = true;
         doc["csrf_token"] = csrfToken_;
+        doc["auth_enabled"] = webCredentialsReady_;
+        doc["physical_recovery_active"] = physicalRecoveryActive_();
+        doc["physical_recovery_remaining_s"] =
+            (physicalRecoveryRemainingMs_() + 999U) / 1000U;
+        doc["physical_recovery_gpio"] = kBootRecoveryPin;
+        doc["physical_recovery_hold_s"] = kBootRecoveryHoldMs / 1000U;
+        doc["physical_recovery_method"] = "boot_long_press";
         doc["web_asset_version"] = webAssetVersion_();
         doc["firmware_version"] = FirmwareVersion::Full;
         doc["profile"] = FLOW_BUILD_PROFILE_NAME;
@@ -5553,7 +5705,7 @@ void WebInterfaceModule::startServer_()
         heap["largest"] = snap.heap.largestFreeBlock;
         heap["frag"] = snap.heap.fragPercent;
 
-        char out[960] = {0};
+        char out[1200] = {0};
         const size_t n = serializeJson(doc, out, sizeof(out));
         if (n == 0 || n >= sizeof(out)) {
             request->send(500, "application/json",
@@ -5564,6 +5716,94 @@ void WebInterfaceModule::startServer_()
         AsyncWebServerResponse* response = request->beginResponse(200, "application/json", out);
         addNoCacheHeaders_(response);
         request->send(response);
+    });
+    server_.on("/api/recovery/status", HTTP_GET, [this](AsyncWebServerRequest* request) {
+        HttpLatencyScope latency(request, "/api/recovery/status");
+        char out[256] = {0};
+        const int n = snprintf(
+            out,
+            sizeof(out),
+            "{\"ok\":true,\"active\":%s,\"remaining_s\":%lu,"
+            "\"gpio\":%d,\"hold_s\":%lu,\"method\":\"boot_long_press\",\"auth_enabled\":%s}",
+            physicalRecoveryActive_() ? "true" : "false",
+            (unsigned long)((physicalRecoveryRemainingMs_() + 999U) / 1000U),
+            kBootRecoveryPin,
+            (unsigned long)(kBootRecoveryHoldMs / 1000U),
+            webCredentialsReady_ ? "true" : "false");
+        request->send(
+            200,
+            "application/json",
+            (n > 0 && (size_t)n < sizeof(out))
+                ? out
+                : "{\"ok\":false,\"err\":{\"code\":\"Failed\",\"where\":\"recovery.status\"}}");
+    });
+    server_.on("/api/recovery/web-credentials", HTTP_POST, [this](AsyncWebServerRequest* request) {
+        HttpLatencyScope latency(request, "/api/recovery/web-credentials");
+        if (!physicalRecoveryActive_()) {
+            request->send(
+                403,
+                "application/json",
+                "{\"ok\":false,\"err\":{\"code\":\"RecoveryInactive\",\"where\":\"recovery.credentials\"}}");
+            return;
+        }
+        if (!cfgStore_) {
+            request->send(
+                503,
+                "application/json",
+                "{\"ok\":false,\"err\":{\"code\":\"NotReady\",\"where\":\"recovery.credentials\"}}");
+            return;
+        }
+
+        char user[sizeof(webSecurity_.user)] = {0};
+        char pass[sizeof(webSecurity_.pass)] = {0};
+        char confirm[sizeof(webSecurity_.pass)] = {0};
+        copyRequestParamValue_(request, "user", true, user, sizeof(user), "");
+        copyRequestParamValue_(request, "pass", true, pass, sizeof(pass), "");
+        copyRequestParamValue_(request, "confirm", true, confirm, sizeof(confirm), "");
+
+        const size_t userLen = strnlen(user, sizeof(user));
+        const size_t passLen = strnlen(pass, sizeof(pass));
+        if (userLen == 0U || userLen > 32U ||
+            passLen < 12U || passLen > 32U ||
+            strcmp(pass, confirm) != 0 ||
+            strchr(user, '\r') || strchr(user, '\n') ||
+            strchr(pass, '\r') || strchr(pass, '\n')) {
+            request->send(
+                400,
+                "application/json",
+                "{\"ok\":false,\"err\":{\"code\":\"InvalidCredentials\","
+                "\"where\":\"recovery.credentials\","
+                "\"msg\":\"Utilisateur 1-32 caracteres; mot de passe 12-32 caracteres identique a la confirmation.\"}}");
+            return;
+        }
+
+        WebSecurityConfig replacement{};
+        snprintf(replacement.user, sizeof(replacement.user), "%s", user);
+        snprintf(replacement.pass, sizeof(replacement.pass), "%s", pass);
+        if (!cfgStore_->writeRuntimeBlob(
+                NvsKeys::WebSecurity::Credentials,
+                &replacement,
+                sizeof(replacement))) {
+            request->send(
+                500,
+                "application/json",
+                "{\"ok\":false,\"err\":{\"code\":\"Failed\",\"where\":\"recovery.credentials\"}}");
+            return;
+        }
+
+        webSecurity_ = replacement;
+        webCredentialsReady_ = true;
+        portENTER_CRITICAL(&webAuthThrottleMux_);
+        webAuthThrottleState_ = Security::WebAuthThrottleState{};
+        portEXIT_CRITICAL(&webAuthThrottleMux_);
+        physicalRecoveryDeadlineMs_ = 0U;
+
+        scheduleReboot_(8000U, "recovery.web_credentials");
+        LOGW("Physical BOOT recovery replaced web administrator credentials");
+        request->send(
+            200,
+            "application/json",
+            "{\"ok\":true,\"reboot_scheduled\":true,\"reboot_in_s\":8}");
     });
     server_.on("/webinterface", HTTP_GET, [this,
                                            spiffsAssetExists,
@@ -7497,6 +7737,110 @@ bool WebInterfaceModule::csrfRequestAllowed_(AsyncWebServerRequest* request) con
                                         csrfToken_,
                                         suppliedToken.c_str(),
                                         suppliedToken.length());
+}
+
+bool WebInterfaceModule::webRequestAuthorized_(AsyncWebServerRequest* request) const
+{
+    return request &&
+           webCredentialsReady_ &&
+           request->authenticate(webSecurity_.user, webSecurity_.pass, "Flow.io");
+}
+
+bool WebInterfaceModule::webAuthRateLimited_(AsyncWebServerRequest* request,
+                                             uint32_t& retryAfterSeconds)
+{
+    retryAfterSeconds = 0U;
+    if (!request || !request->client()) return false;
+    const uint32_t ip = (uint32_t)request->client()->remoteIP();
+    const uint32_t now = millis();
+    portENTER_CRITICAL(&webAuthThrottleMux_);
+    const Security::WebAuthLimitResult result =
+        Security::checkWebAuthLimit(webAuthThrottleState_, ip, now);
+    portEXIT_CRITICAL(&webAuthThrottleMux_);
+    retryAfterSeconds = result.retryAfterSeconds;
+    return result.limited;
+}
+
+void WebInterfaceModule::noteWebAuthFailure_(AsyncWebServerRequest* request)
+{
+    if (!request || !request->client()) return;
+    const IPAddress remote = request->client()->remoteIP();
+    const uint32_t ip = (uint32_t)remote;
+    const uint32_t now = millis();
+    portENTER_CRITICAL(&webAuthThrottleMux_);
+    const Security::WebAuthFailureResult result =
+        Security::noteWebAuthFailure(webAuthThrottleState_, ip, now);
+    portEXIT_CRITICAL(&webAuthThrottleMux_);
+
+    LOGW("Web auth failed ip=%s failures=%u blocked=%u global_blocked=%u",
+         remote.toString().c_str(),
+         (unsigned)result.sourceFailures,
+         result.sourceNewlyBlocked ? 1U : 0U,
+         result.globalNewlyBlocked ? 1U : 0U);
+}
+
+void WebInterfaceModule::noteWebAuthSuccess_(AsyncWebServerRequest* request)
+{
+    if (!request || !request->client()) return;
+    const uint32_t ip = (uint32_t)request->client()->remoteIP();
+    portENTER_CRITICAL(&webAuthThrottleMux_);
+    Security::noteWebAuthSuccess(webAuthThrottleState_, ip);
+    portEXIT_CRITICAL(&webAuthThrottleMux_);
+}
+
+bool WebInterfaceModule::allowUnauthenticatedRequest_(AsyncWebServerRequest* request) const
+{
+    if (!request) return false;
+
+    // Preserve the historical open setup until an administrator explicitly
+    // provisions credentials through the physical recovery workflow.
+    if (!webCredentialsReady_) return true;
+
+    const String& url = request->url();
+    const WebRequestMethodComposite method = request->method();
+
+    if (physicalRecoveryActive_()) {
+        if (method == HTTP_GET) {
+            return url == "/" ||
+                   url == "/rescue" ||
+                   url == "/webinterface/rescue" ||
+                   url == "/api/web/meta" ||
+                   url == "/api/recovery/status";
+        }
+        return method == HTTP_POST &&
+               url == "/api/recovery/web-credentials";
+    }
+
+    if (!provisioningOnly_) return false;
+
+    if (method == HTTP_GET) {
+        if (url == "/" ||
+            url == "/webinterface" ||
+            url == "/webinterface/" ||
+            url == "/rescue" ||
+            url == "/webinterface/rescue" ||
+            url == "/generate_204" ||
+            url == "/gen_204" ||
+            url == "/hotspot-detect.html" ||
+            url == "/connecttest.txt" ||
+            url == "/ncsi.txt" ||
+            url == "/api/web/meta" ||
+            url == "/api/network/mode" ||
+            url == "/api/wifi/ap" ||
+            url == "/api/wifi/config" ||
+            url == "/api/wifi/scan" ||
+            url == "/api/mqtt/config") {
+            return true;
+        }
+        return url.startsWith("/webinterface/") &&
+               url != "/webinterface/health";
+    }
+    if (method == HTTP_POST) {
+        return url == "/api/wifi/config" ||
+               url == "/api/wifi/scan" ||
+               url == "/api/mqtt/config";
+    }
+    return false;
 }
 
 void WebInterfaceModule::noteInvalidOtaSignature_()

@@ -495,4 +495,8 @@ namespace FlowConnectDisplay {
 constexpr char UdpToken[] = "fcd_udptk"; // Flow Connect Display persisted pairing token key.
 }  // namespace FlowConnectDisplay
 
+namespace WebSecurity {
+constexpr char Credentials[] = "web_auth";
+}  // namespace WebSecurity
+
 }  // namespace NvsKeys
