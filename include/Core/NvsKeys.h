@@ -447,6 +447,7 @@ constexpr char DelayPids[] = "pl_dpds"; // Pool logic module persisted key for f
 constexpr char DelayElectro[] = "pl_delt"; // Pool logic module persisted key for field `pl_delt`.
 constexpr char RobotDelay[] = "pl_rdel"; // Pool logic module persisted key for field `pl_rdel`.
 constexpr char RobotDuration[] = "pl_rdur"; // Pool logic module persisted key for field `pl_rdur`.
+constexpr char FillingEnabled[] = "pl_fen"; // Pool basin level top-up enable.
 constexpr char FillingMinOn[] = "pl_fmin"; // Pool logic module persisted key for field `pl_fmin`.
 constexpr char FiltrationSlot[] = "pl_sfil"; // Pool logic module persisted key for field `pl_sfil`.
 constexpr char SwgSlot[] = "pl_sswg"; // Pool logic module persisted key for field `pl_sswg`.

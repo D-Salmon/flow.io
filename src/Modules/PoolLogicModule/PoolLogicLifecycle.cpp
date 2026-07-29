@@ -230,6 +230,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
     delayElectroVar_.moduleName = kCfgModuleSwg;
     robotDelayVar_.moduleName = kCfgModuleRobot;
     robotDurationVar_.moduleName = kCfgModuleRobot;
+    fillingEnabledVar_.moduleName = kCfgModuleRefill;
     fillingMinOnVar_.moduleName = kCfgModuleRefill;
 
     o2PoolVolumeVar_.moduleName = kCfgModuleO2;
@@ -308,6 +309,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
     cfg.registerVar(delayElectroVar_, kCfgModuleId, kCfgBranchSwg);
     cfg.registerVar(robotDelayVar_, kCfgModuleId, kCfgBranchRobot);
     cfg.registerVar(robotDurationVar_, kCfgModuleId, kCfgBranchRobot);
+    cfg.registerVar(fillingEnabledVar_, kCfgModuleId, kCfgBranchRefill);
     cfg.registerVar(fillingMinOnVar_, kCfgModuleId, kCfgBranchRefill);
 
     cfg.registerVar(o2PoolVolumeVar_, kCfgModuleId, kCfgBranchO2);

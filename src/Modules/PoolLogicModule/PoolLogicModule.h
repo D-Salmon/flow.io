@@ -216,6 +216,7 @@ private:
     uint8_t delayElectroMin_ = 10;
     uint8_t robotDelayMin_ = 30;
     uint8_t robotDurationMin_ = 120;
+    bool fillingEnabled_ = false;
     uint8_t fillingMinOnSec_ = 30;
 
     // Active oxygen phase-2 configuration and persisted protocol cursor.
@@ -386,6 +387,8 @@ private:
                                              &robotDelayMin_, ConfigPersistence::Persistent, 0};
     ConfigVariable<uint8_t,0> robotDurationVar_{NVS_KEY(NvsKeys::PoolLogic::RobotDuration), "robot_dur_min", "poollogic/robot", ConfigType::UInt8,
                                                 &robotDurationMin_, ConfigPersistence::Persistent, 0};
+    ConfigVariable<bool,0> fillingEnabledVar_{NVS_KEY(NvsKeys::PoolLogic::FillingEnabled), "fill_enabled", "poollogic/refill", ConfigType::Bool,
+                                              &fillingEnabled_, ConfigPersistence::Persistent, 0};
     ConfigVariable<uint8_t,0> fillingMinOnVar_{NVS_KEY(NvsKeys::PoolLogic::FillingMinOn), "fill_min_on_s", "poollogic/refill", ConfigType::UInt8,
                                                &fillingMinOnSec_, ConfigPersistence::Persistent, 0};
 

@@ -1491,7 +1491,7 @@ void PoolLogicModule::runControlLoop_(uint32_t nowMs)
     }
 
     bool fillingDesired = false;
-    if (haveLevel) {
+    if (fillingEnabled_ && haveLevel) {
         if (!fillingFsm_.on) {
             fillingDesired = poolLevelOn;
         } else {

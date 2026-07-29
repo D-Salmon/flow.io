@@ -228,6 +228,11 @@
       "help_t": "cfgdocs.poollogic.ph.ph_window_ms.help",
       "unit": "ms"
     },
+    "poollogic/refill/fill_enabled": {
+      "type": "Bool",
+      "label_t": "cfgdocs.poollogic.refill.fill_enabled.label",
+      "help_t": "cfgdocs.poollogic.refill.fill_enabled.help"
+    },
     "poollogic/refill/fill_min_on_s": {
       "type": "UInt8",
       "label_t": "cfgdocs.poollogic.refill.fill_min_on_s.label",

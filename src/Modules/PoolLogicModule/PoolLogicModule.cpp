@@ -77,6 +77,7 @@ static void poolLogicCfgDocsAnchor_(PoolLogicModule& self)
     self.delayElectroVar_.moduleName = kCfgModuleSwg;
     self.robotDelayVar_.moduleName = kCfgModuleRobot;
     self.robotDurationVar_.moduleName = kCfgModuleRobot;
+    self.fillingEnabledVar_.moduleName = kCfgModuleRefill;
     self.fillingMinOnVar_.moduleName = kCfgModuleRefill;
 
     self.filtrationDeviceVar_.moduleName = kCfgModuleDevices;

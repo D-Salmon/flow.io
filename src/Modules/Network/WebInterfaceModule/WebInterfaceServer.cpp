@@ -948,6 +948,7 @@ bool sendFlowStatusCompactResponse_(AsyncWebServerRequest* request, const FlowCf
             appendJsonFieldValue_(*response, "fil", poolIn["fil"]);
             appendJsonFieldValue_(*response, "php", poolIn["php"]);
             appendJsonFieldValue_(*response, "clp", poolIn["clp"]);
+            appendJsonFieldValue_(*response, "swg", poolIn["swg"]);
             appendJsonFieldValue_(*response, "rbt", poolIn["rbt"]);
             response->print('}');
         }
@@ -2202,6 +2203,7 @@ bool waveshareBuildStatusDomainJson_(FlowStatusDomain domain,
         setDevice("fil", PoolIds::DeviceFiltrationPump);
         setDevice("php", PoolIds::DevicePhPump);
         setDevice("clp", PoolIds::DeviceChlorinePump);
+        setDevice("swg", PoolIds::DeviceChlorineGenerator);
         setDevice("rbt", PoolIds::DeviceRobot);
         return serializeJson(doc, out, outLen) > 0U;
     }
