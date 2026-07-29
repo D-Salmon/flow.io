@@ -41,7 +41,7 @@ bool computeFiltrationWindowDeterministic(const FiltrationWindowInput& in, Filtr
     }
 
     int duration = PoolDefaults::MinDurationHours;
-    if (in.waterTemp < in.lowThreshold) {
+    if (in.waterTemp <= in.lowThreshold) {
         duration = PoolDefaults::MinDurationHours;
     } else if (in.waterTemp < in.setpoint) {
         duration = (int)lroundf(in.waterTemp * PoolDefaults::FactorLow);
@@ -51,6 +51,16 @@ bool computeFiltrationWindowDeterministic(const FiltrationWindowInput& in, Filtr
 
     if (duration < PoolDefaults::MinDurationHours) duration = PoolDefaults::MinDurationHours;
     if (duration > PoolDefaults::MaxDurationHours) duration = PoolDefaults::MaxDurationHours;
+
+    // Cold and temperate water is filtered during off-peak hours. The 3.x
+    // scheduler currently stores whole hours, so the end is rounded to the
+    // hour while preserving overnight windows.
+    if (in.waterTemp <= 20.0f) {
+        out.durationHours = (uint8_t)duration;
+        out.startHour = 22U;
+        out.stopHour = (uint8_t)((22 + duration) % 24);
+        return true;
+    }
 
     int startMin = clampClockHour_((int)in.startMinHour);
     int stopMax = clampClockHour_((int)in.stopMaxHour);

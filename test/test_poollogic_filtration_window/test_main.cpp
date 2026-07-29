@@ -15,8 +15,20 @@ void test_temp_below_low_uses_min_duration()
     FiltrationWindowOutput out{};
     TEST_ASSERT_TRUE(computeFiltrationWindowDeterministic(in, out));
     TEST_ASSERT_EQUAL_UINT8(2, out.durationHours);
-    TEST_ASSERT_EQUAL_UINT8(14, out.startHour);
-    TEST_ASSERT_EQUAL_UINT8(16, out.stopHour);
+    TEST_ASSERT_EQUAL_UINT8(22, out.startHour);
+    TEST_ASSERT_EQUAL_UINT8(0, out.stopHour);
+}
+
+void test_20c_uses_off_peak_overnight_window()
+{
+    FiltrationWindowInput in{};
+    in.waterTemp = 20.0f;
+
+    FiltrationWindowOutput out{};
+    TEST_ASSERT_TRUE(computeFiltrationWindowDeterministic(in, out));
+    TEST_ASSERT_EQUAL_UINT8(7, out.durationHours);
+    TEST_ASSERT_EQUAL_UINT8(22, out.startHour);
+    TEST_ASSERT_EQUAL_UINT8(5, out.stopHour);
 }
 
 void test_temp_equal_setpoint_switches_to_high_factor()
@@ -55,7 +67,7 @@ void test_nan_temperature_uses_widest_available_window()
 void test_stop_le_start_uses_emergency_duration_when_possible()
 {
     FiltrationWindowInput in{};
-    in.waterTemp = 20.0f; // duration about 7h
+    in.waterTemp = 21.0f;
     in.lowThreshold = 12.0f;
     in.setpoint = 24.0f;
     in.startMinHour = 22;
@@ -71,7 +83,7 @@ void test_stop_le_start_uses_emergency_duration_when_possible()
 void test_stop_le_start_with_late_start_uses_fallback_window()
 {
     FiltrationWindowInput in{};
-    in.waterTemp = 20.0f;
+    in.waterTemp = 21.0f;
     in.lowThreshold = 12.0f;
     in.setpoint = 24.0f;
     in.startMinHour = 23;
@@ -108,6 +120,7 @@ int main()
 {
     UNITY_BEGIN();
     RUN_TEST(test_temp_below_low_uses_min_duration);
+    RUN_TEST(test_20c_uses_off_peak_overnight_window);
     RUN_TEST(test_temp_equal_setpoint_switches_to_high_factor);
     RUN_TEST(test_nan_temperature_uses_widest_available_window);
     RUN_TEST(test_stop_le_start_uses_emergency_duration_when_possible);
