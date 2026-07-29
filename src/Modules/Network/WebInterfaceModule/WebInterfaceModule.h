@@ -290,6 +290,7 @@ private:
         ServiceBinding::bind<&WebInterfaceModule::setPaused_>,
         ServiceBinding::bind<&WebInterfaceModule::isPaused_>,
         ServiceBinding::bind<&WebInterfaceModule::getHealth_>,
+        ServiceBinding::bind<&WebInterfaceModule::noteInvalidOtaSignature_>,
         this
     };
 };

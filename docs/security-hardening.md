@@ -75,9 +75,10 @@ recovery still works when SPIFFS is missing or corrupt.
 
 ## Firmware updates
 
-`FLOW_ALLOW_UNSIGNED_UPDATES` defaults to `0`. This rejects HTTP uploads and
-remote update jobs because a filename, extension or ESP image header does not
-prove authenticity.
+`FLOW_ALLOW_UNSIGNED_UPDATES` defaults to `0`. Waveshare firmware jobs then
+require a sidecar `<artifact>.sig`, SHA-256 streaming and a valid ECDSA P-256
+signature before the inactive OTA partition is activated. A missing production
+public key, missing signature or invalid signature fails closed.
 
 For development only, a local build may opt in with:
 
@@ -85,12 +86,12 @@ For development only, a local build may opt in with:
 -D FLOW_ALLOW_UNSIGNED_UPDATES=1
 ```
 
-Production re-enablement should first use ESP32-S3 Secure Boot v2, flash
-encryption, anti-rollback and signed artifacts. External FlowIO, Nextion and
-SPIFFS update formats also need their own authenticated manifest/signature
-verification before the network update switch is enabled.
+Remote Nextion and SPIFFS jobs remain rejected in signed mode because their
+current streaming writers cannot guarantee validation before modifying the
+target. Production hardening still needs HTTPS certificate validation,
+ESP32-S3 Secure Boot v2, flash encryption and anti-rollback.
 
-Three invalid local ECDSA signatures within ten minutes raise the latched
+Three invalid ECDSA signatures within ten minutes raise the latched
 `AlarmId 1200`. It is published through MQTT Discovery as
 `binary_sensor.fio_alm_ota_signature_failures` with the default entity prefix.
 The alarm condition clears ten minutes after the last invalid signature and can

@@ -87,6 +87,9 @@ def verify_profile_and_safety_defaults() -> None:
         "src/Modules/Network/WebInterfaceModule/OtaSignatureVerifier.cpp"
     )
     ota_key = read("include/Security/OtaPublicKey.h")
+    firmware_update = read(
+        "src/Modules/Network/FirmwareUpdateModule/FirmwareUpdateModule.cpp"
+    )
     pool_header = read("src/Modules/PoolLogicModule/PoolLogicModule.h")
     pool_control = read("src/Modules/PoolLogicModule/PoolLogicControl.cpp")
     pool_lifecycle = read("src/Modules/PoolLogicModule/PoolLogicLifecycle.cpp")
@@ -108,6 +111,9 @@ def verify_profile_and_safety_defaults() -> None:
         ("Content-Security-Policy header", '"Content-Security-Policy"', web_headers),
         ("OTA ECDSA verifier", "mbedtls_pk_verify(", ota_verifier),
         ("OTA public key fail-closed default", 'PublicKeyPem[] = "";', ota_key),
+        ("remote OTA sidecar signature", "fetchOtaSignature_", firmware_update),
+        ("remote OTA ECDSA verification", "verifyOtaSignature(digest, signatureBase64)", firmware_update),
+        ("signed SPIFFS fail-closed", "SPIFFS distant desactive en mode OTA signee", firmware_update),
         ("manual commissioning default", "bool autoMode_ = false;", pool_header),
         ("robot automation default-off", "bool robotAutoMode_ = false;", pool_header),
         ("pressure monitoring default-off", "bool pressureMonitoringEnabled_ = false;", pool_header),

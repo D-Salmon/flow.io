@@ -30,8 +30,10 @@ notre version 2.5.1.
 - Le lot authentification/CSRF est partiellement raccordé : la protection CSRF
   est active de bout en bout, mais l’authentification attend encore une
   procédure de récupération physique compatible avec le bouton BOOT.
-- Le vérificateur de signature OTA est présent, mais le flux de mise à jour
-  distant propre à la 3.x ne l’appelle pas encore de bout en bout.
+- La mise à jour distante du firmware vérifie désormais un fichier `.sig`
+  ECDSA P-256 avant d’activer la partition. Elle reste indisponible tant que la
+  clé publique de production n’est pas provisionnée ; les mises à jour
+  distantes SPIFFS et Nextion restent volontairement bloquées en mode signé.
 - MQTT utilise encore `mqtt://` sans TLS dans cette base expérimentale.
 - Les deux alarmes de discordance de contacteur sont cataloguées, mais leurs
   conditions matérielles restent à raccorder dans le PoolLogic 3.x.

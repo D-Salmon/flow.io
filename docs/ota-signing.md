@@ -1,8 +1,13 @@
 # Signature des mises a jour OTA
 
-Les televersements locaux de firmware et de SPIFFS utilisent une signature
-ECDSA P-256 sur le SHA-256 exact du fichier `.bin`. Une image non signee ou
-signee avec une autre cle est abandonnee avant l'activation de la partition.
+La mise a jour distante du firmware Waveshare utilise une signature ECDSA
+P-256 sur le SHA-256 exact du fichier `.bin`. Le serveur doit publier la
+signature Base64 dans un fichier portant le meme nom suivi de `.sig`.
+
+Le firmware telecharge d'abord cette signature, calcule le SHA-256 pendant
+l'ecriture dans la partition OTA inactive, puis verifie la signature avant
+d'activer la partition. Une image non signee ou signee avec une autre cle est
+abandonnee.
 
 ## 1. Creer les cles hors du depot
 
@@ -25,22 +30,33 @@ fermee avec `Cle publique OTA non provisionnee`.
 ## 3. Signer un artefact
 
 ```sh
-python scripts/sign_ota.py binary/esp32s3-2.5.1.bin \
+python scripts/sign_ota.py binary/flowios3-3.1.0.bin \
   --private-key /chemin/protege/flowio-ota-private.pem
 ```
 
-Le script produit `esp32s3-2.5.1.bin.sig`, qui contient la signature DER encodee
-en Base64. Signer separement l'image SPIFFS.
+Le script produit `flowios3-3.1.0.bin.sig`, qui contient la signature DER
+encodee en Base64. Publier les deux fichiers cote a cote :
+
+```text
+flowios3-3.1.0.bin
+flowios3-3.1.0.bin.sig
+```
 
 ## 4. Installer
 
-Dans l'interface Web, selectionner le fichier `.bin` et son fichier `.sig`, puis
-lancer l'installation. L'authentification Web, le CSRF, le SHA-256 et la
-signature ECDSA sont tous verifies.
+Dans l'interface Web, charger le manifeste puis selectionner le firmware. Le
+Waveshare derive automatiquement l'URL de la signature en ajoutant `.sig` a
+l'URL du binaire. Le CSRF, le SHA-256 et la signature ECDSA sont verifies.
 
 ## Limites actuelles
 
-- La verification signee est active pour les televersements locaux Waveshare.
-- Les mises a jour reseau restent desactivees par `FLOW_ALLOW_UNSIGNED_UPDATES=0`
-  jusqu'a l'ajout d'un manifeste signe et d'un transport HTTPS valide.
+- La mise a jour distante du firmware Waveshare echoue de maniere fermee tant
+  que la cle publique n'est pas provisionnee ou que le fichier `.sig` manque.
+- Les mises a jour distantes SPIFFS et Nextion sont refusees en mode signe :
+  leurs partitions ne permettent pas encore une validation sure avant
+  ecriture. Elles restent disponibles uniquement dans une compilation de
+  developpement avec `FLOW_ALLOW_UNSIGNED_UPDATES=1`.
+- Le transport HTTP actuel ne garantit pas la confidentialite. La signature
+  protege l'authenticite et l'integrite du firmware, pas les metadonnees ni
+  l'URL.
 - La protection anti-retour de version et Secure Boot/eFuses restent a ajouter.
