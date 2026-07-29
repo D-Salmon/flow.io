@@ -418,6 +418,7 @@ constexpr char AirTempIoId[] = "pl_aiid"; // Pool logic module persisted key for
 constexpr char LevelIoId[] = "pl_liid"; // Pool logic module persisted key for field `pl_liid`.
 constexpr char PhLevelIoId[] = "pl_phli"; // Pool logic module persisted key for field `pl_phli`.
 constexpr char ChlorineLevelIoId[] = "pl_clli"; // Pool logic module persisted key for field `pl_clli`.
+constexpr char PressureMonitoringEnabled[] = "pl_psme"; // Pool pressure alarm and filtration safety monitoring enable.
 constexpr char PsiLow[] = "pl_psil"; // Pool logic module persisted key for field `pl_psil`.
 constexpr char PsiHigh[] = "pl_psih"; // Pool logic module persisted key for field `pl_psih`.
 constexpr char WinterStart[] = "pl_wstr"; // Pool logic module persisted key for field `pl_wstr`.

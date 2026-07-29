@@ -347,6 +347,11 @@
       "help_t": "cfgdocs.poollogic.sensors.psi_io_id.help",
       "enum_set": "flowio_logical_input_analog"
     },
+    "poollogic/sensors/psi_monitoring": {
+      "type": "Bool",
+      "label_t": "cfgdocs.poollogic.sensors.psi_monitoring.label",
+      "help_t": "cfgdocs.poollogic.sensors.psi_monitoring.help"
+    },
     "poollogic/sensors/wat_temp_io_id": {
       "type": "UInt16",
       "label_t": "cfgdocs.poollogic.sensors.wat_temp_io_id.label",

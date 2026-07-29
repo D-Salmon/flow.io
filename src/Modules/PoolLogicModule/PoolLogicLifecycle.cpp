@@ -202,6 +202,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
     levelIdVar_.moduleName = kCfgModuleSensors;
     phLevelIdVar_.moduleName = kCfgModuleSensors;
     chlorineLevelIdVar_.moduleName = kCfgModuleSensors;
+    pressureMonitoringEnabledVar_.moduleName = kCfgModuleSensors;
 
     psiLowVar_.moduleName = kCfgModuleSafety;
     psiHighVar_.moduleName = kCfgModuleSafety;
@@ -277,6 +278,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
     cfg.registerVar(levelIdVar_, kCfgModuleId, kCfgBranchSensors);
     cfg.registerVar(phLevelIdVar_, kCfgModuleId, kCfgBranchSensors);
     cfg.registerVar(chlorineLevelIdVar_, kCfgModuleId, kCfgBranchSensors);
+    cfg.registerVar(pressureMonitoringEnabledVar_, kCfgModuleId, kCfgBranchSensors);
 
     cfg.registerVar(psiLowVar_, kCfgModuleId, kCfgBranchSafety);
     cfg.registerVar(psiHighVar_, kCfgModuleId, kCfgBranchSafety);
@@ -446,6 +448,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
         (void)haSvc->addSwitch(haSvc->ctx, &heaterAutoModeSwitch);
         (void)haSvc->addSwitch(haSvc->ctx, &phDosePlusSwitch);
         (void)haSvc->addSwitch(haSvc->ctx, &o2TempCompSwitch);
+        (void)haSvc->addSwitch(haSvc->ctx, &pressureMonitoringSwitch);
     }
     if (haSvc && haSvc->addSelect) {
         static const char* kDisinfectionTypeStateTpl =

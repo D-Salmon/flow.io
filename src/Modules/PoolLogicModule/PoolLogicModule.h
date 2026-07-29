@@ -168,6 +168,7 @@ private:
     bool orpAutoMode_ = false;
     bool heaterAutoMode_ = false;
     bool phDosePlus_ = false;
+    bool pressureMonitoringEnabled_ = false;
     uint8_t disinfectionType_ = DisinfectionChlorineBromine;
     uint8_t swgControlMode_ = SwgControlContinuous;
 
@@ -325,6 +326,8 @@ private:
                                             &phLevelIoId_, ConfigPersistence::Persistent, 0};
     ConfigVariable<IoId,0> chlorineLevelIdVar_{NVS_KEY(NvsKeys::PoolLogic::ChlorineLevelIoId), "chl_lvl_io_id", "poollogic/sensors", ConfigType::UInt16,
                                                   &chlorineLevelIoId_, ConfigPersistence::Persistent, 0};
+    ConfigVariable<bool,0> pressureMonitoringEnabledVar_{NVS_KEY(NvsKeys::PoolLogic::PressureMonitoringEnabled), "psi_monitoring", "poollogic/sensors", ConfigType::Bool,
+                                                         &pressureMonitoringEnabled_, ConfigPersistence::Persistent, 0};
 
     ConfigVariable<float,0> psiLowVar_{NVS_KEY(NvsKeys::PoolLogic::PsiLow), "psi_low_th", "poollogic/safety", ConfigType::Float,
                                        &psiLowThreshold_, ConfigPersistence::Persistent, 0};

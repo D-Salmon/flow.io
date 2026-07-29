@@ -993,7 +993,7 @@ void PoolLogicModule::runControlLoop_(uint32_t nowMs)
         const bool psiHigh = alarmSvc_->isActive(alarmSvc_->ctx, AlarmId::PoolPsiHigh);
         const bool phTankLowAlarm = alarmSvc_->isActive(alarmSvc_->ctx, AlarmId::PoolPhTankLow);
         const bool chlorineTankLowAlarm = alarmSvc_->isActive(alarmSvc_->ctx, AlarmId::PoolChlorineTankLow);
-        psiError_ = psiLow || psiHigh;
+        psiError_ = pressureMonitoringEnabled_ && (psiLow || psiHigh);
         phTankLowError_ = phTankLowAlarm;
         chlorineTankLowError_ = chlorineTankLowAlarm;
     } else {
