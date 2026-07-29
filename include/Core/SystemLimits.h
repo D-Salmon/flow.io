@@ -114,7 +114,7 @@ static_assert(HighQueueCap > 0 && NormalQueueCap > 0 && LowQueueCap > 0, "MQTT q
 /** @brief MQTT default configuration values. */
 namespace Defaults {
 /** @brief Default MQTT broker port used by `MQTTConfig::port` in `MQTTModule`. */
-constexpr int32_t Port = 1883;
+constexpr int32_t Port = 8883;
 /** @brief Default minimum runtime publish period in ms for `mqtt.sensor_min_publish_ms`. */
 constexpr uint32_t SensorMinPublishMs = 20000;
 }  // namespace Defaults

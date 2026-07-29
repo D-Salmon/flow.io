@@ -187,6 +187,10 @@ private:
     IoId levelIoId_ = IO_ID_LEVEL_DEFAULT;
     IoId phLevelIoId_ = IO_ID_PH_LEVEL_DEFAULT;
     IoId chlorineLevelIoId_ = IO_ID_CHLORINE_LEVEL_DEFAULT;
+    IoId filtrationContactorFeedbackIoId_ = IO_ID_INVALID;
+    IoId swgContactorFeedbackIoId_ = IO_ID_INVALID;
+    bool filtrationContactorFeedbackActiveHigh_ = true;
+    bool swgContactorFeedbackActiveHigh_ = true;
 
     // Thresholds / delays
     float psiLowThreshold_ = 0.15f;
@@ -322,6 +326,18 @@ private:
                                                   &chlorineLevelIoId_, ConfigPersistence::Persistent, 0};
     ConfigVariable<bool,0> pressureMonitoringEnabledVar_{NVS_KEY(NvsKeys::PoolLogic::PressureMonitoringEnabled), "psi_monitoring", "poollogic/sensors", ConfigType::Bool,
                                                          &pressureMonitoringEnabled_, ConfigPersistence::Persistent, 0};
+    ConfigVariable<IoId,0> filtrationContactorFeedbackIoIdVar_{
+        NVS_KEY(NvsKeys::PoolLogic::FiltrationContactorFeedbackIoId), "filtr_fb_io_id", "poollogic/sensors", ConfigType::UInt16,
+        &filtrationContactorFeedbackIoId_, ConfigPersistence::Persistent, 0};
+    ConfigVariable<IoId,0> swgContactorFeedbackIoIdVar_{
+        NVS_KEY(NvsKeys::PoolLogic::SwgContactorFeedbackIoId), "swg_fb_io_id", "poollogic/sensors", ConfigType::UInt16,
+        &swgContactorFeedbackIoId_, ConfigPersistence::Persistent, 0};
+    ConfigVariable<bool,0> filtrationContactorFeedbackActiveHighVar_{
+        NVS_KEY(NvsKeys::PoolLogic::FiltrationContactorFeedbackActiveHigh), "filtr_fb_active_high", "poollogic/sensors", ConfigType::Bool,
+        &filtrationContactorFeedbackActiveHigh_, ConfigPersistence::Persistent, 0};
+    ConfigVariable<bool,0> swgContactorFeedbackActiveHighVar_{
+        NVS_KEY(NvsKeys::PoolLogic::SwgContactorFeedbackActiveHigh), "swg_fb_active_high", "poollogic/sensors", ConfigType::Bool,
+        &swgContactorFeedbackActiveHigh_, ConfigPersistence::Persistent, 0};
 
     ConfigVariable<float,0> psiLowVar_{NVS_KEY(NvsKeys::PoolLogic::PsiLow), "psi_low_th", "poollogic/safety", ConfigType::Float,
                                        &psiLowThreshold_, ConfigPersistence::Persistent, 0};
@@ -458,7 +474,12 @@ private:
     static AlarmCondState condPhPumpMaxUptimeStatic_(void* ctx, uint32_t nowMs);
     static AlarmCondState condChlorinePumpMaxUptimeStatic_(void* ctx, uint32_t nowMs);
     static AlarmCondState condWaterTemperatureUnavailableStatic_(void* ctx, uint32_t nowMs);
+    static AlarmCondState condFiltrationContactorMismatchStatic_(void* ctx, uint32_t nowMs);
+    static AlarmCondState condSwgContactorMismatchStatic_(void* ctx, uint32_t nowMs);
     AlarmCondState condPumpMaxUptime_(uint8_t deviceSlot) const;
+    AlarmCondState condContactorMismatch_(uint8_t deviceSlot,
+                                          IoId feedbackIoId,
+                                          bool feedbackActiveHigh) const;
     bool readDeviceActualOn_(uint8_t deviceSlot, bool& onOut) const;
     bool writeDeviceDesired_(uint8_t deviceSlot, bool on);
     bool setPoolDeviceWritesEnabled_(bool enabled);

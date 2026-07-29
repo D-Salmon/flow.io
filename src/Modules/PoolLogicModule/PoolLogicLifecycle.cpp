@@ -201,6 +201,10 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
     phLevelIdVar_.moduleName = kCfgModuleSensors;
     chlorineLevelIdVar_.moduleName = kCfgModuleSensors;
     pressureMonitoringEnabledVar_.moduleName = kCfgModuleSensors;
+    filtrationContactorFeedbackIoIdVar_.moduleName = kCfgModuleSensors;
+    swgContactorFeedbackIoIdVar_.moduleName = kCfgModuleSensors;
+    filtrationContactorFeedbackActiveHighVar_.moduleName = kCfgModuleSensors;
+    swgContactorFeedbackActiveHighVar_.moduleName = kCfgModuleSensors;
 
     psiLowVar_.moduleName = kCfgModuleSafety;
     psiHighVar_.moduleName = kCfgModuleSafety;
@@ -275,6 +279,10 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
     cfg.registerVar(phLevelIdVar_, kCfgModuleId, kCfgBranchSensors);
     cfg.registerVar(chlorineLevelIdVar_, kCfgModuleId, kCfgBranchSensors);
     cfg.registerVar(pressureMonitoringEnabledVar_, kCfgModuleId, kCfgBranchSensors);
+    cfg.registerVar(filtrationContactorFeedbackIoIdVar_, kCfgModuleId, kCfgBranchSensors);
+    cfg.registerVar(swgContactorFeedbackIoIdVar_, kCfgModuleId, kCfgBranchSensors);
+    cfg.registerVar(filtrationContactorFeedbackActiveHighVar_, kCfgModuleId, kCfgBranchSensors);
+    cfg.registerVar(swgContactorFeedbackActiveHighVar_, kCfgModuleId, kCfgBranchSensors);
 
     cfg.registerVar(psiLowVar_, kCfgModuleId, kCfgBranchSafety);
     cfg.registerVar(psiHighVar_, kCfgModuleId, kCfgBranchSafety);
@@ -1083,6 +1091,42 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
                                       &PoolLogicModule::condWaterTemperatureUnavailableStatic_,
                                       this)) {
             LOGW("PoolLogic failed to register AlarmId::PoolWaterTemperatureUnavailable");
+        }
+
+        const AlarmRegistration filtrationContactorMismatchAlarm{
+            AlarmId::PoolFiltrationContactorMismatch,
+            AlarmSeverity::Critical,
+            true,
+            5000,
+            1000,
+            60000,
+            "filtr_cont_mismatch",
+            "Filtration contactor feedback mismatch",
+            "poollogic"
+        };
+        if (!alarmSvc_->registerAlarm(alarmSvc_->ctx,
+                                      &filtrationContactorMismatchAlarm,
+                                      &PoolLogicModule::condFiltrationContactorMismatchStatic_,
+                                      this)) {
+            LOGW("PoolLogic failed to register AlarmId::PoolFiltrationContactorMismatch");
+        }
+
+        const AlarmRegistration swgContactorMismatchAlarm{
+            AlarmId::PoolChlorineGeneratorContactorMismatch,
+            AlarmSeverity::Critical,
+            true,
+            5000,
+            1000,
+            60000,
+            "swg_contactor_mismatch",
+            "Chlorine generator contactor feedback mismatch",
+            "poollogic"
+        };
+        if (!alarmSvc_->registerAlarm(alarmSvc_->ctx,
+                                      &swgContactorMismatchAlarm,
+                                      &PoolLogicModule::condSwgContactorMismatchStatic_,
+                                      this)) {
+            LOGW("PoolLogic failed to register AlarmId::PoolChlorineGeneratorContactorMismatch");
         }
     } else {
         LOGW("PoolLogic running without alarm service");

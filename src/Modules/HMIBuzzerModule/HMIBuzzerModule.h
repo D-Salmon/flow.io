@@ -89,11 +89,16 @@ public:
 private:
     struct ConfigData {
         bool enable = true;
+        bool alarmSound = true;
     } cfgData_{};
 
     ConfigVariable<bool,0> enableVar_{
         NVS_KEY(NvsKeys::Hmi::BuzzerEnable), "enable", "hmi/buzzer",
         ConfigType::Bool, &cfgData_.enable, ConfigPersistence::Persistent, 0
+    };
+    ConfigVariable<bool,0> alarmSoundVar_{
+        NVS_KEY(NvsKeys::Hmi::BuzzerAlarmSound), "alarm_sound", "hmi/buzzer",
+        ConfigType::Bool, &cfgData_.alarmSound, ConfigPersistence::Persistent, 0
     };
 
     int8_t pin_ = -1;

@@ -656,6 +656,24 @@ AlarmCondState PoolLogicModule::condChlorinePumpMaxUptimeStatic_(void* ctx, uint
     return self ? self->condPumpMaxUptime_(self->orpPumpDeviceSlot_) : AlarmCondState::Unknown;
 }
 
+AlarmCondState PoolLogicModule::condFiltrationContactorMismatchStatic_(void* ctx, uint32_t)
+{
+    PoolLogicModule* self = static_cast<PoolLogicModule*>(ctx);
+    return self ? self->condContactorMismatch_(self->filtrationDeviceSlot_,
+                                               self->filtrationContactorFeedbackIoId_,
+                                               self->filtrationContactorFeedbackActiveHigh_)
+                : AlarmCondState::Unknown;
+}
+
+AlarmCondState PoolLogicModule::condSwgContactorMismatchStatic_(void* ctx, uint32_t)
+{
+    PoolLogicModule* self = static_cast<PoolLogicModule*>(ctx);
+    return self ? self->condContactorMismatch_(self->swgDeviceSlot_,
+                                               self->swgContactorFeedbackIoId_,
+                                               self->swgContactorFeedbackActiveHigh_)
+                : AlarmCondState::Unknown;
+}
+
 AlarmCondState PoolLogicModule::condPumpMaxUptime_(uint8_t deviceSlot) const
 {
     if (!poolSvc_ || !poolSvc_->meta) return AlarmCondState::Unknown;
@@ -667,6 +685,25 @@ AlarmCondState PoolLogicModule::condPumpMaxUptime_(uint8_t deviceSlot) const
     }
     if (st == POOLDEV_SVC_ERR_DISABLED) return AlarmCondState::False;
     return AlarmCondState::Unknown;
+}
+
+AlarmCondState PoolLogicModule::condContactorMismatch_(uint8_t deviceSlot,
+                                                       IoId feedbackIoId,
+                                                       bool feedbackActiveHigh) const
+{
+    // No auxiliary contact is safe and supported: monitoring is opt-in so
+    // existing installations never raise a false mismatch alarm.
+    if (feedbackIoId == IO_ID_INVALID) return AlarmCondState::False;
+
+    bool outputOn = false;
+    bool feedbackRaw = false;
+    if (!readDeviceActualOn_(deviceSlot, outputOn) ||
+        !loadDigitalSensor_(feedbackIoId, feedbackRaw)) {
+        return AlarmCondState::Unknown;
+    }
+
+    const bool feedbackOn = feedbackActiveHigh ? feedbackRaw : !feedbackRaw;
+    return (outputOn != feedbackOn) ? AlarmCondState::True : AlarmCondState::False;
 }
 
 bool PoolLogicModule::readDeviceActualOn_(uint8_t deviceSlot, bool& onOut) const

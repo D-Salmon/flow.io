@@ -1989,6 +1989,7 @@
     const poolFiltrationStop = document.getElementById('poolFiltrationStop');
     const poolFiltrationFill = document.getElementById('poolFiltrationFill');
     const poolModeBadges = document.getElementById('poolModeBadges');
+    const poolGeneralControl = document.getElementById('poolGeneralControl');
     const poolChemistryPanel = document.getElementById('poolChemistryPanel');
     const poolDisinfectionModes = document.getElementById('poolDisinfectionModes');
     const poolAlarmCard = document.getElementById('poolAlarmCard');
@@ -2245,6 +2246,7 @@
     let poolConfigLiveState = {};
     const poolConfigModuleDefs = Object.freeze([
       Object.freeze({ module: 'poollogic/modes', titleKey: 'pool.card.modes.title', title: 'Pilotage général', icon: 'tune', noteKey: 'pool.card.modes.note', note: 'Ces interrupteurs définissent si PoolLogic pilote la piscine et quelle stratégie de traitement est retenue.' }),
+      Object.freeze({ module: 'hmi/buzzer', titleKey: 'pool.card.alarmSound.title', title: 'Signal sonore', icon: 'notifications_active', noteKey: 'pool.card.alarmSound.note', note: 'Le son des alarmes peut être coupé sans masquer les alarmes affichées.' }),
       Object.freeze({ module: 'poollogic/filtration', titleKey: 'pool.card.filtration.title', title: 'Filtration', icon: 'waves', noteKey: 'pool.card.filtration.note', note: 'La plage de filtration combine contraintes horaires et température d’eau pour protéger le bassin.' }),
       Object.freeze({ module: 'poollogic/ph', titleKey: 'pool.card.ph.title', title: 'Régulation pH', icon: 'science', noteKey: 'pool.card.ph.note', note: 'Consigne, sens de dosage et fenêtre de régulation de la pompe pH.' }),
       Object.freeze({ module: 'poollogic/heater', titleKey: 'pool.card.heater.title', title: 'Chauffage', icon: 'thermostat', noteKey: 'pool.card.heater.note', note: 'Le chauffage suit sa consigne seulement quand le mode automatique le permet.' }),
@@ -2253,7 +2255,7 @@
       Object.freeze({ module: 'poollogic/regulation', titleKey: 'pool.card.regulation.title', title: 'Régulation', icon: 'speed', noteKey: 'pool.card.regulation.note', note: 'Temporisations communes aux régulateurs pH et désinfection.' }),
       Object.freeze({ module: 'poollogic/robot', titleKey: 'pool.card.robot.title', title: 'Robot', icon: 'smart_toy', noteKey: 'pool.card.robot.note', note: 'Fenêtre de lancement et durée du nettoyage automatique.' }),
       Object.freeze({ module: 'poollogic/sensors', titleKey: 'pool.card.sensors.title', title: 'Affectation des sondes', icon: 'sensors', noteKey: 'pool.card.sensors.note', note: 'Entrées logiques utilisées pour les mesures et détecteurs de niveau.' }),
-      Object.freeze({ module: 'poollogic/devices', titleKey: 'pool.card.devices.title', title: 'Affectation des équipements', icon: 'electrical_services', noteKey: 'pool.card.devices.note', note: 'Emplacements des pompes, de la filtration, du robot et du chauffage.' })
+      Object.freeze({ module: 'poollogic/devices', titleKey: 'pool.card.devices.title', title: 'Affectation des relais', icon: 'electrical_services', noteKey: 'pool.card.devices.note', note: 'Relais affectés aux pompes, à la filtration, au robot et au chauffage.' })
     ]);
     const poolDisinfectionModeDefs = Object.freeze([
       Object.freeze({
@@ -2291,7 +2293,7 @@
       })
     ]);
     const poolDeviceSlotOptions = Object.freeze(Array.from({ length: 8 }, (_, index) => (
-      Object.freeze({ value: index, label: 'Équipement ' + String(index + 1) })
+      Object.freeze({ value: index, label: 'Relais ' + String(index + 1) })
     )));
     const poolAnalogIoOptions = Object.freeze(Array.from({ length: 16 }, (_, index) => (
       Object.freeze({ value: 192 + index, label: 'Entrée analogique A' + String(index + 1).padStart(2, '0') })
@@ -2299,6 +2301,10 @@
     const poolDigitalIoOptions = Object.freeze(Array.from({ length: 16 }, (_, index) => (
       Object.freeze({ value: 64 + index, label: 'Entrée numérique D' + String(index + 1).padStart(2, '0') })
     )));
+    const poolOptionalDigitalIoOptions = Object.freeze([
+      Object.freeze({ value: 65535, label: 'Désactivé / non câblé' }),
+      ...poolDigitalIoOptions
+    ]);
     const poolEditableFieldSpecs = Object.freeze({
       'poollogic/modes': Object.freeze([
         Object.freeze({ key: 'enabled', type: 'bool', label: 'Pilotage PoolLogic' }),
@@ -2387,10 +2393,14 @@
         Object.freeze({ key: 'psi_io_id', type: 'enum', label: 'Sonde de pression', options: poolAnalogIoOptions }),
         Object.freeze({ key: 'wat_temp_io_id', type: 'enum', label: 'Température eau', options: poolAnalogIoOptions }),
         Object.freeze({ key: 'air_temp_io_id', type: 'enum', label: 'Température air', options: poolAnalogIoOptions }),
-        Object.freeze({ key: 'pool_lvl_io_id', type: 'enum', label: 'Niveau du bassin', options: poolDigitalIoOptions }),
-        Object.freeze({ key: 'ph_lvl_io_id', type: 'enum', label: 'Niveau produit pH', options: poolDigitalIoOptions }),
-        Object.freeze({ key: 'chl_lvl_io_id', type: 'enum', label: 'Niveau désinfectant', options: poolDigitalIoOptions }),
-        Object.freeze({ key: 'psi_monitoring', type: 'bool', label: 'Surveillance de pression' })
+        Object.freeze({ key: 'pool_lvl_io_id', type: 'enum', label: 'Niveau du bassin', options: poolOptionalDigitalIoOptions }),
+        Object.freeze({ key: 'ph_lvl_io_id', type: 'enum', label: 'Niveau produit pH', options: poolOptionalDigitalIoOptions }),
+        Object.freeze({ key: 'chl_lvl_io_id', type: 'enum', label: 'Niveau désinfectant', options: poolOptionalDigitalIoOptions }),
+        Object.freeze({ key: 'psi_monitoring', type: 'bool', label: 'Surveillance de pression' }),
+        Object.freeze({ key: 'filtr_fb_io_id', type: 'enum', label: 'Retour contacteur filtration', options: poolOptionalDigitalIoOptions }),
+        Object.freeze({ key: 'filtr_fb_active_high', type: 'bool', label: 'Retour filtration actif à 1' }),
+        Object.freeze({ key: 'swg_fb_io_id', type: 'enum', label: 'Retour contacteur électrolyseur', options: poolOptionalDigitalIoOptions }),
+        Object.freeze({ key: 'swg_fb_active_high', type: 'bool', label: 'Retour électrolyseur actif à 1' })
       ]),
       'poollogic/devices': Object.freeze([
         Object.freeze({ key: 'filtr_slot', type: 'enum', label: 'Pompe de filtration', options: poolDeviceSlotOptions }),
@@ -2400,6 +2410,9 @@
         Object.freeze({ key: 'ph_pump_slot', type: 'enum', label: 'Pompe pH', options: poolDeviceSlotOptions }),
         Object.freeze({ key: 'dis_pump_slot', type: 'enum', label: 'Pompe désinfectant', options: poolDeviceSlotOptions }),
         Object.freeze({ key: 'heater_slot', type: 'enum', label: 'Chauffage', options: poolDeviceSlotOptions })
+      ]),
+      'hmi/buzzer': Object.freeze([
+        Object.freeze({ key: 'alarm_sound', type: 'bool', label: 'Son des alarmes' })
       ])
     });
     const poolMeasureDomainAnimations = {};
@@ -7507,10 +7520,12 @@
     }
 
     function poolConfigRenderGeneralCards(modules) {
-      if (!poolConfigGrid) return;
+      if (!poolConfigGrid || !poolGeneralControl) return;
+      poolGeneralControl.innerHTML = '';
       poolConfigGrid.innerHTML = '';
       const order = [
         'poollogic/modes',
+        'hmi/buzzer',
         'poollogic/filtration',
         'poollogic/ph',
         'poollogic/heater',
@@ -7551,7 +7566,10 @@
         head.appendChild(copy);
         card.appendChild(head);
         card.appendChild(poolConfigBuildEditor(def.module, data, fieldSpecs));
-        poolConfigGrid.appendChild(card);
+        const target = def.module === 'poollogic/modes' || def.module === 'hmi/buzzer'
+          ? poolGeneralControl
+          : poolConfigGrid;
+        target.appendChild(card);
       });
     }
 
@@ -7567,6 +7585,16 @@
     }
 
     function poolConfigRenderSkeleton() {
+      if (poolGeneralControl) {
+        poolGeneralControl.innerHTML = '';
+        for (let i = 0; i < 2; i += 1) {
+          const card = document.createElement('article');
+          card.className = 'pool-config-card pool-config-skeleton';
+          card.appendChild(createSkeletonLine('', i === 0 ? 58 : 46));
+          card.appendChild(createSkeletonLine('', 84));
+          poolGeneralControl.appendChild(card);
+        }
+      }
       if (poolDisinfectionModes) {
         poolDisinfectionModes.innerHTML = '';
         for (let i = 0; i < 2; i += 1) {
@@ -7604,6 +7632,7 @@
     }
 
     function poolConfigRenderError(err) {
+      if (poolGeneralControl) poolGeneralControl.innerHTML = '';
       if (poolDisinfectionModes) poolDisinfectionModes.innerHTML = '';
       if (poolChemistryPanel) poolChemistryPanel.innerHTML = '';
       if (poolAlarmCard) {

@@ -420,6 +420,10 @@ constexpr char LevelIoId[] = "pl_liid"; // Pool logic module persisted key for f
 constexpr char PhLevelIoId[] = "pl_phli"; // Pool logic module persisted key for field `pl_phli`.
 constexpr char ChlorineLevelIoId[] = "pl_clli"; // Pool logic module persisted key for field `pl_clli`.
 constexpr char PressureMonitoringEnabled[] = "pl_psme"; // Pool pressure alarm and filtration safety monitoring enable.
+constexpr char FiltrationContactorFeedbackIoId[] = "pl_fcfb"; // Optional filtration contactor auxiliary feedback input.
+constexpr char SwgContactorFeedbackIoId[] = "pl_scfb"; // Optional chlorine-generator contactor auxiliary feedback input.
+constexpr char FiltrationContactorFeedbackActiveHigh[] = "pl_fcah"; // Filtration feedback input polarity.
+constexpr char SwgContactorFeedbackActiveHigh[] = "pl_scah"; // Chlorine-generator feedback input polarity.
 constexpr char PsiLow[] = "pl_psil"; // Pool logic module persisted key for field `pl_psil`.
 constexpr char PsiHigh[] = "pl_psih"; // Pool logic module persisted key for field `pl_psih`.
 constexpr char WinterStart[] = "pl_wstr"; // Pool logic module persisted key for field `pl_wstr`.
@@ -489,6 +493,7 @@ constexpr char RemoteUdpTokenLegacy[] = "hmi_udptk"; // Legacy remote UDP displa
 constexpr char VeniceEnabled[] = "hmi_vcen"; // HMI module persisted key for Venice RF433 output enable.
 constexpr char VeniceTxGpio[] = "hmi_vcgp"; // HMI module persisted key for Venice RF433 TX GPIO.
 constexpr char BuzzerEnable[] = "hmi_bz_en"; // HMI buzzer module persisted key for config-ack beep enable.
+constexpr char BuzzerAlarmSound[] = "hmi_bz_alm"; // HMI buzzer persisted key for audible alarm notifications.
 }  // namespace Hmi
 
 namespace FlowConnectDisplay {
