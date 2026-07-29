@@ -44,6 +44,8 @@
     "cfgdocs.poollogic.heater.heater_setpoint.label": "Consigne chauffage (C)",
     "cfgdocs.poollogic.modes.auto_mode.help": "Active le pilotage automatique global de la piscine.",
     "cfgdocs.poollogic.modes.auto_mode.label": "Mode auto global",
+    "cfgdocs.poollogic.modes.robot_auto_mode.help": "Autorise le cycle automatique du robot après le délai de filtration configuré. Laissez désactivé si aucun robot n'est installé.",
+    "cfgdocs.poollogic.modes.robot_auto_mode.label": "Cycle automatique robot",
     "cfgdocs.poollogic.modes.disinfection_type.help": "Choisit la stratégie de désinfection principale.",
     "cfgdocs.poollogic.modes.disinfection_type.label": "Type de désinfection",
     "cfgdocs.poollogic.modes.enabled.help": "Active ou désactive les automatismes PoolLogic.",

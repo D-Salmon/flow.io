@@ -291,6 +291,8 @@ private:
                                            &orpAutoMode_, ConfigPersistence::Persistent, 0};
     ConfigVariable<bool,0> heaterAutoModeVar_{NVS_KEY(NvsKeys::PoolLogic::HeaterAutoMode), "heater_auto_mode", "poollogic/heater", ConfigType::Bool,
                                               &heaterAutoMode_, ConfigPersistence::Persistent, 0};
+    ConfigVariable<bool,0> robotAutoModeVar_{NVS_KEY(NvsKeys::PoolLogic::RobotAutoMode), "robot_auto_mode", "poollogic/modes", ConfigType::Bool,
+                                             &robotAutoMode_, ConfigPersistence::Persistent, 0};
     ConfigVariable<bool,0> phDosePlusVar_{NVS_KEY(NvsKeys::PoolLogic::PhDosePlus), "ph_dose_plus", "poollogic/ph", ConfigType::Bool,
                                           &phDosePlus_, ConfigPersistence::Persistent, 0};
     ConfigVariable<uint8_t,0> disinfectionTypeVar_{NVS_KEY(NvsKeys::PoolLogic::DisinfectionType), "disinfection_type", "poollogic/modes", ConfigType::UInt8,
@@ -456,6 +458,7 @@ private:
     static AlarmCondState condWaterLevelLowStatic_(void* ctx, uint32_t nowMs);
     static AlarmCondState condPhPumpMaxUptimeStatic_(void* ctx, uint32_t nowMs);
     static AlarmCondState condChlorinePumpMaxUptimeStatic_(void* ctx, uint32_t nowMs);
+    static AlarmCondState condWaterTemperatureUnavailableStatic_(void* ctx, uint32_t nowMs);
     AlarmCondState condPumpMaxUptime_(uint8_t deviceSlot) const;
     bool readDeviceActualOn_(uint8_t deviceSlot, bool& onOut) const;
     bool writeDeviceDesired_(uint8_t deviceSlot, bool on);

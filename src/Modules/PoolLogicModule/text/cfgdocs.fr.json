@@ -126,6 +126,11 @@
       "label_t": "cfgdocs.poollogic.modes.auto_mode.label",
       "help_t": "cfgdocs.poollogic.modes.auto_mode.help"
     },
+    "poollogic/modes/robot_auto_mode": {
+      "type": "Bool",
+      "label_t": "cfgdocs.poollogic.modes.robot_auto_mode.label",
+      "help_t": "cfgdocs.poollogic.modes.robot_auto_mode.help"
+    },
     "poollogic/modes/disinfection_type": {
       "type": "UInt8",
       "label_t": "cfgdocs.poollogic.modes.disinfection_type.label",

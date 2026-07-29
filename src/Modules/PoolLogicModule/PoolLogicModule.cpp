@@ -36,6 +36,7 @@ static void poolLogicCfgDocsAnchor_(PoolLogicModule& self)
     self.phAutoModeVar_.moduleName = kCfgModulePh;
     self.orpAutoModeVar_.moduleName = kCfgModuleChlorine;
     self.heaterAutoModeVar_.moduleName = kCfgModuleHeater;
+    self.robotAutoModeVar_.moduleName = kCfgModuleModes;
     self.phDosePlusVar_.moduleName = kCfgModulePh;
     self.disinfectionTypeVar_.moduleName = kCfgModuleModes;
     self.tempLowVar_.moduleName = kCfgModuleFiltration;

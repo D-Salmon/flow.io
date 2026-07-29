@@ -45,6 +45,8 @@
     "cfgdocs.poollogic.heater.heater_setpoint.label": "Setpoint heating (C)",
     "cfgdocs.poollogic.modes.auto_mode.help": "Active the pilotage automatic global de the pool.",
     "cfgdocs.poollogic.modes.auto_mode.label": "Auto mode global",
+    "cfgdocs.poollogic.modes.robot_auto_mode.help": "Allows the automatic robot cycle after the configured filtration delay. Leave disabled when no robot is installed.",
+    "cfgdocs.poollogic.modes.robot_auto_mode.label": "Robot automatic cycle",
     "cfgdocs.poollogic.modes.disinfection_type.help": "Selects the main disinfection strategy.",
     "cfgdocs.poollogic.modes.disinfection_type.label": "Disinfection type",
     "cfgdocs.poollogic.modes.enabled.help": "Enable or disable the automatismes PoolLogic.",

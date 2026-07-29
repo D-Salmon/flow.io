@@ -183,6 +183,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
     phAutoModeVar_.moduleName = kCfgModulePh;
     orpAutoModeVar_.moduleName = kCfgModuleChlorine;
     heaterAutoModeVar_.moduleName = kCfgModuleHeater;
+    robotAutoModeVar_.moduleName = kCfgModuleModes;
     phDosePlusVar_.moduleName = kCfgModulePh;
     disinfectionTypeVar_.moduleName = kCfgModuleModes;
     swgControlModeVar_.moduleName = kCfgModuleSwg;
@@ -259,6 +260,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
     cfg.registerVar(phAutoModeVar_, kCfgModuleId, kCfgBranchPh);
     cfg.registerVar(orpAutoModeVar_, kCfgModuleId, kCfgBranchChlorine);
     cfg.registerVar(heaterAutoModeVar_, kCfgModuleId, kCfgBranchHeater);
+    cfg.registerVar(robotAutoModeVar_, kCfgModuleId, kCfgBranchModes);
     cfg.registerVar(phDosePlusVar_, kCfgModuleId, kCfgBranchPh);
     cfg.registerVar(disinfectionTypeVar_, kCfgModuleId, kCfgBranchModes);
     cfg.registerVar(swgControlModeVar_, kCfgModuleId, kCfgBranchSwg);
@@ -433,11 +435,11 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
             "poollogic",
             "pl_robot_auto",
             "Robot automatic cycle",
-            "cfg/poollogic/mode",
+            "cfg/poollogic/modes",
             "{% if value_json.robot_auto_mode %}ON{% else %}OFF{% endif %}",
             MqttTopics::SuffixCfgSet,
-            "{\\\"poollogic/mode\\\":{\\\"robot_auto_mode\\\":true}}",
-            "{\\\"poollogic/mode\\\":{\\\"robot_auto_mode\\\":false}}",
+            "{\\\"poollogic/modes\\\":{\\\"robot_auto_mode\\\":true}}",
+            "{\\\"poollogic/modes\\\":{\\\"robot_auto_mode\\\":false}}",
             "mdi:robot-vacuum",
             "config"
         };
@@ -1120,6 +1122,24 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
         };
         if (!alarmSvc_->registerAlarm(alarmSvc_->ctx, &waterLevelLowAlarm, &PoolLogicModule::condWaterLevelLowStatic_, this)) {
             LOGW("PoolLogic failed to register AlarmId::PoolWaterLevelLow");
+        }
+
+        const AlarmRegistration waterTemperatureUnavailableAlarm{
+            AlarmId::PoolWaterTemperatureUnavailable,
+            AlarmSeverity::Warning,
+            false,
+            5UL * 60UL * 1000UL,
+            1000,
+            60UL * 60UL * 1000UL,
+            "water_temp_unavailable",
+            "Water temperature unavailable",
+            "poollogic"
+        };
+        if (!alarmSvc_->registerAlarm(alarmSvc_->ctx,
+                                      &waterTemperatureUnavailableAlarm,
+                                      &PoolLogicModule::condWaterTemperatureUnavailableStatic_,
+                                      this)) {
+            LOGW("PoolLogic failed to register AlarmId::PoolWaterTemperatureUnavailable");
         }
     } else {
         LOGW("PoolLogic running without alarm service");
