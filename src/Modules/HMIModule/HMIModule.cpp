@@ -475,7 +475,7 @@ void HMIModule::applyOutputConfig_()
     TfaVeniceRf433Config veniceCfg{};
     int8_t veniceTxPin =
         (cfgData_.veniceTxGpio >= 0 && cfgData_.veniceTxGpio <= 127) ? (int8_t)cfgData_.veniceTxGpio : (int8_t)-1;
-#if FLOW_BUILD_IS_FLOWIOS3
+#if FLOW_BUILD_IS_WAVESHARE
     // Only unassigned, externally available pins are accepted on the
     // Waveshare N16R8 profile. In particular GPIO14 is Ethernet MISO and the
     // old persisted default must never be driven by the RF433 output.

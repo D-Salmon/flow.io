@@ -7141,6 +7141,34 @@ void WebInterfaceModule::startServer_()
         request->send(200, "application/json", "{\"ok\":true}");
     });
 
+    server_.on("/api/poollogic/filtration/recalculate", HTTP_POST, [this](AsyncWebServerRequest* request) {
+        HttpLatencyScope latency(request, "/api/poollogic/filtration/recalculate");
+        if (!cmdSvc_ && services_) {
+            cmdSvc_ = services_->get<CommandService>(ServiceId::Command);
+        }
+        if (!cmdSvc_ || !cmdSvc_->execute) {
+            request->send(
+                503,
+                "application/json",
+                "{\"ok\":false,\"err\":{\"code\":\"NotReady\",\"where\":\"poollogic.filtration.recalc\"}}");
+            return;
+        }
+
+        char reply[220] = {0};
+        const bool ok =
+            cmdSvc_->execute(cmdSvc_->ctx, "poollogic.filtration.recalc", "{}", nullptr, reply, sizeof(reply));
+        if (!ok) {
+            request->send(
+                500,
+                "application/json",
+                (reply[0] != '\0')
+                    ? reply
+                    : "{\"ok\":false,\"err\":{\"code\":\"Failed\",\"where\":\"poollogic.filtration.recalc\"}}");
+            return;
+        }
+        request->send(202, "application/json", (reply[0] != '\0') ? reply : "{\"ok\":true,\"queued\":true}");
+    });
+
     server_.on("/api/system/reboot", HTTP_POST, [this](AsyncWebServerRequest* request) {
         HttpLatencyScope latency(request, "/api/system/reboot");
         if (!cmdSvc_ && services_) {
