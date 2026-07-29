@@ -124,6 +124,7 @@
             </div>
           </section>
           <section id="poolAlarmCard" class="pool-alarm-card" hidden aria-live="polite"></section>
+          <section id="poolChemistryPanel" class="pool-chemistry-panel" aria-live="polite"></section>
           <section id="poolDisinfectionModes" class="pool-treatment-panel" aria-live="polite"></section>
           <section id="poolConfigGrid" class="pool-config-grid" aria-live="polite"></section>
         </div>
@@ -273,7 +274,9 @@
                   <label for="calibrationSensorSelect" data-i18n="calibration.sensorLabel">Sonde</label>
                   <select id="calibrationSensorSelect">
                     <option value="ph" data-i18n="calibration.sensor.ph">pH (2 points)</option>
+                    <option value="ph_one" data-i18n="calibration.sensor.phOne">pH (1 point)</option>
                     <option value="orp" data-i18n="calibration.sensor.orp">ORP (2 points)</option>
+                    <option value="orp_one" data-i18n="calibration.sensor.orpOne">ORP (1 point)</option>
                     <option value="psi" data-i18n="calibration.sensor.psi">Pression PSI (2 points)</option>
                     <option value="water_temp" data-i18n="calibration.sensor.waterTemp">Température eau (1 point)</option>
                     <option value="air_temp" data-i18n="calibration.sensor.airTemp">Température air (1 point)</option>

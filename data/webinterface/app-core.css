@@ -777,6 +777,24 @@ body.web-icons-disabled .control-field-apply{font-size:15px;font-weight:800;lett
 .pool-mode-badge-icon{font-size:18px;}
 .pool-mode-badge.is-on{border-color:rgba(22,164,93,0.22);background:rgba(22,164,93,0.1);color:var(--success);}
 .pool-mode-badge.is-off{border-color:rgba(128,145,168,0.18);background:rgba(128,145,168,0.11);color:#6D7F93;}
+.pool-chemistry-panel{display:grid;gap:14px;}
+.pool-section-heading{display:flex;align-items:center;gap:10px;color:var(--text);}
+.pool-section-heading>.ui-msr{font-size:25px;color:var(--primary);}
+.pool-section-heading>div{display:grid;gap:2px;}
+.pool-section-heading h2{margin:0;font-size:20px;font-weight:850;line-height:1.2;}
+.pool-section-heading p{margin:0;color:var(--text-muted);font-size:13px;font-weight:650;line-height:1.4;}
+.pool-chemistry-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;}
+.pool-chemistry-card{min-width:0;border:1px solid var(--border);border-radius:var(--radius);background:#FFFFFF;box-shadow:0 8px 22px rgba(7,26,53,0.045);padding:18px;display:grid;gap:14px;align-content:start;}
+.pool-chemistry-head{display:grid;grid-template-columns:42px minmax(0,1fr);gap:12px;align-items:start;}
+.pool-chemistry-card.is-ph .pool-card-icon{background:#EAF4FF;color:#0876C9;}
+.pool-chemistry-card.is-orp .pool-card-icon{background:#ECF9F4;color:#087D5E;}
+.pool-chemistry-card.is-temperature .pool-card-icon{background:#FFF4E5;color:#A95B00;}
+.pool-chemistry-measure{border-radius:var(--radius);background:#F0F8FF;border:1px solid #B8DDF9;padding:14px;display:grid;gap:4px;}
+.pool-chemistry-measure>span{color:#566E85;font-size:12px;font-weight:800;}
+.pool-chemistry-measure>b{color:var(--text);font-size:30px;font-weight:900;line-height:1.08;letter-spacing:-0.02em;}
+.pool-chemistry-measure.is-unavailable{background:#F7F9FC;border-color:#DCE5EE;}
+.pool-chemistry-measure.is-unavailable>b{color:#6D7F93;font-size:18px;letter-spacing:0;}
+.pool-chemistry-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
 .pool-treatment-panel{display:grid;grid-template-columns:minmax(260px,0.58fr) minmax(0,1fr);gap:18px;align-items:stretch;border:1px solid var(--border);border-radius:var(--radius);background:#FFFFFF;box-shadow:0 8px 22px rgba(7,26,53,0.045);padding:18px;}
 .pool-treatment-selector,.pool-treatment-detail{min-width:0;display:grid;gap:14px;}
 .pool-treatment-selector{border-right:1px solid var(--border);padding-right:18px;}
@@ -828,6 +846,24 @@ body.web-icons-disabled .control-field-apply{font-size:15px;font-weight:800;lett
 .pool-field-value.has-active-dot{display:inline-flex;align-items:center;justify-content:flex-end;gap:9px;}
 .pool-field-active-dot{width:8px;height:8px;border-radius:50%;background:var(--success);box-shadow:0 0 0 2px rgba(22,164,93,0.12);flex:0 0 8px;}
 .pool-field-empty{padding:13px;color:var(--text-muted);font-size:13px;line-height:1.4;}
+.pool-settings-title{margin:3px 0 0;color:var(--text);font-size:16px;font-weight:850;line-height:1.2;}
+.pool-settings-form{display:grid;gap:14px;min-width:0;}
+.pool-settings-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
+.pool-setting-field{min-width:0;display:grid;grid-template-rows:auto auto 1fr;gap:6px;align-content:start;}
+.pool-setting-label{color:var(--text);font-size:14px;font-weight:800;line-height:1.25;}
+.pool-setting-control-wrap{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;}
+.pool-setting-control{box-sizing:border-box;width:100%;min-width:0;min-height:44px;border:1px solid #B9C8D7;border-radius:10px;background:#FFFFFF;color:var(--text);padding:9px 11px;font:inherit;font-size:15px;font-weight:750;outline:none;}
+.pool-setting-control:hover{border-color:#8199B0;}
+.pool-setting-control:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(0,116,232,0.14);}
+.pool-setting-control:invalid{border-color:var(--danger);}
+.pool-setting-unit{min-width:28px;color:#536A7E;font-size:13px;font-weight:850;white-space:nowrap;}
+.pool-setting-help{grid-column:1 / -1;margin:0;color:var(--text-muted);font-size:12px;line-height:1.35;}
+.pool-settings-footer{display:flex;align-items:center;justify-content:flex-end;gap:12px;padding-top:2px;}
+.pool-settings-status{flex:1;min-width:0;color:var(--text-muted);font-size:13px;font-weight:750;line-height:1.3;}
+.pool-settings-status.is-ok{color:var(--success);}
+.pool-settings-status.is-error{color:var(--danger);}
+.pool-settings-save{min-height:42px;padding:0 18px;}
+.pool-settings-form[aria-busy="true"]{opacity:0.72;}
 .pool-filtration-card{align-content:start;}
 .pool-filtration-times{display:flex;align-items:center;gap:14px;padding-left:54px;color:var(--text);}
 .pool-filtration-times b{font-size:26px;line-height:1;font-weight:850;letter-spacing:0;}
@@ -836,6 +872,7 @@ body.web-icons-disabled .control-field-apply{font-size:15px;font-weight:800;lett
 .pool-config-skeleton .skeleton-line{height:12px;}
 .pool-config-skeleton .skeleton-line:first-child{width:68%;height:16px;}
 @media (max-width:1180px){
+  .pool-chemistry-grid{grid-template-columns:1fr;}
   .pool-treatment-panel{grid-template-columns:1fr;}
   .pool-treatment-selector{border-right:0;border-bottom:1px solid var(--border);padding-right:0;padding-bottom:18px;}
 }
@@ -855,6 +892,9 @@ body.web-icons-disabled .control-field-apply{font-size:15px;font-weight:800;lett
   .pool-selected-chip{grid-column:2;justify-self:start;}
   .pool-card-icon{width:36px;height:36px;flex:0 0 36px;font-size:21px;}
   .pool-metric-grid{grid-template-columns:1fr;}
+  .pool-chemistry-metrics,.pool-settings-fields{grid-template-columns:1fr;}
+  .pool-settings-footer{align-items:stretch;flex-direction:column;}
+  .pool-settings-save{width:100%;}
   .pool-treatment-choice-group{grid-template-columns:1fr;}
   .pool-treatment-choice{min-height:54px;border-left:0;border-top:1px solid var(--border);}
   .pool-treatment-choice:first-child{border-top:0;}
@@ -927,11 +967,13 @@ body.web-icons-disabled .control-field-apply{font-size:15px;font-weight:800;lett
 :root[data-theme="dark"] .updates-table th,:root[data-theme="dark"] .io-compact-table th{background:#142235;color:var(--text);border-color:var(--border);}
 :root[data-theme="dark"] .updates-table td,:root[data-theme="dark"] .io-compact-table td{background:var(--surface);color:var(--text-muted);border-color:var(--border);}
 :root[data-theme="dark"] .updates-table tbody tr:nth-child(even) td,:root[data-theme="dark"] .io-compact-table tbody tr:nth-child(even) td{background:#101b2a;}
-:root[data-theme="dark"] .pool-hero-panel,:root[data-theme="dark"] .pool-treatment-panel,:root[data-theme="dark"] .pool-config-card,:root[data-theme="dark"] .pool-field-list,:root[data-theme="dark"] .pool-field-row,:root[data-theme="dark"] .pool-treatment-choice-group,:root[data-theme="dark"] .pool-treatment-choice,:root[data-theme="dark"] .pool-metric{background:var(--surface);border-color:var(--border);color:var(--text);}
+:root[data-theme="dark"] .pool-hero-panel,:root[data-theme="dark"] .pool-treatment-panel,:root[data-theme="dark"] .pool-config-card,:root[data-theme="dark"] .pool-chemistry-card,:root[data-theme="dark"] .pool-field-list,:root[data-theme="dark"] .pool-field-row,:root[data-theme="dark"] .pool-treatment-choice-group,:root[data-theme="dark"] .pool-treatment-choice,:root[data-theme="dark"] .pool-metric,:root[data-theme="dark"] .pool-setting-control{background:var(--surface);border-color:var(--border);color:var(--text);}
 :root[data-theme="dark"] .pool-field-row:nth-child(even),:root[data-theme="dark"] .pool-treatment-choice.is-selected,:root[data-theme="dark"] .pool-metric.is-featured{background:var(--surface-soft);}
 :root[data-theme="dark"] .pool-field-label,:root[data-theme="dark"] .pool-metric-label,:root[data-theme="dark"] .pool-treatment-choice,:root[data-theme="dark"] .pool-selected-chip{color:var(--text-muted);}
 :root[data-theme="dark"] .pool-field-value,:root[data-theme="dark"] .pool-metric-value,:root[data-theme="dark"] .pool-treatment-title h3,:root[data-theme="dark"] .pool-card-title-wrap h3,:root[data-theme="dark"] .pool-filtration-times{color:var(--text);}
 :root[data-theme="dark"] .pool-hero-icon{background:#203452;color:#8bd9ff;}
+:root[data-theme="dark"] .pool-chemistry-measure{background:var(--surface-soft);border-color:var(--border);}
+:root[data-theme="dark"] .pool-chemistry-measure>span,:root[data-theme="dark"] .pool-setting-unit{color:var(--text-muted);}
 :root[data-theme="dark"] .pool-card-icon,:root[data-theme="dark"] .pool-treatment-detail .pool-card-icon,:root[data-theme="dark"] #page-calibration .calibration-pane > .control-section-title .ui-msr,:root[data-theme="dark"] #page-control .cfg-detail-pane > .control-section-title:first-child .ui-msr{background:#173a56;color:var(--primary);}
 :root[data-theme="dark"] .pool-alarm-card{background:#341722;color:#ffdce4;border-color:rgba(255,123,147,0.34);}
 :root[data-theme="dark"] .pool-alarm-row{background:#24111a;border-color:rgba(255,123,147,0.24);}
