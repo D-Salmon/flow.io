@@ -8092,13 +8092,13 @@
         if (prefillLive) {
           try {
             await calibrationPrefillLiveValue({ silent: true });
-          } catch (readErr) {
+          } catch {
             calibrationSetStatus(
               tr(
-                'calibration.liveUnavailableAfterLoad',
-                'Sonde chargée, mais mesure automatique indisponible: {err}. Réessayez avec « Lire ».'
-              ).replace('{err}', String(readErr)),
-              'error'
+                'calibration.sensorLoadedNoReading',
+                'Sonde {sensor} chargée. Utilisez « Lire » pour relever la mesure.'
+              ).replace('{sensor}', def.label),
+              'ok'
             );
           }
         }

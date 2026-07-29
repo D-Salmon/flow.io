@@ -355,7 +355,7 @@
     "calibration.liveToPoint2": "Read sensor for Point 2",
     "calibration.liveToMeasure": "Read sensor",
     "calibration.readNow": "Read",
-    "calibration.liveUnavailableAfterLoad": "Sensor loaded, but automatic measurement is unavailable: {err}. Try “Read” again.",
+    "calibration.sensorLoadedNoReading": "{sensor} sensor loaded. Use “Read” to capture the measurement.",
     "calibration.compute": "Compute C0/C1",
     "calibration.applyFlow": "Apply to flow.io",
     "calibration.ready": "Calibration ready.",

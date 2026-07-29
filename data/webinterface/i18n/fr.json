@@ -355,7 +355,7 @@
     "calibration.liveToPoint2": "Lire la sonde pour le point 2",
     "calibration.liveToMeasure": "Lire la sonde",
     "calibration.readNow": "Lire",
-    "calibration.liveUnavailableAfterLoad": "Sonde chargée, mais mesure automatique indisponible : {err}. Réessayez avec « Lire ».",
+    "calibration.sensorLoadedNoReading": "Sonde {sensor} chargée. Utilisez « Lire » pour relever la mesure.",
     "calibration.compute": "Calculer C0/C1",
     "calibration.applyFlow": "Appliquer sur flow.io",
     "calibration.ready": "Étalonnage prêt.",
