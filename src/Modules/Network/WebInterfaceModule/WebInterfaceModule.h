@@ -51,8 +51,6 @@ public:
         // Keep AP provisioning web startup independent from heavy app modules.
         return 2;
 #elif defined(FLOW_PROFILE_MICRONOVA)
-        return 6;
-#else
         return 7;
 #else
         return 8;
@@ -68,8 +66,9 @@ public:
         if (i == 3) return ModuleId::DataStore;
         if (i == 4) return ModuleId::Command;
         if (i == 5) return ModuleId::Hmi;
+        if (i == 6) return ModuleId::Alarm;
 #if !defined(FLOW_PROFILE_MICRONOVA) && !defined(FLOW_PROFILE_WAVESHARE)
-        if (i == 6) return ModuleId::I2cCfgClient;
+        if (i == 7) return ModuleId::I2cCfgClient;
 #endif
         return ModuleId::Unknown;
 #endif
@@ -183,6 +182,9 @@ private:
     void scheduleReboot_(uint32_t delayMs, const char* reason);
     uint8_t wsActiveSource_() const;
     void setWsActiveSource_(uint8_t source);
+    void noteInvalidOtaSignature_();
+    static AlarmCondState condOtaSignatureFailuresStatic_(void* ctx, uint32_t nowMs);
+    AlarmCondState condOtaSignatureFailures_(uint32_t nowMs) const;
 
     HardwareSerial& uart_ = Serial2;
     uint32_t uartBaud_ = 115200U;
@@ -204,6 +206,7 @@ private:
     const FlowCfgRemoteService* flowCfgSvc_ = nullptr;
     const NetworkAccessService* netAccessSvc_ = nullptr;
     const IOServiceV2* ioSvc_ = nullptr;
+    const AlarmService* alarmSvc_ = nullptr;
     DataStore* dataStore_ = nullptr;
     ConfigStore* cfgStore_ = nullptr;
     EventBus* eventBus_ = nullptr;
@@ -273,6 +276,11 @@ private:
     uint8_t wsSource_ = 0; // 0=supervisor local logs, 1=flow serial logs
     mutable portMUX_TYPE healthMux_ = portMUX_INITIALIZER_UNLOCKED;
     WebInterfaceHealth health_{};
+    static constexpr uint8_t kOtaSignatureFailureThreshold = 3U;
+    static constexpr uint32_t kOtaSignatureFailureWindowMs = 600000U;
+    static constexpr uint32_t kOtaSignatureFailureHoldMs = 600000U;
+    Security::FailureWindowState otaSignatureFailureState_{};
+    mutable portMUX_TYPE otaSignatureFailureMux_ = portMUX_INITIALIZER_UNLOCKED;
 
     WebInterfaceService webInterfaceSvc_{
         ServiceBinding::bind<&WebInterfaceModule::setPaused_>,

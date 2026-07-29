@@ -16,6 +16,7 @@
 #include "Core/Services/IAlarm.h"
 #include "Core/SystemLimits.h"
 #include "Core/SystemStats.h"
+#include "Modules/Network/WebInterfaceModule/WebSecurityHeaders.h"
 #if !defined(FLOW_PROFILE_MICRONOVA) && !defined(FLOW_PROFILE_WAVESHARE)
 #include "Modules/Network/I2CCfgClientModule/I2CCfgClientRuntime.h"
 #endif
@@ -4733,6 +4734,7 @@ void WebInterfaceModule::init(ConfigStore& cfg, ServiceRegistry& services)
     flowCfgSvc_ = services.get<FlowCfgRemoteService>(ServiceId::FlowCfg);
     netAccessSvc_ = services.get<NetworkAccessService>(ServiceId::NetworkAccess);
     ioSvc_ = services.get<IOServiceV2>(ServiceId::Io);
+    alarmSvc_ = services.get<AlarmService>(ServiceId::Alarm);
     const DataStoreService* dsSvc = services.get<DataStoreService>(ServiceId::DataStore);
     dataStore_ = dsSvc ? dsSvc->store : nullptr;
     auto* ebSvc = services.get<EventBusService>(ServiceId::EventBus);
@@ -4851,6 +4853,14 @@ void WebInterfaceModule::startServer_()
     if (started_) return;
     gHttpActivityHook = &WebInterfaceModule::onHttpActivityHook_;
     gHttpActivityHookCtx = this;
+
+    server_.addMiddleware([](AsyncWebServerRequest* request, ArMiddlewareNext next) {
+        next();
+        if (request) {
+            const String& path = request->url();
+            addWebSecurityHeaders(request->getResponse(), path.c_str());
+        }
+    });
 
     spiffsReady_ = SPIFFS.begin(false);
     if (!spiffsReady_) {
@@ -7373,6 +7383,41 @@ void WebInterfaceModule::handleUpdateRequest_(AsyncWebServerRequest* request, Fi
     }
 
     request->send(202, "application/json", "{\"ok\":true,\"accepted\":true}");
+}
+
+void WebInterfaceModule::noteInvalidOtaSignature_()
+{
+    const uint32_t now = millis();
+    portENTER_CRITICAL(&otaSignatureFailureMux_);
+    const bool thresholdReached =
+        Security::recordFailure(otaSignatureFailureState_,
+                                now,
+                                kOtaSignatureFailureThreshold,
+                                kOtaSignatureFailureWindowMs);
+    const uint8_t failures = otaSignatureFailureState_.failures;
+    portEXIT_CRITICAL(&otaSignatureFailureMux_);
+    LOGW("Invalid OTA signature failures=%u threshold_reached=%u",
+         (unsigned)failures,
+         thresholdReached ? 1U : 0U);
+}
+
+AlarmCondState WebInterfaceModule::condOtaSignatureFailuresStatic_(void* ctx, uint32_t nowMs)
+{
+    return ctx
+        ? static_cast<WebInterfaceModule*>(ctx)->condOtaSignatureFailures_(nowMs)
+        : AlarmCondState::Unknown;
+}
+
+AlarmCondState WebInterfaceModule::condOtaSignatureFailures_(uint32_t nowMs) const
+{
+    portENTER_CRITICAL(&otaSignatureFailureMux_);
+    const bool active =
+        Security::failureAlarmCondition(otaSignatureFailureState_,
+                                        nowMs,
+                                        kOtaSignatureFailureThreshold,
+                                        kOtaSignatureFailureHoldMs);
+    portEXIT_CRITICAL(&otaSignatureFailureMux_);
+    return active ? AlarmCondState::True : AlarmCondState::False;
 }
 
 bool WebInterfaceModule::isWebReachable_() const
