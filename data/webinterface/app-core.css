@@ -984,3 +984,100 @@ body.web-icons-disabled .control-field-apply{font-size:15px;font-weight:800;lett
 :root[data-theme="dark"] .activity-row-title strong,:root[data-theme="dark"] .activity-row-icon{color:var(--primary);}
 @media (max-width: 760px){.activity-toolbar{gap:10px}.activity-range-card{min-width:0;width:100%;box-sizing:border-box}.activity-row{grid-template-columns:40px minmax(0,1fr);padding:11px 8px}.logs-overlay{padding:8px}.logs-overlay-panel{width:calc(100vw - 16px);height:calc(100vh - 16px);border-radius:8px}.logs-overlay-head{align-items:flex-start;flex-direction:column}.logs-overlay-actions{justify-content:flex-start}.logs-overlay-terminal{font-size:10px}}
 :root[data-theme="dark"] .overlay{background:rgba(0,0,0,0.68);}
+
+/* 3.1 readability pass: larger controls and WCAG-oriented light-theme contrast. */
+:root{
+  --text-muted:#3f526b;
+  --menu-inactive-fg:#4f6078;
+  --menu-hover-fg:#173a59;
+  --menu-hover-bg:#eaf2f7;
+  --menu-active-bg:#cceaf0;
+  --menu-active-edge:#087e99;
+  --menu-active-fg:#075f75;
+  --border:#c8d6e3;
+  --drawer-width:248px;
+}
+body{font-size:16px;line-height:1.5;}
+.drawer{padding:22px 16px;}
+.drawer-header{margin-bottom:26px;}
+.menu-item{
+  min-height:48px;
+  padding:11px 14px 11px 12px;
+  gap:13px;
+  font-size:16px;
+  font-weight:650;
+}
+.menu-item.active{font-weight:800;}
+.menu-item .ico{width:22px;height:22px;flex-basis:22px;}
+body.menu-icons-remote:not(.web-icons-disabled) .menu-item .ico{font-size:23px;}
+.theme-switch{min-height:40px;font-size:14px;font-weight:750;}
+.content{padding:28px 32px;}
+.app-header{margin-bottom:28px;}
+.app-header-title h1,.topbar h1{font-size:25px;font-weight:850;}
+.app-header-title p{font-size:15px;}
+.header-status-label,.header-status-value{font-size:15px;}
+.header-status-icon{font-size:24px;}
+.header-status-item{min-height:52px;}
+.ui-heading-inline,.control-section-title,.config-section h2{
+  color:var(--text);
+  font-weight:800;
+}
+.control-section-title{font-size:14px;}
+.status-chip{font-size:14px;padding:8px 12px;color:var(--text-muted);}
+.measure-domain-empty{font-size:16px;color:var(--text-muted);border-color:#9fb3c5;}
+.measure-domain-chip{
+  min-height:52px;
+  padding:0 20px 0 16px;
+  color:#244d67;
+  border-color:#9eb9cb;
+  background:linear-gradient(180deg,#edf5fa 0%,#dceaf3 100%);
+  box-shadow:0 8px 18px rgba(18,48,79,0.1);
+}
+.measure-domain-chip-label{font-size:17px;font-weight:750;}
+.measure-domain-chip.active{
+  background:linear-gradient(135deg,#126d9c 0%,#087f96 100%);
+  border-color:#075f75;
+  box-shadow:0 10px 24px rgba(7,95,117,0.25);
+}
+.card,.status-card,.control-panel,.control-section,.config-section,.info-card{
+  border-color:var(--border);
+}
+.status-card{padding:18px;}
+.status-card h3{font-size:17px;font-weight:800;}
+.status-card-summary{font-size:14px;color:var(--text-muted);}
+.status-kv{font-size:15px;color:var(--text-muted);}
+.status-sonde-slot,.status-alarm-slot,.status-state-tile{min-height:70px;padding:12px 14px;}
+.status-sonde-slot-title,.status-state-title{font-size:13px;}
+.status-sonde-slot-value{font-size:22px;color:var(--text);}
+.status-sonde-slot-unit{font-size:13px;}
+.status-alarm-slot-title{font-size:12px;}
+.status-alarm-slot-state,.status-state-value{font-size:14px;}
+.status-alarm-slot-condition{font-size:11px;padding:4px 8px;}
+.pool-field-label,.pool-field-value,.pool-field-empty{font-size:15px;}
+.pool-treatment-choice{
+  min-height:86px;
+  font-size:15px;
+  color:#334b66;
+}
+.pool-treatment-choice:not(:disabled):hover{
+  background:#e8f3fa;
+  color:#075f75;
+  box-shadow:inset 0 0 0 2px rgba(7,95,117,0.3);
+}
+.pool-treatment-choice.is-selected{
+  color:#075f75;
+  background:#dff1f5;
+  box-shadow:inset 0 0 0 2px #087e99;
+}
+.activity-row-title{font-size:16px;}
+.activity-row-meta,.activity-row-detail,.activity-status{font-size:14px;}
+button,input,select,textarea{font-size:15px;}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,.menu-item:focus-visible{
+  outline:3px solid rgba(0,116,232,0.32);
+  outline-offset:2px;
+}
+@media (max-width:900px){
+  :root{--drawer-width:min(86vw,280px);}
+  .content{padding:18px;}
+  .app-header-title h1,.topbar h1{font-size:22px;}
+}

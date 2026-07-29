@@ -1957,6 +1957,8 @@
     const wifiConfigStatus = document.getElementById('wifiConfigStatus');
     const rebootDeviceTargetSelect = document.getElementById('rebootDeviceTarget');
     const rebootDeviceActionBtn = document.getElementById('rebootDeviceAction');
+    const kioskShutdownAction = document.getElementById('kioskShutdownAction');
+    const kioskShutdownActionBtn = document.getElementById('kioskShutdownActionBtn');
     const factoryResetDeviceActionBtn = document.getElementById('factoryResetDeviceAction');
     const systemStatusText = document.getElementById('systemStatusText');
     const infoStatusChip = document.getElementById('infoStatusChip');
@@ -2212,6 +2214,7 @@
       alarm: createRuntimeDomainState()
     };
     let poolConfigLoadedOnce = false;
+    let poolConfigModeApplyBusy = false;
     let poolConfigReqSeq = 0;
     const poolConfigModuleDefs = Object.freeze([
       Object.freeze({ module: 'poollogic/modes', titleKey: 'pool.card.modes.title', title: 'Pilotage général', icon: 'tune', noteKey: 'pool.card.modes.note', note: 'Ces interrupteurs définissent si PoolLogic pilote la piscine et quelle stratégie de traitement est retenue.' }),
@@ -6792,6 +6795,60 @@
       poolConfigRenderModeBadges(modules);
     }
 
+    async function poolConfigApplyDisinfectionMode(def) {
+      if (!def || poolConfigModeApplyBusy) return;
+      const label = tr(def.titleKey, def.title);
+      const confirmation = tr(
+        'pool.disinfection.changeConfirm',
+        'Activer le traitement « {mode} » ?'
+      ).replace('{mode}', label);
+      if (!window.confirm(confirmation)) return;
+
+      poolConfigModeApplyBusy = true;
+      if (poolDisinfectionModes) {
+        poolDisinfectionModes.setAttribute('aria-busy', 'true');
+        Array.from(poolDisinfectionModes.querySelectorAll('.pool-treatment-choice')).forEach((button) => {
+          button.disabled = true;
+        });
+      }
+      if (poolConfigSummary) {
+        poolConfigSummary.textContent = tr(
+          'pool.disinfection.changePending',
+          'Application du traitement « {mode} »...'
+        ).replace('{mode}', label);
+      }
+
+      try {
+        const patch = {
+          'poollogic/modes': {
+            disinfection_type: def.typeValue
+          }
+        };
+        await fetchOkJson(
+          '/api/flowcfg/apply',
+          createFormPostOptions({ patch: JSON.stringify(patch) }),
+          tr('pool.disinfection.changeFailed', 'Changement de traitement refusé'),
+          fetchFlowRemoteQueued
+        );
+        poolConfigLoadedOnce = false;
+        await loadPoolConfig(true);
+      } catch (err) {
+        if (poolConfigSummary) {
+          poolConfigSummary.textContent =
+            tr('pool.disinfection.changeFailed', 'Changement de traitement refusé') +
+            ': ' + String(err);
+        }
+      } finally {
+        poolConfigModeApplyBusy = false;
+        if (poolDisinfectionModes) {
+          poolDisinfectionModes.removeAttribute('aria-busy');
+          Array.from(poolDisinfectionModes.querySelectorAll('.pool-treatment-choice')).forEach((button) => {
+            button.disabled = button.getAttribute('aria-pressed') === 'true';
+          });
+        }
+      }
+    }
+
     function poolConfigRenderDisinfection(modules) {
       if (!poolDisinfectionModes) return;
       poolDisinfectionModes.innerHTML = '';
@@ -6820,7 +6877,9 @@
       poolDisinfectionModeDefs.forEach((def) => {
         const choice = document.createElement('button');
         choice.type = 'button';
-        choice.disabled = true;
+        const isSelected = selectedType === def.typeValue;
+        choice.disabled = poolConfigModeApplyBusy || isSelected;
+        choice.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
         choice.className = 'pool-treatment-choice' + (selectedType === def.typeValue ? ' is-selected' : '');
         const choiceIcon = document.createElement('span');
         choiceIcon.className = 'ui-msr pool-treatment-choice-icon';
@@ -6830,6 +6889,11 @@
         choiceLabel.textContent = tr(def.titleKey, def.title);
         choice.appendChild(choiceIcon);
         choice.appendChild(choiceLabel);
+        if (!isSelected) {
+          choice.addEventListener('click', () => {
+            poolConfigApplyDisinfectionMode(def).catch(() => {});
+          });
+        }
         choiceGroup.appendChild(choice);
       });
       selector.appendChild(choiceGroup);
