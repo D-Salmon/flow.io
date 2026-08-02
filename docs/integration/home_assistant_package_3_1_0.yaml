@@ -1,0 +1,124 @@
+# Home Assistant package for the Flow.io 3.1.0 dashboard.
+#
+# Install this file under the Home Assistant `packages` directory. See
+# `home-assistant-3.1.0.md` for the required configuration.
+#
+# Alarm states come from native MQTT Discovery binary sensors keyed by stable
+# AlarmId values. These compatibility aliases preserve the entity IDs used by
+# the dashboard without decoding the slot-ordered `sensor.fio_alm_pack`.
+
+input_boolean:
+  flowio_admin_mode:
+    name: Réglages avancés Flow.io
+    icon: mdi:cog
+
+input_select:
+  flowio_menu_tab:
+    name: Section Flow.io
+    options:
+      - Chimie
+      - Filtration
+      - Eau
+      - Système
+    initial: Chimie
+    icon: mdi:menu
+
+template:
+  - binary_sensor:
+      - name: flowio_alarm_any_active
+        unique_id: flowio_240_alarm_any_active
+        icon: mdi:alarm-multiple
+        availability: >
+          {{ states('binary_sensor.fio_alm_any') in ['on', 'off'] }}
+        state: >
+          {{ is_state('binary_sensor.fio_alm_any', 'on') }}
+
+      - name: flowio_pressure_alarm
+        unique_id: flowio_240_pressure_alarm
+        icon: mdi:gauge-alert
+        availability: >
+          {{ states('binary_sensor.fio_alm_psi_low') in ['on', 'off']
+             and states('binary_sensor.fio_alm_psi_high') in ['on', 'off'] }}
+        state: >
+          {{ is_state('binary_sensor.fio_alm_psi_low', 'on')
+             or is_state('binary_sensor.fio_alm_psi_high', 'on') }}
+
+      - name: flowio_ph_tank_low
+        unique_id: flowio_240_ph_tank_low
+        icon: mdi:flask-empty-off-outline
+        availability: >
+          {{ states('binary_sensor.fio_alm_ph_tank_low') in ['on', 'off'] }}
+        state: >
+          {{ is_state('binary_sensor.fio_alm_ph_tank_low', 'on') }}
+
+      - name: flowio_chlorine_tank_low
+        unique_id: flowio_240_chlorine_tank_low
+        icon: mdi:beaker-alert-outline
+        availability: >
+          {{ states('binary_sensor.fio_alm_chlorine_tank_low') in ['on', 'off'] }}
+        state: >
+          {{ is_state('binary_sensor.fio_alm_chlorine_tank_low', 'on') }}
+
+      - name: flowio_ph_pump_max_uptime
+        unique_id: flowio_240_ph_pump_max_uptime
+        icon: mdi:timer-alert-outline
+        availability: >
+          {{ states('binary_sensor.fio_alm_ph_pump_max_uptime') in ['on', 'off'] }}
+        state: >
+          {{ is_state('binary_sensor.fio_alm_ph_pump_max_uptime', 'on') }}
+
+      - name: flowio_chlorine_pump_max_uptime
+        unique_id: flowio_240_chlorine_pump_max_uptime
+        icon: mdi:timer-alert-outline
+        availability: >
+          {{ states('binary_sensor.fio_alm_chlorine_pump_max_uptime') in ['on', 'off'] }}
+        state: >
+          {{ is_state('binary_sensor.fio_alm_chlorine_pump_max_uptime', 'on') }}
+
+      - name: flowio_water_level_low
+        unique_id: flowio_240_water_level_low
+        icon: mdi:waves-arrow-down
+        availability: >
+          {{ states('binary_sensor.fio_alm_water_level_low') in ['on', 'off'] }}
+        state: >
+          {{ is_state('binary_sensor.fio_alm_water_level_low', 'on') }}
+
+      - name: flowio_water_temperature_unavailable
+        unique_id: flowio_250_water_temperature_unavailable
+        icon: mdi:thermometer-alert
+        availability: >
+          {{ states('binary_sensor.fio_alm_water_temperature_unavailable')
+             in ['on', 'off'] }}
+        state: >
+          {{ is_state('binary_sensor.fio_alm_water_temperature_unavailable',
+                      'on') }}
+
+      - name: flowio_filtration_contactor_mismatch
+        unique_id: flowio_240_filtration_contactor_mismatch
+        icon: mdi:electric-switch-closed
+        availability: >
+          {{ states('binary_sensor.fio_alm_filtration_contactor_mismatch')
+             in ['on', 'off'] }}
+        state: >
+          {{ is_state('binary_sensor.fio_alm_filtration_contactor_mismatch',
+                      'on') }}
+
+      - name: flowio_chlorine_generator_contactor_mismatch
+        unique_id: flowio_240_chlorine_generator_contactor_mismatch
+        icon: mdi:electric-switch-closed
+        availability: >
+          {{ states('binary_sensor.fio_alm_chlorine_generator_contactor_mismatch')
+             in ['on', 'off'] }}
+        state: >
+          {{ is_state(
+               'binary_sensor.fio_alm_chlorine_generator_contactor_mismatch',
+               'on') }}
+
+      - name: flowio_ota_signature_failures
+        unique_id: flowio_250_ota_signature_failures
+        icon: mdi:shield-alert
+        availability: >
+          {{ states('binary_sensor.fio_alm_ota_signature_failures')
+             in ['on', 'off'] }}
+        state: >
+          {{ is_state('binary_sensor.fio_alm_ota_signature_failures', 'on') }}
