@@ -43,7 +43,12 @@ MQTT et ne depend pas du transport HMI supprime.
 
 - L'administration Web reste en HTTP sans confidentialite de transport.
 - Secure Boot v2, chiffrement flash/NVS et anti-rollback restent a industrialiser.
-- Le socle Arduino-ESP32 2.0.17 reste a migrer vers une branche maintenue.
+- Le socle Arduino-ESP32 2.0.17 (`env:FlowIO`) reste a migrer vers une
+  branche maintenue. La carte de production `env:Waveshare-ESP32-S3` utilise
+  deja un socle 3.x via le fork pioarduino (verifie le 2026-08-02 :
+  framework-arduinoespressif32 3.3.11), mais celui-ci n'est pas epingle sur
+  un tag de release precis (canal `stable`), ce qui reste a corriger pour
+  garantir des builds reproductibles.
 
 Le port 80 ne doit pas etre expose directement a Internet. Pour un acces Web
 distant, utiliser un VPN ou un reverse proxy HTTPS de confiance.

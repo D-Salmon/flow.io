@@ -103,7 +103,10 @@ dans `alm_pack`; ce dernier reste publie pour compatibilite et diagnostic.
 4. Verrouiller les dependances transitives et produire un SBOM CycloneDX ou
    SPDX avec les licences tierces.
 5. Rendre les builds reproductibles avec `SOURCE_DATE_EPOCH`, l'identifiant du
-   commit et la version exacte de la chaine d'outils.
+   commit et la version exacte de la chaine d'outils. En particulier,
+   `env:Waveshare-ESP32-S3` pointe vers le canal `stable` du fork pioarduino
+   (Arduino-ESP32 3.3.11 / ESP-IDF 5.5.x au 2026-08-02) au lieu d'un tag de
+   release figé : a epingler pour garantir la reproductibilite.
 6. Definir et ajouter la licence du projet.
 
 ## Ordre recommande
