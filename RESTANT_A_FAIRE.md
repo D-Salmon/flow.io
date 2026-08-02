@@ -1,9 +1,19 @@
 # Travail restant avant production
 
+> **Note de re-verification (2026-08-02)** : ce document decrit l'etat
+> `2.5.1`. Verifie point par point sur le depot livre
+> `flow.io-agent-waveshare-3.1.0` (`waveshare_firmware_version = 3.1.0`),
+> une version ulterieure. Les ecarts constates sont marques
+> « Correction 3.1.0 » ci-dessous.
+
 ## Etat actuel
 
 La version `2.5.1` est une edition durcie et allegee consacree au controleur
-Waveshare ESP32-S3 N16R8 avec bus Qwiic. Elle utilise ArduinoJson 7, contient un
+Waveshare ESP32-S3 N16R8 avec bus Qwiic. **Correction 3.1.0** : le depot
+fourni est en version `3.1.0` (`waveshare_firmware_version` dans
+`platformio.ini`), pas `2.5.1` ; le reste de cette section (ArduinoJson 7,
+profil PlatformIO unique, firmware ESP32-S3/SPIFFS/Nextion) reste exact sur
+3.1.0. Elle utilise ArduinoJson 7, contient un
 seul profil PlatformIO, ainsi que le firmware ESP32-S3, le SPIFFS et le firmware
 compatible de l'ecran Nextion.
 
@@ -48,6 +58,17 @@ dans `alm_pack`; ce dernier reste publie pour compatibilite et diagnostic.
    - demarrage et recuperation des identifiants sur la console serie;
    - cavalier `GPIO21`-`GND`, AP `FlowIO-RECOVERY`, remplacement des acces,
      extinction effective des huit relais et fermeture apres dix minutes;
+     **Correction 3.1.0** : dans le code source livre, le mecanisme de
+     recuperation physique repose sur un appui long du bouton `BOOT`
+     (`GPIO0`, `kBootRecoveryPin = 0`, lecture `digitalRead` avec
+     `INPUT_PULLUP`) et non un cavalier `GPIO21`-`GND`. Le SSID du point
+     d'acces genere par `buildProvisioningApSsid_()` suit le format
+     `flow.io-<profil>-XXXXXX` (derive de l'adresse MAC), et non
+     `FlowIO-RECOVERY` (source :
+     `src/Modules/Network/WebInterfaceModule/WebInterfaceServer.cpp`). A
+     verifier avec l'equipe si la doc ou le code a change en dernier — dans
+     le doute, se fier au code source livre et mettre a jour cette
+     procedure avant tout essai materiel ;
    - Wi-Fi, Ethernet et MQTT TLS;
    - premier demarrage vierge avec Ethernet DHCP actif et automatisme piscine
      inactif, surveillance de pression inactive, puis conservation de ces choix
