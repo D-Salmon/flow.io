@@ -17,7 +17,7 @@ Sans orchestration continue, on observe vite:
 
 flow.io apporte un pilotage cohérent de bout en bout.
 
-![PoolMaster Ecosystem](docs/pictures/PoolMaster%20Ecosystem.png)
+![PoolMaster Ecosystem](docs/pictures/PoolMaster_Ecosystem_waveshare.png)
 
 ## Cartes matérielles supportées
 
