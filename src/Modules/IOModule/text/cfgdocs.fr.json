@@ -94,6 +94,12 @@
       "help_t": "cfgdocs.io.drivers.ds18b20.poll_ms.help",
       "unit": "ms"
     },
+    "io/drivers/ds18b20/transport": {
+      "type": "UInt8",
+      "label_t": "cfgdocs.io.drivers.ds18b20.transport.label",
+      "help_t": "cfgdocs.io.drivers.ds18b20.transport.help",
+      "enum_set": "ds18b20_transport"
+    },
     "io/drivers/gpio/poll_ms": {
       "type": "Int32",
       "label_t": "cfgdocs.io.drivers.gpio.poll_ms.label",

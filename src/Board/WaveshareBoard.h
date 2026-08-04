@@ -167,9 +167,9 @@ inline constexpr I2cBusSpec kWaveshareESP32S3I2c[] = {
 };
 
 /*
- * The Waveshare Qwiic profile does not drive a direct 1-Wire GPIO. Both
- * DS18B20 probes share the main I2C bus through a DS2484 bridge at 0x18.
- * Their ROM addresses are cached independently by IOModule.
+ * In 3.1.2, the Web configuration selects only the DS18B20 transport:
+ * Qwiic through a DS2484 bridge at 0x18, or direct GPIO20/GPIO19. The main
+ * I2C bus remains active in both modes for every other Qwiic component.
  */
 
 /*

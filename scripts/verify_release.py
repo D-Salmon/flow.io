@@ -12,7 +12,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "3.1.1"
+VERSION = "3.1.2"
 
 
 def fail(message: str) -> None:
@@ -101,13 +101,13 @@ def verify_profile_and_safety_defaults() -> None:
     filtration = read("src/Modules/PoolLogicModule/FiltrationWindow.cpp")
 
     required = (
-        ("firmware version", 'waveshare_firmware_version = \'"3.1.1"\'', ini),
+        ("firmware version", 'waveshare_firmware_version = \'"3.1.2"\'', ini),
         ("16 MB OTA partition map", "partitions_flowios3_ota_16mb.csv", ini),
         ("octal PSRAM", "board_build.psram_type = opi", ini),
         ("ArduinoJson 7.4.3", "bblanchon/ArduinoJson @ 7.4.3", ini),
         ("Ethernet default enabled", "kWaveshareESP32S3EthernetW5500{\n    true,", board),
         ("DS2484 build address", "FLOW_DS18_DS2484_ADDRESS=0x18u", ini),
-        ("DS2484 Waveshare assembly", "useDs2484OneWireBus(", waveshare_io),
+        ("selectable DS18B20 Waveshare assembly", "useSelectableTemperatureBuses(", waveshare_io),
         ("DS2484 runtime probe", 'LOGI("DS2484 probe 0x%02X: %s"', io_module),
         ("no direct Waveshare 1-Wire table", "nullptr,\n    0,\n    kWaveshareESP32S3IoPoints", board),
         ("Web security-header middleware", "addWebSecurityHeaders(request->getResponse()", web),
@@ -155,12 +155,12 @@ def verify_profile_and_safety_defaults() -> None:
 
 
 def verify_declared_limits() -> None:
-    status = read("docs/release-3.1.1.md")
+    status = read("docs/release-3.1.2.md")
     required = (
-        "connexion de secours",
-        "Ethernet reste prioritaire",
-        "validation matérielle Ethernet/Wi-Fi encore requise",
-        "limitations de production documentées pour la 3.1.0 restent applicables",
+        "Qwiic / DS2484",
+        "GPIO20",
+        "GPIO19",
+        "GPIO42/GPIO41",
     )
     for text in required:
         require(f"documented 3.1 limitation: {text}", text, status)

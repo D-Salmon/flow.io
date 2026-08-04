@@ -335,6 +335,7 @@ FLOW_IO_DIGITAL_OUTPUT_NVS_KEYS("15", IO_D15NM, IO_D15BP, IO_D15AH, IO_D15IN, IO
 #undef FLOW_IO_DIGITAL_OUTPUT_NVS_KEYS
 constexpr char IO_DIN[] = "io_din"; // IO module persisted key for field `io_din`.
 constexpr char IO_DS[] = "io_ds"; // IO module persisted key for field `io_ds`.
+constexpr char IO_DSSRC[] = "io_dssrc"; // DS18B20 transport: 0=Qwiic DS2484, 1=direct GPIO.
 constexpr char IO_EN[] = "io_en"; // IO module persisted key for field `io_en`.
 constexpr char IO_SHTEN[] = "io_shten"; // IO module persisted key for field `io_sht40_enabled`.
 constexpr char IO_SHTAD[] = "io_shtad"; // IO module persisted key for field `io_sht40_address`.

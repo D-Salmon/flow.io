@@ -383,6 +383,18 @@ void IOModule::useDs2484OneWireBus(uint8_t address, uint8_t waterIndex, uint8_t 
     oneWireAir_ = &ds2484Bus_;
 }
 
+void IOModule::useSelectableTemperatureBuses(uint8_t address,
+                                             uint8_t waterIndex,
+                                             uint8_t airIndex,
+                                             IOneWireTemperatureBus* directWater,
+                                             IOneWireTemperatureBus* directAir)
+{
+    selectableTemperatureBuses_ = true;
+    directOneWireWater_ = directWater;
+    directOneWireAir_ = directAir;
+    useDs2484OneWireBus(address, waterIndex, airIndex);
+}
+
 void IOModule::setBindingPorts(const IOBindingPortSpec* ports, uint8_t count)
 {
     bindingPorts_ = ports;
@@ -2378,6 +2390,28 @@ bool IOModule::configureRuntime_()
     if (runtimeReady_) return true;
     if (!cfgData_.enabled) return false;
 
+    if (selectableTemperatureBuses_) {
+        if (cfgData_.ds18Transport == 1U) {
+            useDs2484_ = false;
+            oneWireWater_ = directOneWireWater_;
+            oneWireAir_ = directOneWireAir_;
+            oneWireWaterIndex_ = 0U;
+            oneWireAirIndex_ = 0U;
+            LOGI("DS18B20 transport: direct GPIO (water=%d air=%d)",
+                 oneWireWater_ ? oneWireWater_->pin() : -1,
+                 oneWireAir_ ? oneWireAir_->pin() : -1);
+        } else {
+            if (cfgData_.ds18Transport != 0U) {
+                LOGW("Invalid DS18B20 transport=%u, using Qwiic DS2484", (unsigned)cfgData_.ds18Transport);
+                cfgData_.ds18Transport = 0U;
+            }
+            useDs2484_ = true;
+            oneWireWater_ = nullptr;
+            oneWireAir_ = nullptr;
+            LOGI("DS18B20 transport: Qwiic DS2484 (0x%02X)", ds2484Address_);
+        }
+    }
+
     bool needAnalogSource[IO_SRC_COUNT] = {false};
 
     for (uint8_t i = 0; i < MAX_ANALOG_ENDPOINTS; ++i) {
@@ -3289,6 +3323,9 @@ void IOModule::init(ConfigStore& cfg, ServiceRegistry& services)
     cfg.registerVar(i2cSclVar_, kCfgModuleId, kCfgBranchIoBus);
     cfg.registerVar(adsPollVar_, kCfgModuleId, kCfgBranchIoAds1115);
     cfg.registerVar(dsPollVar_, kCfgModuleId, kCfgBranchIoDs18b20);
+    if (selectableTemperatureBuses_) {
+        cfg.registerVar(dsTransportVar_, kCfgModuleId, kCfgBranchIoDs18b20);
+    }
     cfg.registerVar(digitalPollVar_, kCfgModuleId, kCfgBranchIoGpio);
     cfg.registerVar(adsInternalAddrVar_, kCfgModuleId, kCfgBranchIoAdsInt);
     cfg.registerVar(adsExternalAddrVar_, kCfgModuleId, kCfgBranchIoAdsExt);
