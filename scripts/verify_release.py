@@ -12,7 +12,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "3.1.0"
+VERSION = "3.1.1"
 
 
 def fail(message: str) -> None:
@@ -101,7 +101,7 @@ def verify_profile_and_safety_defaults() -> None:
     filtration = read("src/Modules/PoolLogicModule/FiltrationWindow.cpp")
 
     required = (
-        ("firmware version", 'waveshare_firmware_version = \'"3.1.0"\'', ini),
+        ("firmware version", 'waveshare_firmware_version = \'"3.1.1"\'', ini),
         ("16 MB OTA partition map", "partitions_flowios3_ota_16mb.csv", ini),
         ("octal PSRAM", "board_build.psram_type = opi", ini),
         ("ArduinoJson 7.4.3", "bblanchon/ArduinoJson @ 7.4.3", ini),
@@ -155,12 +155,12 @@ def verify_profile_and_safety_defaults() -> None:
 
 
 def verify_declared_limits() -> None:
-    status = read("docs/release-3.1.0.md")
+    status = read("docs/release-3.1.1.md")
     required = (
-        "DS2484",
-        "récupération physique par appui long de 5 secondes sur BOOT",
-        "MQTT utilise encore",
-        "ne doit pas encore être flashée",
+        "connexion de secours",
+        "Ethernet reste prioritaire",
+        "validation matérielle Ethernet/Wi-Fi encore requise",
+        "limitations de production documentées pour la 3.1.0 restent applicables",
     )
     for text in required:
         require(f"documented 3.1 limitation: {text}", text, status)
