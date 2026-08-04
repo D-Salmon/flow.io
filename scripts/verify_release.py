@@ -160,7 +160,7 @@ def verify_declared_limits() -> None:
         "Qwiic / DS2484",
         "GPIO20",
         "GPIO19",
-        "ne désactive jamais le bus Qwiic/I²C",
+        "GPIO42/GPIO41",
     )
     for text in required:
         require(f"documented 3.1 limitation: {text}", text, status)
