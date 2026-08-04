@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module fritzingVersion="1.0.4" icon=".png">
+  <project_properties/>
+  <views>
+    <view name="breadboardView" backgroundColor="#ffffff" gridSize="0.1in" showGrid="0" alignToGrid="1" viewFromBelow="0" colorWiresByLength="0"/>
+    <view name="schematicView" backgroundColor="#ffffff" gridSize="0.1in" showGrid="0" alignToGrid="1" viewFromBelow="0"/>
+    <view name="pcbView" backgroundColor="#333333" gridSize="0.05in" showGrid="0" alignToGrid="1" viewFromBelow="0"/>
+  </views>
+  <instances>
+    <instance moduleIdRef="flowio_waveshare_3_1_2_diagram" modelIndex="1001" path="flowio-waveshare-3.1.2.fzp">
+      <title>Flow.io Waveshare 3.1.2</title>
+      <views>
+        <breadboardView layer="breadboard"><geometry z="1" x="20" y="20"/><connectors/></breadboardView>
+        <schematicView layer="schematic"><geometry z="1" x="20" y="20"/><connectors/></schematicView>
+        <pcbView layer="silkscreen"><geometry z="1" x="20" y="20"/><connectors/></pcbView>
+      </views>
+    </instance>
+  </instances>
+</module>

@@ -80,7 +80,14 @@ Publié par `RuntimeProducer` + publishers périodiques:
 - `rt/poollogic/*`
 - `rt/network/state` (périodique)
 - `rt/system/state` (périodique)
-- `rt/alarms/*` (meta/pack/id)
+- `rt/alarms/m` : résumé (`a` = nombre actif, `h` = sévérité maximale)
+- `rt/alarms/p` : représentation compacte historique `alm_pack`
+- `rt/alarms/id<AlarmId>` : état individuel stable d’une alarme
+
+Les trois formes d’état d’alarme sont publiées avec `retain=true`. Après une
+reconnexion ou un redémarrage de Home Assistant, le broker peut donc restituer
+immédiatement le dernier état connu. La disponibilité générale de l’appareil
+reste portée par le topic `status`.
 
 ### Config (`cfg/*`) module-owned
 

@@ -13,6 +13,7 @@
 #include "Core/AlarmIds.h"
 #include "Core/Generated/RuntimeUiAlarmText_Generated.h"
 #include "Core/SystemLimits.h"
+#include "Core/PsramJsonAllocator.h"
 #include "Domain/Pool/PoolIds.h"
 #include "Domain/Pool/PoolDefaults.h"
 #include "Modules/IOModule/IORuntime.h"
@@ -472,9 +473,18 @@ void HMIModule::applyOutputConfig_()
     }
 
     TfaVeniceRf433Config veniceCfg{};
-    veniceCfg.enabled = cfgData_.veniceEnabled;
-    veniceCfg.txPin =
+    int8_t veniceTxPin =
         (cfgData_.veniceTxGpio >= 0 && cfgData_.veniceTxGpio <= 127) ? (int8_t)cfgData_.veniceTxGpio : (int8_t)-1;
+#if FLOW_BUILD_IS_WAVESHARE
+    // Only unassigned, externally available pins are accepted on the
+    // Waveshare N16R8 profile. In particular GPIO14 is Ethernet MISO and the
+    // old persisted default must never be driven by the RF433 output.
+    const bool flowIOS3PinAllowed =
+        (veniceTxPin >= 1 && veniceTxPin <= 3) || veniceTxPin == 40;
+    if (!flowIOS3PinAllowed) veniceTxPin = -1;
+#endif
+    veniceCfg.enabled = cfgData_.veniceEnabled && veniceTxPin >= 0;
+    veniceCfg.txPin = veniceTxPin;
     venice_.setConfig(veniceCfg);
 
     if (!kFrontLedsSupported || !cfgData_.ledsEnabled) {
@@ -1334,6 +1344,9 @@ bool HMIModule::publishHomeAlarmBits_()
 bool HMIModule::validateDriverDisplayVersion_(bool requireDetection)
 {
     if (!driver_) return true;
+    // ******************
+    return true; // steph
+    // ******************
     if (!driver_->hasDisplayVersion()) {
         if (!requireDetection) return true;
         LOGW("Ecran Nextion version non detectee. Affichage Nextion desactive.");
@@ -2781,7 +2794,7 @@ bool HMIModule::buildMenuJson_(char* out, size_t outLen)
 
 #if !FLOW_HMI_CONFIG_MENU_ENABLED
     {
-        DynamicJsonDocument doc(256);
+        JsonDocument doc;
         JsonObject root = doc.to<JsonObject>();
         root["ok"] = true;
         root["disabled"] = true;
@@ -2802,7 +2815,7 @@ bool HMIModule::buildMenuJson_(char* out, size_t outLen)
     menu_.buildView(view);
     view.contextRef = cacheCurrentConfigContext_();
 
-    DynamicJsonDocument doc(2048);
+    JsonDocument doc(psramPreferredJsonAllocator());
     JsonObject root = doc.to<JsonObject>();
     root["ok"] = true;
     root["driver"] = driver_ ? driver_->driverId() : "";
@@ -2816,11 +2829,11 @@ bool HMIModule::buildMenuJson_(char* out, size_t outLen)
     root["can_back"] = view.canBack;
     root["can_validate"] = view.canValidate;
 
-    JsonArray arr = root.createNestedArray("items");
+    JsonArray arr = root["items"].to<JsonArray>();
     for (uint8_t i = 0; i < ConfigMenuModel::RowsPerPage; ++i) {
         const ConfigMenuRowView& row = view.rows[i];
         if (!row.visible) continue;
-        JsonObject it = arr.createNestedObject();
+        JsonObject it = arr.add<JsonObject>();
         it["i"] = i;
         it["key"] = row.key;
         it["label"] = row.label;

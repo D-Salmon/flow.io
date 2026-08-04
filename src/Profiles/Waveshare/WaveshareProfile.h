@@ -7,8 +7,8 @@
 #include "Modules/EventBusModule/EventBusModule.h"
 #include "Modules/HMIModule/HMIModule.h"
 #include "Modules/HMIBuzzerModule/HMIBuzzerModule.h"
-#include "Modules/IOModule/IOBus/OneWireBus.h"
 #include "Modules/IOModule/IOModule.h"
+#include "Modules/IOModule/IOBus/OneWireBus.h"
 #if FLOW_ENABLE_BOOT_LOG_CAPTURE
 #include "Modules/Logs/BootLogCaptureModule/BootLogCaptureModule.h"
 #endif
@@ -19,7 +19,6 @@
 #include "Modules/Network/EthernetModule/EthernetModule.h"
 #include "Modules/Network/HAModule/HAModule.h"
 #include "Modules/Network/FirmwareUpdateModule/FirmwareUpdateModule.h"
-#include "Modules/Network/HmiUdpServerModule/HmiUdpServerModule.h"
 #include "Modules/Network/MQTTModule/MQTTModule.h"
 #include "Modules/Network/TimeModule/TimeModule.h"
 #include "Modules/Network/WebInterfaceModule/WebInterfaceModule.h"
@@ -75,14 +74,13 @@ struct ModuleInstances {
     LogHubModule logHubModule{};
     EventBusModule eventBusModule{};
     AlarmModule alarmModule{};
-    HmiUdpServerModule hmiUdpServerModule{};
     HMIModule hmiModule;
     HMIBuzzerModule hmiBuzzerModule;
     IOModule ioModule;
+    OneWireBus oneWireWater{20};
+    OneWireBus oneWireAir{19};
     PoolDeviceModule poolDeviceModule{};
     PoolLogicModule poolLogicModule{};
-    OneWireBus oneWireWater;
-    OneWireBus oneWireAir;
     DataStore* ioDataStore = nullptr;
     const HAService* haService = nullptr;
     char topicNetworkState[Limits::TopicBuf] = {0};

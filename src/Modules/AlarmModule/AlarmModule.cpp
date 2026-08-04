@@ -33,6 +33,68 @@ static constexpr HAButtonEntry kAlarmResetSlotButtons[] = {
     {"alarms", "alm_reset_slot_6", "Reset Alarm Slot 6", MqttTopics::SuffixCmd, "{\"cmd\":\"alarms.reset_slot\",\"args\":{\"slot\":6}}", "diagnostic", "mdi:numeric-6-box-outline"},
     {"alarms", "alm_reset_slot_7", "Reset Alarm Slot 7", MqttTopics::SuffixCmd, "{\"cmd\":\"alarms.reset_slot\",\"args\":{\"slot\":7}}", "diagnostic", "mdi:numeric-7-box-outline"},
 };
+
+struct AlarmHaBinarySpec {
+    AlarmId id;
+    HABinarySensorEntry entry;
+};
+
+static constexpr const char* kAlarmActiveValueTemplate =
+    "{{ 'True' if value_json.a | int(0) == 1 else 'False' }}";
+
+static constexpr HABinarySensorEntry kAlarmAnyActiveBinarySensor{
+    "alarms",
+    "alm_any",
+    "Any Active Alarm",
+    "rt/alarms/m",
+    "{{ 'True' if value_json.a | int(0) > 0 else 'False' }}",
+    "problem",
+    nullptr,
+    "mdi:alarm-multiple"
+};
+
+static constexpr AlarmHaBinarySpec kAlarmHaBinarySensors[] = {
+    {AlarmId::PoolPsiLow,
+     {"alarms", "alm_psi_low", "Low Pressure", "rt/alarms/id1000",
+      kAlarmActiveValueTemplate, "problem", nullptr, "mdi:gauge-alert"}},
+    {AlarmId::PoolPsiHigh,
+     {"alarms", "alm_psi_high", "High Pressure", "rt/alarms/id1001",
+      kAlarmActiveValueTemplate, "problem", nullptr, "mdi:gauge-alert"}},
+    {AlarmId::PoolPhTankLow,
+     {"alarms", "alm_ph_tank_low", "pH Tank Low", "rt/alarms/id1002",
+      kAlarmActiveValueTemplate, "problem", nullptr, "mdi:flask-empty-off-outline"}},
+    {AlarmId::PoolChlorineTankLow,
+     {"alarms", "alm_chlorine_tank_low", "Chlorine Tank Low", "rt/alarms/id1003",
+      kAlarmActiveValueTemplate, "problem", nullptr, "mdi:beaker-alert-outline"}},
+    {AlarmId::PoolPhPumpMaxUptime,
+     {"alarms", "alm_ph_pump_max_uptime", "pH Pump Max Uptime", "rt/alarms/id1004",
+      kAlarmActiveValueTemplate, "problem", nullptr, "mdi:timer-alert-outline"}},
+    {AlarmId::PoolChlorinePumpMaxUptime,
+     {"alarms", "alm_chlorine_pump_max_uptime", "Chlorine Pump Max Uptime", "rt/alarms/id1005",
+      kAlarmActiveValueTemplate, "problem", nullptr, "mdi:timer-alert-outline"}},
+    {AlarmId::PoolWaterLevelLow,
+     {"alarms", "alm_water_level_low", "Pool Water Level Low", "rt/alarms/id1006",
+      kAlarmActiveValueTemplate, "problem", nullptr, "mdi:waves-arrow-down"}},
+    {AlarmId::PoolFiltrationContactorMismatch,
+     {"alarms", "alm_filtration_contactor_mismatch", "Filtration Contactor Mismatch", "rt/alarms/id1007",
+      kAlarmActiveValueTemplate, "problem", nullptr, "mdi:electric-switch-closed"}},
+    {AlarmId::PoolChlorineGeneratorContactorMismatch,
+     {"alarms", "alm_chlorine_generator_contactor_mismatch", "Chlorine Generator Contactor Mismatch",
+      "rt/alarms/id1008", kAlarmActiveValueTemplate, "problem", nullptr, "mdi:electric-switch-closed"}},
+    {AlarmId::PoolWaterTemperatureUnavailable,
+     {"alarms", "alm_water_temperature_unavailable", "Water Temperature Unavailable",
+      "rt/alarms/id1009", kAlarmActiveValueTemplate, "problem", nullptr, "mdi:thermometer-alert"}},
+    {AlarmId::LogWarningSeen,
+     {"alarms", "alm_log_warning", "Log Warning Seen", "rt/alarms/id1100",
+      kAlarmActiveValueTemplate, "problem", "diagnostic", "mdi:alert-outline"}},
+    {AlarmId::LogErrorSeen,
+     {"alarms", "alm_log_error", "Log Error Seen", "rt/alarms/id1101",
+      kAlarmActiveValueTemplate, "problem", "diagnostic", "mdi:alert-circle-outline"}},
+    {AlarmId::OtaSignatureFailures,
+     {"alarms", "alm_ota_signature_failures", "Repeated Invalid OTA Signatures",
+      "rt/alarms/id1200", kAlarmActiveValueTemplate, "problem", "diagnostic",
+      "mdi:shield-alert"}},
+};
 }
 
 static uint32_t clampEvalPeriodMs_(int32_t inMs)
@@ -45,7 +107,7 @@ static uint32_t clampEvalPeriodMs_(int32_t inMs)
 static bool parseCmdArgsObject_(const CommandRequest& req, JsonObjectConst& outObj)
 {
     static constexpr size_t CMD_DOC_CAPACITY = Limits::Alarm::JsonCmdBuf;
-    static StaticJsonDocument<CMD_DOC_CAPACITY> doc;
+    static JsonDocument doc;
 
     doc.clear();
     const char* json = req.args ? req.args : req.json;
@@ -503,7 +565,7 @@ bool AlarmModule::handleCmdReset_(const CommandRequest& req, char* reply, size_t
         }
         return false;
     }
-    if (!args.containsKey("id")) {
+    if (args["id"].isUnbound()) {
         if (!writeErrorJson(reply, replyLen, ErrorCode::MissingValue, "alarms.reset.id")) {
             snprintf(reply, replyLen, "{\"ok\":false}");
         }
@@ -538,7 +600,7 @@ bool AlarmModule::handleCmdResetSlot_(const CommandRequest& req, char* reply, si
         }
         return false;
     }
-    if (!args.containsKey("slot")) {
+    if (args["slot"].isUnbound()) {
         if (!writeErrorJson(reply, replyLen, ErrorCode::MissingSlot, "alarms.reset_slot.slot")) {
             snprintf(reply, replyLen, "{\"ok\":false}");
         }
@@ -657,6 +719,29 @@ void AlarmModule::registerHaEntities_(ServiceRegistry& services)
             registeredAny = true;
         } else {
             LOGW("HA registration failed: alm_pack");
+        }
+    }
+
+    if (haSvc_->addBinarySensor) {
+        if (haSvc_->addBinarySensor(haSvc_->ctx, &kAlarmAnyActiveBinarySensor)) {
+            registeredAny = true;
+        } else {
+            LOGW("HA registration failed: alm_any");
+        }
+
+        for (uint8_t i = 0; i < (uint8_t)(sizeof(kAlarmHaBinarySensors) / sizeof(kAlarmHaBinarySensors[0])); ++i) {
+            const AlarmHaBinarySpec& spec = kAlarmHaBinarySensors[i];
+            bool alarmRegistered = false;
+            portENTER_CRITICAL(&slotsMux_);
+            alarmRegistered = findSlotById_(spec.id) >= 0;
+            portEXIT_CRITICAL(&slotsMux_);
+            if (!alarmRegistered) continue;
+
+            if (haSvc_->addBinarySensor(haSvc_->ctx, &spec.entry)) {
+                registeredAny = true;
+            } else {
+                LOGW("HA registration failed: %s", spec.entry.objectSuffix);
+            }
         }
     }
 

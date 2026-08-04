@@ -13,17 +13,26 @@
 #include <Update.h>
 #include <string.h>
 #include <esp_ota_ops.h>
+#include <mbedtls/sha256.h>
 
 #include "App/BuildFlags.h"
 #include "Board/BoardSpec.h"
 #include "Core/ErrorCodes.h"
 #include "Core/FirmwareVersion.h"
+#include "Core/PsramJsonAllocator.h"
+#include "Core/Security/WebSecurityPolicy.h"
 #include "Core/SystemLimits.h"
+#include "Modules/Network/WebInterfaceModule/OtaSignatureVerifier.h"
+#include "Security/OtaPublicKey.h"
 
 #include <ESPNexUpload.h>
 
 #define LOG_MODULE_ID ((LogModuleId)LogModuleIdValue::FirmwareUpdateModule)
 #include "Core/ModuleLog.h"
+
+#ifndef FLOW_ALLOW_UNSIGNED_UPDATES
+#define FLOW_ALLOW_UNSIGNED_UPDATES 0
+#endif
 
 namespace {
 
@@ -97,7 +106,7 @@ static bool writeSimpleError_(char* out, size_t outLen, const char* msg)
     return n > 0 && (size_t)n < outLen;
 }
 
-static bool parseReqJsonObject_(const char* json, StaticJsonDocument<256>& doc)
+static bool parseReqJsonObject_(const char* json, JsonDocument& doc)
 {
     if (!json || json[0] == '\0') return false;
     const auto err = deserializeJson(doc, json);
@@ -168,6 +177,77 @@ static void configureDownloadHttp_(HTTPClient& http)
     http.setReuse(false);
     http.setConnectTimeout(Limits::FirmwareUpdate::Http::ConnectTimeoutMs);
     http.setTimeout(Limits::FirmwareUpdate::Http::RequestTimeoutMs);
+}
+
+static bool writeHttpBeginFailedError_(const char* resourceLabel,
+                                       const char* url,
+                                       char* errOut,
+                                       size_t errOutLen);
+static bool writeHttpCodeFailedError_(const char* resourceLabel,
+                                      const char* url,
+                                      HTTPClient& http,
+                                      int code,
+                                      char* errOut,
+                                      size_t errOutLen);
+
+static bool fetchOtaSignature_(const char* artifactUrl,
+                               char* signatureOut,
+                               size_t signatureOutLen,
+                               char* errOut,
+                               size_t errOutLen)
+{
+    if (!artifactUrl || !signatureOut || signatureOutLen == 0U) {
+        return writeSimpleError_(errOut, errOutLen, "invalid OTA signature request");
+    }
+    signatureOut[0] = '\0';
+
+    const bool unsignedAllowed = FLOW_ALLOW_UNSIGNED_UPDATES != 0;
+    if (!unsignedAllowed && OtaTrust::PublicKeyPem[0] == '\0') {
+        return writeSimpleError_(errOut, errOutLen, "Cle publique OTA non provisionnee");
+    }
+
+    char signatureUrl[224] = {0};
+    const int urlLen = snprintf(signatureUrl, sizeof(signatureUrl), "%s.sig", artifactUrl);
+    if (urlLen <= 0 || (size_t)urlLen >= sizeof(signatureUrl)) {
+        return writeSimpleError_(errOut, errOutLen, "signature URL too long");
+    }
+
+    HTTPClient http;
+    configureDownloadHttp_(http);
+    bool signaturePresent = false;
+    if (http.begin(signatureUrl)) {
+        const int code = http.GET();
+        if (code == HTTP_CODE_OK) {
+            String payload = http.getString();
+            payload.trim();
+            if (payload.length() > 0U && payload.length() < signatureOutLen) {
+                snprintf(signatureOut, signatureOutLen, "%s", payload.c_str());
+                signaturePresent = true;
+            } else if (payload.length() >= signatureOutLen) {
+                http.end();
+                return writeSimpleError_(errOut, errOutLen, "Signature OTA trop longue");
+            }
+        } else if (!unsignedAllowed && code != 404) {
+            writeHttpCodeFailedError_("signature OTA", signatureUrl, http, code, errOut, errOutLen);
+            http.end();
+            return false;
+        }
+        http.end();
+    } else if (!unsignedAllowed) {
+        return writeHttpBeginFailedError_("signature OTA", signatureUrl, errOut, errOutLen);
+    }
+
+    const Security::OtaUploadPreflight preflight =
+        Security::evaluateOtaUploadPreflight(unsignedAllowed,
+                                             OtaTrust::PublicKeyPem[0] != '\0',
+                                             signaturePresent);
+    if (preflight == Security::OtaUploadPreflight::PublicKeyMissing) {
+        return writeSimpleError_(errOut, errOutLen, "Cle publique OTA non provisionnee");
+    }
+    if (preflight == Security::OtaUploadPreflight::SignatureMissing) {
+        return writeSimpleError_(errOut, errOutLen, "Signature OTA manquante");
+    }
+    return true;
 }
 
 static bool writeHttpBeginFailedError_(const char* resourceLabel,
@@ -373,7 +453,7 @@ bool FirmwareUpdateModule::parseUrlArg_(const CommandRequest& req, char* out, si
     if (!out || outLen == 0) return false;
     out[0] = '\0';
 
-    StaticJsonDocument<256> doc;
+    JsonDocument doc;
     if (parseReqJsonObject_(req.args, doc)) {
         const char* url = doc["url"] | nullptr;
         if (url && url[0] != '\0') {
@@ -502,9 +582,7 @@ bool FirmwareUpdateModule::checkManifestJsonStream_(Print& out, char* errOut, si
         return false;
     }
 
-    size_t jsonCapacity = payload.length() + 1024U;
-    if (jsonCapacity < 4096U) jsonCapacity = 4096U;
-    DynamicJsonDocument doc(jsonCapacity);
+    JsonDocument doc(psramPreferredJsonAllocator());
     const DeserializationError jsonErr = deserializeJson(doc, payload);
     if (jsonErr || !doc.is<JsonObjectConst>()) {
         writeSimpleError_(errOut, errOutLen, "manifest invalid json");
@@ -638,6 +716,15 @@ bool FirmwareUpdateModule::runWaveshareUpdate_(const char* url, char* errOut, si
 {
     setStatus_(UpdateState::Downloading, FirmwareUpdateTarget::Waveshare, 0, "downloading");
 
+    char signatureBase64[128] = {0};
+    if (!fetchOtaSignature_(url,
+                            signatureBase64,
+                            sizeof(signatureBase64),
+                            errOut,
+                            errOutLen)) {
+        return false;
+    }
+
     HTTPClient http;
     configureDownloadHttp_(http);
     if (!http.begin(url)) {
@@ -683,10 +770,17 @@ bool FirmwareUpdateModule::runWaveshareUpdate_(const char* url, char* errOut, si
     }
 
     char failMsg[128] = {0};
+    mbedtls_sha256_context sha256;
+    mbedtls_sha256_init(&sha256);
+    bool sha256Active = false;
     const size_t beginSize = (contentLength > 0) ? (size_t)contentLength : (size_t)UPDATE_SIZE_UNKNOWN;
     if (!Update.begin(beginSize, U_FLASH)) {
         snprintf(failMsg, sizeof(failMsg), "ota begin failed (%u)", (unsigned)Update.getError());
+    } else if (mbedtls_sha256_starts(&sha256, 0) != 0) {
+        snprintf(failMsg, sizeof(failMsg), "ota sha256 init failed");
+        Update.abort();
     } else {
+        sha256Active = true;
         auto* stream = http.getStreamPtr();
         int32_t remaining = contentLength;
         uint8_t buf[Limits::FirmwareUpdate::Http::StreamChunkBytes];
@@ -714,6 +808,10 @@ bool FirmwareUpdateModule::runWaveshareUpdate_(const char* url, char* errOut, si
             }
             lastReadMs = millis();
 
+            if (mbedtls_sha256_update(&sha256, buf, (size_t)rd) != 0) {
+                snprintf(failMsg, sizeof(failMsg), "ota sha256 update failed");
+                break;
+            }
             const size_t wr = Update.write(buf, (size_t)rd);
             if (wr != (size_t)rd) {
                 snprintf(failMsg, sizeof(failMsg), "ota write failed (%u)", (unsigned)Update.getError());
@@ -733,6 +831,24 @@ bool FirmwareUpdateModule::runWaveshareUpdate_(const char* url, char* errOut, si
         if (failMsg[0] == '\0' && contentLength > 0 && remaining > 0) {
             snprintf(failMsg, sizeof(failMsg), "incomplete download");
         }
+        uint8_t digest[32] = {0};
+        if (failMsg[0] == '\0' &&
+            (!sha256Active || mbedtls_sha256_finish(&sha256, digest) != 0)) {
+            snprintf(failMsg, sizeof(failMsg), "ota sha256 finish failed");
+        }
+        sha256Active = false;
+        if (failMsg[0] == '\0' &&
+            Security::otaSignatureRequired(FLOW_ALLOW_UNSIGNED_UPDATES != 0,
+                                           signatureBase64[0] != '\0') &&
+            !verifyOtaSignature(digest, signatureBase64)) {
+            snprintf(failMsg, sizeof(failMsg), "Signature OTA invalide");
+            if (webInterfaceSvc_ && webInterfaceSvc_->noteInvalidOtaSignature) {
+                webInterfaceSvc_->noteInvalidOtaSignature(webInterfaceSvc_->ctx);
+            }
+        }
+        if (failMsg[0] != '\0') {
+            Update.abort();
+        }
         if (failMsg[0] == '\0' && !Update.end()) {
             snprintf(failMsg, sizeof(failMsg), "ota end failed (%u)", (unsigned)Update.getError());
         }
@@ -740,6 +856,7 @@ bool FirmwareUpdateModule::runWaveshareUpdate_(const char* url, char* errOut, si
             snprintf(failMsg, sizeof(failMsg), "ota not finished");
         }
     }
+    mbedtls_sha256_free(&sha256);
 
     if (webInterfaceSvc_ && webInterfaceSvc_->setPaused) {
         webInterfaceSvc_->setPaused(webInterfaceSvc_->ctx, false);
@@ -766,6 +883,14 @@ bool FirmwareUpdateModule::runNextionUpdate_(const char* url, char* errOut, size
     }
 
     setStatus_(UpdateState::Downloading, FirmwareUpdateTarget::Nextion, 0, "downloading");
+
+#if FLOW_ALLOW_UNSIGNED_UPDATES == 0
+    (void)url;
+    writeSimpleError_(errOut,
+                      errOutLen,
+                      "Nextion distant desactive en mode OTA signee");
+    return false;
+#endif
 
     if (flowIoEnablePin_ >= 0) {
         pinMode(flowIoEnablePin_, OUTPUT);
@@ -868,6 +993,14 @@ bool FirmwareUpdateModule::runNextionReboot_(char* errOut, size_t errOutLen)
 bool FirmwareUpdateModule::runSpiffsUpdate_(const char* url, char* errOut, size_t errOutLen)
 {
     setStatus_(UpdateState::Downloading, FirmwareUpdateTarget::Spiffs, 0, "downloading");
+
+#if FLOW_ALLOW_UNSIGNED_UPDATES == 0
+    (void)url;
+    writeSimpleError_(errOut,
+                      errOutLen,
+                      "SPIFFS distant desactive en mode OTA signee");
+    return false;
+#endif
 
     HTTPClient http;
     configureDownloadHttp_(http);

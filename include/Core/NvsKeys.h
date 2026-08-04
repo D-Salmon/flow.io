@@ -335,6 +335,7 @@ FLOW_IO_DIGITAL_OUTPUT_NVS_KEYS("15", IO_D15NM, IO_D15BP, IO_D15AH, IO_D15IN, IO
 #undef FLOW_IO_DIGITAL_OUTPUT_NVS_KEYS
 constexpr char IO_DIN[] = "io_din"; // IO module persisted key for field `io_din`.
 constexpr char IO_DS[] = "io_ds"; // IO module persisted key for field `io_ds`.
+constexpr char IO_DSSRC[] = "io_dssrc"; // DS18B20 transport: 0=Qwiic DS2484, 1=direct GPIO.
 constexpr char IO_EN[] = "io_en"; // IO module persisted key for field `io_en`.
 constexpr char IO_SHTEN[] = "io_shten"; // IO module persisted key for field `io_sht40_enabled`.
 constexpr char IO_SHTAD[] = "io_shtad"; // IO module persisted key for field `io_sht40_address`.
@@ -392,6 +393,7 @@ constexpr char WinterMode[] = "pl_wint"; // Pool logic module persisted key for 
 constexpr char PhAutoMode[] = "pl_pha"; // Pool logic module persisted key for field `pl_pha`.
 constexpr char OrpAutoMode[] = "pl_orpa"; // Pool logic module persisted key for field `pl_orpa`.
 constexpr char HeaterAutoMode[] = "pl_hta"; // Pool logic module persisted key for field `pl_hta`.
+constexpr char RobotAutoMode[] = "pl_rba"; // Pool robot automatic cycle enable.
 constexpr char PhDosePlus[] = "pl_phpl"; // Pool logic module persisted key for field `pl_phpl`.
 constexpr char DisinfectionType[] = "pl_dtype"; // Pool logic module persisted key for field `disinfection_type`.
 constexpr char SwgControlMode[] = "pl_swgm"; // Pool logic module persisted key for field `swg_control_mode`.
@@ -418,6 +420,11 @@ constexpr char AirTempIoId[] = "pl_aiid"; // Pool logic module persisted key for
 constexpr char LevelIoId[] = "pl_liid"; // Pool logic module persisted key for field `pl_liid`.
 constexpr char PhLevelIoId[] = "pl_phli"; // Pool logic module persisted key for field `pl_phli`.
 constexpr char ChlorineLevelIoId[] = "pl_clli"; // Pool logic module persisted key for field `pl_clli`.
+constexpr char PressureMonitoringEnabled[] = "pl_psme"; // Pool pressure alarm and filtration safety monitoring enable.
+constexpr char FiltrationContactorFeedbackIoId[] = "pl_fcfb"; // Optional filtration contactor auxiliary feedback input.
+constexpr char SwgContactorFeedbackIoId[] = "pl_scfb"; // Optional chlorine-generator contactor auxiliary feedback input.
+constexpr char FiltrationContactorFeedbackActiveHigh[] = "pl_fcah"; // Filtration feedback input polarity.
+constexpr char SwgContactorFeedbackActiveHigh[] = "pl_scah"; // Chlorine-generator feedback input polarity.
 constexpr char PsiLow[] = "pl_psil"; // Pool logic module persisted key for field `pl_psil`.
 constexpr char PsiHigh[] = "pl_psih"; // Pool logic module persisted key for field `pl_psih`.
 constexpr char WinterStart[] = "pl_wstr"; // Pool logic module persisted key for field `pl_wstr`.
@@ -441,6 +448,7 @@ constexpr char DelayPids[] = "pl_dpds"; // Pool logic module persisted key for f
 constexpr char DelayElectro[] = "pl_delt"; // Pool logic module persisted key for field `pl_delt`.
 constexpr char RobotDelay[] = "pl_rdel"; // Pool logic module persisted key for field `pl_rdel`.
 constexpr char RobotDuration[] = "pl_rdur"; // Pool logic module persisted key for field `pl_rdur`.
+constexpr char FillingEnabled[] = "pl_fen"; // Pool basin level top-up enable.
 constexpr char FillingMinOn[] = "pl_fmin"; // Pool logic module persisted key for field `pl_fmin`.
 constexpr char FiltrationSlot[] = "pl_sfil"; // Pool logic module persisted key for field `pl_sfil`.
 constexpr char SwgSlot[] = "pl_sswg"; // Pool logic module persisted key for field `pl_sswg`.
@@ -449,8 +457,9 @@ constexpr char FillingSlot[] = "pl_sfill"; // Pool logic module persisted key fo
 constexpr char PhPumpSlot[] = "pl_sphp"; // Pool logic module persisted key for field `pl_sphp`.
 constexpr char OrpPumpSlot[] = "pl_sorp"; // Pool logic module persisted key for field `pl_sorp`.
 constexpr char HeaterSlot[] = "pl_shea"; // Pool logic module persisted key for field `pl_shea`.
-constexpr char FiltrationCalcStart[] = "pl_fcst"; // Pool logic runtime key for calculated filtration start hour.
-constexpr char FiltrationCalcStop[] = "pl_fcen"; // Pool logic runtime key for calculated filtration stop hour.
+constexpr char FiltrationCalcStart[] = "pl_fcst"; // Calculated filtration start, minute of day.
+constexpr char FiltrationCalcStop[] = "pl_fcen"; // Calculated filtration stop, minute of day.
+constexpr char FiltrationCalcDuration[] = "pl_fdur"; // Calculated duration in minutes; zero means invalid.
 }  // namespace PoolLogic
 
 namespace PoolDevice {
@@ -486,10 +495,15 @@ constexpr char RemoteUdpTokenLegacy[] = "hmi_udptk"; // Legacy remote UDP displa
 constexpr char VeniceEnabled[] = "hmi_vcen"; // HMI module persisted key for Venice RF433 output enable.
 constexpr char VeniceTxGpio[] = "hmi_vcgp"; // HMI module persisted key for Venice RF433 TX GPIO.
 constexpr char BuzzerEnable[] = "hmi_bz_en"; // HMI buzzer module persisted key for config-ack beep enable.
+constexpr char BuzzerAlarmSound[] = "hmi_bz_alm"; // HMI buzzer persisted key for audible alarm notifications.
 }  // namespace Hmi
 
 namespace FlowConnectDisplay {
 constexpr char UdpToken[] = "fcd_udptk"; // Flow Connect Display persisted pairing token key.
 }  // namespace FlowConnectDisplay
+
+namespace WebSecurity {
+constexpr char Credentials[] = "web_auth";
+}  // namespace WebSecurity
 
 }  // namespace NvsKeys

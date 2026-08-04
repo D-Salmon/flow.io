@@ -183,16 +183,14 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
     phAutoModeVar_.moduleName = kCfgModulePh;
     orpAutoModeVar_.moduleName = kCfgModuleChlorine;
     heaterAutoModeVar_.moduleName = kCfgModuleHeater;
+    robotAutoModeVar_.moduleName = kCfgModuleModes;
     phDosePlusVar_.moduleName = kCfgModulePh;
     disinfectionTypeVar_.moduleName = kCfgModuleModes;
     swgControlModeVar_.moduleName = kCfgModuleSwg;
 
-    tempLowVar_.moduleName = kCfgModuleFiltration;
-    tempSetpointVar_.moduleName = kCfgModuleFiltration;
-    startMinVar_.moduleName = kCfgModuleFiltration;
-    stopMaxVar_.moduleName = kCfgModuleFiltration;
     calcStartVar_.moduleName = kCfgModuleFiltration;
     calcStopVar_.moduleName = kCfgModuleFiltration;
+    calcDurationVar_.moduleName = kCfgModuleFiltration;
 
     phIdVar_.moduleName = kCfgModuleSensors;
     orpIdVar_.moduleName = kCfgModuleSensors;
@@ -202,6 +200,11 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
     levelIdVar_.moduleName = kCfgModuleSensors;
     phLevelIdVar_.moduleName = kCfgModuleSensors;
     chlorineLevelIdVar_.moduleName = kCfgModuleSensors;
+    pressureMonitoringEnabledVar_.moduleName = kCfgModuleSensors;
+    filtrationContactorFeedbackIoIdVar_.moduleName = kCfgModuleSensors;
+    swgContactorFeedbackIoIdVar_.moduleName = kCfgModuleSensors;
+    filtrationContactorFeedbackActiveHighVar_.moduleName = kCfgModuleSensors;
+    swgContactorFeedbackActiveHighVar_.moduleName = kCfgModuleSensors;
 
     psiLowVar_.moduleName = kCfgModuleSafety;
     psiHighVar_.moduleName = kCfgModuleSafety;
@@ -227,6 +230,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
     delayElectroVar_.moduleName = kCfgModuleSwg;
     robotDelayVar_.moduleName = kCfgModuleRobot;
     robotDurationVar_.moduleName = kCfgModuleRobot;
+    fillingEnabledVar_.moduleName = kCfgModuleRefill;
     fillingMinOnVar_.moduleName = kCfgModuleRefill;
 
     o2PoolVolumeVar_.moduleName = kCfgModuleO2;
@@ -258,16 +262,14 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
     cfg.registerVar(phAutoModeVar_, kCfgModuleId, kCfgBranchPh);
     cfg.registerVar(orpAutoModeVar_, kCfgModuleId, kCfgBranchChlorine);
     cfg.registerVar(heaterAutoModeVar_, kCfgModuleId, kCfgBranchHeater);
+    cfg.registerVar(robotAutoModeVar_, kCfgModuleId, kCfgBranchModes);
     cfg.registerVar(phDosePlusVar_, kCfgModuleId, kCfgBranchPh);
     cfg.registerVar(disinfectionTypeVar_, kCfgModuleId, kCfgBranchModes);
     cfg.registerVar(swgControlModeVar_, kCfgModuleId, kCfgBranchSwg);
 
-    cfg.registerVar(tempLowVar_, kCfgModuleId, kCfgBranchFiltration);
-    cfg.registerVar(tempSetpointVar_, kCfgModuleId, kCfgBranchFiltration);
-    cfg.registerVar(startMinVar_, kCfgModuleId, kCfgBranchFiltration);
-    cfg.registerVar(stopMaxVar_, kCfgModuleId, kCfgBranchFiltration);
     cfg.registerVar(calcStartVar_, kCfgModuleId, kCfgBranchFiltration);
     cfg.registerVar(calcStopVar_, kCfgModuleId, kCfgBranchFiltration);
+    cfg.registerVar(calcDurationVar_, kCfgModuleId, kCfgBranchFiltration);
 
     cfg.registerVar(phIdVar_, kCfgModuleId, kCfgBranchSensors);
     cfg.registerVar(orpIdVar_, kCfgModuleId, kCfgBranchSensors);
@@ -277,6 +279,11 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
     cfg.registerVar(levelIdVar_, kCfgModuleId, kCfgBranchSensors);
     cfg.registerVar(phLevelIdVar_, kCfgModuleId, kCfgBranchSensors);
     cfg.registerVar(chlorineLevelIdVar_, kCfgModuleId, kCfgBranchSensors);
+    cfg.registerVar(pressureMonitoringEnabledVar_, kCfgModuleId, kCfgBranchSensors);
+    cfg.registerVar(filtrationContactorFeedbackIoIdVar_, kCfgModuleId, kCfgBranchSensors);
+    cfg.registerVar(swgContactorFeedbackIoIdVar_, kCfgModuleId, kCfgBranchSensors);
+    cfg.registerVar(filtrationContactorFeedbackActiveHighVar_, kCfgModuleId, kCfgBranchSensors);
+    cfg.registerVar(swgContactorFeedbackActiveHighVar_, kCfgModuleId, kCfgBranchSensors);
 
     cfg.registerVar(psiLowVar_, kCfgModuleId, kCfgBranchSafety);
     cfg.registerVar(psiHighVar_, kCfgModuleId, kCfgBranchSafety);
@@ -302,6 +309,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
     cfg.registerVar(delayElectroVar_, kCfgModuleId, kCfgBranchSwg);
     cfg.registerVar(robotDelayVar_, kCfgModuleId, kCfgBranchRobot);
     cfg.registerVar(robotDurationVar_, kCfgModuleId, kCfgBranchRobot);
+    cfg.registerVar(fillingEnabledVar_, kCfgModuleId, kCfgBranchRefill);
     cfg.registerVar(fillingMinOnVar_, kCfgModuleId, kCfgBranchRefill);
 
     cfg.registerVar(o2PoolVolumeVar_, kCfgModuleId, kCfgBranchO2);
@@ -427,13 +435,39 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
             "mdi:thermometer-lines",
             "config"
         };
+        const HASwitchEntry robotAutoModeSwitch{
+            "poollogic",
+            "pl_robot_auto",
+            "Robot automatic cycle",
+            "cfg/poollogic/modes",
+            "{% if value_json.robot_auto_mode %}ON{% else %}OFF{% endif %}",
+            MqttTopics::SuffixCfgSet,
+            "{\\\"poollogic/modes\\\":{\\\"robot_auto_mode\\\":true}}",
+            "{\\\"poollogic/modes\\\":{\\\"robot_auto_mode\\\":false}}",
+            "mdi:robot-vacuum",
+            "config"
+        };
+        const HASwitchEntry pressureMonitoringSwitch{
+            "poollogic",
+            "pl_psi_monitor",
+            "Pressure monitoring",
+            "cfg/poollogic/sensors",
+            "{% if value_json.psi_monitoring %}ON{% else %}OFF{% endif %}",
+            MqttTopics::SuffixCfgSet,
+            "{\\\"poollogic/sensors\\\":{\\\"psi_monitoring\\\":true}}",
+            "{\\\"poollogic/sensors\\\":{\\\"psi_monitoring\\\":false}}",
+            "mdi:gauge",
+            "config"
+        };
         (void)haSvc->addSwitch(haSvc->ctx, &autoModeSwitch);
         (void)haSvc->addSwitch(haSvc->ctx, &winterModeSwitch);
         (void)haSvc->addSwitch(haSvc->ctx, &phAutoModeSwitch);
         (void)haSvc->addSwitch(haSvc->ctx, &orpAutoModeSwitch);
         (void)haSvc->addSwitch(haSvc->ctx, &heaterAutoModeSwitch);
+        (void)haSvc->addSwitch(haSvc->ctx, &robotAutoModeSwitch);
         (void)haSvc->addSwitch(haSvc->ctx, &phDosePlusSwitch);
         (void)haSvc->addSwitch(haSvc->ctx, &o2TempCompSwitch);
+        (void)haSvc->addSwitch(haSvc->ctx, &pressureMonitoringSwitch);
     }
     if (haSvc && haSvc->addSelect) {
         static const char* kDisinfectionTypeStateTpl =
@@ -494,20 +528,20 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
             "pl_flt_start",
             "Calculated Filtration Start",
             "cfg/poollogic/filtration",
-            "{{ value_json.filtr_start_clc | int(0) }}",
+            "{% set m=value_json.filtr_start_minute | int(0) %}{{ '%02d:%02d' | format(m // 60, m % 60) }}",
             nullptr,
             "mdi:clock-start",
-            "h"
+            nullptr
         };
         const HASensorEntry filtrationStop{
             "poollogic",
             "pl_flt_stop",
             "Calculated Filtration Stop",
             "cfg/poollogic/filtration",
-            "{{ value_json.filtr_stop_clc | int(0) }}",
+            "{% set m=value_json.filtr_stop_minute | int(0) %}{{ '%02d:%02d' | format(m // 60, m % 60) }}",
             nullptr,
             "mdi:clock-end",
-            "h"
+            nullptr
         };
         static const char* kHeatAssistStatusFrTemplate =
             R"({% set st = value_json.ri | default('UNKNOWN', true) %}{% if st == 'DISABLED' %}Désactivé{% elif st == 'MANUAL_MODE' %}Mode manuel{% elif st == 'PSI_BLOCKED' %}Pression bloquée{% elif st == 'SETPOINT_INVALID' %}Consigne invalide{% elif st == 'TEMP_UNAVAILABLE' %}Température indisponible{% elif st == 'PROBE_WAIT_30M' %}Attente sonde 30 min{% elif st == 'PROBE_WAIT_20M' %}Attente sonde 20 min{% elif st == 'PROBE_RUNNING' %}Sondage en cours{% elif st == 'HEATING' %}Chauffe active{% elif st == 'IDLE_PUMP_ON' %}Pompe active sans chauffe{% elif st == 'SETPOINT_REACHED' %}Consigne atteinte{% else %}Inconnu{% endif %})";
@@ -614,54 +648,6 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
         (void)haSvc->addSensor(haSvc->ctx, &o2PumpFlow);
     }
     if (haSvc && haSvc->addNumber) {
-        const HANumberEntry waterTempSetpoint{
-            "poollogic",
-            "pl_wat_temp_sp",
-            "Water Temperature Setpoint",
-            "cfg/poollogic/filtration",
-            "{{ value_json.wat_temp_setpt | float(0) }}",
-            MqttTopics::SuffixCfgSet,
-            "{\\\"poollogic/filtration\\\":{\\\"wat_temp_setpt\\\":{{ value | float(0) }}}}",
-            5.0f,
-            35.0f,
-            0.1f,
-            "slider",
-            "config",
-            "mdi:thermometer-water",
-            "C"
-        };
-        const HANumberEntry filtrationStartMin{
-            "poollogic",
-            "pl_flt_start_min",
-            "Min Start Filtration Pump",
-            "cfg/poollogic/filtration",
-            "{{ value_json.filtr_start_min | int(0) }}",
-            MqttTopics::SuffixCfgSet,
-            "{\\\"poollogic/filtration\\\":{\\\"filtr_start_min\\\":{{ value | int(0) }}}}",
-            0.0f,
-            23.0f,
-            1.0f,
-            "box",
-            "config",
-            "mdi:clock-start",
-            "h"
-        };
-        const HANumberEntry filtrationStopMax{
-            "poollogic",
-            "pl_flt_stop_max",
-            "Max End Filtration Pump",
-            "cfg/poollogic/filtration",
-            "{{ value_json.filtr_stop_max | int(0) }}",
-            MqttTopics::SuffixCfgSet,
-            "{\\\"poollogic/filtration\\\":{\\\"filtr_stop_max\\\":{{ value | int(0) }}}}",
-            0.0f,
-            23.0f,
-            1.0f,
-            "box",
-            "config",
-            "mdi:clock-end",
-            "h"
-        };
         const HANumberEntry delayPidsMin{
             "poollogic",
             "pl_reg_dly_pid",
@@ -918,10 +904,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
             "mdi:timer-check-outline",
             "min"
         };
-        (void)haSvc->addNumber(haSvc->ctx, &waterTempSetpoint);
         (void)haSvc->addNumber(haSvc->ctx, &heaterSetpoint);
-        (void)haSvc->addNumber(haSvc->ctx, &filtrationStartMin);
-        (void)haSvc->addNumber(haSvc->ctx, &filtrationStopMax);
         (void)haSvc->addNumber(haSvc->ctx, &delayPidsMin);
         (void)haSvc->addNumber(haSvc->ctx, &delayElectroMin);
         (void)haSvc->addNumber(haSvc->ctx, &fillMinUptime);
@@ -1092,6 +1075,60 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
         };
         if (!alarmSvc_->registerAlarm(alarmSvc_->ctx, &waterLevelLowAlarm, &PoolLogicModule::condWaterLevelLowStatic_, this)) {
             LOGW("PoolLogic failed to register AlarmId::PoolWaterLevelLow");
+        }
+
+        const AlarmRegistration waterTemperatureUnavailableAlarm{
+            AlarmId::PoolWaterTemperatureUnavailable,
+            AlarmSeverity::Warning,
+            false,
+            5UL * 60UL * 1000UL,
+            1000,
+            60UL * 60UL * 1000UL,
+            "water_temp_unavailable",
+            "Water temperature unavailable",
+            "poollogic"
+        };
+        if (!alarmSvc_->registerAlarm(alarmSvc_->ctx,
+                                      &waterTemperatureUnavailableAlarm,
+                                      &PoolLogicModule::condWaterTemperatureUnavailableStatic_,
+                                      this)) {
+            LOGW("PoolLogic failed to register AlarmId::PoolWaterTemperatureUnavailable");
+        }
+
+        const AlarmRegistration filtrationContactorMismatchAlarm{
+            AlarmId::PoolFiltrationContactorMismatch,
+            AlarmSeverity::Critical,
+            true,
+            5000,
+            1000,
+            60000,
+            "filtr_cont_mismatch",
+            "Filtration contactor feedback mismatch",
+            "poollogic"
+        };
+        if (!alarmSvc_->registerAlarm(alarmSvc_->ctx,
+                                      &filtrationContactorMismatchAlarm,
+                                      &PoolLogicModule::condFiltrationContactorMismatchStatic_,
+                                      this)) {
+            LOGW("PoolLogic failed to register AlarmId::PoolFiltrationContactorMismatch");
+        }
+
+        const AlarmRegistration swgContactorMismatchAlarm{
+            AlarmId::PoolChlorineGeneratorContactorMismatch,
+            AlarmSeverity::Critical,
+            true,
+            5000,
+            1000,
+            60000,
+            "swg_contactor_mismatch",
+            "Chlorine generator contactor feedback mismatch",
+            "poollogic"
+        };
+        if (!alarmSvc_->registerAlarm(alarmSvc_->ctx,
+                                      &swgContactorMismatchAlarm,
+                                      &PoolLogicModule::condSwgContactorMismatchStatic_,
+                                      this)) {
+            LOGW("PoolLogic failed to register AlarmId::PoolChlorineGeneratorContactorMismatch");
         }
     } else {
         LOGW("PoolLogic running without alarm service");
@@ -1300,14 +1337,18 @@ void PoolLogicModule::onEvent_(const Event& e)
         const ConfigChangedPayload* p = (const ConfigChangedPayload*)e.payload;
         if (p->moduleId == (uint8_t)ConfigModuleId::PoolLogic &&
             p->localBranchId == kCfgBranchFiltration) {
+            if (!p->nvsKey) return;
             if (strcmp(p->nvsKey, NvsKeys::PoolLogic::FiltrationCalcStart) == 0 ||
-                strcmp(p->nvsKey, NvsKeys::PoolLogic::FiltrationCalcStop) == 0) {
-                (void)applyFiltrationWindowSlot_(filtrationCalcStart_, filtrationCalcStop_);
-            } else {
-                portENTER_CRITICAL(&pendingMux_);
-                pendingDailyRecalc_ = true;
-                portEXIT_CRITICAL(&pendingMux_);
+                strcmp(p->nvsKey, NvsKeys::PoolLogic::FiltrationCalcStop) == 0 ||
+                strcmp(p->nvsKey, NvsKeys::PoolLogic::FiltrationCalcDuration) == 0) {
+                // These three values are written after the complete plan has
+                // already been applied. Ignore their individual change events
+                // to avoid applying a partially persisted minute plan.
+                return;
             }
+            portENTER_CRITICAL(&pendingMux_);
+            pendingDailyRecalc_ = true;
+            portEXIT_CRITICAL(&pendingMux_);
             return;
         }
         if (p->moduleId == (uint8_t)ConfigModuleId::PoolLogic &&

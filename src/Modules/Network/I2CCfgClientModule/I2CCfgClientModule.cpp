@@ -984,7 +984,7 @@ bool I2CCfgClientModule::parseFlowRemoteSnapshotFromCache_(FlowRemoteRuntimeData
 
     FlowRemoteRuntimeData snapshot{};
     snapshot.ready = runtimeCacheValid_;
-    StaticJsonDocument<640> doc;
+    JsonDocument doc;
 
     auto readU32FromCache = [&](RuntimeUiId runtimeId, uint32_t& valueOut) -> bool {
         const RuntimeUiCacheEntry* entry = findRuntimeUiCacheEntry_(runtimeId);

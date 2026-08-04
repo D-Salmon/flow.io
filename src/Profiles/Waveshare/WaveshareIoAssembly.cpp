@@ -23,6 +23,10 @@
 #define FLOW_HA_BOOT_TRACE 0
 #endif
 
+#ifndef FLOW_DS18_DS2484_ADDRESS
+#define FLOW_DS18_DS2484_ADDRESS 0x18u
+#endif
+
 #if FLOW_HA_BOOT_TRACE
 #define WAVESHARE_HA_BOOT_TRACE(FMT, ...) Board::SerialMap::logSerial().printf("[HA-BOOT] " FMT "\r\n", ##__VA_ARGS__)
 #else
@@ -53,7 +57,7 @@ struct FlowIoDigitalHaSpec {
 constexpr FlowIoAnalogHaSpec kAnalogHaSpecs[kFlowIoAnalogHaSlots] = {
     {"io_orp", "ORP", "mdi:flash", "mV"},
     {"io_ph", "pH", "mdi:ph", ""},
-    {"io_psi", "PSI", "mdi:gauge", "PSI"},
+    {"io_psi", "PSI", "mdi:gauge", "bar"},
     {"io_spare", "Spare", "mdi:sine-wave", nullptr},
     {"io_wat_tmp", "Water Temperature", "mdi:water-thermometer", "\xC2\xB0""C"},
     {"io_air_tmp", "Air Temperature", "mdi:thermometer", "\xC2\xB0""C"},
@@ -504,7 +508,12 @@ void configureIoModule(const AppContext& ctx, ModuleInstances& modules)
 {
     requireSetup(ctx.domain != nullptr, "missing domain spec");
 
-    modules.ioModule.setOneWireBuses(&modules.oneWireWater, &modules.oneWireAir);
+    modules.ioModule.useSelectableTemperatureBuses(
+        (uint8_t)FLOW_DS18_DS2484_ADDRESS,
+        0U,
+        1U,
+        &modules.oneWireWater,
+        &modules.oneWireAir);
     modules.ioModule.setBindingPorts(
         FlowIoLayout::kBindingPorts,
         (uint8_t)(sizeof(FlowIoLayout::kBindingPorts) / sizeof(FlowIoLayout::kBindingPorts[0]))

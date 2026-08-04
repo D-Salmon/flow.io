@@ -9,7 +9,7 @@
     "cfgdocs.hmi.nextion.enabled.label": "Nextion enabled",
     "cfgdocs.hmi.venice.enabled.help": "Enable periodic water temperature transmission to a compatible TFA Venice device.",
     "cfgdocs.hmi.venice.enabled.label": "Venice RF433 enabled",
-    "cfgdocs.hmi.venice.tx_gpio.help": "Venice RF433 transmitter GPIO.",
+    "cfgdocs.hmi.venice.tx_gpio.help": "Venice RF433 transmitter GPIO. On Waveshare N16R8, only unassigned pins 1, 2, 3 and 40 are accepted.",
     "cfgdocs.hmi.venice.tx_gpio.label": "Venice Transmitter GPIO",
     "cfgmods.hmi.label": "hmi"
   }

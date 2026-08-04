@@ -71,14 +71,6 @@
     "label": "Consigne ORP",
     "help": "Valeur cible ORP pour la régulation chlore."
   },
-  "poollogic/filtration/filtr_start_min": {
-    "label": "Début filtration min",
-    "help": "Heure minimale autorisée pour le démarrage de la filtration."
-  },
-  "poollogic/filtration/filtr_stop_max": {
-    "label": "Arrêt filtration max",
-    "help": "Heure maximale autorisée pour l'arrêt de la filtration."
-  },
   "io/input/i00/counter_total": {
     "type": "Float",
     "label": "Cumul compteur",

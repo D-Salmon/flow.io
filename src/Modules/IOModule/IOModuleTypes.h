@@ -20,6 +20,7 @@ struct IOModuleConfig {
     int32_t i2cScl = FLOW_WIRDEF_IO_SCL;
     int32_t adsPollMs = FLOW_MODDEF_IO_ADS;
     int32_t dsPollMs = FLOW_MODDEF_IO_DS;
+    uint8_t ds18Transport = 0;
     int32_t digitalPollMs = FLOW_MODDEF_IO_DIN;
     uint8_t adsInternalAddr = FLOW_WIRDEF_IO_AIAD;
     uint8_t adsExternalAddr = FLOW_WIRDEF_IO_AEAD;
@@ -34,7 +35,7 @@ struct IOModuleConfig {
     bool bme680Enabled = false;
     uint8_t bme680Address = 0x77;
     int32_t bme680PollMs = 2000;
-    bool ina226Enabled = false;
+    bool ina226Enabled = true;
     uint8_t ina226Address = 0x40;
     int32_t ina226PollMs = 500;
     float ina226ShuntOhms = 0.1f;

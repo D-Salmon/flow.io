@@ -252,7 +252,7 @@ MqttBuildResult MQTTModule::buildAlarm_(uint16_t messageId, MqttBuildContext& ct
         ctx.topicLen = (uint16_t)tw;
         ctx.payloadLen = (uint16_t)pw;
         ctx.qos = 0;
-        ctx.retain = false;
+        ctx.retain = true;
         return MqttBuildResult::Ready;
     }
 
@@ -269,7 +269,7 @@ MqttBuildResult MQTTModule::buildAlarm_(uint16_t messageId, MqttBuildContext& ct
         ctx.topicLen = (uint16_t)tw;
         ctx.payloadLen = (uint16_t)strnlen(ctx.payload, ctx.payloadCapacity);
         ctx.qos = 0;
-        ctx.retain = false;
+        ctx.retain = true;
         return MqttBuildResult::Ready;
     }
 
@@ -293,7 +293,7 @@ MqttBuildResult MQTTModule::buildAlarm_(uint16_t messageId, MqttBuildContext& ct
         ctx.topicLen = (uint16_t)tw;
         ctx.payloadLen = (uint16_t)strnlen(ctx.payload, ctx.payloadCapacity);
         ctx.qos = 0;
-        ctx.retain = false;
+        ctx.retain = true;
         return MqttBuildResult::Ready;
     }
 

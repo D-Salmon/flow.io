@@ -36,14 +36,12 @@ static void poolLogicCfgDocsAnchor_(PoolLogicModule& self)
     self.phAutoModeVar_.moduleName = kCfgModulePh;
     self.orpAutoModeVar_.moduleName = kCfgModuleChlorine;
     self.heaterAutoModeVar_.moduleName = kCfgModuleHeater;
+    self.robotAutoModeVar_.moduleName = kCfgModuleModes;
     self.phDosePlusVar_.moduleName = kCfgModulePh;
     self.disinfectionTypeVar_.moduleName = kCfgModuleModes;
-    self.tempLowVar_.moduleName = kCfgModuleFiltration;
-    self.tempSetpointVar_.moduleName = kCfgModuleFiltration;
-    self.startMinVar_.moduleName = kCfgModuleFiltration;
-    self.stopMaxVar_.moduleName = kCfgModuleFiltration;
     self.calcStartVar_.moduleName = kCfgModuleFiltration;
     self.calcStopVar_.moduleName = kCfgModuleFiltration;
+    self.calcDurationVar_.moduleName = kCfgModuleFiltration;
 
     self.phIdVar_.moduleName = kCfgModuleSensors;
     self.orpIdVar_.moduleName = kCfgModuleSensors;
@@ -53,6 +51,7 @@ static void poolLogicCfgDocsAnchor_(PoolLogicModule& self)
     self.levelIdVar_.moduleName = kCfgModuleSensors;
     self.phLevelIdVar_.moduleName = kCfgModuleSensors;
     self.chlorineLevelIdVar_.moduleName = kCfgModuleSensors;
+    self.pressureMonitoringEnabledVar_.moduleName = kCfgModuleSensors;
 
     self.psiLowVar_.moduleName = kCfgModuleSafety;
     self.psiHighVar_.moduleName = kCfgModuleSafety;
@@ -78,6 +77,7 @@ static void poolLogicCfgDocsAnchor_(PoolLogicModule& self)
     self.delayElectroVar_.moduleName = kCfgModuleSwg;
     self.robotDelayVar_.moduleName = kCfgModuleRobot;
     self.robotDurationVar_.moduleName = kCfgModuleRobot;
+    self.fillingEnabledVar_.moduleName = kCfgModuleRefill;
     self.fillingMinOnVar_.moduleName = kCfgModuleRefill;
 
     self.filtrationDeviceVar_.moduleName = kCfgModuleDevices;

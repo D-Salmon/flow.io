@@ -11,9 +11,12 @@
 #include "Core/Generated/RuntimeUiManifest_Generated.h"
 #include "Core/Generated/RuntimeUiManifestJson_Generated.h"
 #include "Core/I2cCfgProtocol.h"
+#include "Core/PsramJsonAllocator.h"
+#include "Core/Security/WebSecurityPolicy.h"
 #include "Core/Services/IAlarm.h"
 #include "Core/SystemLimits.h"
 #include "Core/SystemStats.h"
+#include "Modules/Network/WebInterfaceModule/WebSecurityHeaders.h"
 #if !defined(FLOW_PROFILE_MICRONOVA) && !defined(FLOW_PROFILE_WAVESHARE)
 #include "Modules/Network/I2CCfgClientModule/I2CCfgClientRuntime.h"
 #endif
@@ -315,7 +318,7 @@ static uint16_t summarizeConfigPatch_(const char* patchJson, char* modulesOut, s
     if (modulesOut && modulesOutLen > 0U) modulesOut[0] = '\0';
     if (!patchJson || patchJson[0] == '\0') return 0;
 
-    DynamicJsonDocument doc(Limits::JsonConfigApplyBuf);
+    JsonDocument doc;
     const DeserializationError err = deserializeJson(doc, patchJson);
     if (err || !doc.is<JsonObjectConst>()) return 0;
 
@@ -746,7 +749,7 @@ void loadConfiguredDeviceName_(ConfigStore* cfgStore, char* out, size_t outLen)
     char systemJson[128] = {0};
     if (!cfgStore->toJsonModule("system", systemJson, sizeof(systemJson), nullptr, false)) return;
 
-    StaticJsonDocument<128> doc;
+    JsonDocument doc;
     if (deserializeJson(doc, systemJson) != DeserializationError::Ok || !doc.is<JsonObjectConst>()) return;
 
     const char* configured = doc.as<JsonObjectConst>()["devicename"] | "";
@@ -764,7 +767,7 @@ bool isModuleFlagAndStringConfigured_(ConfigStore* cfgStore,
     char moduleJson[512] = {0};
     if (!cfgStore->toJsonModule(moduleName, moduleJson, sizeof(moduleJson), nullptr, false)) return false;
 
-    StaticJsonDocument<512> doc;
+    JsonDocument doc;
     const DeserializationError err = deserializeJson(doc, moduleJson);
     if (err || !doc.is<JsonObjectConst>()) return false;
 
@@ -807,7 +810,7 @@ bool sendFlowStatusCompactResponse_(AsyncWebServerRequest* request, const FlowCf
     response->print("{\"ok\":true");
 
     char domainBuf[640] = {0};
-    StaticJsonDocument<768> domainDoc;
+    JsonDocument domainDoc;
     bool anyDomainOk = false;
     char debugSummary[512] = {0};
     size_t debugPos = 0;
@@ -945,6 +948,7 @@ bool sendFlowStatusCompactResponse_(AsyncWebServerRequest* request, const FlowCf
             appendJsonFieldValue_(*response, "fil", poolIn["fil"]);
             appendJsonFieldValue_(*response, "php", poolIn["php"]);
             appendJsonFieldValue_(*response, "clp", poolIn["clp"]);
+            appendJsonFieldValue_(*response, "swg", poolIn["swg"]);
             appendJsonFieldValue_(*response, "rbt", poolIn["rbt"]);
             response->print('}');
         }
@@ -1082,6 +1086,16 @@ const char* webAssetVersion_()
     hash = webAssetFingerprintFile_(hash, "/wc/i.j.gz");
     snprintf(version, sizeof(version), "%s-%08lx", FirmwareVersion::BuildRef, (unsigned long)hash);
     return version;
+}
+
+bool isMutatingRequest_(AsyncWebServerRequest* request)
+{
+    if (!request) return false;
+    const WebRequestMethodComposite method = request->method();
+    return method == HTTP_POST ||
+           method == HTTP_PUT ||
+           method == HTTP_PATCH ||
+           method == HTTP_DELETE;
 }
 
 void addNoCacheHeaders_(AsyncWebServerResponse* response)
@@ -1223,7 +1237,7 @@ bool appendRuntimeUiJsonValues_(JsonArray values, const uint8_t* payload, size_t
         const RuntimeUiWireType wireType = (RuntimeUiWireType)payload[offset++];
         const RuntimeUiManifestItem* manifestItem = findRuntimeUiManifestItem(runtimeId);
 
-        JsonObject value = values.createNestedObject();
+        JsonObject value = values.add<JsonObject>();
         value["id"] = runtimeId;
         if (manifestItem) {
             value["key"] = manifestItem->key;
@@ -1688,7 +1702,7 @@ bool waveshareLoadPoolModeFlags_(ConfigStore* cfgStore,
         return false;
     }
 
-    StaticJsonDocument<384> doc;
+    JsonDocument doc;
     if (deserializeJson(doc, moduleJson)) return false;
     JsonObjectConst root = doc.as<JsonObjectConst>();
     if (root.isNull()) return false;
@@ -1700,7 +1714,7 @@ bool waveshareLoadPoolModeFlags_(ConfigStore* cfgStore,
     memset(moduleJson, 0, sizeof(moduleJson));
     truncated = false;
     if (cfgStore->toJsonModule("poollogic/ph", moduleJson, sizeof(moduleJson), &truncated, true)) {
-        StaticJsonDocument<128> phDoc;
+        JsonDocument phDoc;
         if (!deserializeJson(phDoc, moduleJson)) {
             JsonObjectConst phRoot = phDoc.as<JsonObjectConst>();
             if (!phRoot.isNull()) phAutoMode = phRoot["ph_auto_mode"] | false;
@@ -1710,7 +1724,7 @@ bool waveshareLoadPoolModeFlags_(ConfigStore* cfgStore,
     memset(moduleJson, 0, sizeof(moduleJson));
     truncated = false;
     if (cfgStore->toJsonModule("poollogic/chlorine", moduleJson, sizeof(moduleJson), &truncated, true)) {
-        StaticJsonDocument<128> disDoc;
+        JsonDocument disDoc;
         if (!deserializeJson(disDoc, moduleJson)) {
             JsonObjectConst disRoot = disDoc.as<JsonObjectConst>();
             if (!disRoot.isNull()) orpAutoMode = disRoot["dis_auto_mode"] | false;
@@ -1729,7 +1743,7 @@ void waveshareLoadMqttServer_(ConfigStore* cfgStore, char* out, size_t outLen)
     bool truncated = false;
     if (!cfgStore->toJsonModule("mqtt", moduleJson, sizeof(moduleJson), &truncated, true)) return;
 
-    StaticJsonDocument<384> doc;
+    JsonDocument doc;
     if (deserializeJson(doc, moduleJson)) return;
     JsonObjectConst root = doc.as<JsonObjectConst>();
     if (root.isNull()) return;
@@ -1760,7 +1774,7 @@ void waveshareLoadAlarmMasks_(const AlarmService* alarmSvc,
         char stateJson[144] = {0};
         if (!alarmSvc->buildAlarmState(alarmSvc->ctx, ids[i], stateJson, sizeof(stateJson))) continue;
 
-        StaticJsonDocument<192> doc;
+        JsonDocument doc;
         if (deserializeJson(doc, stateJson)) continue;
         const uint8_t slot = doc["slot"] | 255U;
         if (slot >= 32U) continue;
@@ -1959,7 +1973,7 @@ bool appendWaveshareLocalRuntimeValue_(Print& out,
             } else if (id == 2206) {
                 runtimeIndex = 2;
                 key = "pool.psi";
-                unit = "PSI";
+                unit = "bar";
             }
 
             float value = 0.0f;
@@ -2084,7 +2098,7 @@ bool waveshareBuildStatusDomainJson_(FlowStatusDomain domain,
     out[0] = '\0';
 
     WaveshareRuntimeContext ctx{};
-    StaticJsonDocument<768> doc;
+    JsonDocument doc;
     doc["ok"] = true;
 
     if (domain == FlowStatusDomain::System) {
@@ -2094,7 +2108,7 @@ bool waveshareBuildStatusDomainJson_(FlowStatusDomain domain,
         doc["devicename"] = deviceName;
         doc["fw"] = FirmwareVersion::Full;
         doc["upms"] = (uint64_t)ctx.systemStats.uptimeMs64;
-        JsonObject time = doc.createNestedObject("time");
+        JsonObject time = doc["time"].to<JsonObject>();
         time["rdy"] = dataStore ? (timeReady(*dataStore) || timeSource(*dataStore) != TimeSource::None) : false;
         time["src"] = dataStore ? timeSourceText(*dataStore) : "none";
         time["src_id"] = dataStore ? (uint8_t)timeSource(*dataStore) : 0U;
@@ -2102,7 +2116,7 @@ bool waveshareBuildStatusDomainJson_(FlowStatusDomain domain,
         time["qlt_id"] = dataStore ? (uint8_t)timeQuality(*dataStore) : 0U;
         time["last_ntp"] = dataStore ? (uint32_t)timeLastNtpSyncUtc(*dataStore) : 0U;
         time["last_rtc"] = dataStore ? (uint32_t)timeLastRtcSyncUtc(*dataStore) : 0U;
-        JsonObject heap = doc.createNestedObject("heap");
+        JsonObject heap = doc["heap"].to<JsonObject>();
         heap["free"] = ctx.systemStats.heap.freeBytes;
         heap["min_free"] = ctx.systemStats.heap.minFreeBytes;
         heap["larg"] = ctx.systemStats.heap.largestFreeBlock;
@@ -2111,7 +2125,7 @@ bool waveshareBuildStatusDomainJson_(FlowStatusDomain domain,
     }
 
     if (domain == FlowStatusDomain::Wifi) {
-        JsonObject wifi = doc.createNestedObject("wifi");
+        JsonObject wifi = doc["wifi"].to<JsonObject>();
         const bool wifiUp = dataStore ? networkReady(*dataStore) : false;
         const bool wifiConnected = WiFi.isConnected();
         wifi["rdy"] = wifiUp;
@@ -2138,7 +2152,7 @@ bool waveshareBuildStatusDomainJson_(FlowStatusDomain domain,
     }
 
     if (domain == FlowStatusDomain::Mqtt) {
-        JsonObject mqtt = doc.createNestedObject("mqtt");
+        JsonObject mqtt = doc["mqtt"].to<JsonObject>();
         mqtt["rdy"] = dataStore ? mqttReady(*dataStore) : false;
         waveshareEnsureMqttServer_(ctx, cfgStore);
         mqtt["srv"] = ctx.mqttServer;
@@ -2150,7 +2164,7 @@ bool waveshareBuildStatusDomainJson_(FlowStatusDomain domain,
     }
 
     if (domain == FlowStatusDomain::Pool) {
-        JsonObject pool = doc.createNestedObject("pool");
+        JsonObject pool = doc["pool"].to<JsonObject>();
         bool hasMode = false;
         bool autoMode = false;
         bool winterMode = false;
@@ -2189,12 +2203,13 @@ bool waveshareBuildStatusDomainJson_(FlowStatusDomain domain,
         setDevice("fil", PoolIds::DeviceFiltrationPump);
         setDevice("php", PoolIds::DevicePhPump);
         setDevice("clp", PoolIds::DeviceChlorinePump);
+        setDevice("swg", PoolIds::DeviceChlorineGenerator);
         setDevice("rbt", PoolIds::DeviceRobot);
         return serializeJson(doc, out, outLen) > 0U;
     }
 
     if (domain == FlowStatusDomain::I2c) {
-        JsonObject i2c = doc.createNestedObject("i2c");
+        JsonObject i2c = doc["i2c"].to<JsonObject>();
         i2c["ena"] = false;
         i2c["sta"] = false;
         i2c["adr"] = 0;
@@ -2211,14 +2226,14 @@ bool waveshareBuildStatusDomainJson_(FlowStatusDomain domain,
 
     if (domain == FlowStatusDomain::Alarm) {
         waveshareEnsureAlarmMasks_(ctx, alarmSvc);
-        JsonObject alm = doc.createNestedObject("alm");
+        JsonObject alm = doc["alm"].to<JsonObject>();
         const uint32_t activeMask = ctx.alarmActiveMask;
         uint8_t count = 0U;
         for (uint8_t bit = 0U; bit < 32U; ++bit) {
             if ((activeMask & (1UL << bit)) != 0U) ++count;
         }
         alm["cnt"] = count;
-        JsonArray codes = alm.createNestedArray("codes");
+        JsonArray codes = alm["codes"].to<JsonArray>();
         for (uint8_t bit = 0U; bit < 32U; ++bit) {
             if ((activeMask & (1UL << bit)) == 0U) continue;
             char code[20] = {0};
@@ -2248,11 +2263,11 @@ bool sendWaveshareStatusCompactResponse_(AsyncWebServerRequest* request,
     if (!waveshareBuildStatusDomainJson_(FlowStatusDomain::Pool, dataStore, cfgStore, alarmSvc, poolJson, sizeof(poolJson))) return false;
     if (!waveshareBuildStatusDomainJson_(FlowStatusDomain::I2c, dataStore, cfgStore, alarmSvc, i2cJson, sizeof(i2cJson))) return false;
 
-    StaticJsonDocument<768> systemDoc;
-    StaticJsonDocument<512> wifiDoc;
-    StaticJsonDocument<512> mqttDoc;
-    StaticJsonDocument<640> poolDoc;
-    StaticJsonDocument<320> i2cDoc;
+    JsonDocument systemDoc;
+    JsonDocument wifiDoc;
+    JsonDocument mqttDoc;
+    JsonDocument poolDoc;
+    JsonDocument i2cDoc;
     if (deserializeJson(systemDoc, systemJson)) return false;
     if (deserializeJson(wifiDoc, wifiJson)) return false;
     if (deserializeJson(mqttDoc, mqttJson)) return false;
@@ -2480,12 +2495,12 @@ void waveshareLoadDashboardSlotConfig_(ConfigStore* cfgStore, uint8_t slot, Wave
     bool truncated = false;
     if (!cfgStore->toJsonModule(moduleName, moduleJson, sizeof(moduleJson), &truncated, true) || truncated) return;
 
-    StaticJsonDocument<448> doc;
+    JsonDocument doc;
     if (deserializeJson(doc, moduleJson)) return;
-    if (doc.containsKey("enabled")) out.enabled = doc["enabled"].as<bool>();
-    if (doc.containsKey("runtime_ui_id")) out.runtimeUiId = (RuntimeUiId)(doc["runtime_ui_id"].as<uint32_t>() & 0xFFFFU);
-    if (doc.containsKey("color_id")) out.colorId = (uint8_t)(doc["color_id"].as<uint32_t>() & 0xFFU);
-    if (doc.containsKey("label")) {
+    if (!doc["enabled"].isUnbound()) out.enabled = doc["enabled"].as<bool>();
+    if (!doc["runtime_ui_id"].isUnbound()) out.runtimeUiId = (RuntimeUiId)(doc["runtime_ui_id"].as<uint32_t>() & 0xFFFFU);
+    if (!doc["color_id"].isUnbound()) out.colorId = (uint8_t)(doc["color_id"].as<uint32_t>() & 0xFFU);
+    if (!doc["label"].isUnbound()) {
         const char* label = doc["label"].as<const char*>();
         snprintf(out.label, sizeof(out.label), "%s", label ? label : "");
     }
@@ -2508,12 +2523,12 @@ void waveshareLoadAlarmDashboardSlotConfig_(ConfigStore* cfgStore, uint8_t slot,
     bool truncated = false;
     if (!cfgStore->toJsonModule(moduleName, moduleJson, sizeof(moduleJson), &truncated, true) || truncated) return;
 
-    StaticJsonDocument<448> doc;
+    JsonDocument doc;
     if (deserializeJson(doc, moduleJson)) return;
-    if (doc.containsKey("enabled")) out.enabled = doc["enabled"].as<bool>();
-    if (doc.containsKey("alarm_id")) out.alarmId = (uint16_t)(doc["alarm_id"].as<uint32_t>() & 0xFFFFU);
-    if (doc.containsKey("color_id")) out.colorId = (uint8_t)(doc["color_id"].as<uint32_t>() & 0xFFU);
-    if (doc.containsKey("label")) {
+    if (!doc["enabled"].isUnbound()) out.enabled = doc["enabled"].as<bool>();
+    if (!doc["alarm_id"].isUnbound()) out.alarmId = (uint16_t)(doc["alarm_id"].as<uint32_t>() & 0xFFFFU);
+    if (!doc["color_id"].isUnbound()) out.colorId = (uint8_t)(doc["color_id"].as<uint32_t>() & 0xFFU);
+    if (!doc["label"].isUnbound()) {
         const char* label = doc["label"].as<const char*>();
         snprintf(out.label, sizeof(out.label), "%s", label ? label : "");
     }
@@ -3379,7 +3394,7 @@ bool waveshareReadAlarmDashboardSlotState_(const AlarmService* alarmSvc,
     char stateJson[144] = {0};
     if (!alarmSvc->buildAlarmState(alarmSvc->ctx, (AlarmId)alarmId, stateJson, sizeof(stateJson))) return false;
 
-    StaticJsonDocument<192> doc;
+    JsonDocument doc;
     if (deserializeJson(doc, stateJson)) return false;
     out.available = true;
     out.latched = (doc["a"] | 0U) != 0U;
@@ -3829,7 +3844,25 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
     <div class="status" id="status">Chargement...</div>
   </section>
 
-  <div class="grid">
+  <section class="wide">
+    <h2>Securite Web</h2>
+    <p>
+      Pour creer ou remplacer les acces, demarrez normalement le Waveshare puis
+      maintenez le bouton BOOT pendant 5 secondes. La recuperation reste active 10 minutes.
+    </p>
+    <label for="adminUser">Utilisateur administrateur</label>
+    <input id="adminUser" value="admin" maxlength="32" autocomplete="username" />
+    <label for="adminPass">Nouveau mot de passe (12 a 32 caracteres)</label>
+    <input id="adminPass" type="password" minlength="12" maxlength="32" autocomplete="new-password" />
+    <label for="adminConfirm">Confirmation</label>
+    <input id="adminConfirm" type="password" minlength="12" maxlength="32" autocomplete="new-password" />
+    <div class="row">
+      <button id="saveCredentials" type="button" disabled>Enregistrer les acces Web</button>
+    </div>
+    <div class="status note" id="securityMsg">Verification de la recuperation BOOT...</div>
+  </section>
+
+  <div class="grid" id="serviceGrid">
     <section>
       <h2>Réseau Waveshare</h2>
       <label><input id="wifiEnabled" type="checkbox" checked />Activer le réseau station</label>
@@ -3878,11 +3911,17 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
   const $ = (id) => document.getElementById(id);
   const status = $("status");
   const wifiMsg = $("wifiMsg");
+  const securityMsg = $("securityMsg");
   const fwCfgMsg = $("fwCfgMsg");
   const updateMsg = $("updateMsg");
   const buttons = Array.from(document.querySelectorAll("button"));
+  let csrfToken = "";
+  let recoveryAllowed = false;
 
-  const setBusy = (busy) => buttons.forEach((b) => { b.disabled = busy; });
+  const setBusy = (busy) => {
+    buttons.forEach((b) => { b.disabled = busy; });
+    $("saveCredentials").disabled = busy || !recoveryAllowed;
+  };
   const formBody = (data) => {
     const body = new URLSearchParams();
     Object.keys(data).forEach((k) => {
@@ -3891,7 +3930,14 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
     return body;
   };
   const api = async (url, options = {}) => {
-    const res = await fetch(url, Object.assign({ cache: "no-store" }, options));
+    const secured = Object.assign({ cache: "no-store" }, options);
+    const method = String(secured.method || "GET").toUpperCase();
+    if (method === "POST" || method === "PUT" || method === "PATCH" || method === "DELETE") {
+      const headers = new Headers(secured.headers || {});
+      if (csrfToken) headers.set("X-Flow-CSRF", csrfToken);
+      secured.headers = headers;
+    }
+    const res = await fetch(url, secured);
     const text = await res.text();
     let json = null;
     try { json = text ? JSON.parse(text) : null; } catch (_) {}
@@ -3899,6 +3945,8 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
       const msg = json && json.err ? (json.err.msg || json.err.code || "failed") : (text || res.statusText);
       throw new Error(msg);
     }
+    const token = json && typeof json.csrf_token === "string" ? json.csrf_token.trim() : "";
+    if (/^[0-9a-f]{32}$/i.test(token)) csrfToken = token;
     return json || { ok: true, text };
   };
   const put = (node, obj, cls) => {
@@ -3925,10 +3973,70 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
         $("host").value = fw.update_host || "";
         $("basePath").value = fw.update_path || "";
       }
+      if (meta.ok !== false) {
+        recoveryAllowed = meta.physical_recovery_active === true;
+        $("serviceGrid").hidden = recoveryAllowed;
+        $("saveCredentials").disabled = !recoveryAllowed;
+        if (recoveryAllowed) {
+          put(
+            securityMsg,
+            `Recuperation BOOT active encore ${meta.physical_recovery_remaining_s || 0} s. ` +
+            "Vous pouvez definir de nouveaux acces.",
+            "note"
+          );
+        } else if (meta.auth_enabled === true) {
+          put(
+            securityMsg,
+            "Authentification active. Maintenez BOOT 5 secondes pour remplacer les acces.",
+            "ok"
+          );
+        } else {
+          put(
+            securityMsg,
+            "Acces Web actuellement ouvert. Maintenez BOOT 5 secondes pour activer l'authentification.",
+            "note"
+          );
+        }
+      }
       put(status, { web: meta, network: net, updater: fwst }, "ok");
     } catch (e) {
       put(status, e.message, "bad");
     } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveCredentials() {
+    const user = $("adminUser").value.trim();
+    const pass = $("adminPass").value;
+    const confirmPass = $("adminConfirm").value;
+    if (!recoveryAllowed) {
+      put(securityMsg, "Maintenez d'abord BOOT pendant 5 secondes, puis rafraichissez.", "bad");
+      return;
+    }
+    if (!user || pass.length < 12 || pass.length > 32 || pass !== confirmPass) {
+      put(
+        securityMsg,
+        "Utilisateur requis; mot de passe de 12 a 32 caracteres et confirmation identique.",
+        "bad"
+      );
+      return;
+    }
+    if (!confirm("Enregistrer les nouveaux acces Web et redemarrer dans 8 secondes ?")) return;
+    setBusy(true);
+    try {
+      const out = await api("/api/recovery/web-credentials", {
+        method: "POST",
+        body: formBody({ user, pass, confirm: confirmPass })
+      });
+      recoveryAllowed = false;
+      put(
+        securityMsg,
+        `Acces enregistres. Redemarrage dans ${out.reboot_in_s || 8} secondes.`,
+        "ok"
+      );
+    } catch (e) {
+      put(securityMsg, e.message, "bad");
       setBusy(false);
     }
   }
@@ -4054,6 +4162,7 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
   });
   $("refresh").addEventListener("click", refreshAll);
   $("scan").addEventListener("click", scanWifi);
+  $("saveCredentials").addEventListener("click", saveCredentials);
   $("saveWifi").addEventListener("click", saveWifi);
   $("saveFwCfg").addEventListener("click", saveFwConfig);
   $("checkManifest").addEventListener("click", checkManifest);
@@ -4731,11 +4840,31 @@ void WebInterfaceModule::init(ConfigStore& cfg, ServiceRegistry& services)
     flowCfgSvc_ = services.get<FlowCfgRemoteService>(ServiceId::FlowCfg);
     netAccessSvc_ = services.get<NetworkAccessService>(ServiceId::NetworkAccess);
     ioSvc_ = services.get<IOServiceV2>(ServiceId::Io);
+    alarmSvc_ = services.get<AlarmService>(ServiceId::Alarm);
     const DataStoreService* dsSvc = services.get<DataStoreService>(ServiceId::DataStore);
     dataStore_ = dsSvc ? dsSvc->store : nullptr;
     auto* ebSvc = services.get<EventBusService>(ServiceId::EventBus);
     eventBus_ = ebSvc ? ebSvc->bus : nullptr;
     fwUpdateSvc_ = services.get<FirmwareUpdateService>(ServiceId::FirmwareUpdate);
+    if (alarmSvc_ && alarmSvc_->registerAlarm) {
+        const AlarmRegistration otaSignatureAlarm{
+            AlarmId::OtaSignatureFailures,
+            AlarmSeverity::Warning,
+            true,
+            0,
+            1000,
+            60000,
+            "ota_sig_fail",
+            "Repeated invalid OTA signatures",
+            "webinterface"
+        };
+        if (!alarmSvc_->registerAlarm(alarmSvc_->ctx,
+                                      &otaSignatureAlarm,
+                                      &WebInterfaceModule::condOtaSignatureFailuresStatic_,
+                                      this)) {
+            LOGW("WebInterface failed to register AlarmId::OtaSignatureFailures");
+        }
+    }
     if (eventBus_) {
         eventBus_->subscribe(EventId::DataChanged, &WebInterfaceModule::onEventStatic_, this);
     }
@@ -4758,11 +4887,45 @@ void WebInterfaceModule::init(ConfigStore& cfg, ServiceRegistry& services)
     health_.paused = uartPaused_;
     portEXIT_CRITICAL(&healthMux_);
 
+#if defined(FLOW_PROFILE_WAVESHARE)
+    pinMode(kBootRecoveryPin, INPUT_PULLUP);
+    LOGI("Web physical recovery armed on BOOT GPIO%d hold=%lus window=%lus",
+         kBootRecoveryPin,
+         (unsigned long)(kBootRecoveryHoldMs / 1000U),
+         (unsigned long)(kPhysicalRecoveryWindowMs / 1000U));
+#endif
+
 #if defined(FLOW_PROFILE_MICRONOVA) || defined(FLOW_PROFILE_WAVESHARE)
     LOGI("WebInterface local runtime deferred (server deferred)");
 #else
     startLocalRuntime_();
 #endif
+}
+
+void WebInterfaceModule::onConfigLoaded(ConfigStore& cfg, ServiceRegistry&)
+{
+    size_t actualLen = 0U;
+    WebSecurityConfig stored{};
+    if (cfg.readRuntimeBlob(
+            NvsKeys::WebSecurity::Credentials,
+            &stored,
+            sizeof(stored),
+            &actualLen) &&
+        actualLen == sizeof(stored)) {
+        stored.user[sizeof(stored.user) - 1U] = '\0';
+        stored.pass[sizeof(stored.pass) - 1U] = '\0';
+        webSecurity_ = stored;
+    } else {
+        webSecurity_ = WebSecurityConfig{};
+    }
+    webCredentialsReady_ =
+        webSecurity_.user[0] != '\0' &&
+        webSecurity_.pass[0] != '\0';
+    if (webCredentialsReady_) {
+        LOGI("Web authentication enabled for configured administrator");
+    } else {
+        LOGW("Web authentication disabled until credentials are configured through physical BOOT recovery");
+    }
 }
 
 void WebInterfaceModule::onStart(ConfigStore&, ServiceRegistry&)
@@ -4828,8 +4991,54 @@ void WebInterfaceModule::startLocalRuntime_()
 void WebInterfaceModule::startServer_()
 {
     if (started_) return;
+    ensureCsrfToken_();
     gHttpActivityHook = &WebInterfaceModule::onHttpActivityHook_;
     gHttpActivityHookCtx = this;
+
+    server_.addMiddleware([](AsyncWebServerRequest* request, ArMiddlewareNext next) {
+        next();
+        if (request) {
+            const String& path = request->url();
+            addWebSecurityHeaders(request->getResponse(), path.c_str());
+        }
+    });
+
+    server_.addMiddleware([this](AsyncWebServerRequest* request, ArMiddlewareNext next) {
+        if (!allowUnauthenticatedRequest_(request)) {
+            uint32_t retryAfterSeconds = 0U;
+            if (webAuthRateLimited_(request, retryAfterSeconds)) {
+                AsyncWebServerResponse* response = request->beginResponse(
+                    429,
+                    "application/json",
+                    "{\"ok\":false,\"err\":{\"code\":\"AuthRateLimited\",\"where\":\"web.security\"}}"
+                );
+                char retryAfter[12] = {0};
+                snprintf(retryAfter, sizeof(retryAfter), "%lu", (unsigned long)retryAfterSeconds);
+                response->addHeader("Retry-After", retryAfter);
+                request->send(response);
+                return;
+            }
+            if (!webRequestAuthorized_(request)) {
+                // The browser's initial Digest challenge has no Authorization header
+                // and must not consume the source failure budget.
+                if (request->hasHeader("Authorization")) noteWebAuthFailure_(request);
+                request->requestAuthentication("Flow.io", true);
+                return;
+            }
+            noteWebAuthSuccess_(request);
+        }
+        next();
+    });
+
+    server_.addMiddleware([this](AsyncWebServerRequest* request, ArMiddlewareNext next) {
+        if (!csrfRequestAllowed_(request)) {
+            request->send(403,
+                          "application/json",
+                          "{\"ok\":false,\"err\":{\"code\":\"CsrfRejected\",\"where\":\"web.security\"}}");
+            return;
+        }
+        next();
+    });
 
     spiffsReady_ = SPIFFS.begin(false);
     if (!spiffsReady_) {
@@ -5015,8 +5224,8 @@ void WebInterfaceModule::startServer_()
         return provisioningUiAssetsReady;
     };
 
-    server_.on("/", HTTP_GET, [webInterfaceLandingUrl](AsyncWebServerRequest* request) {
-        request->redirect(webInterfaceLandingUrl());
+    server_.on("/", HTTP_GET, [this, webInterfaceLandingUrl](AsyncWebServerRequest* request) {
+        request->redirect(physicalRecoveryActive_() ? "/rescue" : webInterfaceLandingUrl());
     });
 
     server_.on("/rescue", HTTP_GET, [sendRescuePage](AsyncWebServerRequest* request) {
@@ -5429,7 +5638,7 @@ void WebInterfaceModule::startServer_()
     });
     server_.on("/api/web/meta", HTTP_GET, [this](AsyncWebServerRequest* request) {
         HttpLatencyScope latency(request, "/api/web/meta");
-        StaticJsonDocument<1024> doc;
+        JsonDocument doc;
         NetworkAccessMode mode = NetworkAccessMode::None;
         if (!netAccessSvc_ && services_) {
             netAccessSvc_ = services_->get<NetworkAccessService>(ServiceId::NetworkAccess);
@@ -5445,6 +5654,14 @@ void WebInterfaceModule::startServer_()
         const char* transportTxt = networkTransport_(mode);
 
         doc["ok"] = true;
+        doc["csrf_token"] = csrfToken_;
+        doc["auth_enabled"] = webCredentialsReady_;
+        doc["physical_recovery_active"] = physicalRecoveryActive_();
+        doc["physical_recovery_remaining_s"] =
+            (physicalRecoveryRemainingMs_() + 999U) / 1000U;
+        doc["physical_recovery_gpio"] = kBootRecoveryPin;
+        doc["physical_recovery_hold_s"] = kBootRecoveryHoldMs / 1000U;
+        doc["physical_recovery_method"] = "boot_long_press";
         doc["web_asset_version"] = webAssetVersion_();
         doc["firmware_version"] = FirmwareVersion::Full;
         doc["profile"] = FLOW_BUILD_PROFILE_NAME;
@@ -5484,13 +5701,13 @@ void WebInterfaceModule::startServer_()
         SystemStats::collect(snap);
 
         doc["upms"] = snap.uptimeMs;
-        JsonObject heap = doc.createNestedObject("heap");
+        JsonObject heap = doc["heap"].to<JsonObject>();
         heap["free"] = snap.heap.freeBytes;
         heap["min_free"] = snap.heap.minFreeBytes;
         heap["largest"] = snap.heap.largestFreeBlock;
         heap["frag"] = snap.heap.fragPercent;
 
-        char out[960] = {0};
+        char out[1200] = {0};
         const size_t n = serializeJson(doc, out, sizeof(out));
         if (n == 0 || n >= sizeof(out)) {
             request->send(500, "application/json",
@@ -5502,14 +5719,102 @@ void WebInterfaceModule::startServer_()
         addNoCacheHeaders_(response);
         request->send(response);
     });
+    server_.on("/api/recovery/status", HTTP_GET, [this](AsyncWebServerRequest* request) {
+        HttpLatencyScope latency(request, "/api/recovery/status");
+        char out[256] = {0};
+        const int n = snprintf(
+            out,
+            sizeof(out),
+            "{\"ok\":true,\"active\":%s,\"remaining_s\":%lu,"
+            "\"gpio\":%d,\"hold_s\":%lu,\"method\":\"boot_long_press\",\"auth_enabled\":%s}",
+            physicalRecoveryActive_() ? "true" : "false",
+            (unsigned long)((physicalRecoveryRemainingMs_() + 999U) / 1000U),
+            kBootRecoveryPin,
+            (unsigned long)(kBootRecoveryHoldMs / 1000U),
+            webCredentialsReady_ ? "true" : "false");
+        request->send(
+            200,
+            "application/json",
+            (n > 0 && (size_t)n < sizeof(out))
+                ? out
+                : "{\"ok\":false,\"err\":{\"code\":\"Failed\",\"where\":\"recovery.status\"}}");
+    });
+    server_.on("/api/recovery/web-credentials", HTTP_POST, [this](AsyncWebServerRequest* request) {
+        HttpLatencyScope latency(request, "/api/recovery/web-credentials");
+        if (!physicalRecoveryActive_()) {
+            request->send(
+                403,
+                "application/json",
+                "{\"ok\":false,\"err\":{\"code\":\"RecoveryInactive\",\"where\":\"recovery.credentials\"}}");
+            return;
+        }
+        if (!cfgStore_) {
+            request->send(
+                503,
+                "application/json",
+                "{\"ok\":false,\"err\":{\"code\":\"NotReady\",\"where\":\"recovery.credentials\"}}");
+            return;
+        }
+
+        char user[sizeof(webSecurity_.user)] = {0};
+        char pass[sizeof(webSecurity_.pass)] = {0};
+        char confirm[sizeof(webSecurity_.pass)] = {0};
+        copyRequestParamValue_(request, "user", true, user, sizeof(user), "");
+        copyRequestParamValue_(request, "pass", true, pass, sizeof(pass), "");
+        copyRequestParamValue_(request, "confirm", true, confirm, sizeof(confirm), "");
+
+        const size_t userLen = strnlen(user, sizeof(user));
+        const size_t passLen = strnlen(pass, sizeof(pass));
+        if (userLen == 0U || userLen > 32U ||
+            passLen < 12U || passLen > 32U ||
+            strcmp(pass, confirm) != 0 ||
+            strchr(user, '\r') || strchr(user, '\n') ||
+            strchr(pass, '\r') || strchr(pass, '\n')) {
+            request->send(
+                400,
+                "application/json",
+                "{\"ok\":false,\"err\":{\"code\":\"InvalidCredentials\","
+                "\"where\":\"recovery.credentials\","
+                "\"msg\":\"Utilisateur 1-32 caracteres; mot de passe 12-32 caracteres identique a la confirmation.\"}}");
+            return;
+        }
+
+        WebSecurityConfig replacement{};
+        snprintf(replacement.user, sizeof(replacement.user), "%s", user);
+        snprintf(replacement.pass, sizeof(replacement.pass), "%s", pass);
+        if (!cfgStore_->writeRuntimeBlob(
+                NvsKeys::WebSecurity::Credentials,
+                &replacement,
+                sizeof(replacement))) {
+            request->send(
+                500,
+                "application/json",
+                "{\"ok\":false,\"err\":{\"code\":\"Failed\",\"where\":\"recovery.credentials\"}}");
+            return;
+        }
+
+        webSecurity_ = replacement;
+        webCredentialsReady_ = true;
+        portENTER_CRITICAL(&webAuthThrottleMux_);
+        webAuthThrottleState_ = Security::WebAuthThrottleState{};
+        portEXIT_CRITICAL(&webAuthThrottleMux_);
+        physicalRecoveryDeadlineMs_ = 0U;
+
+        scheduleReboot_(8000U, "recovery.web_credentials");
+        LOGW("Physical BOOT recovery replaced web administrator credentials");
+        request->send(
+            200,
+            "application/json",
+            "{\"ok\":true,\"reboot_scheduled\":true,\"reboot_in_s\":8}");
+    });
     server_.on("/webinterface", HTTP_GET, [this,
                                            spiffsAssetExists,
                                            beginSpiffsAssetResponse,
                                            sendPreparedAssetResponse,
-                                           sendRescuePage,
                                            lightUiAssetsAvailable,
                                            fullUiAssetsAvailable,
-                                           provisioningUiAssetsAvailable](AsyncWebServerRequest* request) {
+                                           provisioningUiAssetsAvailable,
+                                           sendRescuePage](AsyncWebServerRequest* request) {
         HttpLatencyScope latency(request, "/webinterface");
         NetworkAccessMode mode = NetworkAccessMode::None;
         if (!netAccessSvc_ && services_) {
@@ -5571,8 +5876,8 @@ void WebInterfaceModule::startServer_()
                 sendPreparedAssetResponse(request, response, &forensicMeta);
                 return;
             }
-            LOGW("Light web assets missing; serving PROGMEM rescue UI");
-            sendRescuePage(request);
+            LOGW("Light web assets missing; redirecting to PROGMEM rescue UI");
+            request->redirect("/rescue");
             return;
         }
         if (!request->hasParam("page")) {
@@ -5603,8 +5908,8 @@ void WebInterfaceModule::startServer_()
             sendPreparedAssetResponse(request, response, &forensicMeta);
             return;
         }
-        LOGW("Full web assets missing; serving PROGMEM rescue UI");
-        sendRescuePage(request);
+        LOGW("Full web assets missing; redirecting to PROGMEM rescue UI");
+        request->redirect("/rescue");
     });
     server_.on("/webinterface/", HTTP_GET, [webInterfaceLandingUrl](AsyncWebServerRequest* request) {
         request->redirect(webInterfaceLandingUrl());
@@ -5826,7 +6131,7 @@ void WebInterfaceModule::startServer_()
             return;
         }
 
-        StaticJsonDocument<320> doc;
+        JsonDocument doc;
         const DeserializationError err = deserializeJson(doc, wifiJson);
         if (err || !doc.is<JsonObjectConst>()) {
             request->send(500, "application/json",
@@ -5922,8 +6227,8 @@ void WebInterfaceModule::startServer_()
         char deviceName[48] = {0};
 
         char mqttJson[640] = {0};
-        if (cfgStore_->toJsonModule("mqtt", mqttJson, sizeof(mqttJson), nullptr, false)) {
-            StaticJsonDocument<640> doc;
+        if (cfgStore_->toJsonModule("mqtt", mqttJson, sizeof(mqttJson), nullptr, true)) {
+            JsonDocument doc;
             const DeserializationError err = deserializeJson(doc, mqttJson);
             if (err || !doc.is<JsonObjectConst>()) {
                 request->send(500, "application/json",
@@ -5995,9 +6300,9 @@ void WebInterfaceModule::startServer_()
         copyRequestParamValue_(request, "ssid", true, ssid, sizeof(ssid), "");
         copyRequestParamValue_(request, "pass", true, pass, sizeof(pass), "");
 
-        StaticJsonDocument<320> patch;
+        JsonDocument patch;
         JsonObject root = patch.to<JsonObject>();
-        JsonObject wifi = root.createNestedObject("wifi");
+        JsonObject wifi = root["wifi"].to<JsonObject>();
         wifi["enabled"] = enabled;
         wifi["ssid"] = ssid;
         wifi["pass"] = pass;
@@ -6032,9 +6337,9 @@ void WebInterfaceModule::startServer_()
         if (flowCfgSvc_ && flowCfgSvc_->applyPatchJson) {
             flowSyncAttempted = true;
 
-            StaticJsonDocument<320> flowPatchDoc;
+            JsonDocument flowPatchDoc;
             JsonObject flowRoot = flowPatchDoc.to<JsonObject>();
-            JsonObject flowWifi = flowRoot.createNestedObject("wifi");
+            JsonObject flowWifi = flowRoot["wifi"].to<JsonObject>();
             flowWifi["enabled"] = enabled;
             flowWifi["ssid"] = ssid;
             flowWifi["pass"] = pass;
@@ -6536,7 +6841,7 @@ void WebInterfaceModule::startServer_()
             char* body = static_cast<char*>(request->_tempObject);
             request->_tempObject = nullptr;
 
-            StaticJsonDocument<kRuntimeValuesJsonDocCapacity> reqDoc;
+            JsonDocument reqDoc(psramPreferredJsonAllocator());
             const DeserializationError reqErr = deserializeJson(reqDoc, body);
             releaseRuntimeValuesBodyScratch_();
             if (reqErr) {
@@ -7111,6 +7416,34 @@ void WebInterfaceModule::startServer_()
         request->send(200, "application/json", "{\"ok\":true}");
     });
 
+    server_.on("/api/poollogic/filtration/recalculate", HTTP_POST, [this](AsyncWebServerRequest* request) {
+        HttpLatencyScope latency(request, "/api/poollogic/filtration/recalculate");
+        if (!cmdSvc_ && services_) {
+            cmdSvc_ = services_->get<CommandService>(ServiceId::Command);
+        }
+        if (!cmdSvc_ || !cmdSvc_->execute) {
+            request->send(
+                503,
+                "application/json",
+                "{\"ok\":false,\"err\":{\"code\":\"NotReady\",\"where\":\"poollogic.filtration.recalc\"}}");
+            return;
+        }
+
+        char reply[220] = {0};
+        const bool ok =
+            cmdSvc_->execute(cmdSvc_->ctx, "poollogic.filtration.recalc", "{}", nullptr, reply, sizeof(reply));
+        if (!ok) {
+            request->send(
+                500,
+                "application/json",
+                (reply[0] != '\0')
+                    ? reply
+                    : "{\"ok\":false,\"err\":{\"code\":\"Failed\",\"where\":\"poollogic.filtration.recalc\"}}");
+            return;
+        }
+        request->send(202, "application/json", (reply[0] != '\0') ? reply : "{\"ok\":true,\"queued\":true}");
+    });
+
     server_.on("/api/system/reboot", HTTP_POST, [this](AsyncWebServerRequest* request) {
         HttpLatencyScope latency(request, "/api/system/reboot");
         if (!cmdSvc_ && services_) {
@@ -7353,6 +7686,198 @@ void WebInterfaceModule::handleUpdateRequest_(AsyncWebServerRequest* request, Fi
     }
 
     request->send(202, "application/json", "{\"ok\":true,\"accepted\":true}");
+}
+
+void WebInterfaceModule::ensureCsrfToken_()
+{
+    if (csrfToken_[0] != '\0') return;
+    const uint32_t r0 = esp_random();
+    const uint32_t r1 = esp_random();
+    const uint32_t r2 = esp_random();
+    const uint32_t r3 = esp_random();
+    snprintf(csrfToken_,
+             sizeof(csrfToken_),
+             "%08lx%08lx%08lx%08lx",
+             (unsigned long)r0,
+             (unsigned long)r1,
+             (unsigned long)r2,
+             (unsigned long)r3);
+}
+
+bool WebInterfaceModule::requestOriginAllowed_(AsyncWebServerRequest* request,
+                                               bool originRequired) const
+{
+    if (!request) return false;
+    if (!request->hasHeader("Origin")) return !originRequired;
+
+    const String& origin = request->header("Origin");
+    const String& host = request->host();
+    if (origin.length() == 0U || host.length() == 0U ||
+        origin.equalsIgnoreCase("null")) {
+        return false;
+    }
+
+    const String httpOrigin = String("http://") + host;
+    const String httpsOrigin = String("https://") + host;
+    return origin.equalsIgnoreCase(httpOrigin) ||
+           origin.equalsIgnoreCase(httpsOrigin);
+}
+
+bool WebInterfaceModule::csrfRequestAllowed_(AsyncWebServerRequest* request) const
+{
+    if (!request) return false;
+    const bool tokenPresent = request->hasHeader("X-Flow-CSRF");
+    const String suppliedToken = tokenPresent ? request->header("X-Flow-CSRF") : String();
+    const Security::CsrfRequestFacts facts{
+        isMutatingRequest_(request),
+        requestOriginAllowed_(request, false),
+        request->hasHeader("Sec-Fetch-Site") &&
+            request->header("Sec-Fetch-Site").equalsIgnoreCase("cross-site"),
+        tokenPresent
+    };
+    return Security::csrfRequestAllowed(facts,
+                                        csrfToken_,
+                                        suppliedToken.c_str(),
+                                        suppliedToken.length());
+}
+
+bool WebInterfaceModule::webRequestAuthorized_(AsyncWebServerRequest* request) const
+{
+    return request &&
+           webCredentialsReady_ &&
+           request->authenticate(webSecurity_.user, webSecurity_.pass, "Flow.io");
+}
+
+bool WebInterfaceModule::webAuthRateLimited_(AsyncWebServerRequest* request,
+                                             uint32_t& retryAfterSeconds)
+{
+    retryAfterSeconds = 0U;
+    if (!request || !request->client()) return false;
+    const uint32_t ip = (uint32_t)request->client()->remoteIP();
+    const uint32_t now = millis();
+    portENTER_CRITICAL(&webAuthThrottleMux_);
+    const Security::WebAuthLimitResult result =
+        Security::checkWebAuthLimit(webAuthThrottleState_, ip, now);
+    portEXIT_CRITICAL(&webAuthThrottleMux_);
+    retryAfterSeconds = result.retryAfterSeconds;
+    return result.limited;
+}
+
+void WebInterfaceModule::noteWebAuthFailure_(AsyncWebServerRequest* request)
+{
+    if (!request || !request->client()) return;
+    const IPAddress remote = request->client()->remoteIP();
+    const uint32_t ip = (uint32_t)remote;
+    const uint32_t now = millis();
+    portENTER_CRITICAL(&webAuthThrottleMux_);
+    const Security::WebAuthFailureResult result =
+        Security::noteWebAuthFailure(webAuthThrottleState_, ip, now);
+    portEXIT_CRITICAL(&webAuthThrottleMux_);
+
+    LOGW("Web auth failed ip=%s failures=%u blocked=%u global_blocked=%u",
+         remote.toString().c_str(),
+         (unsigned)result.sourceFailures,
+         result.sourceNewlyBlocked ? 1U : 0U,
+         result.globalNewlyBlocked ? 1U : 0U);
+}
+
+void WebInterfaceModule::noteWebAuthSuccess_(AsyncWebServerRequest* request)
+{
+    if (!request || !request->client()) return;
+    const uint32_t ip = (uint32_t)request->client()->remoteIP();
+    portENTER_CRITICAL(&webAuthThrottleMux_);
+    Security::noteWebAuthSuccess(webAuthThrottleState_, ip);
+    portEXIT_CRITICAL(&webAuthThrottleMux_);
+}
+
+bool WebInterfaceModule::allowUnauthenticatedRequest_(AsyncWebServerRequest* request) const
+{
+    if (!request) return false;
+
+    // Preserve the historical open setup until an administrator explicitly
+    // provisions credentials through the physical recovery workflow.
+    if (!webCredentialsReady_) return true;
+
+    const String& url = request->url();
+    const WebRequestMethodComposite method = request->method();
+
+    if (physicalRecoveryActive_()) {
+        if (method == HTTP_GET) {
+            return url == "/" ||
+                   url == "/rescue" ||
+                   url == "/webinterface/rescue" ||
+                   url == "/api/web/meta" ||
+                   url == "/api/recovery/status";
+        }
+        return method == HTTP_POST &&
+               url == "/api/recovery/web-credentials";
+    }
+
+    if (!provisioningOnly_) return false;
+
+    if (method == HTTP_GET) {
+        if (url == "/" ||
+            url == "/webinterface" ||
+            url == "/webinterface/" ||
+            url == "/rescue" ||
+            url == "/webinterface/rescue" ||
+            url == "/generate_204" ||
+            url == "/gen_204" ||
+            url == "/hotspot-detect.html" ||
+            url == "/connecttest.txt" ||
+            url == "/ncsi.txt" ||
+            url == "/api/web/meta" ||
+            url == "/api/network/mode" ||
+            url == "/api/wifi/ap" ||
+            url == "/api/wifi/config" ||
+            url == "/api/wifi/scan" ||
+            url == "/api/mqtt/config") {
+            return true;
+        }
+        return url.startsWith("/webinterface/") &&
+               url != "/webinterface/health";
+    }
+    if (method == HTTP_POST) {
+        return url == "/api/wifi/config" ||
+               url == "/api/wifi/scan" ||
+               url == "/api/mqtt/config";
+    }
+    return false;
+}
+
+void WebInterfaceModule::noteInvalidOtaSignature_()
+{
+    const uint32_t now = millis();
+    portENTER_CRITICAL(&otaSignatureFailureMux_);
+    const bool thresholdReached =
+        Security::recordFailure(otaSignatureFailureState_,
+                                now,
+                                kOtaSignatureFailureThreshold,
+                                kOtaSignatureFailureWindowMs);
+    const uint8_t failures = otaSignatureFailureState_.failures;
+    portEXIT_CRITICAL(&otaSignatureFailureMux_);
+    LOGW("Invalid OTA signature failures=%u threshold_reached=%u",
+         (unsigned)failures,
+         thresholdReached ? 1U : 0U);
+}
+
+AlarmCondState WebInterfaceModule::condOtaSignatureFailuresStatic_(void* ctx, uint32_t nowMs)
+{
+    return ctx
+        ? static_cast<WebInterfaceModule*>(ctx)->condOtaSignatureFailures_(nowMs)
+        : AlarmCondState::Unknown;
+}
+
+AlarmCondState WebInterfaceModule::condOtaSignatureFailures_(uint32_t nowMs) const
+{
+    portENTER_CRITICAL(&otaSignatureFailureMux_);
+    const bool active =
+        Security::failureAlarmCondition(otaSignatureFailureState_,
+                                        nowMs,
+                                        kOtaSignatureFailureThreshold,
+                                        kOtaSignatureFailureHoldMs);
+    portEXIT_CRITICAL(&otaSignatureFailureMux_);
+    return active ? AlarmCondState::True : AlarmCondState::False;
 }
 
 bool WebInterfaceModule::isWebReachable_() const

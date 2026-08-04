@@ -22,7 +22,7 @@ namespace {
 static bool parseCmdArgsObject_(const CommandRequest& req, JsonObjectConst& outObj)
 {
     static constexpr size_t CMD_DOC_CAPACITY = Limits::JsonCmdPoolDeviceBuf;
-    static StaticJsonDocument<CMD_DOC_CAPACITY> doc;
+    static JsonDocument doc;
 
     doc.clear();
     const char* json = req.args ? req.args : req.json;
@@ -131,7 +131,7 @@ bool PoolLogicModule::cmdFiltrationWrite_(const CommandRequest& req, char* reply
         writeCmdError_(reply, replyLen, "poollogic.filtration.write", ErrorCode::MissingArgs);
         return false;
     }
-    if (!args.containsKey("value")) {
+    if (args["value"].isUnbound()) {
         writeCmdError_(reply, replyLen, "poollogic.filtration.write", ErrorCode::MissingValue);
         return false;
     }
@@ -200,7 +200,7 @@ bool PoolLogicModule::cmdAutoModeSet_(const CommandRequest& req, char* reply, si
         writeCmdError_(reply, replyLen, "poollogic.auto_mode.set", ErrorCode::MissingArgs);
         return false;
     }
-    if (!args.containsKey("value")) {
+    if (args["value"].isUnbound()) {
         writeCmdError_(reply, replyLen, "poollogic.auto_mode.set", ErrorCode::MissingValue);
         return false;
     }
@@ -235,7 +235,7 @@ bool PoolLogicModule::cmdMqttControl_(const CommandRequest& req, char* reply, si
             writeCmdError_(reply, replyLen, where, ErrorCode::MissingArgs);
             return false;
         }
-        if (!args.containsKey("value")) {
+        if (args["value"].isUnbound()) {
             writeCmdError_(reply, replyLen, where, ErrorCode::MissingValue);
             return false;
         }
@@ -368,7 +368,7 @@ bool PoolLogicModule::cmdMqttControl_(const CommandRequest& req, char* reply, si
             writeCmdError_(reply, replyLen, where, ErrorCode::MissingArgs);
             return false;
         }
-        if (!args.containsKey("value")) {
+        if (args["value"].isUnbound()) {
             writeCmdError_(reply, replyLen, where, ErrorCode::MissingValue);
             return false;
         }
@@ -431,7 +431,7 @@ bool PoolLogicModule::cmdMqttControl_(const CommandRequest& req, char* reply, si
             writeCmdError_(reply, replyLen, where, ErrorCode::MissingArgs);
             return false;
         }
-        if (!args.containsKey("value")) {
+        if (args["value"].isUnbound()) {
             writeCmdError_(reply, replyLen, where, ErrorCode::MissingValue);
             return false;
         }

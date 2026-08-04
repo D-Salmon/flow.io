@@ -5,6 +5,11 @@
     "version": 1
   },
   "docs": {
+    "hmi/buzzer/alarm_sound": {
+      "type": "Bool",
+      "label_t": "cfgdocs.hmi.buzzer.alarm_sound.label",
+      "help_t": "cfgdocs.hmi.buzzer.alarm_sound.help"
+    },
     "hmi/buzzer/enable": {
       "type": "Bool",
       "label_t": "cfgdocs.hmi.buzzer.enable.label",

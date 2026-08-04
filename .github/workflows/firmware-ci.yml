@@ -1,0 +1,93 @@
+name: Firmware CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      FLOW_BUILD_REF: "20000101.000000"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan committed secrets
+        # The action's pull-request revision range breaks when the base branch
+        # contains the legacy '§' character. Every same-repository PR update
+        # also emits a push event, where the complete scan remains enforced.
+        if: github.event_name == 'push'
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install C++ static analysis
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cppcheck
+      - name: Install PlatformIO
+        run: python -m pip install "platformio==6.1.19"
+      - name: Run C++ static analysis
+        run: >
+          cppcheck
+          --enable=warning,performance,portability
+          --std=c++17
+          --force
+          --inline-suppr
+          --suppress=missingIncludeSystem
+          --suppress=unmatchedSuppression
+          --error-exitcode=1
+          src include
+      - name: Test OTA signing workflow
+        run: python scripts/test_ota_signing.py
+      - name: Regenerate compressed web assets
+        run: bash scripts/gzip_web_assets.sh
+      - name: Run native unit tests
+        run: |
+          platformio test -c platformio.native.ini -e native -f test_poollogic_filtration_window
+          platformio test -c platformio.native.ini -e native -f test_web_security_policy
+      - name: Build firmware
+        run: platformio run -e Waveshare-ESP32-S3
+      - name: Enforce firmware partition budget
+        run: python scripts/check_firmware_size.py --max-percent 85
+      - name: Build SPIFFS
+        run: platformio run -e Waveshare-ESP32-S3 -t buildfs
+      - name: Verify release artifacts
+        run: python scripts/verify_release.py
+      - name: Prepare downloadable firmware artifacts
+        run: |
+          version="$(python -c 'import re; text=open("platformio.ini", encoding="utf-8").read(); print(re.search(r"waveshare_firmware_version\s*=\s*[^0-9]*([0-9]+\.[0-9]+\.[0-9]+)", text).group(1))')"
+          echo "WAVESHARE_VERSION=${version}" >> "$GITHUB_ENV"
+          sha256sum \
+            "binary/flowios3-${version}.bin" \
+            "binary/flowios3-spiffs-${version}.bin" \
+            > "binary/SHA256SUMS-${version}.txt"
+      - name: Upload firmware build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: flowio-waveshare-${{ env.WAVESHARE_VERSION }}
+          if-no-files-found: error
+          retention-days: 90
+          path: |
+            binary/flowios3-${{ env.WAVESHARE_VERSION }}.bin
+            binary/flowios3-spiffs-${{ env.WAVESHARE_VERSION }}.bin
+            binary/manifest.json
+            binary/SHA256SUMS-${{ env.WAVESHARE_VERSION }}.txt
+      - name: Publish assets on a version tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || \
+            gh release create "$GITHUB_REF_NAME" --generate-notes --title "Flow.io Waveshare ${WAVESHARE_VERSION}"
+          gh release upload "$GITHUB_REF_NAME" --clobber \
+            "binary/flowios3-${WAVESHARE_VERSION}.bin" \
+            "binary/flowios3-spiffs-${WAVESHARE_VERSION}.bin" \
+            "binary/manifest.json" \
+            "binary/SHA256SUMS-${WAVESHARE_VERSION}.txt"

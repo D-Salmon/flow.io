@@ -335,10 +335,9 @@ void WifiProvisioningModule::onEvent_(const Event& e)
 void WifiProvisioningModule::buildApCredentials_()
 {
     const uint64_t chipId = ESP.getEfuseMac();
-    const uint8_t b0 = (uint8_t)(chipId >> 16);
-    const uint8_t b1 = (uint8_t)(chipId >> 8);
-    const uint8_t b2 = (uint8_t)(chipId >> 0);
-    snprintf(apSsid_, sizeof(apSsid_), "flow.io-%02X%02X%02X", b0, b1, b2);
+    uint64_t id=0;
+    for(int i=0; i<17; i=i+8) id |= ((chipId >> (40 - i)) & 0xff) << i;
+    snprintf(apSsid_, sizeof(apSsid_), "flow.io-%06X", static_cast<unsigned int>(id));
     snprintf(apPass_, sizeof(apPass_), "%s", kDefaultApPass);
 }
 
@@ -349,7 +348,7 @@ void WifiProvisioningModule::refreshWifiConfig_()
     ethernetEnabled_ = false;
     char ethernetJson[96] = {0};
     if (cfgStore_->toJsonModule("ethernet", ethernetJson, sizeof(ethernetJson), nullptr)) {
-        StaticJsonDocument<96> ethDoc;
+        JsonDocument ethDoc;
         if (deserializeJson(ethDoc, ethernetJson) == DeserializationError::Ok && ethDoc.is<JsonObjectConst>()) {
             JsonObjectConst ethRoot = ethDoc.as<JsonObjectConst>();
             ethernetEnabled_ = ethRoot["enabled"] | false;
@@ -375,7 +374,7 @@ void WifiProvisioningModule::refreshWifiConfig_()
         return;
     }
 
-    StaticJsonDocument<320> doc;
+    JsonDocument doc;
     const DeserializationError err = deserializeJson(doc, wifiJson);
     if (err || !doc.is<JsonObjectConst>()) {
         LOGW("Cannot parse wifi config for provisioning");
@@ -1073,7 +1072,7 @@ void WifiProvisioningModule::sendWifiConfigJson_(WiFiClient& client)
     const char* ssid = "";
     const char* pass = "";
     char wifiJson[320] = {0};
-    StaticJsonDocument<320> doc;
+    JsonDocument doc;
     if (cfgStore_ && cfgStore_->toJsonModule("wifi", wifiJson, sizeof(wifiJson), nullptr, false)) {
         const DeserializationError err = deserializeJson(doc, wifiJson);
         if (!err && doc.is<JsonObjectConst>()) {

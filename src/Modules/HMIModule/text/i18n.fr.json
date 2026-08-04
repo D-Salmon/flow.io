@@ -8,7 +8,7 @@
     "cfgdocs.hmi.nextion.enabled.label": "Nextion actif",
     "cfgdocs.hmi.venice.enabled.help": "Active la mise à jour de la température d'eau vers afficheur TFT Venice.",
     "cfgdocs.hmi.venice.enabled.label": "Venice RF433 actif",
-    "cfgdocs.hmi.venice.tx_gpio.help": "GPIO utilisé pour l'émetteur RF433 du driver Venice.",
+    "cfgdocs.hmi.venice.tx_gpio.help": "GPIO utilisé pour l'émetteur RF433 du driver Venice. Sur Waveshare N16R8, seules les broches 1, 2, 3 et 40 non affectées sont acceptées.",
     "cfgdocs.hmi.venice.tx_gpio.label": "GPIO émission Venice",
     "cfgmods.hmi.label": "hmi"
   }

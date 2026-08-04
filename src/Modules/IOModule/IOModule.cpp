@@ -364,10 +364,35 @@ void* allocPsramBytes_(size_t bytes)
     return mem;
 }
 
-void IOModule::setOneWireBuses(OneWireBus* water, OneWireBus* air)
+void IOModule::setOneWireBuses(IOneWireTemperatureBus* water, IOneWireTemperatureBus* air)
 {
     oneWireWater_ = water;
     oneWireAir_ = air;
+    useDs2484_ = false;
+    oneWireWaterIndex_ = 0;
+    oneWireAirIndex_ = 0;
+}
+
+void IOModule::useDs2484OneWireBus(uint8_t address, uint8_t waterIndex, uint8_t airIndex)
+{
+    useDs2484_ = true;
+    ds2484Address_ = address;
+    oneWireWaterIndex_ = waterIndex;
+    oneWireAirIndex_ = airIndex;
+    oneWireWater_ = &ds2484Bus_;
+    oneWireAir_ = &ds2484Bus_;
+}
+
+void IOModule::useSelectableTemperatureBuses(uint8_t address,
+                                             uint8_t waterIndex,
+                                             uint8_t airIndex,
+                                             IOneWireTemperatureBus* directWater,
+                                             IOneWireTemperatureBus* directAir)
+{
+    selectableTemperatureBuses_ = true;
+    directOneWireWater_ = directWater;
+    directOneWireAir_ = directAir;
+    useDs2484OneWireBus(address, waterIndex, airIndex);
 }
 
 void IOModule::setBindingPorts(const IOBindingPortSpec* ports, uint8_t count)
@@ -2232,12 +2257,16 @@ bool IOModule::resolveDigitalOutputBinding_(PhysicalPortId portId,
     return false;
 }
 
-bool IOModule::resolveDsBusAddress_(OneWireBus* bus, const char* runtimeKey, uint8_t outAddr[8])
+bool IOModule::resolveDsBusAddress_(IOneWireTemperatureBus* bus,
+                                    const char* runtimeKey,
+                                    uint8_t index,
+                                    uint8_t outAddr[8])
 {
     if (!bus || !runtimeKey || !outAddr) return false;
 
     bus->begin();
     const uint8_t count = bus->deviceCount();
+    const int directPin = bus->pin();
 
     size_t len = 0U;
     const bool readOk = cfgSvc_ && cfgSvc_->readRuntimeBlob
@@ -2247,49 +2276,61 @@ bool IOModule::resolveDsBusAddress_(OneWireBus* bus, const char* runtimeKey, uin
         char cached[24]{};
         formatDs18Address_(outAddr, cached, sizeof(cached));
         if (bus->hasAddress(outAddr)) {
-            LOGI("DS18B20 resolved from cache key=%s GPIO=%d count=%u rom=%s",
+            LOGI("DS18B20 resolved from cache key=%s transport=%s pin=%d count=%u rom=%s",
                  runtimeKey,
-                 bus->pin(),
+                 directPin >= 0 ? "gpio" : "ds2484",
+                 directPin,
                  (unsigned)count,
                  cached);
             return true;
         }
-        LOGW("Cached DS18B20 address for %s not found on current bus GPIO=%d count=%u rom=%s; rescanning",
+        LOGW("Cached DS18B20 address for %s not found transport=%s pin=%d count=%u rom=%s; rescanning",
              runtimeKey,
-             bus->pin(),
+             directPin >= 0 ? "gpio" : "ds2484",
+             directPin,
              (unsigned)count,
              cached);
     }
 
-    if (count != 1U) {
-        LOGW("DS18B20 scan unresolved key=%s GPIO=%d count=%u expected=1",
+    if (count <= index) {
+        LOGW("DS18B20 scan unresolved key=%s transport=%s pin=%d count=%u index=%u",
              runtimeKey,
-             bus->pin(),
-             (unsigned)count);
+             directPin >= 0 ? "gpio" : "ds2484",
+             directPin,
+             (unsigned)count,
+             (unsigned)index);
         for (uint8_t i = 0; i < count; ++i) {
             uint8_t found[8]{};
             if (!bus->getAddress(i, found)) continue;
             char rom[24]{};
             formatDs18Address_(found, rom, sizeof(rom));
-            LOGW("DS18B20 scan key=%s GPIO=%d index=%u rom=%s",
+            LOGW("DS18B20 scan key=%s transport=%s pin=%d index=%u rom=%s",
                  runtimeKey,
-                 bus->pin(),
+                 directPin >= 0 ? "gpio" : "ds2484",
+                 directPin,
                  (unsigned)i,
                  rom);
         }
         return false;
     }
-    if (!bus->getAddress(0, outAddr)) {
-        LOGW("DS18B20 scan failed to read address key=%s GPIO=%d count=%u",
+    if (!bus->getAddress(index, outAddr)) {
+        LOGW("DS18B20 scan failed key=%s transport=%s pin=%d count=%u index=%u",
              runtimeKey,
-             bus->pin(),
-             (unsigned)count);
+             directPin >= 0 ? "gpio" : "ds2484",
+             directPin,
+             (unsigned)count,
+             (unsigned)index);
         return false;
     }
 
     char resolved[24]{};
     formatDs18Address_(outAddr, resolved, sizeof(resolved));
-    LOGI("DS18B20 resolved by scan key=%s GPIO=%d rom=%s", runtimeKey, bus->pin(), resolved);
+    LOGI("DS18B20 resolved by scan key=%s transport=%s pin=%d index=%u rom=%s",
+         runtimeKey,
+         directPin >= 0 ? "gpio" : "ds2484",
+         directPin,
+         (unsigned)index,
+         resolved);
 
     if (cfgSvc_ && cfgSvc_->writeRuntimeBlobAsync) {
         (void)cfgSvc_->writeRuntimeBlobAsync(cfgSvc_->ctx, runtimeKey, outAddr, 8U);
@@ -2348,6 +2389,28 @@ bool IOModule::configureRuntime_()
 {
     if (runtimeReady_) return true;
     if (!cfgData_.enabled) return false;
+
+    if (selectableTemperatureBuses_) {
+        if (cfgData_.ds18Transport == 1U) {
+            useDs2484_ = false;
+            oneWireWater_ = directOneWireWater_;
+            oneWireAir_ = directOneWireAir_;
+            oneWireWaterIndex_ = 0U;
+            oneWireAirIndex_ = 0U;
+            LOGI("DS18B20 transport: direct GPIO (water=%d air=%d)",
+                 oneWireWater_ ? oneWireWater_->pin() : -1,
+                 oneWireAir_ ? oneWireAir_->pin() : -1);
+        } else {
+            if (cfgData_.ds18Transport != 0U) {
+                LOGW("Invalid DS18B20 transport=%u, using Qwiic DS2484", (unsigned)cfgData_.ds18Transport);
+                cfgData_.ds18Transport = 0U;
+            }
+            useDs2484_ = true;
+            oneWireWater_ = nullptr;
+            oneWireAir_ = nullptr;
+            LOGI("DS18B20 transport: Qwiic DS2484 (0x%02X)", ds2484Address_);
+        }
+    }
 
     bool needAnalogSource[IO_SRC_COUNT] = {false};
 
@@ -2431,7 +2494,11 @@ bool IOModule::configureRuntime_()
         }
     }
 
+    const bool needDs2484 =
+        useDs2484_ &&
+        (needAnalogSource[IO_SRC_DS18_WATER] || needAnalogSource[IO_SRC_DS18_AIR]);
     const bool needI2c =
+        needDs2484 ||
         needAnalogSource[IO_SRC_ADS_INTERNAL_SINGLE] ||
         needAnalogSource[IO_SRC_ADS_EXTERNAL_DIFF] ||
         needAnalogSource[IO_SRC_SHT40] ||
@@ -2459,6 +2526,15 @@ bool IOModule::configureRuntime_()
         const bool ads49Present = i2cBus_.probe(0x49);
         LOGI("ADS1115 probe 0x48: %s", ads48Present ? "found" : "not found");
         LOGI("ADS1115 probe 0x49: %s", ads49Present ? "found" : "not found");
+        if (needDs2484) {
+            const bool ds2484Present = i2cBus_.probe(ds2484Address_);
+            LOGI("DS2484 probe 0x%02X: %s",
+                 ds2484Address_,
+                 ds2484Present ? "found" : "not found");
+            ds2484Bus_.configure(&i2cBus_, ds2484Address_);
+            oneWireWater_ = &ds2484Bus_;
+            oneWireAir_ = &ds2484Bus_;
+        }
     }
 
     for (uint8_t i = 0; i < MAX_DIGITAL_SLOTS; ++i) {
@@ -2794,7 +2870,11 @@ bool IOModule::configureRuntime_()
     dsCfg.conversionWaitMs = 750;
 
     if (needAnalogSource[IO_SRC_DS18_WATER] && oneWireWater_) {
-        oneWireWaterAddrValid_ = resolveDsBusAddress_(oneWireWater_, NvsKeys::Io::DsRomWater, oneWireWaterAddr_);
+        oneWireWaterAddrValid_ = resolveDsBusAddress_(
+            oneWireWater_,
+            NvsKeys::Io::DsRomWater,
+            oneWireWaterIndex_,
+            oneWireWaterAddr_);
         if (oneWireWaterAddrValid_) {
             IAnalogSourceDriver* driver = allocDsDriver_("ds18_water", oneWireWater_, oneWireWaterAddr_, dsCfg);
             if (driver) {
@@ -2804,12 +2884,16 @@ bool IOModule::configureRuntime_()
                 LOGW("DS18 water pool exhausted");
             }
         } else {
-            LOGW("No resolvable DS18B20 found on water OneWire bus GPIO=%d", oneWireWater_->pin());
+            LOGW("No resolvable DS18B20 found on water OneWire bus");
         }
     }
 
     if (needAnalogSource[IO_SRC_DS18_AIR] && oneWireAir_) {
-        oneWireAirAddrValid_ = resolveDsBusAddress_(oneWireAir_, NvsKeys::Io::DsRomAir, oneWireAirAddr_);
+        oneWireAirAddrValid_ = resolveDsBusAddress_(
+            oneWireAir_,
+            NvsKeys::Io::DsRomAir,
+            oneWireAirIndex_,
+            oneWireAirAddr_);
         if (oneWireAirAddrValid_) {
             IAnalogSourceDriver* driver = allocDsDriver_("ds18_air", oneWireAir_, oneWireAirAddr_, dsCfg);
             if (driver) {
@@ -2819,7 +2903,7 @@ bool IOModule::configureRuntime_()
                 LOGW("DS18 air pool exhausted");
             }
         } else {
-            LOGW("No resolvable DS18B20 found on air OneWire bus GPIO=%d", oneWireAir_->pin());
+            LOGW("No resolvable DS18B20 found on air OneWire bus");
         }
     }
 
@@ -3086,7 +3170,10 @@ IAnalogSourceDriver* IOModule::allocAdsDriver_(const char* driverId, I2CBus* bus
     return new (mem) Ads1115Driver(driverId, bus, cfg);
 }
 
-IAnalogSourceDriver* IOModule::allocDsDriver_(const char* driverId, OneWireBus* bus, const uint8_t address[8], const Ds18b20DriverConfig& cfg)
+IAnalogSourceDriver* IOModule::allocDsDriver_(const char* driverId,
+                                              IOneWireTemperatureBus* bus,
+                                              const uint8_t address[8],
+                                              const Ds18b20DriverConfig& cfg)
 {
     if (dsDriverPoolUsed_ >= 2) return nullptr;
     void* mem = dsDriverPool_[dsDriverPoolUsed_++];
@@ -3236,6 +3323,9 @@ void IOModule::init(ConfigStore& cfg, ServiceRegistry& services)
     cfg.registerVar(i2cSclVar_, kCfgModuleId, kCfgBranchIoBus);
     cfg.registerVar(adsPollVar_, kCfgModuleId, kCfgBranchIoAds1115);
     cfg.registerVar(dsPollVar_, kCfgModuleId, kCfgBranchIoDs18b20);
+    if (selectableTemperatureBuses_) {
+        cfg.registerVar(dsTransportVar_, kCfgModuleId, kCfgBranchIoDs18b20);
+    }
     cfg.registerVar(digitalPollVar_, kCfgModuleId, kCfgBranchIoGpio);
     cfg.registerVar(adsInternalAddrVar_, kCfgModuleId, kCfgBranchIoAdsInt);
     cfg.registerVar(adsExternalAddrVar_, kCfgModuleId, kCfgBranchIoAdsExt);

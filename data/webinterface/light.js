@@ -2,7 +2,8 @@ const $ = (id) => document.getElementById(id);
 
 const ui = {
   product: "flow.io",
-  rebootAfterWifi: false
+  rebootAfterWifi: false,
+  csrfToken: ""
 };
 
 function status(text) {
@@ -10,7 +11,14 @@ function status(text) {
 }
 
 async function json(url, options) {
-  const res = await fetch(url, options);
+  const secured = Object.assign({}, options || {});
+  const method = String(secured.method || "GET").toUpperCase();
+  if (method === "POST" || method === "PUT" || method === "PATCH" || method === "DELETE") {
+    const headers = new Headers(secured.headers || {});
+    if (ui.csrfToken) headers.set("X-Flow-CSRF", ui.csrfToken);
+    secured.headers = headers;
+  }
+  const res = await fetch(url, secured);
   const data = await res.json().catch(() => null);
   if (!res.ok || !data || data.ok === false) throw new Error(url);
   return data;
@@ -35,6 +43,8 @@ function applyBrand(meta) {
 function applyCapabilities(meta) {
   ui.product = String((meta && meta.product_name) || ui.product);
   ui.rebootAfterWifi = !!(meta && meta.reboot_after_wifi_save);
+  const token = meta && typeof meta.csrf_token === "string" ? meta.csrf_token.trim() : "";
+  if (/^[0-9a-f]{32}$/i.test(token)) ui.csrfToken = token;
 }
 
 let scanTimer = 0;
@@ -160,7 +170,7 @@ async function saveWifi() {
     status((ui.rebootAfterWifi || data.reboot_scheduled)
       ? "Réseau enregistre. Redemarrage en cours..."
       : "Réseau enregistre. Redemarrage immediat...");
-    await fetch("/api/system/reboot", { method: "POST" });
+    await json("/api/system/reboot", { method: "POST" });
   } catch (err) {
     status("Erreur réseau: " + err.message);
   }

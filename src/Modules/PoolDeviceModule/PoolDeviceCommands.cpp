@@ -17,7 +17,7 @@ namespace {
 bool parseCmdArgsObject_(const CommandRequest& req, JsonObjectConst& outObj)
 {
     static constexpr size_t CMD_DOC_CAPACITY = Limits::JsonCmdPoolDeviceBuf;
-    static StaticJsonDocument<CMD_DOC_CAPACITY> doc;
+    static JsonDocument doc;
 
     doc.clear();
     const char* json = req.args ? req.args : req.json;
@@ -64,7 +64,7 @@ bool readConfigBool_(ConfigStore* cfgStore, const char* moduleName, const char* 
     bool truncated = false;
     if (!cfgStore->toJsonModule(moduleName, json, sizeof(json), &truncated) || truncated) return false;
 
-    StaticJsonDocument<192> doc;
+    JsonDocument doc;
     const DeserializationError err = deserializeJson(doc, json);
     if (err || !doc.is<JsonObjectConst>()) return false;
     JsonVariantConst value = doc.as<JsonObjectConst>()[key];
@@ -80,7 +80,7 @@ bool readConfigUInt8_(ConfigStore* cfgStore, const char* moduleName, const char*
     bool truncated = false;
     if (!cfgStore->toJsonModule(moduleName, json, sizeof(json), &truncated) || truncated) return false;
 
-    StaticJsonDocument<192> doc;
+    JsonDocument doc;
     const DeserializationError err = deserializeJson(doc, json);
     if (err || !doc.is<JsonObjectConst>()) return false;
     JsonVariantConst value = doc.as<JsonObjectConst>()[key];
@@ -201,7 +201,7 @@ bool PoolDeviceModule::handlePoolWrite_(const CommandRequest& req, char* reply, 
         return false;
     }
 
-    if (!args.containsKey("slot")) {
+    if (args["slot"].isUnbound()) {
         writeCmdError_(reply, replyLen, "pooldevice.write", ErrorCode::MissingSlot);
         return false;
     }
@@ -215,7 +215,7 @@ bool PoolDeviceModule::handlePoolWrite_(const CommandRequest& req, char* reply, 
         return false;
     }
 
-    if (!args.containsKey("value")) {
+    if (args["value"].isUnbound()) {
         writeCmdError_(reply, replyLen, "pooldevice.write", ErrorCode::MissingValue);
         return false;
     }
@@ -260,7 +260,7 @@ bool PoolDeviceModule::handlePoolWrite_(const CommandRequest& req, char* reply, 
         char modeJson[160]{};
         bool truncated = false;
         if (cfgStore_->toJsonModule("poollogic/devices", modeJson, sizeof(modeJson), &truncated) && !truncated) {
-            StaticJsonDocument<192> modeDoc;
+            JsonDocument modeDoc;
             const DeserializationError modeErr = deserializeJson(modeDoc, modeJson);
             if (!modeErr && modeDoc.is<JsonObjectConst>()) {
                 const JsonObjectConst obj = modeDoc.as<JsonObjectConst>();
@@ -373,7 +373,7 @@ bool PoolDeviceModule::handlePoolRefill_(const CommandRequest& req, char* reply,
         return false;
     }
 
-    if (!args.containsKey("slot")) {
+    if (args["slot"].isUnbound()) {
         writeCmdError_(reply, replyLen, "pool.refill", ErrorCode::MissingSlot);
         return false;
     }
@@ -400,7 +400,7 @@ bool PoolDeviceModule::handlePoolRefill_(const CommandRequest& req, char* reply,
     remaining = slots_[slot].def.tankCapacityMl;
     unlockState_();
 
-    if (args.containsKey("remaining_ml")) {
+    if (!args["remaining_ml"].isUnbound()) {
         JsonVariantConst rem = args["remaining_ml"];
         if (rem.is<float>() || rem.is<double>() || rem.is<int32_t>() || rem.is<uint32_t>()) {
             remaining = rem.as<float>();
@@ -462,7 +462,7 @@ bool PoolDeviceModule::handlePoolResetUptime_(const CommandRequest& req, char* r
         return false;
     }
 
-    if (!args.containsKey("slot")) {
+    if (args["slot"].isUnbound()) {
         writeCmdError_(reply, replyLen, "pool.uptime.reset", ErrorCode::MissingSlot);
         return false;
     }

@@ -53,7 +53,7 @@ struct FlowIoDigitalHaSpec {
 constexpr FlowIoAnalogHaSpec kAnalogHaSpecs[kFlowIoAnalogHaSlots] = {
     {"io_orp", "ORP", "mdi:flash", "mV"},
     {"io_ph", "pH", "mdi:ph", ""},
-    {"io_psi", "PSI", "mdi:gauge", "PSI"},
+    {"io_psi", "PSI", "mdi:gauge", "bar"},
     {"io_spare", "Spare", "mdi:sine-wave", nullptr},
     {"io_wat_tmp", "Water Temperature", "mdi:water-thermometer", "\xC2\xB0""C"},
     {"io_air_tmp", "Air Temperature", "mdi:thermometer", "\xC2\xB0""C"},

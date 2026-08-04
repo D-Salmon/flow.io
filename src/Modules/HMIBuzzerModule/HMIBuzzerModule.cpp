@@ -271,6 +271,7 @@ HMIBuzzerModule::HMIBuzzerModule(const BoardSpec& board)
 void HMIBuzzerModule::init(ConfigStore& cfg, ServiceRegistry& services)
 {
     cfg.registerVar(enableVar_);
+    cfg.registerVar(alarmSoundVar_);
 
     dsSvc_ = services.get<DataStoreService>(ServiceId::DataStore);
     alarmSvc_ = services.get<AlarmService>(ServiceId::Alarm);
@@ -400,15 +401,23 @@ void HMIBuzzerModule::handlePoolDeviceStateChanged_(const DataChangedPayload& pa
 
 void HMIBuzzerModule::handleAlarmRaised_()
 {
+    if (!cfgData_.alarmSound) return;
     const AlarmSeverity highest = (alarmSvc_ && alarmSvc_->highestSeverity)
         ? alarmSvc_->highestSeverity(alarmSvc_->ctx)
         : AlarmSeverity::Alarm;
+    // Diagnostic warnings remain visible in the alarm system but must not
+    // produce an audible reminder every eight seconds.
+    if ((uint8_t)highest < (uint8_t)AlarmSeverity::Alarm) return;
     requestPattern_((highest == AlarmSeverity::Critical) ? BuzzerPattern::AlarmCritical : BuzzerPattern::AlarmActive);
     lastAlarmPatternMs_ = millis();
 }
 
 void HMIBuzzerModule::tickAlarmReminder_(uint32_t nowMs)
 {
+    if (!cfgData_.alarmSound) {
+        lastAlarmPatternMs_ = 0U;
+        return;
+    }
     if (!alarmSvc_ || !alarmSvc_->activeCount || !alarmSvc_->highestSeverity) return;
     if (alarmSvc_->activeCount(alarmSvc_->ctx) == 0U) {
         lastAlarmPatternMs_ = 0U;
@@ -418,6 +427,10 @@ void HMIBuzzerModule::tickAlarmReminder_(uint32_t nowMs)
     if (lastAlarmPatternMs_ != 0U && (uint32_t)(nowMs - lastAlarmPatternMs_) < kAlarmRepeatMs) return;
 
     const AlarmSeverity highest = alarmSvc_->highestSeverity(alarmSvc_->ctx);
+    if ((uint8_t)highest < (uint8_t)AlarmSeverity::Alarm) {
+        lastAlarmPatternMs_ = 0U;
+        return;
+    }
     requestPattern_((highest == AlarmSeverity::Critical) ? BuzzerPattern::AlarmCritical : BuzzerPattern::AlarmActive);
     lastAlarmPatternMs_ = nowMs;
 }

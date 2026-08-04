@@ -7,113 +7,130 @@ void test_temp_below_low_uses_min_duration()
 {
     FiltrationWindowInput in{};
     in.waterTemp = 5.0f;
-    in.lowThreshold = 12.0f;
-    in.setpoint = 24.0f;
-    in.startMinHour = 8;
-    in.stopMaxHour = 23;
 
     FiltrationWindowOutput out{};
     TEST_ASSERT_TRUE(computeFiltrationWindowDeterministic(in, out));
-    TEST_ASSERT_EQUAL_UINT8(2, out.durationHours);
-    TEST_ASSERT_EQUAL_UINT8(14, out.startHour);
-    TEST_ASSERT_EQUAL_UINT8(16, out.stopHour);
+    TEST_ASSERT_EQUAL_UINT16(120, out.durationMinutes);
+    TEST_ASSERT_EQUAL_UINT16(22 * 60, out.startMinuteOfDay);
+    TEST_ASSERT_EQUAL_UINT16(0, out.stopMinuteOfDay);
+    TEST_ASSERT_FALSE(out.continuous);
 }
 
-void test_temp_equal_setpoint_switches_to_high_factor()
+void test_12c_uses_two_off_peak_hours()
 {
     FiltrationWindowInput in{};
-    in.waterTemp = 24.0f;
-    in.lowThreshold = 12.0f;
-    in.setpoint = 24.0f;
-    in.startMinHour = 8;
-    in.stopMaxHour = 23;
+    in.waterTemp = 12.0f;
 
     FiltrationWindowOutput out{};
     TEST_ASSERT_TRUE(computeFiltrationWindowDeterministic(in, out));
-    // 24 * 0.5 = 12h
-    TEST_ASSERT_EQUAL_UINT8(12, out.durationHours);
-    TEST_ASSERT_EQUAL_UINT8(9, out.startHour);
-    TEST_ASSERT_EQUAL_UINT8(21, out.stopHour);
+    TEST_ASSERT_EQUAL_UINT16(120, out.durationMinutes);
+    TEST_ASSERT_EQUAL_UINT16(22 * 60, out.startMinuteOfDay);
+    TEST_ASSERT_EQUAL_UINT16(0, out.stopMinuteOfDay);
 }
 
-void test_nan_temperature_uses_widest_available_window()
-{
-    FiltrationWindowInput in{};
-    in.waterTemp = NAN;
-    in.lowThreshold = 12.0f;
-    in.setpoint = 24.0f;
-    in.startMinHour = 8;
-    in.stopMaxHour = 23;
-
-    FiltrationWindowOutput out{};
-    TEST_ASSERT_TRUE(computeFiltrationWindowDeterministic(in, out));
-    TEST_ASSERT_EQUAL_UINT8(15, out.durationHours);
-    TEST_ASSERT_EQUAL_UINT8(8, out.startHour);
-    TEST_ASSERT_EQUAL_UINT8(23, out.stopHour);
-}
-
-void test_stop_le_start_uses_emergency_duration_when_possible()
-{
-    FiltrationWindowInput in{};
-    in.waterTemp = 20.0f; // duration about 7h
-    in.lowThreshold = 12.0f;
-    in.setpoint = 24.0f;
-    in.startMinHour = 22;
-    in.stopMaxHour = 22; // force stop clamp to start
-
-    FiltrationWindowOutput out{};
-    TEST_ASSERT_TRUE(computeFiltrationWindowDeterministic(in, out));
-    TEST_ASSERT_EQUAL_UINT8(22, out.startHour);
-    TEST_ASSERT_EQUAL_UINT8(23, out.stopHour);
-    TEST_ASSERT_EQUAL_UINT8(1, out.durationHours);
-}
-
-void test_stop_le_start_with_late_start_uses_fallback_window()
+void test_20c_starts_at_22h_and_wraps_to_0628()
 {
     FiltrationWindowInput in{};
     in.waterTemp = 20.0f;
-    in.lowThreshold = 12.0f;
-    in.setpoint = 24.0f;
-    in.startMinHour = 23;
-    in.stopMaxHour = 23; // start gets pinned to 23
 
     FiltrationWindowOutput out{};
     TEST_ASSERT_TRUE(computeFiltrationWindowDeterministic(in, out));
-    TEST_ASSERT_EQUAL_UINT8(22, out.startHour);
-    TEST_ASSERT_EQUAL_UINT8(23, out.stopHour);
-    TEST_ASSERT_EQUAL_UINT8(1, out.durationHours);
+    TEST_ASSERT_EQUAL_UINT16(8 * 60 + 28, out.durationMinutes);
+    TEST_ASSERT_EQUAL_UINT16(22 * 60, out.startMinuteOfDay);
+    TEST_ASSERT_EQUAL_UINT16(6 * 60 + 28, out.stopMinuteOfDay);
 }
 
-void test_day_window_is_inactive_after_stop_hour()
+void test_above_20c_returns_to_solar_centered_window()
 {
-    TEST_ASSERT_FALSE(isFiltrationWindowActiveAtMinute(8, 23, (uint16_t)((0 * 60) + 18)));
-    TEST_ASSERT_TRUE(isFiltrationWindowActiveAtMinute(8, 23, (uint16_t)((22 * 60) + 59)));
-    TEST_ASSERT_FALSE(isFiltrationWindowActiveAtMinute(8, 23, (uint16_t)(23 * 60)));
+    FiltrationWindowInput in{};
+    in.waterTemp = 20.1f;
+
+    FiltrationWindowOutput out{};
+    TEST_ASSERT_TRUE(computeFiltrationWindowDeterministic(in, out));
+    TEST_ASSERT_NOT_EQUAL(22 * 60, out.startMinuteOfDay);
+    TEST_ASSERT_EQUAL_UINT16(15 * 60 - out.durationMinutes / 2, out.startMinuteOfDay);
+    TEST_ASSERT_EQUAL_UINT16(out.startMinuteOfDay + out.durationMinutes, out.stopMinuteOfDay);
+}
+
+void test_24c_uses_low_temperature_linear_ramp()
+{
+    FiltrationWindowInput in{};
+    in.waterTemp = 24.0f;
+
+    FiltrationWindowOutput out{};
+    TEST_ASSERT_TRUE(computeFiltrationWindowDeterministic(in, out));
+    TEST_ASSERT_EQUAL_UINT16(11 * 60 + 42, out.durationMinutes);
+    TEST_ASSERT_EQUAL_UINT16(9 * 60 + 9, out.startMinuteOfDay);
+    TEST_ASSERT_EQUAL_UINT16(20 * 60 + 51, out.stopMinuteOfDay);
+}
+
+void test_26c_uses_high_temperature_linear_ramp()
+{
+    FiltrationWindowInput in{};
+    in.waterTemp = 26.0f;
+
+    FiltrationWindowOutput out{};
+    TEST_ASSERT_TRUE(computeFiltrationWindowDeterministic(in, out));
+    TEST_ASSERT_EQUAL_UINT16(14 * 60 + 48, out.durationMinutes);
+    TEST_ASSERT_EQUAL_UINT16(7 * 60 + 36, out.startMinuteOfDay);
+    TEST_ASSERT_EQUAL_UINT16(22 * 60 + 24, out.stopMinuteOfDay);
+}
+
+void test_29c_wraps_midnight()
+{
+    FiltrationWindowInput in{};
+    in.waterTemp = 29.0f;
+
+    FiltrationWindowOutput out{};
+    TEST_ASSERT_TRUE(computeFiltrationWindowDeterministic(in, out));
+    TEST_ASSERT_EQUAL_UINT16(21 * 60 + 42, out.durationMinutes);
+    TEST_ASSERT_EQUAL_UINT16(4 * 60 + 9, out.startMinuteOfDay);
+    TEST_ASSERT_EQUAL_UINT16(1 * 60 + 51, out.stopMinuteOfDay);
+}
+
+void test_32c_is_continuous()
+{
+    FiltrationWindowInput in{};
+    in.waterTemp = 32.0f;
+
+    FiltrationWindowOutput out{};
+    TEST_ASSERT_TRUE(computeFiltrationWindowDeterministic(in, out));
+    TEST_ASSERT_EQUAL_UINT16(24 * 60, out.durationMinutes);
+    TEST_ASSERT_TRUE(out.continuous);
+    TEST_ASSERT_TRUE(isFiltrationWindowActiveAtMinute(out.startMinuteOfDay,
+                                                      out.stopMinuteOfDay,
+                                                      out.durationMinutes,
+                                                      12 * 60));
+}
+
+void test_nan_temperature_returns_false()
+{
+    FiltrationWindowInput in{};
+    in.waterTemp = NAN;
+
+    FiltrationWindowOutput out{};
+    TEST_ASSERT_FALSE(computeFiltrationWindowDeterministic(in, out));
 }
 
 void test_overnight_window_wraps_across_midnight()
 {
-    TEST_ASSERT_FALSE(isFiltrationWindowActiveAtMinute(22, 6, (uint16_t)((21 * 60) + 59)));
-    TEST_ASSERT_TRUE(isFiltrationWindowActiveAtMinute(22, 6, (uint16_t)((0 * 60) + 18)));
-    TEST_ASSERT_FALSE(isFiltrationWindowActiveAtMinute(22, 6, (uint16_t)(6 * 60)));
-}
-
-void test_equal_start_stop_window_is_inactive()
-{
-    TEST_ASSERT_FALSE(isFiltrationWindowActiveAtMinute(23, 23, (uint16_t)((0 * 60) + 18)));
-    TEST_ASSERT_FALSE(isFiltrationWindowActiveAtMinute(23, 23, (uint16_t)(23 * 60)));
+    TEST_ASSERT_FALSE(isFiltrationWindowActiveAtMinute(22 * 60, 6 * 60, 8 * 60, 21 * 60 + 59));
+    TEST_ASSERT_TRUE(isFiltrationWindowActiveAtMinute(22 * 60, 6 * 60, 8 * 60, 18));
+    TEST_ASSERT_FALSE(isFiltrationWindowActiveAtMinute(22 * 60, 6 * 60, 8 * 60, 6 * 60));
 }
 
 int main()
 {
     UNITY_BEGIN();
     RUN_TEST(test_temp_below_low_uses_min_duration);
-    RUN_TEST(test_temp_equal_setpoint_switches_to_high_factor);
-    RUN_TEST(test_nan_temperature_uses_widest_available_window);
-    RUN_TEST(test_stop_le_start_uses_emergency_duration_when_possible);
-    RUN_TEST(test_stop_le_start_with_late_start_uses_fallback_window);
-    RUN_TEST(test_day_window_is_inactive_after_stop_hour);
+    RUN_TEST(test_12c_uses_two_off_peak_hours);
+    RUN_TEST(test_20c_starts_at_22h_and_wraps_to_0628);
+    RUN_TEST(test_above_20c_returns_to_solar_centered_window);
+    RUN_TEST(test_24c_uses_low_temperature_linear_ramp);
+    RUN_TEST(test_26c_uses_high_temperature_linear_ramp);
+    RUN_TEST(test_29c_wraps_midnight);
+    RUN_TEST(test_32c_is_continuous);
+    RUN_TEST(test_nan_temperature_returns_false);
     RUN_TEST(test_overnight_window_wraps_across_midnight);
-    RUN_TEST(test_equal_start_stop_window_is_inactive);
     return UNITY_END();
 }

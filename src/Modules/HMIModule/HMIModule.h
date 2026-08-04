@@ -40,7 +40,15 @@ public:
 #endif
     }
 
-    uint8_t dependencyCount() const override { return 10; }
+    uint8_t dependencyCount() const override {
+#if FLOW_BUILD_IS_WAVESHARE
+        // The standalone Waveshare profile uses its local HMI and does not
+        // instantiate the optional remote UDP HMI server.
+        return 9;
+#else
+        return 10;
+#endif
+    }
     ModuleId dependency(uint8_t i) const override {
         if (i == 0) return ModuleId::LogHub;
         if (i == 1) return ModuleId::ConfigStore;
@@ -51,7 +59,9 @@ public:
         if (i == 6) return ModuleId::Command;
         if (i == 7) return ModuleId::Time;
         if (i == 8) return ModuleId::Wifi;
+#if !FLOW_BUILD_IS_WAVESHARE
         if (i == 9) return ModuleId::HmiUdpServer;
+#endif
         return ModuleId::Unknown;
     }
 
@@ -77,7 +87,7 @@ private:
             false;
 #endif
         bool veniceEnabled = false;
-        int32_t veniceTxGpio = 14;
+        int32_t veniceTxGpio = -1;
     } cfgData_{};
 
     ConfigVariable<bool,0> ledsEnabledVar_{

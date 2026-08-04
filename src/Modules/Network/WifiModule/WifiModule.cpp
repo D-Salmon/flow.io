@@ -9,7 +9,9 @@
 #include "Core/ModuleLog.h"
 #include "Core/Runtime.h"
 #include <ArduinoJson.h>
+#include <esp_err.h>
 #include <esp_mac.h>
+#include <esp_wifi.h>
 #include <ctype.h>
 #include <string.h>
 
@@ -57,6 +59,12 @@ const char* wifiModeName_(wifi_mode_t mode)
     case WIFI_MODE_APSTA: return "APSTA";
     default: return "?";
     }
+}
+
+const char* espErrName_(esp_err_t err)
+{
+    const char* name = esp_err_to_name(err);
+    return name ? name : "?";
 }
 }
 
@@ -277,7 +285,7 @@ bool WifiModule::cmdDumpCfg_(void* userCtx, const CommandRequest& req, char* rep
     const size_t passLen = strnlen(self->cfgData.pass, sizeof(self->cfgData.pass));
     const size_t deviceNameLen = strnlen(self->deviceName_, sizeof(self->deviceName_));
 
-    StaticJsonDocument<512> doc;
+    JsonDocument doc;
     doc["ok"] = true;
     doc["enabled"] = self->cfgData.enabled;
     doc["state"] = stateName_(self->state);
@@ -336,6 +344,59 @@ void WifiModule::logConfigSummary_() const
 bool WifiModule::isStartupTransientWindow_() const
 {
     return !hadSuccessfulConnection_ && startupTransientLogUntilMs_ != 0U && millis() < startupTransientLogUntilMs_;
+}
+
+bool WifiModule::startConnectFallback_(const char* ssid, const char* pass, bool transientBoot)
+{
+    if (!ssid || !pass) return false;
+
+    const size_t ssidLen = strnlen(ssid, sizeof(cfgData.ssid));
+    const size_t passLen = strnlen(pass, sizeof(cfgData.pass));
+    if (ssidLen == 0U || ssidLen > 32U || passLen > 64U) {
+        LOGE("Fallback connect rejected invalid lengths ssid=%u pass=%u",
+             (unsigned)ssidLen,
+             (unsigned)passLen);
+        return false;
+    }
+
+    if (!WiFi.enableSTA(true)) {
+        if (transientBoot) LOGD("Fallback enableSTA not ready during boot");
+        else LOGE("Fallback enableSTA failed");
+        return false;
+    }
+
+    wifi_config_t conf{};
+    memcpy(conf.sta.ssid, ssid, ssidLen);
+    if (passLen > 0U) memcpy(conf.sta.password, pass, passLen);
+    conf.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
+    conf.sta.sort_method = WIFI_CONNECT_AP_BY_SIGNAL;
+    conf.sta.threshold.authmode = WIFI_AUTH_OPEN;
+    conf.sta.pmf_cfg.capable = true;
+    conf.sta.pmf_cfg.required = false;
+    conf.sta.bssid_set = 0;
+
+    const esp_err_t disconnectErr = esp_wifi_disconnect();
+    if (disconnectErr != ESP_OK && disconnectErr != ESP_ERR_WIFI_NOT_CONNECT) {
+        LOGW("Fallback disconnect failed err=%s(%d)",
+             espErrName_(disconnectErr),
+             (int)disconnectErr);
+    }
+
+    const esp_err_t configErr = esp_wifi_set_config(WIFI_IF_STA, &conf);
+    if (configErr != ESP_OK) {
+        LOGE("Fallback set_config failed err=%s(%d)", espErrName_(configErr), (int)configErr);
+        return false;
+    }
+
+    const esp_err_t connectErr = esp_wifi_connect();
+    if (connectErr != ESP_OK) {
+        LOGE("Fallback connect failed err=%s(%d)", espErrName_(connectErr), (int)connectErr);
+        return false;
+    }
+
+    if (transientBoot) LOGD("Fallback connection armed after WiFi.begin failure");
+    else LOGW("Fallback connection armed after WiFi.begin failure");
+    return true;
 }
 
 void WifiModule::setState(WifiState s) {
@@ -457,8 +518,10 @@ void WifiModule::startConnect() {
         } else {
             LOGW("WiFi.begin returned CONNECT_FAILED for ssid='%s'", ssidSafe);
         }
-        setState(WifiState::ErrorWait);
-        return;
+        if (!startConnectFallback_(ssidSafe, passSafe, transientBoot)) {
+            setState(WifiState::ErrorWait);
+            return;
+        }
     }
     beginBackoffMs_ = 1500U;
 
@@ -698,7 +761,7 @@ bool WifiModule::buildScanStatusJson_(char* out, size_t outLen)
     }
     portEXIT_CRITICAL(&scanMux_);
 
-    StaticJsonDocument<Limits::Wifi::Buffers::ScanStatusJson> doc;
+    JsonDocument doc;
     doc["ok"] = true;
     doc["running"] = running;
     doc["requested"] = requested;
@@ -710,9 +773,9 @@ bool WifiModule::buildScanStatusJson_(char* out, size_t outLen)
     doc["started_ms"] = startedMs;
     doc["updated_ms"] = doneMs;
 
-    JsonArray nets = doc.createNestedArray("networks");
+    JsonArray nets = doc["networks"].to<JsonArray>();
     for (uint8_t i = 0; i < count; ++i) {
-        JsonObject n = nets.createNestedObject();
+        JsonObject n = nets.add<JsonObject>();
         n["ssid"] = local[i].ssid;
         n["rssi"] = local[i].rssi;
         n["auth"] = local[i].auth;
@@ -905,7 +968,7 @@ void WifiModule::refreshEthernetConfig_(ConfigStore& cfg)
     char ethJson[96] = {0};
     if (!cfg.toJsonModule("ethernet", ethJson, sizeof(ethJson), nullptr)) return;
 
-    StaticJsonDocument<96> doc;
+    JsonDocument doc;
     if (deserializeJson(doc, ethJson) != DeserializationError::Ok || !doc.is<JsonObjectConst>()) {
         return;
     }
@@ -945,7 +1008,7 @@ void WifiModule::loadSystemDeviceName_()
     if (cfgStore_) {
         char systemJson[128] = {0};
         if (cfgStore_->toJsonModule("system", systemJson, sizeof(systemJson), nullptr, false)) {
-            StaticJsonDocument<128> doc;
+            JsonDocument doc;
             if (deserializeJson(doc, systemJson) == DeserializationError::Ok && doc.is<JsonObjectConst>()) {
                 const char* configured = doc.as<JsonObjectConst>()["devicename"] | "";
                 if (!isBlank_(configured, sizeof(deviceName_))) {

@@ -590,7 +590,7 @@ inline constexpr const char kRuntimeUiManifestJson[] = R"RUI(
       "type": "float",
       "domain": "sondes",
       "group": "Sondes",
-      "unit": "PSI",
+      "unit": "bar",
       "decimals": 2,
       "order": 60,
       "enum": null,

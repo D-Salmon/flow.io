@@ -1,196 +1,57 @@
-# Documentation flow.io
+# Documentation Flow.io Waveshare 3.1.2
 
-Cette documentation est organisée pour deux usages distincts:
+## Architecture actuelle
 
-- mise en service et adaptation légère par un intégrateur technique
-- référence technique descriptive de l'implémentation actuelle
+La cible 3.1.2 utilise **un seul ESP32-S3**, celui de la carte Waveshare
+ESP32-S3-ETH-8DI-8RO. Il exécute la logique piscine, les entrées et relais,
+Ethernet, Wi-Fi, le Web, MQTT, Home Assistant, OTA, la RTC et l'interface HMI.
 
-Le projet est prévu pour fonctionner avec deux ESP32 distincts, chacun avec son propre firmware:
+```mermaid
+flowchart LR
+    WEB["Navigateur Web"] --> NET["Ethernet prioritaire / Wi-Fi secours"]
+    HA["MQTT / Home Assistant"] --> NET
+    NET --> CTRL["Waveshare ESP32-S3 unique"]
+    CTRL --> IO["8 entrées / 8 relais"]
+    CTRL --> Q["Bus Qwiic toujours actif"]
+    CTRL --> TEMP["DS18B20 : Qwiic ou GPIO"]
+    CTRL --> HMI["Écran Nextion optionnel"]
+```
 
-- `flowIO`: ESP32 principal qui exécute la logique métier et pilote les entrées/sorties
-- `Supervisor`: ESP32 de supervision qui configure le système, assure le provisioning Wi-Fi, gère l'écran TFT, permet la consultation des logs et pilote les mises à jour
+## Démarrage rapide
 
-Le projet compile aujourd'hui deux firmwares ESP32:
+1. Câbler la carte hors tension selon le [schéma 3.1.2](integration/schema-raccordement-waveshare.md).
+2. Compiler et téléverser l'environnement PlatformIO `Waveshare-ESP32-S3`.
+3. Raccorder Ethernet ; le Wi-Fi reste disponible en secours.
+4. Ouvrir l'interface Web locale.
+5. Dans `Configuration > io > drivers > ds18b20`, choisir le raccordement des
+   températures, enregistrer puis redémarrer.
+6. Vérifier les températures avant d'activer le mode automatique.
 
-| Firmware | Environnement PlatformIO | Rôle |
-|---|---|---|
-| `FlowIO` | `FlowIO` | ESP32 principal: logique métier, entrées/sorties, MQTT, Home Assistant, écran Nextion |
-| `Supervisor` | `Supervisor` | ESP32 de supervision: configuration, provisioning Wi-Fi, écran TFT, consultation des logs, mises à jour, passerelle I2C vers `FlowIO` |
+## Choix des sondes de température
 
-## Parcours de lecture
+| Choix Web | Eau | Air | Qwiic pour les autres composants |
+|---|---|---|---|
+| Qwiic / DS2484 | bus 1-Wire DS2484, index 0 | bus 1-Wire DS2484, index 1 | Actif |
+| GPIO direct | GPIO20 | GPIO19 | Actif |
 
-### Mise en service et adaptation
+Le mode Qwiic est la valeur par défaut et préserve les configurations 3.1.0 et
+3.1.1. Le changement prend effet au redémarrage.
 
-- [Mise en service matérielle et flash](integration/mise-en-service.md)
-- [Adapter le projet à un autre domaine](integration/adaptation-domaine.md)
+## Documents utiles
 
-### Référence technique
+- [Notes de version 3.1.2](release-3.1.2.md)
+- [Raccordement complet](integration/schema-raccordement-waveshare.md)
+- [Schéma éditable Fritzing](fritzing/FlowIO-Waveshare-3.1.2.fzz)
+- [Mise en service et essais](integration/mise-en-service.md)
+- [Durcissement MQTT](mqtt-hardening.md)
+- [Signature OTA](ota-signing.md)
+- [Référence IOModule](modules/IOModule.md)
+- [Référence WifiModule](modules/WifiModule.md)
+- [Validations restant à effectuer](../RESTANT_A_FAIRE.md)
 
-- [Architecture générale](core/architecture.md)
-- [Structure des profils, cartes, domaines et bootstrap](core/profiles-board-domain-app.md)
-- [Services Core](core/services.md)
-- [Modèle `ConfigStore` / `DataStore` / `EventBus` / MQTT](core/data-event-model.md)
-- [Topologie MQTT](core/mqtt-topics.md)
-- [Protocole I2C `FlowIO` <-> `Supervisor`](core/flow-supervisor-i2c-protocol.md)
-- [Exposition Runtime UI](core/runtime-ui-exposure.md)
-- [Empreinte mémoire `FlowIO`](core/memory-footprint-flowio.md)
-- [Matrice des modules](core/module-quality-gates.md)
-- [Schéma d'ensemble du programme](program_structure.md)
+## Anciennes architectures
 
-### Référence par module
-
-- [LogHubModule](modules/LogHubModule.md)
-- [LogDispatcherModule](modules/LogDispatcherModule.md)
-- [LogSerialSinkModule](modules/LogSerialSinkModule.md)
-- [LogAlarmSinkModule](modules/LogAlarmSinkModule.md)
-- [EventBusModule](modules/EventBusModule.md)
-- [ConfigStoreModule](modules/ConfigStoreModule.md)
-- [DataStoreModule](modules/DataStoreModule.md)
-- [CommandModule](modules/CommandModule.md)
-- [SystemModule](modules/SystemModule.md)
-- [SystemMonitorModule](modules/SystemMonitorModule.md)
-- [HMIModule](modules/HMIModule.md)
-- [SupervisorHMIModule](modules/SupervisorHMIModule.md)
-- [AlarmModule](modules/AlarmModule.md)
-- [WifiModule](modules/WifiModule.md)
-- [TimeModule](modules/TimeModule.md)
-- [MQTTModule](modules/MQTTModule.md)
-- [HAModule](modules/HAModule.md)
-- [IOModule](modules/IOModule.md)
-- [PoolLogicModule](modules/PoolLogicModule.md)
-- [PoolDeviceModule](modules/PoolDeviceModule.md)
-
-## Brochage actuel
-
-Les tableaux ci-dessous décrivent le câblage actuellement reflété par les sources du dépôt.
-
-### flow.io
-
-Références principales:
-
-- `src/Board/FlowIODINBoard.h`
-- `src/Board/BoardSerialMap.h`
-
-| GPIO | Usage | Remarque |
-|---|---|---|
-| 32 | relais `relay1` | sortie digitale, rôle par défaut `FiltrationPump` |
-| 25 | relais `relay2` | sortie digitale, rôle par défaut `PhPump` |
-| 26 | relais `relay3` | sortie digitale, rôle par défaut `ChlorinePump` |
-| 13 | relais `relay4` | sortie digitale impulsionnelle, rôle par défaut `ChlorineGenerator` |
-| 33 | relais `relay5` | sortie digitale, rôle par défaut `Robot` |
-| 27 | relais `relay6` | sortie digitale, rôle par défaut `Lights` |
-| 23 | relais `relay7` | sortie digitale, rôle par défaut `FillPump` |
-| 4 | relais `relay8` | sortie digitale, rôle par défaut `WaterHeater` |
-| 34 | `digital_in1` | entrée digitale, rôle par défaut `PoolLevelSensor` |
-| 36 | `digital_in2` | entrée digitale, rôle par défaut `PhLevelSensor` |
-| 39 | `digital_in3` | entrée digitale, rôle par défaut `ChlorineLevelSensor` |
-| 35 | `digital_in4` | entrée digitale, rôle par défaut `WaterCounterSensor` |
-| 19 | `temp_probe_1` | bus 1-Wire, rôle par défaut `WaterTemp` |
-| 18 | `temp_probe_2` | bus 1-Wire, rôle par défaut `AirTemp` |
-| 21 | I2C `io` SDA | bus principal des ADS1115 et du PCF8574 |
-| 22 | I2C `io` SCL | bus principal des ADS1115 et du PCF8574 |
-| 5 | I2C interlink SDA | bus `interlink` board (source de vérité) |
-| 15 | I2C interlink SCL | bus `interlink` board (source de vérité) |
-| 16 | UART2 RX | interface Nextion par défaut |
-| 17 | UART2 TX | interface Nextion par défaut |
-| 1 / 3 | UART0 | console série par défaut |
-
-### Supervisor
-
-Références principales:
-
-- `src/Board/SupervisorBoardRev1.h`
-- `src/Profiles/Supervisor/SupervisorProfile.cpp`
-
-| GPIO | Usage | Remarque |
-|---|---|---|
-| 27 | I2C interlink SDA | bus `interlink` board vers `FlowIO` |
-| 13 | I2C interlink SCL | bus `interlink` board vers `FlowIO` |
-| 16 | UART `bridge` RX | pont série vers `FlowIO` |
-| 17 | UART `bridge` TX | pont série vers `FlowIO` |
-| 33 | UART `panel` RX | liaison série Nextion côté Supervisor |
-| 32 | UART `panel` TX | liaison série Nextion côté Supervisor |
-| 25 | `flowIoEnablePin` | activation/reset matériel du `FlowIO` cible |
-| 26 | `flowIoBootPin` | entrée mode bootloader du `FlowIO` cible |
-| 12 | `nextionRebootPin` | redémarrage matériel Nextion |
-| 14 | TFT ST7789 backlight | écran local Supervisor |
-| 15 | TFT ST7789 CS | écran local Supervisor |
-| 4 | TFT ST7789 DC | écran local Supervisor |
-| 5 | TFT ST7789 RST | écran local Supervisor |
-| 35 | TFT ST7789 MISO | écran local Supervisor |
-| 18 | TFT ST7789 MOSI/SDA | écran local Supervisor |
-| 19 | TFT ST7789 SCLK/SCL | écran local Supervisor |
-| 36 | entrée PIR | extinction automatique du backlight et rallumage sur détection de présence |
-| 1 / 3 | UART0 | console série par défaut |
-
-Sur le profil `Supervisor`, le reset Wi-Fi par appui long est câblé sur `factoryResetPin=23` dans `src/Board/SupervisorBoardRev1.h`.
-
-## Composition actuelle des firmwares
-
-### Profil `FlowIO`
-
-Ordre d'enregistrement dans `src/Profiles/FlowIO/FlowIOBootstrap.cpp`:
-
-1. `loghub`
-2. `log.dispatcher`
-3. `log.sink.serial`
-4. `eventbus`
-5. `config`
-6. `datastore`
-7. `cmd`
-8. `i2ccfg.server`
-9. `hmi`
-10. `alarms`
-11. `wifi`
-12. `time`
-13. `mqtt`
-14. `ha`
-15. `system`
-16. `io`
-17. `poollogic`
-18. `pooldev`
-19. `sysmon`
-
-### Profil `Supervisor`
-
-Ordre d'enregistrement dans `src/Profiles/Supervisor/SupervisorBootstrap.cpp`:
-
-1. `loghub`
-2. `log.dispatcher`
-3. `log.sink.serial`
-4. `eventbus`
-5. `config`
-6. `datastore`
-7. `cmd`
-8. `alarms`
-9. `log.sink.alarm`
-10. `wifi`
-11. `wifiprov`
-12. `time`
-13. `i2ccfg.client`
-14. `webinterface`
-15. `fwupdate`
-16. `hmi.supervisor`
-17. `system`
-18. `sysmon`
-
-## Capacités statiques utiles à l'intégration
-
-Les valeurs ci-dessous correspondent à l'implémentation actuelle du profil `FlowIO`.
-
-| Domaine | Capacité compile-time | Implémentation |
-|---|---:|---|
-| Entrées analogiques IO | 17 | `IOModule::MAX_ANALOG_ENDPOINTS` |
-| Entrées digitales IO | 5 | `IOModule::MAX_DIGITAL_INPUTS` |
-| Sorties digitales IO | 10 | `IOModule::MAX_DIGITAL_OUTPUTS` |
-| Équipements `PoolDevice` | 8 | `POOL_DEVICE_MAX` |
-| Capteurs Home Assistant | 40 | `HAModule::MAX_HA_SENSORS` |
-| Binary sensors Home Assistant | 6 | `HAModule::MAX_HA_BINARY_SENSORS` |
-| Switches Home Assistant | 14 | `HAModule::MAX_HA_SWITCHES` |
-| Numbers Home Assistant | 14 | `HAModule::MAX_HA_NUMBERS` |
-| Buttons Home Assistant | 24 | `HAModule::MAX_HA_BUTTONS` |
-| Routes runtime MQTT* | 56 | `Limits::MaxRuntimeRoutes` |
-| EventBus queue | 40 | `Limits::EventQueueLen` |
-| Variables de configuration | 380 | `Limits::MaxConfigVars` |
-
-\* Une route runtime MQTT correspond à un canal de publication runtime déclaré dans le firmware. Chaque route relie une source d'état interne à un suffixe de topic MQTT, par exemple `rt/io/input/a0`, `rt/pdm/state/pd0` ou `rt/system/state`.
+Les pages relatives aux profils `FlowIO`, `Supervisor` et à leur protocole I²C
+sont historiques. Elles ne doivent pas être utilisées pour câbler la Waveshare
+3.1.2. La source de vérité du montage actuel est le schéma de raccordement
+3.1.2 indiqué ci-dessus.

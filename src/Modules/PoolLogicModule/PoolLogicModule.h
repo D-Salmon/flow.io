@@ -167,17 +167,16 @@ private:
     bool phAutoMode_ = false;
     bool orpAutoMode_ = false;
     bool heaterAutoMode_ = false;
+    bool robotAutoMode_ = false;
     bool phDosePlus_ = false;
+    bool pressureMonitoringEnabled_ = false;
     uint8_t disinfectionType_ = DisinfectionChlorineBromine;
     uint8_t swgControlMode_ = SwgControlContinuous;
 
     // Schedule / filtration window from water temperature
-    float waterTempLowThreshold_ = PoolDefaults::TempLow;
-    float waterTempSetpoint_ = PoolDefaults::TempHigh;
-    uint8_t filtrationStartMin_ = PoolDefaults::FiltrationStartMinHour;
-    uint8_t filtrationStopMax_ = PoolDefaults::FiltrationStopMaxHour;
-    uint8_t filtrationCalcStart_ = PoolDefaults::FiltrationStartMinHour;
-    uint8_t filtrationCalcStop_ = PoolDefaults::FiltrationStopMaxHour;
+    uint16_t filtrationCalcStartMinute_ = 22U * 60U;
+    uint16_t filtrationCalcStopMinute_ = 0U;
+    uint16_t filtrationCalcDurationMinute_ = 120U;
 
     // Sensor IO ids for IOServiceV2 reads.
     IoId phIoId_ = IO_ID_PH_DEFAULT;
@@ -188,6 +187,10 @@ private:
     IoId levelIoId_ = IO_ID_LEVEL_DEFAULT;
     IoId phLevelIoId_ = IO_ID_PH_LEVEL_DEFAULT;
     IoId chlorineLevelIoId_ = IO_ID_CHLORINE_LEVEL_DEFAULT;
+    IoId filtrationContactorFeedbackIoId_ = IO_ID_INVALID;
+    IoId swgContactorFeedbackIoId_ = IO_ID_INVALID;
+    bool filtrationContactorFeedbackActiveHigh_ = true;
+    bool swgContactorFeedbackActiveHigh_ = true;
 
     // Thresholds / delays
     float psiLowThreshold_ = 0.15f;
@@ -213,6 +216,7 @@ private:
     uint8_t delayElectroMin_ = 10;
     uint8_t robotDelayMin_ = 30;
     uint8_t robotDurationMin_ = 120;
+    bool fillingEnabled_ = false;
     uint8_t fillingMinOnSec_ = 30;
 
     // Active oxygen phase-2 configuration and persisted protocol cursor.
@@ -289,6 +293,8 @@ private:
                                            &orpAutoMode_, ConfigPersistence::Persistent, 0};
     ConfigVariable<bool,0> heaterAutoModeVar_{NVS_KEY(NvsKeys::PoolLogic::HeaterAutoMode), "heater_auto_mode", "poollogic/heater", ConfigType::Bool,
                                               &heaterAutoMode_, ConfigPersistence::Persistent, 0};
+    ConfigVariable<bool,0> robotAutoModeVar_{NVS_KEY(NvsKeys::PoolLogic::RobotAutoMode), "robot_auto_mode", "poollogic/modes", ConfigType::Bool,
+                                             &robotAutoMode_, ConfigPersistence::Persistent, 0};
     ConfigVariable<bool,0> phDosePlusVar_{NVS_KEY(NvsKeys::PoolLogic::PhDosePlus), "ph_dose_plus", "poollogic/ph", ConfigType::Bool,
                                           &phDosePlus_, ConfigPersistence::Persistent, 0};
     ConfigVariable<uint8_t,0> disinfectionTypeVar_{NVS_KEY(NvsKeys::PoolLogic::DisinfectionType), "disinfection_type", "poollogic/modes", ConfigType::UInt8,
@@ -296,18 +302,12 @@ private:
     ConfigVariable<uint8_t,0> swgControlModeVar_{NVS_KEY(NvsKeys::PoolLogic::SwgControlMode), "swg_control_mode", "poollogic/swg", ConfigType::UInt8,
                                                  &swgControlMode_, ConfigPersistence::Persistent, 0};
 
-    ConfigVariable<float,0> tempLowVar_{NVS_KEY(NvsKeys::PoolLogic::TempLow), "wat_temp_lo_th", "poollogic/filtration", ConfigType::Float,
-                                        &waterTempLowThreshold_, ConfigPersistence::Persistent, 0};
-    ConfigVariable<float,0> tempSetpointVar_{NVS_KEY(NvsKeys::PoolLogic::TempSetpoint), "wat_temp_setpt", "poollogic/filtration", ConfigType::Float,
-                                             &waterTempSetpoint_, ConfigPersistence::Persistent, 0};
-    ConfigVariable<uint8_t,0> startMinVar_{NVS_KEY(NvsKeys::PoolLogic::FiltrationStartMin), "filtr_start_min", "poollogic/filtration", ConfigType::UInt8,
-                                           &filtrationStartMin_, ConfigPersistence::Persistent, 0};
-    ConfigVariable<uint8_t,0> stopMaxVar_{NVS_KEY(NvsKeys::PoolLogic::FiltrationStopMax), "filtr_stop_max", "poollogic/filtration", ConfigType::UInt8,
-                                          &filtrationStopMax_, ConfigPersistence::Persistent, 0};
-    ConfigVariable<uint8_t,0> calcStartVar_{NVS_KEY(NvsKeys::PoolLogic::FiltrationCalcStart), "filtr_start_clc", "poollogic/filtration", ConfigType::UInt8,
-                                            &filtrationCalcStart_, ConfigPersistence::Persistent, 0};
-    ConfigVariable<uint8_t,0> calcStopVar_{NVS_KEY(NvsKeys::PoolLogic::FiltrationCalcStop), "filtr_stop_clc", "poollogic/filtration", ConfigType::UInt8,
-                                           &filtrationCalcStop_, ConfigPersistence::Persistent, 0};
+    ConfigVariable<uint16_t,0> calcStartVar_{NVS_KEY(NvsKeys::PoolLogic::FiltrationCalcStart), "filtr_start_minute", "poollogic/filtration", ConfigType::UInt16,
+                                             &filtrationCalcStartMinute_, ConfigPersistence::Persistent, 0};
+    ConfigVariable<uint16_t,0> calcStopVar_{NVS_KEY(NvsKeys::PoolLogic::FiltrationCalcStop), "filtr_stop_minute", "poollogic/filtration", ConfigType::UInt16,
+                                            &filtrationCalcStopMinute_, ConfigPersistence::Persistent, 0};
+    ConfigVariable<uint16_t,0> calcDurationVar_{NVS_KEY(NvsKeys::PoolLogic::FiltrationCalcDuration), "filtr_duration_minute", "poollogic/filtration", ConfigType::UInt16,
+                                                &filtrationCalcDurationMinute_, ConfigPersistence::Persistent, 0};
 
     ConfigVariable<IoId,0> phIdVar_{NVS_KEY(NvsKeys::PoolLogic::PhIoId), "ph_io_id", "poollogic/sensors", ConfigType::UInt16,
                                        &phIoId_, ConfigPersistence::Persistent, 0};
@@ -325,6 +325,20 @@ private:
                                             &phLevelIoId_, ConfigPersistence::Persistent, 0};
     ConfigVariable<IoId,0> chlorineLevelIdVar_{NVS_KEY(NvsKeys::PoolLogic::ChlorineLevelIoId), "chl_lvl_io_id", "poollogic/sensors", ConfigType::UInt16,
                                                   &chlorineLevelIoId_, ConfigPersistence::Persistent, 0};
+    ConfigVariable<bool,0> pressureMonitoringEnabledVar_{NVS_KEY(NvsKeys::PoolLogic::PressureMonitoringEnabled), "psi_monitoring", "poollogic/sensors", ConfigType::Bool,
+                                                         &pressureMonitoringEnabled_, ConfigPersistence::Persistent, 0};
+    ConfigVariable<IoId,0> filtrationContactorFeedbackIoIdVar_{
+        NVS_KEY(NvsKeys::PoolLogic::FiltrationContactorFeedbackIoId), "filtr_fb_io_id", "poollogic/sensors", ConfigType::UInt16,
+        &filtrationContactorFeedbackIoId_, ConfigPersistence::Persistent, 0};
+    ConfigVariable<IoId,0> swgContactorFeedbackIoIdVar_{
+        NVS_KEY(NvsKeys::PoolLogic::SwgContactorFeedbackIoId), "swg_fb_io_id", "poollogic/sensors", ConfigType::UInt16,
+        &swgContactorFeedbackIoId_, ConfigPersistence::Persistent, 0};
+    ConfigVariable<bool,0> filtrationContactorFeedbackActiveHighVar_{
+        NVS_KEY(NvsKeys::PoolLogic::FiltrationContactorFeedbackActiveHigh), "filtr_fb_active_high", "poollogic/sensors", ConfigType::Bool,
+        &filtrationContactorFeedbackActiveHigh_, ConfigPersistence::Persistent, 0};
+    ConfigVariable<bool,0> swgContactorFeedbackActiveHighVar_{
+        NVS_KEY(NvsKeys::PoolLogic::SwgContactorFeedbackActiveHigh), "swg_fb_active_high", "poollogic/sensors", ConfigType::Bool,
+        &swgContactorFeedbackActiveHigh_, ConfigPersistence::Persistent, 0};
 
     ConfigVariable<float,0> psiLowVar_{NVS_KEY(NvsKeys::PoolLogic::PsiLow), "psi_low_th", "poollogic/safety", ConfigType::Float,
                                        &psiLowThreshold_, ConfigPersistence::Persistent, 0};
@@ -373,6 +387,8 @@ private:
                                              &robotDelayMin_, ConfigPersistence::Persistent, 0};
     ConfigVariable<uint8_t,0> robotDurationVar_{NVS_KEY(NvsKeys::PoolLogic::RobotDuration), "robot_dur_min", "poollogic/robot", ConfigType::UInt8,
                                                 &robotDurationMin_, ConfigPersistence::Persistent, 0};
+    ConfigVariable<bool,0> fillingEnabledVar_{NVS_KEY(NvsKeys::PoolLogic::FillingEnabled), "fill_enabled", "poollogic/refill", ConfigType::Bool,
+                                              &fillingEnabled_, ConfigPersistence::Persistent, 0};
     ConfigVariable<uint8_t,0> fillingMinOnVar_{NVS_KEY(NvsKeys::PoolLogic::FillingMinOn), "fill_min_on_s", "poollogic/refill", ConfigType::UInt8,
                                                &fillingMinOnSec_, ConfigPersistence::Persistent, 0};
 
@@ -437,12 +453,20 @@ private:
 
     // Scheduler
     void ensureDailySlot_();
-    bool applyFiltrationWindowSlot_(uint8_t startHour, uint8_t stopHour);
-    bool currentFiltrationWindowActive_(uint8_t startHour, uint8_t stopHour, bool& activeOut) const;
-    bool computeFiltrationWindow_(float waterTemp, uint8_t& startHourOut, uint8_t& stopHourOut, uint8_t& durationOut);
-    bool recalcAndApplyFiltrationWindow_(uint8_t* startHourOut = nullptr,
-                                         uint8_t* stopHourOut = nullptr,
-                                         uint8_t* durationOut = nullptr);
+    bool applyFiltrationWindowSlot_(uint16_t startMinute,
+                                    uint16_t stopMinute,
+                                    uint16_t durationMinutes);
+    bool currentFiltrationWindowActive_(uint16_t startMinute,
+                                        uint16_t stopMinute,
+                                        uint16_t durationMinutes,
+                                        bool& activeOut) const;
+    bool computeFiltrationWindow_(float waterTemp,
+                                  uint16_t& startMinuteOut,
+                                  uint16_t& stopMinuteOut,
+                                  uint16_t& durationMinutesOut);
+    bool recalcAndApplyFiltrationWindow_(uint16_t* startMinuteOut = nullptr,
+                                         uint16_t* stopMinuteOut = nullptr,
+                                         uint16_t* durationMinutesOut = nullptr);
 
     // Control
     static AlarmCondState condPsiLowStatic_(void* ctx, uint32_t nowMs);
@@ -452,7 +476,13 @@ private:
     static AlarmCondState condWaterLevelLowStatic_(void* ctx, uint32_t nowMs);
     static AlarmCondState condPhPumpMaxUptimeStatic_(void* ctx, uint32_t nowMs);
     static AlarmCondState condChlorinePumpMaxUptimeStatic_(void* ctx, uint32_t nowMs);
+    static AlarmCondState condWaterTemperatureUnavailableStatic_(void* ctx, uint32_t nowMs);
+    static AlarmCondState condFiltrationContactorMismatchStatic_(void* ctx, uint32_t nowMs);
+    static AlarmCondState condSwgContactorMismatchStatic_(void* ctx, uint32_t nowMs);
     AlarmCondState condPumpMaxUptime_(uint8_t deviceSlot) const;
+    AlarmCondState condContactorMismatch_(uint8_t deviceSlot,
+                                          IoId feedbackIoId,
+                                          bool feedbackActiveHigh) const;
     bool readDeviceActualOn_(uint8_t deviceSlot, bool& onOut) const;
     bool writeDeviceDesired_(uint8_t deviceSlot, bool on);
     bool setPoolDeviceWritesEnabled_(bool enabled);

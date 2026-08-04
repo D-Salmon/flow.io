@@ -13,6 +13,53 @@
 #include <Arduino.h>
 #include <esp_heap_caps.h>
 
+bool WebInterfaceModule::physicalRecoveryActive_() const
+{
+#if defined(FLOW_PROFILE_WAVESHARE)
+    return physicalRecoveryDeadlineMs_ != 0U &&
+           (int32_t)(physicalRecoveryDeadlineMs_ - millis()) > 0;
+#else
+    return false;
+#endif
+}
+
+uint32_t WebInterfaceModule::physicalRecoveryRemainingMs_() const
+{
+    if (!physicalRecoveryActive_()) return 0U;
+    return (uint32_t)(physicalRecoveryDeadlineMs_ - millis());
+}
+
+void WebInterfaceModule::pollBootRecoveryButton_()
+{
+#if defined(FLOW_PROFILE_WAVESHARE)
+    const uint32_t now = millis();
+    if (physicalRecoveryDeadlineMs_ != 0U &&
+        (int32_t)(physicalRecoveryDeadlineMs_ - now) <= 0) {
+        physicalRecoveryDeadlineMs_ = 0U;
+        LOGW("Web physical recovery window closed");
+    }
+
+    if (digitalRead(kBootRecoveryPin) != LOW) {
+        bootButtonPressedAtMs_ = 0U;
+        bootRecoveryLatched_ = false;
+        return;
+    }
+
+    if (bootButtonPressedAtMs_ == 0U) {
+        bootButtonPressedAtMs_ = now != 0U ? now : 1U;
+        return;
+    }
+
+    if (!bootRecoveryLatched_ &&
+        (uint32_t)(now - bootButtonPressedAtMs_) >= kBootRecoveryHoldMs) {
+        physicalRecoveryDeadlineMs_ = now + kPhysicalRecoveryWindowMs;
+        bootRecoveryLatched_ = true;
+        LOGW("Web physical recovery enabled by BOOT long press for %lu seconds",
+             (unsigned long)(kPhysicalRecoveryWindowMs / 1000U));
+    }
+#endif
+}
+
 bool WebInterfaceModule::setPaused_(bool paused)
 {
     uartPaused_ = paused;
@@ -155,6 +202,8 @@ void WebInterfaceModule::onEvent_(const Event& e)
 
 void WebInterfaceModule::loop()
 {
+    pollBootRecoveryButton_();
+
     if (webStartLedPulseActive_ && (int32_t)(millis() - webStartLedPulseUntilMs_) >= 0) {
         if (hmiSvc_ && hmiSvc_->setStatusLedAutoWifiMode && webStartLedPrevAutoModeValid_) {
             hmiSvc_->setStatusLedAutoWifiMode(hmiSvc_->ctx, webStartLedPrevAutoMode_);

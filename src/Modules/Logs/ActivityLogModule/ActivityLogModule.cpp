@@ -282,7 +282,7 @@ bool ActivityLogModule::formatLine_(const ActivityEvent& event, char* out, size_
 {
     if (!out || outLen == 0U) return false;
     out[0] = '\0';
-    StaticJsonDocument<512> doc;
+    JsonDocument doc;
     doc["seq"] = event.seq;
     doc["ts"] = event.ts_ms;
     doc["epoch"] = event.epoch_s;
@@ -304,7 +304,7 @@ bool ActivityLogModule::formatLine_(const ActivityEvent& event, char* out, size_
 bool ActivityLogModule::parseLine_(const char* line, ActivityEvent& out) const
 {
     if (!line || line[0] == '\0') return false;
-    StaticJsonDocument<512> doc;
+    JsonDocument doc;
     if (deserializeJson(doc, line) != DeserializationError::Ok) return false;
 
     out = {};

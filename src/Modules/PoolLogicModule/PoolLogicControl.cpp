@@ -17,7 +17,7 @@
 
 namespace {
 constexpr float kHeaterHysteresisC = 0.3f;
-constexpr uint32_t kHeaterTempFreshMaxMs = 10UL * 60UL * 1000UL;
+constexpr uint32_t kWaterTempFreshMaxMs = 10UL * 60UL * 1000UL;
 constexpr uint16_t kHeatAssistProbeRunSec = 5U * 60U;
 constexpr uint16_t kHeatAssistIdleSlowSec = 30U * 60U;
 constexpr uint16_t kHeatAssistIdleFastSec = 20U * 60U;
@@ -563,6 +563,7 @@ AlarmCondState PoolLogicModule::condPsiLowStatic_(void* ctx, uint32_t nowMs)
 {
     PoolLogicModule* self = static_cast<PoolLogicModule*>(ctx);
     if (!self || !self->enabled_) return AlarmCondState::False;
+    if (!self->pressureMonitoringEnabled_) return AlarmCondState::False;
     if (!self->filtrationFsm_.on) return AlarmCondState::False;
     const uint32_t runSec = self->stateUptimeSec_(self->filtrationFsm_, nowMs);
     if (runSec <= self->psiStartupDelaySec_) return AlarmCondState::False;
@@ -579,6 +580,7 @@ AlarmCondState PoolLogicModule::condPsiHighStatic_(void* ctx, uint32_t)
 {
     PoolLogicModule* self = static_cast<PoolLogicModule*>(ctx);
     if (!self || !self->enabled_) return AlarmCondState::False;
+    if (!self->pressureMonitoringEnabled_) return AlarmCondState::False;
     if (!self->filtrationFsm_.on) return AlarmCondState::False;
 
     float psi = 0.0f;
@@ -613,6 +615,22 @@ AlarmCondState PoolLogicModule::condChlorineTankLowStatic_(void* ctx, uint32_t)
     return low ? AlarmCondState::True : AlarmCondState::False;
 }
 
+AlarmCondState PoolLogicModule::condWaterTemperatureUnavailableStatic_(void* ctx, uint32_t nowMs)
+{
+    PoolLogicModule* self = static_cast<PoolLogicModule*>(ctx);
+    if (!self || !self->enabled_ || !self->autoMode_) return AlarmCondState::False;
+
+    float waterTemp = 0.0f;
+    uint32_t tsMs = 0U;
+    if (!self->loadAnalogSensor_(self->waterTempIoId_, waterTemp, &tsMs)) {
+        return AlarmCondState::True;
+    }
+    if (!std::isfinite(waterTemp) || tsMs == 0U) return AlarmCondState::True;
+    return ((uint32_t)(nowMs - tsMs) > kWaterTempFreshMaxMs)
+               ? AlarmCondState::True
+               : AlarmCondState::False;
+}
+
 AlarmCondState PoolLogicModule::condWaterLevelLowStatic_(void* ctx, uint32_t)
 {
     PoolLogicModule* self = static_cast<PoolLogicModule*>(ctx);
@@ -638,6 +656,24 @@ AlarmCondState PoolLogicModule::condChlorinePumpMaxUptimeStatic_(void* ctx, uint
     return self ? self->condPumpMaxUptime_(self->orpPumpDeviceSlot_) : AlarmCondState::Unknown;
 }
 
+AlarmCondState PoolLogicModule::condFiltrationContactorMismatchStatic_(void* ctx, uint32_t)
+{
+    PoolLogicModule* self = static_cast<PoolLogicModule*>(ctx);
+    return self ? self->condContactorMismatch_(self->filtrationDeviceSlot_,
+                                               self->filtrationContactorFeedbackIoId_,
+                                               self->filtrationContactorFeedbackActiveHigh_)
+                : AlarmCondState::Unknown;
+}
+
+AlarmCondState PoolLogicModule::condSwgContactorMismatchStatic_(void* ctx, uint32_t)
+{
+    PoolLogicModule* self = static_cast<PoolLogicModule*>(ctx);
+    return self ? self->condContactorMismatch_(self->swgDeviceSlot_,
+                                               self->swgContactorFeedbackIoId_,
+                                               self->swgContactorFeedbackActiveHigh_)
+                : AlarmCondState::Unknown;
+}
+
 AlarmCondState PoolLogicModule::condPumpMaxUptime_(uint8_t deviceSlot) const
 {
     if (!poolSvc_ || !poolSvc_->meta) return AlarmCondState::Unknown;
@@ -649,6 +685,25 @@ AlarmCondState PoolLogicModule::condPumpMaxUptime_(uint8_t deviceSlot) const
     }
     if (st == POOLDEV_SVC_ERR_DISABLED) return AlarmCondState::False;
     return AlarmCondState::Unknown;
+}
+
+AlarmCondState PoolLogicModule::condContactorMismatch_(uint8_t deviceSlot,
+                                                       IoId feedbackIoId,
+                                                       bool feedbackActiveHigh) const
+{
+    // No auxiliary contact is safe and supported: monitoring is opt-in so
+    // existing installations never raise a false mismatch alarm.
+    if (feedbackIoId == IO_ID_INVALID) return AlarmCondState::False;
+
+    bool outputOn = false;
+    bool feedbackRaw = false;
+    if (!readDeviceActualOn_(deviceSlot, outputOn) ||
+        !loadDigitalSensor_(feedbackIoId, feedbackRaw)) {
+        return AlarmCondState::Unknown;
+    }
+
+    const bool feedbackOn = feedbackActiveHigh ? feedbackRaw : !feedbackRaw;
+    return (outputOn != feedbackOn) ? AlarmCondState::True : AlarmCondState::False;
 }
 
 bool PoolLogicModule::readDeviceActualOn_(uint8_t deviceSlot, bool& onOut) const
@@ -977,7 +1032,7 @@ void PoolLogicModule::runControlLoop_(uint32_t nowMs)
     const bool waterTempFresh =
         haveWaterTemp &&
         (waterTempTsMs != 0U) &&
-        ((uint32_t)(nowMs - waterTempTsMs) <= kHeaterTempFreshMaxMs);
+        ((uint32_t)(nowMs - waterTempTsMs) <= kWaterTempFreshMaxMs);
     const bool haveAirTemp = loadAnalogSensor_(airTempIoId_, airTemp);
     const bool haveOrp = loadAnalogSensor_(orpIoId_, orp);
     const bool haveLevel = loadDigitalSensor_(levelIoId_, poolLevelOn);
@@ -991,13 +1046,15 @@ void PoolLogicModule::runControlLoop_(uint32_t nowMs)
         const bool psiHigh = alarmSvc_->isActive(alarmSvc_->ctx, AlarmId::PoolPsiHigh);
         const bool phTankLowAlarm = alarmSvc_->isActive(alarmSvc_->ctx, AlarmId::PoolPhTankLow);
         const bool chlorineTankLowAlarm = alarmSvc_->isActive(alarmSvc_->ctx, AlarmId::PoolChlorineTankLow);
-        psiError_ = psiLow || psiHigh;
+        psiError_ = pressureMonitoringEnabled_ && (psiLow || psiHigh);
         phTankLowError_ = phTankLowAlarm;
         chlorineTankLowError_ = chlorineTankLowAlarm;
     } else {
         phTankLowError_ = havePhTankLow && phTankLow;
         chlorineTankLowError_ = haveChlorineTankLow && chlorineTankLow;
-        if (filtrationFsm_.on && havePsi) {
+        if (!pressureMonitoringEnabled_) {
+            psiError_ = false;
+        } else if (filtrationFsm_.on && havePsi) {
             const uint32_t runSec = stateUptimeSec_(filtrationFsm_, nowMs);
             const bool underPressure = (runSec > psiStartupDelaySec_) && (psi < psiLowThreshold_);
             const bool overPressure = (psi > psiHighThreshold_);
@@ -1084,7 +1141,10 @@ void PoolLogicModule::runControlLoop_(uint32_t nowMs)
     portEXIT_CRITICAL(&pendingMux_);
 
     bool clockWindowActive = false;
-    if (currentFiltrationWindowActive_(filtrationCalcStart_, filtrationCalcStop_, clockWindowActive)) {
+    if (currentFiltrationWindowActive_(filtrationCalcStartMinute_,
+                                       filtrationCalcStopMinute_,
+                                       filtrationCalcDurationMinute_,
+                                       clockWindowActive)) {
         if (clockWindowActive != windowActive || forceFiltrationReconcile) {
             windowActive = clockWindowActive;
             portENTER_CRITICAL(&pendingMux_);
@@ -1172,11 +1232,11 @@ void PoolLogicModule::runControlLoop_(uint32_t nowMs)
     portEXIT_CRITICAL(&pendingMux_);
     if (autoMode_) {
         robotDesired = false;
-        if (filtrationFsm_.on && !cleaningDone_) {
+        if (robotAutoMode_ && filtrationFsm_.on && !cleaningDone_) {
             const uint32_t filtrationRunMin = stateUptimeSec_(filtrationFsm_, nowMs) / 60U;
             if (filtrationRunMin >= robotDelayMin_) robotDesired = true;
         }
-        if (robotFsm_.on) {
+        if (robotAutoMode_ && robotFsm_.on) {
             const uint32_t robotRunMin = stateUptimeSec_(robotFsm_, nowMs) / 60U;
             if (robotRunMin >= robotDurationMin_) robotDesired = false;
         }
@@ -1431,7 +1491,7 @@ void PoolLogicModule::runControlLoop_(uint32_t nowMs)
     }
 
     bool fillingDesired = false;
-    if (haveLevel) {
+    if (fillingEnabled_ && haveLevel) {
         if (!fillingFsm_.on) {
             fillingDesired = poolLevelOn;
         } else {

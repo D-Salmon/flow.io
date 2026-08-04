@@ -1,1 +1,0 @@
-{"ok":true,"module":"poollogic","docs":{"poollogic/filtr_start_clc":{"enum_set":"hours_of_day"},"poollogic/filtr_start_min":{"enum_set":"hours_of_day"},"poollogic/filtr_stop_clc":{"enum_set":"hours_of_day"},"poollogic/filtr_stop_max":{"enum_set":"hours_of_day"}},"meta":{}}

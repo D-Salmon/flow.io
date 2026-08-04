@@ -480,6 +480,8 @@ body.web-icons-disabled .step-ic.done{font-size:12px;font-weight:800;letter-spac
 .reboot-selector-card{background:#FFFFFF;gap:10px;width:100%;max-width:256px;}
 .reboot-selector-card .field{gap:6px;}
 .reboot-selector-card .system-action-actions{margin-top:0;justify-content:stretch;}
+.kiosk-shutdown-card{border-color:rgba(209,76,102,0.28);background:rgba(250,226,232,0.38);}
+.kiosk-shutdown-card .system-action-actions{margin-top:auto;}
 .system-groups{display:grid;gap:16px;align-items:start;}
 .system-card{min-width:0;}
 .system-card-actions{width:100%;justify-self:stretch;align-self:start;}
@@ -507,10 +509,12 @@ body.web-icons-disabled .step-ic.done{font-size:12px;font-weight:800;letter-spac
 .calibration-summary-label{font-size:11px;font-weight:700;color:#6D8298;text-transform:uppercase;letter-spacing:0;}
 .calibration-summary-value{color:#16384F;font-size:14px;font-weight:700;overflow-wrap:anywhere;}
 .calibration-fields-shell{margin-top:12px;border:1px dashed #C5D3E0;border-radius:var(--radius);padding:12px;background:rgba(255,255,255,0.72);display:grid;gap:10px;}
+.calibration-fields-shell[hidden],.calibration-preview[hidden],.calibration-checks[hidden]{display:none;}
 .calibration-fields-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0;color:#577089;}
 .calibration-measured-input-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;}
 .calibration-measured-input-row input{min-width:0;width:100%;}
-.calibration-live-fill-btn{width:28px;height:28px;min-width:28px;padding:0;}
+.calibration-measured-input-row input[readonly]{background:#EDF4F8;color:#294B64;border-color:#C8D7E3;cursor:default;}
+.calibration-live-fill-btn{width:auto;min-width:74px;min-height:36px;padding:7px 10px;display:inline-flex;align-items:center;justify-content:center;gap:6px;}
 .calibration-live-fill-btn .refresh-icon-glyph{width:14px;height:14px;font-size:14px;}
 .calibration-main-actions{margin-top:12px;justify-content:flex-end;}
 .calibration-preview{margin-top:10px;border:1px solid rgba(43,118,180,0.3);border-radius:var(--radius);background:rgba(225,236,247,0.5);color:#1C4C74;padding:10px 12px;display:grid;gap:8px;}
@@ -601,6 +605,9 @@ body.web-icons-disabled .step-ic.done{font-size:12px;font-weight:800;letter-spac
 .control-input{width:100%;max-width:100%;min-width:0;flex:1 1 auto;}
 .control-input[aria-invalid="true"]{border-color:#D14C66;box-shadow:0 0 0 2px rgba(209,76,102,0.12);}
 .control-value-wrap{display:inline-flex;align-items:center;justify-content:flex-end;gap:8px;min-width:0;margin-left:auto;width:min(320px,48%);flex:0 1 min(320px,48%);}
+.control-secret-input-wrap{position:relative;display:flex;align-items:center;min-width:0;flex:1 1 auto;width:100%;}
+.control-secret-input-wrap .control-input{padding-right:88px;}
+.control-secret-toggle{right:7px;}
 .control-value-wrap-color{width:auto;flex:0 0 auto;gap:10px;}
 .control-color-input{position:absolute;opacity:0;pointer-events:none;width:0;height:0;}
 .control-color-trigger{width:26px;height:26px;min-width:26px;border-radius:999px;border:1px solid rgba(16,24,40,0.14);background:#FFFFFF;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.55),0 1px 2px rgba(16,24,40,0.08);cursor:pointer;padding:0;flex:0 0 auto;}
@@ -775,6 +782,24 @@ body.web-icons-disabled .control-field-apply{font-size:15px;font-weight:800;lett
 .pool-mode-badge-icon{font-size:18px;}
 .pool-mode-badge.is-on{border-color:rgba(22,164,93,0.22);background:rgba(22,164,93,0.1);color:var(--success);}
 .pool-mode-badge.is-off{border-color:rgba(128,145,168,0.18);background:rgba(128,145,168,0.11);color:#6D7F93;}
+.pool-chemistry-panel{display:grid;gap:14px;}
+.pool-section-heading{display:flex;align-items:center;gap:10px;color:var(--text);}
+.pool-section-heading>.ui-msr{font-size:25px;color:var(--primary);}
+.pool-section-heading>div{display:grid;gap:2px;}
+.pool-section-heading h2{margin:0;font-size:20px;font-weight:850;line-height:1.2;}
+.pool-section-heading p{margin:0;color:var(--text-muted);font-size:13px;font-weight:650;line-height:1.4;}
+.pool-chemistry-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;}
+.pool-chemistry-card{min-width:0;border:1px solid var(--border);border-radius:var(--radius);background:#FFFFFF;box-shadow:0 8px 22px rgba(7,26,53,0.045);padding:18px;display:grid;gap:14px;align-content:start;}
+.pool-chemistry-head{display:grid;grid-template-columns:42px minmax(0,1fr);gap:12px;align-items:start;}
+.pool-chemistry-card.is-ph .pool-card-icon{background:#EAF4FF;color:#0876C9;}
+.pool-chemistry-card.is-orp .pool-card-icon{background:#ECF9F4;color:#087D5E;}
+.pool-chemistry-card.is-temperature .pool-card-icon{background:#FFF4E5;color:#A95B00;}
+.pool-chemistry-measure{border-radius:var(--radius);background:#F0F8FF;border:1px solid #B8DDF9;padding:14px;display:grid;gap:4px;}
+.pool-chemistry-measure>span{color:#566E85;font-size:12px;font-weight:800;}
+.pool-chemistry-measure>b{color:var(--text);font-size:30px;font-weight:900;line-height:1.08;letter-spacing:-0.02em;}
+.pool-chemistry-measure.is-unavailable{background:#F7F9FC;border-color:#DCE5EE;}
+.pool-chemistry-measure.is-unavailable>b{color:#6D7F93;font-size:18px;letter-spacing:0;}
+.pool-chemistry-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
 .pool-treatment-panel{display:grid;grid-template-columns:minmax(260px,0.58fr) minmax(0,1fr);gap:18px;align-items:stretch;border:1px solid var(--border);border-radius:var(--radius);background:#FFFFFF;box-shadow:0 8px 22px rgba(7,26,53,0.045);padding:18px;}
 .pool-treatment-selector,.pool-treatment-detail{min-width:0;display:grid;gap:14px;}
 .pool-treatment-selector{border-right:1px solid var(--border);padding-right:18px;}
@@ -805,6 +830,11 @@ body.web-icons-disabled .control-field-apply{font-size:15px;font-weight:800;lett
 .pool-metric.is-featured{background:#F0F8FF;border-color:#B8DDF9;}
 .pool-metric-label{color:#677A8F;font-size:12px;font-weight:750;line-height:1.2;text-transform:none;}
 .pool-metric-value{min-width:0;color:var(--text);font-size:17px;font-weight:850;line-height:1.15;overflow-wrap:anywhere;}
+.pool-metric-control-wrap{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:7px;}
+.pool-metric-control{box-sizing:border-box;width:100%;min-width:0;min-height:38px;border:1px solid #B9C8D7;border-radius:9px;background:#FFFFFF;color:var(--text);padding:7px 9px;font:inherit;font-size:15px;font-weight:800;outline:none;}
+.pool-metric-control:hover{border-color:#8199B0;}
+.pool-metric-control:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(0,116,232,0.14);}
+.pool-metric[aria-busy="true"]{opacity:0.65;}
 .pool-alarm-card{border:1px solid rgba(214,69,93,0.34);border-radius:var(--radius);background:#FFF3F5;color:#7A1F32;box-shadow:0 10px 24px rgba(122,31,50,0.08);padding:16px;display:grid;gap:12px;}
 .pool-alarm-card[hidden]{display:none;}
 .pool-alarm-head{display:grid;grid-template-columns:42px minmax(0,1fr);gap:12px;align-items:start;}
@@ -817,6 +847,7 @@ body.web-icons-disabled .control-field-apply{font-size:15px;font-weight:800;lett
 .pool-alarm-row b{min-width:0;color:#7A1F32;font-size:13px;font-weight:850;line-height:1.25;overflow-wrap:anywhere;}
 .pool-alarm-row span{color:#B33249;font-size:12px;font-weight:800;line-height:1.2;white-space:nowrap;}
 .pool-config-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;}
+.pool-general-control{align-items:start;}
 .pool-field-list{display:grid;grid-auto-rows:minmax(40px,max-content);align-content:start;align-self:start;gap:0;border:1px solid #E6EDF4;border-radius:var(--radius);overflow:hidden;background:#FFFFFF;}
 .pool-field-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(86px,auto);gap:12px;align-items:center;min-height:40px;padding:0 12px;border-top:1px solid #E6EDF4;background:#FFFFFF;}
 .pool-field-row:first-child{border-top:0;}
@@ -826,6 +857,32 @@ body.web-icons-disabled .control-field-apply{font-size:15px;font-weight:800;lett
 .pool-field-value.has-active-dot{display:inline-flex;align-items:center;justify-content:flex-end;gap:9px;}
 .pool-field-active-dot{width:8px;height:8px;border-radius:50%;background:var(--success);box-shadow:0 0 0 2px rgba(22,164,93,0.12);flex:0 0 8px;}
 .pool-field-empty{padding:13px;color:var(--text-muted);font-size:13px;line-height:1.4;}
+.pool-settings-title{margin:3px 0 0;color:var(--text);font-size:16px;font-weight:850;line-height:1.2;}
+.pool-settings-form{display:grid;gap:14px;min-width:0;}
+.pool-settings-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
+.pool-setting-field{min-width:0;display:grid;grid-template-rows:auto auto 1fr;gap:6px;align-content:start;}
+.pool-setting-feedback{grid-template-rows:auto auto;border:1px solid #D6E1EB;border-radius:12px;background:#F9FBFD;padding:13px;gap:11px;}
+.pool-setting-label{color:var(--text);font-size:14px;font-weight:800;line-height:1.25;}
+.pool-setting-feedback>.pool-setting-label{font-size:15px;}
+.pool-feedback-row{display:grid;gap:6px;}
+.pool-feedback-row[hidden]{display:none;}
+.pool-setting-sublabel{color:#536A7E;font-size:13px;font-weight:800;line-height:1.25;}
+.pool-setting-control-wrap{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;}
+.pool-setting-control{box-sizing:border-box;width:100%;min-width:0;min-height:44px;border:1px solid #B9C8D7;border-radius:10px;background:#FFFFFF;color:var(--text);padding:9px 11px;font:inherit;font-size:15px;font-weight:750;outline:none;}
+.pool-setting-control:hover{border-color:#8199B0;}
+.pool-setting-control:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(0,116,232,0.14);}
+.pool-setting-control:invalid{border-color:var(--danger);}
+.pool-settings-form.is-disabled .pool-settings-fields,.pool-setting-field.is-disabled{opacity:0.52;}
+.pool-setting-control:disabled{cursor:not-allowed;background:#E9EEF3;color:#647487;border-color:#CDD7E0;}
+.pool-setting-disabled-note{margin:0;padding:10px 12px;border-radius:10px;background:#EEF3F7;color:var(--text-soft);font-size:13px;font-weight:650;line-height:1.4;}
+.pool-setting-unit{min-width:28px;color:#536A7E;font-size:13px;font-weight:850;white-space:nowrap;}
+.pool-setting-help{grid-column:1 / -1;margin:0;color:var(--text-muted);font-size:12px;line-height:1.35;}
+.pool-settings-footer{display:flex;align-items:center;justify-content:flex-end;gap:12px;padding-top:2px;}
+.pool-settings-status{flex:1;min-width:0;color:var(--text-muted);font-size:13px;font-weight:750;line-height:1.3;}
+.pool-settings-status.is-ok{color:var(--success);}
+.pool-settings-status.is-error{color:var(--danger);}
+.pool-settings-save{min-height:42px;padding:0 18px;}
+.pool-settings-form[aria-busy="true"]{opacity:0.72;}
 .pool-filtration-card{align-content:start;}
 .pool-filtration-times{display:flex;align-items:center;gap:14px;padding-left:54px;color:var(--text);}
 .pool-filtration-times b{font-size:26px;line-height:1;font-weight:850;letter-spacing:0;}
@@ -834,6 +891,7 @@ body.web-icons-disabled .control-field-apply{font-size:15px;font-weight:800;lett
 .pool-config-skeleton .skeleton-line{height:12px;}
 .pool-config-skeleton .skeleton-line:first-child{width:68%;height:16px;}
 @media (max-width:1180px){
+  .pool-chemistry-grid{grid-template-columns:1fr;}
   .pool-treatment-panel{grid-template-columns:1fr;}
   .pool-treatment-selector{border-right:0;border-bottom:1px solid var(--border);padding-right:0;padding-bottom:18px;}
 }
@@ -853,6 +911,9 @@ body.web-icons-disabled .control-field-apply{font-size:15px;font-weight:800;lett
   .pool-selected-chip{grid-column:2;justify-self:start;}
   .pool-card-icon{width:36px;height:36px;flex:0 0 36px;font-size:21px;}
   .pool-metric-grid{grid-template-columns:1fr;}
+  .pool-chemistry-metrics,.pool-settings-fields{grid-template-columns:1fr;}
+  .pool-settings-footer{align-items:stretch;flex-direction:column;}
+  .pool-settings-save{width:100%;}
   .pool-treatment-choice-group{grid-template-columns:1fr;}
   .pool-treatment-choice{min-height:54px;border-left:0;border-top:1px solid var(--border);}
   .pool-treatment-choice:first-child{border-top:0;}
@@ -925,11 +986,14 @@ body.web-icons-disabled .control-field-apply{font-size:15px;font-weight:800;lett
 :root[data-theme="dark"] .updates-table th,:root[data-theme="dark"] .io-compact-table th{background:#142235;color:var(--text);border-color:var(--border);}
 :root[data-theme="dark"] .updates-table td,:root[data-theme="dark"] .io-compact-table td{background:var(--surface);color:var(--text-muted);border-color:var(--border);}
 :root[data-theme="dark"] .updates-table tbody tr:nth-child(even) td,:root[data-theme="dark"] .io-compact-table tbody tr:nth-child(even) td{background:#101b2a;}
-:root[data-theme="dark"] .pool-hero-panel,:root[data-theme="dark"] .pool-treatment-panel,:root[data-theme="dark"] .pool-config-card,:root[data-theme="dark"] .pool-field-list,:root[data-theme="dark"] .pool-field-row,:root[data-theme="dark"] .pool-treatment-choice-group,:root[data-theme="dark"] .pool-treatment-choice,:root[data-theme="dark"] .pool-metric{background:var(--surface);border-color:var(--border);color:var(--text);}
+:root[data-theme="dark"] .pool-hero-panel,:root[data-theme="dark"] .pool-treatment-panel,:root[data-theme="dark"] .pool-config-card,:root[data-theme="dark"] .pool-chemistry-card,:root[data-theme="dark"] .pool-field-list,:root[data-theme="dark"] .pool-field-row,:root[data-theme="dark"] .pool-treatment-choice-group,:root[data-theme="dark"] .pool-treatment-choice,:root[data-theme="dark"] .pool-metric,:root[data-theme="dark"] .pool-setting-control{background:var(--surface);border-color:var(--border);color:var(--text);}
 :root[data-theme="dark"] .pool-field-row:nth-child(even),:root[data-theme="dark"] .pool-treatment-choice.is-selected,:root[data-theme="dark"] .pool-metric.is-featured{background:var(--surface-soft);}
 :root[data-theme="dark"] .pool-field-label,:root[data-theme="dark"] .pool-metric-label,:root[data-theme="dark"] .pool-treatment-choice,:root[data-theme="dark"] .pool-selected-chip{color:var(--text-muted);}
 :root[data-theme="dark"] .pool-field-value,:root[data-theme="dark"] .pool-metric-value,:root[data-theme="dark"] .pool-treatment-title h3,:root[data-theme="dark"] .pool-card-title-wrap h3,:root[data-theme="dark"] .pool-filtration-times{color:var(--text);}
 :root[data-theme="dark"] .pool-hero-icon{background:#203452;color:#8bd9ff;}
+:root[data-theme="dark"] .pool-chemistry-measure{background:var(--surface-soft);border-color:var(--border);}
+:root[data-theme="dark"] .pool-metric-control{background:var(--surface);border-color:var(--border);color:var(--text);}
+:root[data-theme="dark"] .pool-chemistry-measure>span,:root[data-theme="dark"] .pool-setting-unit{color:var(--text-muted);}
 :root[data-theme="dark"] .pool-card-icon,:root[data-theme="dark"] .pool-treatment-detail .pool-card-icon,:root[data-theme="dark"] #page-calibration .calibration-pane > .control-section-title .ui-msr,:root[data-theme="dark"] #page-control .cfg-detail-pane > .control-section-title:first-child .ui-msr{background:#173a56;color:var(--primary);}
 :root[data-theme="dark"] .pool-alarm-card{background:#341722;color:#ffdce4;border-color:rgba(255,123,147,0.34);}
 :root[data-theme="dark"] .pool-alarm-row{background:#24111a;border-color:rgba(255,123,147,0.24);}
@@ -982,3 +1046,100 @@ body.web-icons-disabled .control-field-apply{font-size:15px;font-weight:800;lett
 :root[data-theme="dark"] .activity-row-title strong,:root[data-theme="dark"] .activity-row-icon{color:var(--primary);}
 @media (max-width: 760px){.activity-toolbar{gap:10px}.activity-range-card{min-width:0;width:100%;box-sizing:border-box}.activity-row{grid-template-columns:40px minmax(0,1fr);padding:11px 8px}.logs-overlay{padding:8px}.logs-overlay-panel{width:calc(100vw - 16px);height:calc(100vh - 16px);border-radius:8px}.logs-overlay-head{align-items:flex-start;flex-direction:column}.logs-overlay-actions{justify-content:flex-start}.logs-overlay-terminal{font-size:10px}}
 :root[data-theme="dark"] .overlay{background:rgba(0,0,0,0.68);}
+
+/* 3.1 readability pass: larger controls and WCAG-oriented light-theme contrast. */
+:root{
+  --text-muted:#3f526b;
+  --menu-inactive-fg:#4f6078;
+  --menu-hover-fg:#173a59;
+  --menu-hover-bg:#eaf2f7;
+  --menu-active-bg:#cceaf0;
+  --menu-active-edge:#087e99;
+  --menu-active-fg:#075f75;
+  --border:#c8d6e3;
+  --drawer-width:248px;
+}
+body{font-size:16px;line-height:1.5;}
+.drawer{padding:22px 16px;}
+.drawer-header{margin-bottom:26px;}
+.menu-item{
+  min-height:48px;
+  padding:11px 14px 11px 12px;
+  gap:13px;
+  font-size:16px;
+  font-weight:650;
+}
+.menu-item.active{font-weight:800;}
+.menu-item .ico{width:22px;height:22px;flex-basis:22px;}
+body.menu-icons-remote:not(.web-icons-disabled) .menu-item .ico{font-size:23px;}
+.theme-switch{min-height:40px;font-size:14px;font-weight:750;}
+.content{padding:28px 32px;}
+.app-header{margin-bottom:28px;}
+.app-header-title h1,.topbar h1{font-size:25px;font-weight:850;}
+.app-header-title p{font-size:15px;}
+.header-status-label,.header-status-value{font-size:15px;}
+.header-status-icon{font-size:24px;}
+.header-status-item{min-height:52px;}
+.ui-heading-inline,.control-section-title,.config-section h2{
+  color:var(--text);
+  font-weight:800;
+}
+.control-section-title{font-size:14px;}
+.status-chip{font-size:14px;padding:8px 12px;color:var(--text-muted);}
+.measure-domain-empty{font-size:16px;color:var(--text-muted);border-color:#9fb3c5;}
+.measure-domain-chip{
+  min-height:52px;
+  padding:0 20px 0 16px;
+  color:#244d67;
+  border-color:#9eb9cb;
+  background:linear-gradient(180deg,#edf5fa 0%,#dceaf3 100%);
+  box-shadow:0 8px 18px rgba(18,48,79,0.1);
+}
+.measure-domain-chip-label{font-size:17px;font-weight:750;}
+.measure-domain-chip.active{
+  background:linear-gradient(135deg,#126d9c 0%,#087f96 100%);
+  border-color:#075f75;
+  box-shadow:0 10px 24px rgba(7,95,117,0.25);
+}
+.card,.status-card,.control-panel,.control-section,.config-section,.info-card{
+  border-color:var(--border);
+}
+.status-card{padding:18px;}
+.status-card h3{font-size:17px;font-weight:800;}
+.status-card-summary{font-size:14px;color:var(--text-muted);}
+.status-kv{font-size:15px;color:var(--text-muted);}
+.status-sonde-slot,.status-alarm-slot,.status-state-tile{min-height:70px;padding:12px 14px;}
+.status-sonde-slot-title,.status-state-title{font-size:13px;}
+.status-sonde-slot-value{font-size:22px;color:var(--text);}
+.status-sonde-slot-unit{font-size:13px;}
+.status-alarm-slot-title{font-size:12px;}
+.status-alarm-slot-state,.status-state-value{font-size:14px;}
+.status-alarm-slot-condition{font-size:11px;padding:4px 8px;}
+.pool-field-label,.pool-field-value,.pool-field-empty{font-size:15px;}
+.pool-treatment-choice{
+  min-height:86px;
+  font-size:15px;
+  color:#334b66;
+}
+.pool-treatment-choice:not(:disabled):hover{
+  background:#e8f3fa;
+  color:#075f75;
+  box-shadow:inset 0 0 0 2px rgba(7,95,117,0.3);
+}
+.pool-treatment-choice.is-selected{
+  color:#075f75;
+  background:#dff1f5;
+  box-shadow:inset 0 0 0 2px #087e99;
+}
+.activity-row-title{font-size:16px;}
+.activity-row-meta,.activity-row-detail,.activity-status{font-size:14px;}
+button,input,select,textarea{font-size:15px;}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,.menu-item:focus-visible{
+  outline:3px solid rgba(0,116,232,0.32);
+  outline-offset:2px;
+}
+@media (max-width:900px){
+  :root{--drawer-width:min(86vw,280px);}
+  .content{padding:18px;}
+  .app-header-title h1,.topbar h1{font-size:22px;}
+}

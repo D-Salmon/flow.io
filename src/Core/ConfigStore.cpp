@@ -579,11 +579,11 @@ bool ConfigStore::applyJson(const char* json)
     if (!json || json[0] == '\0') return false;
 
     static constexpr size_t APPLY_JSON_DOC_CAPACITY = Limits::JsonConfigApplyBuf;
-    static StaticJsonDocument<APPLY_JSON_DOC_CAPACITY> doc;
+    static JsonDocument doc;
     doc.clear();
     const DeserializationError err = deserializeJson(doc, json);
-    const size_t docUsedBytes = doc.memoryUsage();
-    const size_t docCapacityBytes = doc.capacity();
+    const size_t docUsedBytes = measureJson(doc);
+    const size_t docCapacityBytes = APPLY_JSON_DOC_CAPACITY;
     reportApplyJsonDocPeak_(docUsedBytes, docCapacityBytes);
     if (err || !doc.is<JsonObjectConst>()) {
         BufferUsageTracker::note(TrackedBufferId::ConfigApplyJsonDoc,

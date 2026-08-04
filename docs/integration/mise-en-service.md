@@ -1,165 +1,68 @@
-# Mise en service matérielle et flash
+# Mise en service Flow.io Waveshare 3.1.2
 
-Cette page s'adresse à l'intégrateur qui veut câbler la carte, compiler le bon firmware et vérifier le démarrage sans modifier l'architecture du projet.
+Cette procédure concerne une seule carte Waveshare ESP32-S3-ETH-8DI-8RO.
 
-L'architecture cible du projet repose sur deux ESP32:
+## 1. Préparer le matériel
 
-- un ESP32 `FlowIO` pour la logique métier et la gestion des entrées/sorties
-- un ESP32 `Supervisor` pour la configuration, le provisioning Wi-Fi, l'écran TFT, l'accès aux logs et les mises à jour du système
+- Couper toutes les alimentations.
+- Câbler l'alimentation continue protégée et la terre du coffret selon les
+  règles applicables.
+- Raccorder Ethernet si disponible.
+- Câbler les capteurs et les contacteurs selon le
+  [schéma 3.1.2](schema-raccordement-waveshare.md).
+- Laisser les équipements de puissance désactivés pour le premier démarrage.
 
-## 1. Choisir le firmware
+## 2. Compiler et installer
 
-Le dépôt produit deux binaires distincts:
+Dans Visual Studio Code avec PlatformIO :
 
-| Firmware | Environnement PlatformIO | Usage |
-|---|---|---|
-| `FlowIO` | `FlowIO` | ESP32 principal avec logique métier, E/S, MQTT, Home Assistant et interface Nextion |
-| `Supervisor` | `Supervisor` | ESP32 de supervision avec configuration, provisioning, TFT, logs, mise à jour et bus I2C vers `FlowIO` |
+1. ouvrir le dossier du projet ;
+2. sélectionner l'environnement `Waveshare-ESP32-S3` ;
+3. lancer `Build` ;
+4. téléverser le firmware ;
+5. téléverser l'image du système de fichiers SPIFFS ;
+6. ouvrir la console série à 115200 bauds pour contrôler le démarrage.
 
-La sélection se fait dans `platformio.ini`:
+Le firmware et le SPIFFS doivent provenir exactement de la même version.
 
-- `default_envs = FlowIO`
-- environnement `env:FlowIO`
-- environnement `env:Supervisor`
+## 3. Configurer le réseau
 
-## 2. Compiler et flasher
+Au démarrage, Ethernet est essayé en priorité. Si Ethernet n'est pas
+opérationnel, le contrôleur tente le Wi-Fi enregistré. Sans réseau valide, le
+portail de configuration Wi-Fi est activé.
 
-Commandes usuelles:
+Ne pas exposer l'interface HTTP directement à Internet.
 
-```sh
-~/.platformio/penv/bin/pio run -e FlowIO
-~/.platformio/penv/bin/pio run -e FlowIO -t upload
-~/.platformio/penv/bin/pio device monitor -b 115200
-```
+## 4. Choisir les températures
 
-```sh
-~/.platformio/penv/bin/pio run -e Supervisor
-~/.platformio/penv/bin/pio run -e Supervisor -t upload
-~/.platformio/penv/bin/pio device monitor -b 115200
-```
+Ouvrir l'interface Web puis :
 
-Scripts de pré-build actuellement exécutés par `platformio.ini`:
+1. aller dans `Configuration > io > drivers > ds18b20` ;
+2. choisir `Qwiic / DS2484` ou `GPIO direct` ;
+3. enregistrer ;
+4. redémarrer le contrôleur ;
+5. vérifier la température d'eau et la température d'air.
 
-- `scripts/generate_build_version.py`
-- `scripts/generate_datamodel.py`
-- `scripts/generate_runtimeui_manifest.py`
-- `scripts/generate_config_docs.py`
+Le mode GPIO utilise GPIO20 pour l'eau et GPIO19 pour l'air. Qwiic reste actif
+pour les autres capteurs dans les deux modes.
 
-## 3. Câblage `FlowIO`
+## 5. Vérifier les entrées et sorties
 
-Références:
+- Actionner chaque entrée séparément et vérifier son état Web.
+- Tester chaque relais sans charge, puis avec la bobine du contacteur.
+- Vérifier que toutes les sorties sont arrêtées au démarrage initial.
+- Confirmer les polarités des niveaux de cuves et du compteur d'eau.
+- Vérifier pH, ORP et pression avant d'activer leurs automatismes.
 
-- `src/Board/FlowIODINBoard.h`
-- `src/Board/BoardSerialMap.h`
+## 6. Activer progressivement l'automatisme
 
-### Sorties digitales
+1. Valider la filtration manuelle.
+2. Vérifier la planification calculée avec la température d'eau.
+3. Activer la surveillance de pression seulement après étalonnage.
+4. Activer séparément dosage, robot, remplissage, éclairage et chauffage.
+5. Simuler chaque défaut et vérifier l'arrêt attendu.
 
-| Fonction actuelle | GPIO |
-|---|---:|
-| `relay1` | 32 |
-| `relay2` | 25 |
-| `relay3` | 26 |
-| `relay4` | 13 |
-| `relay5` | 33 |
-| `relay6` | 27 |
-| `relay7` | 23 |
-| `relay8` | 4 |
+## 7. Sauvegarder
 
-### Entrées digitales
-
-| Fonction actuelle | GPIO |
-|---|---:|
-| `digital_in1` | 34 |
-| `digital_in2` | 36 |
-| `digital_in3` | 39 |
-| `digital_in4` | 35 |
-
-### Bus et interfaces
-
-| Interface | GPIO |
-|---|---|
-| I2C `io` | SDA 21, SCL 22 |
-| 1-Wire `temp_probe_1` | 19 |
-| 1-Wire `temp_probe_2` | 18 |
-| Nextion UART2 | RX 16, TX 17 |
-| Console série UART0 | TX 1, RX 3 |
-| I2C interlink | SDA 5, SCL 15 |
-
-Le port Nextion peut être échangé avec le port de logs via la macro `FLOW_SWAP_LOG_HMI_SERIAL`.
-
-## 4. Câblage `Supervisor`
-
-Références:
-
-- `src/Board/SupervisorBoardRev1.h`
-- `src/Profiles/Supervisor/SupervisorProfile.cpp`
-
-### TFT ST7789
-
-| Signal | GPIO |
-|---|---:|
-| Backlight | 14 |
-| CS | 15 |
-| DC | 4 |
-| RST | 5 |
-| MISO | 35 |
-| MOSI/SDA | 18 |
-| SCLK/SCL | 19 |
-
-### Nextion et pont série
-
-| Interface | GPIO |
-|---|---|
-| UART `bridge` vers `FlowIO` | RX 16, TX 17 |
-| UART `panel` Nextion | RX 33, TX 32 |
-| reboot matériel Nextion | 12 |
-
-### Interlink et pilotage du `FlowIO`
-
-| Fonction | GPIO |
-|---|---:|
-| I2C interlink SDA | 27 |
-| I2C interlink SCL | 13 |
-| `flowIoEnablePin` | 25 |
-| `flowIoBootPin` | 26 |
-| PIR écran | 36 |
-
-Valeurs runtime actuelles du profil Supervisor:
-
-- extinction backlight: `60000 ms`
-- appui long reset Wi-Fi: `5000 ms`
-
-Comportement actuel:
-
-- l'écran TFT se rallume lors d'une détection de présence par le capteur PIR raccordé sur GPIO `36`
-- le reset Wi-Fi par appui long correspond au bouton `factoryResetPin=23` du Supervisor
-
-## 5. Vérifications au premier démarrage
-
-### `FlowIO`
-
-Vérifier dans les logs:
-
-- initialisation du profil `FlowIO`
-- démarrage des modules `wifi`, `time`, `mqtt`, `io`, `poollogic`, `pooldev`
-- présence des topics `status`, `rt/network/state`, `rt/system/state`
-- si écran Nextion branché, activité du module `hmi`
-
-### `Supervisor`
-
-Vérifier dans les logs:
-
-- initialisation du profil `Supervisor`
-- démarrage des modules `wifi`, `wifiprov`, `i2ccfg.client`, `fwupdate`, `hmi.supervisor`
-- détection du lien I2C vers `FlowIO`
-- affichage TFT et gestion du rétroéclairage
-
-## 6. Modules activés par profil
-
-La présence d'un module dépend de trois points:
-
-1. l'environnement compilé dans `platformio.ini`
-2. les champs présents dans `src/Profiles/<Profil>/<Profil>Profile.h`
-3. l'enregistrement du module dans `src/Profiles/<Profil>/<Profil>Bootstrap.cpp`
-
-Le détail des fichiers à modifier est décrit dans [Adapter le projet à un autre domaine](adaptation-domaine.md).
+Après validation, exporter la configuration, noter la version 3.1.2 et
+conserver les sommes SHA-256 des fichiers installés avec le dossier du coffret.

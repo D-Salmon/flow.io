@@ -8,8 +8,11 @@
  */
 
 #include "Core/Module.h"
+#include "Core/NvsKeys.h"
+#include "Core/Security/WebSecurityPolicy.h"
 #include "Core/ServiceBinding.h"
 #include "Core/Services/Services.h"
+#include "Core/Services/IAlarm.h"
 #include "Core/Services/ILogger.h"
 #include <HardwareSerial.h>
 #include <ESPAsyncWebServer.h>
@@ -49,9 +52,9 @@ public:
         // Keep AP provisioning web startup independent from heavy app modules.
         return 2;
 #elif defined(FLOW_PROFILE_MICRONOVA)
-        return 6;
-#else
         return 7;
+#else
+        return 8;
 #endif
     }
     ModuleId dependency(uint8_t i) const override {
@@ -64,14 +67,16 @@ public:
         if (i == 3) return ModuleId::DataStore;
         if (i == 4) return ModuleId::Command;
         if (i == 5) return ModuleId::Hmi;
+        if (i == 6) return ModuleId::Alarm;
 #if !defined(FLOW_PROFILE_MICRONOVA) && !defined(FLOW_PROFILE_WAVESHARE)
-        if (i == 6) return ModuleId::I2cCfgClient;
+        if (i == 7) return ModuleId::I2cCfgClient;
 #endif
         return ModuleId::Unknown;
 #endif
     }
 
     void init(ConfigStore& cfg, ServiceRegistry& services) override;
+    void onConfigLoaded(ConfigStore& cfg, ServiceRegistry& services) override;
     bool canStart(ConfigStore&, ServiceRegistry& services) override {
 #if defined(FLOW_PROFILE_WAVESHARE)
         const NetworkAccessService* net = services.get<NetworkAccessService>(ServiceId::NetworkAccess);
@@ -115,6 +120,17 @@ private:
     void startServer_();
     void startLocalRuntime_();
     void handleUpdateRequest_(AsyncWebServerRequest* request, FirmwareUpdateTarget target);
+    void ensureCsrfToken_();
+    bool csrfRequestAllowed_(AsyncWebServerRequest* request) const;
+    bool requestOriginAllowed_(AsyncWebServerRequest* request, bool originRequired) const;
+    bool webRequestAuthorized_(AsyncWebServerRequest* request) const;
+    bool webAuthRateLimited_(AsyncWebServerRequest* request, uint32_t& retryAfterSeconds);
+    void noteWebAuthFailure_(AsyncWebServerRequest* request);
+    void noteWebAuthSuccess_(AsyncWebServerRequest* request);
+    bool allowUnauthenticatedRequest_(AsyncWebServerRequest* request) const;
+    bool physicalRecoveryActive_() const;
+    uint32_t physicalRecoveryRemainingMs_() const;
+    void pollBootRecoveryButton_();
     bool isWebReachable_() const;
     bool getNetworkIp_(char* out, size_t len, NetworkAccessMode* modeOut) const;
     const char* networkTransport_(NetworkAccessMode mode) const;
@@ -179,15 +195,32 @@ private:
     void scheduleReboot_(uint32_t delayMs, const char* reason);
     uint8_t wsActiveSource_() const;
     void setWsActiveSource_(uint8_t source);
+    void noteInvalidOtaSignature_();
+    static AlarmCondState condOtaSignatureFailuresStatic_(void* ctx, uint32_t nowMs);
+    AlarmCondState condOtaSignatureFailures_(uint32_t nowMs) const;
 
     HardwareSerial& uart_ = Serial2;
     uint32_t uartBaud_ = 115200U;
-    int uartRxPin_ = 16;
-    int uartTxPin_ = 17;
+    int uartRxPin_ = -1;
+    int uartTxPin_ = -1;
     bool bridgeUartConfigured_ = false;
     bool bridgeUartEnabled_ = false;
     AsyncWebServer server_{kServerPort};
     AsyncWebSocket wsLog_{"/wslog"};
+    char csrfToken_[33] = {0};
+    struct WebSecurityConfig {
+        char user[33]{};
+        char pass[33]{};
+    } webSecurity_{};
+    bool webCredentialsReady_ = false;
+    Security::WebAuthThrottleState webAuthThrottleState_{};
+    portMUX_TYPE webAuthThrottleMux_ = portMUX_INITIALIZER_UNLOCKED;
+    uint32_t bootButtonPressedAtMs_ = 0U;
+    uint32_t physicalRecoveryDeadlineMs_ = 0U;
+    bool bootRecoveryLatched_ = false;
+    static constexpr int kBootRecoveryPin = 0;
+    static constexpr uint32_t kBootRecoveryHoldMs = 5000U;
+    static constexpr uint32_t kPhysicalRecoveryWindowMs = 600000U;
 
     const LogHubService* logHub_ = nullptr;
     const LogSinkRegistryService* logSinkReg_ = nullptr;
@@ -200,6 +233,7 @@ private:
     const FlowCfgRemoteService* flowCfgSvc_ = nullptr;
     const NetworkAccessService* netAccessSvc_ = nullptr;
     const IOServiceV2* ioSvc_ = nullptr;
+    const AlarmService* alarmSvc_ = nullptr;
     DataStore* dataStore_ = nullptr;
     ConfigStore* cfgStore_ = nullptr;
     EventBus* eventBus_ = nullptr;
@@ -269,11 +303,17 @@ private:
     uint8_t wsSource_ = 0; // 0=supervisor local logs, 1=flow serial logs
     mutable portMUX_TYPE healthMux_ = portMUX_INITIALIZER_UNLOCKED;
     WebInterfaceHealth health_{};
+    static constexpr uint8_t kOtaSignatureFailureThreshold = 3U;
+    static constexpr uint32_t kOtaSignatureFailureWindowMs = 600000U;
+    static constexpr uint32_t kOtaSignatureFailureHoldMs = 600000U;
+    Security::FailureWindowState otaSignatureFailureState_{};
+    mutable portMUX_TYPE otaSignatureFailureMux_ = portMUX_INITIALIZER_UNLOCKED;
 
     WebInterfaceService webInterfaceSvc_{
         ServiceBinding::bind<&WebInterfaceModule::setPaused_>,
         ServiceBinding::bind<&WebInterfaceModule::isPaused_>,
         ServiceBinding::bind<&WebInterfaceModule::getHealth_>,
+        ServiceBinding::bind<&WebInterfaceModule::noteInvalidOtaSignature_>,
         this
     };
 };

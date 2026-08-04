@@ -13,7 +13,9 @@
 #include "Core/Services/Services.h"
 #include "Core/SystemLimits.h"
 #include "Modules/Network/MQTTModule/MqttConfigRouteProducer.h"
+#include "Modules/IOModule/IOBus/Ds2484OneWireBus.h"
 #include "Modules/IOModule/IOBus/I2CBus.h"
+#include "Modules/IOModule/IOBus/IOneWireTemperatureBus.h"
 #include "Modules/IOModule/IODrivers/Ads1115Driver.h"
 #include "Modules/IOModule/IODrivers/Bme680Driver.h"
 #include "Modules/IOModule/IODrivers/Bmp280Driver.h"
@@ -41,7 +43,6 @@
 #include <stdio.h>
 
 class DataStore;
-class OneWireBus;
 
 class IOModule : public Module, public IRuntimeSnapshotProvider, public IRuntimeUiValueProvider {
 public:
@@ -87,7 +88,13 @@ public:
     void loop() override;
     uint32_t startDelayMs() const override { return Limits::Boot::IoStartDelayMs; }
 
-    void setOneWireBuses(OneWireBus* water, OneWireBus* air);
+    void setOneWireBuses(IOneWireTemperatureBus* water, IOneWireTemperatureBus* air);
+    void useDs2484OneWireBus(uint8_t address, uint8_t waterIndex, uint8_t airIndex);
+    void useSelectableTemperatureBuses(uint8_t address,
+                                       uint8_t waterIndex,
+                                       uint8_t airIndex,
+                                       IOneWireTemperatureBus* directWater,
+                                       IOneWireTemperatureBus* directAir);
     void setBindingPorts(const IOBindingPortSpec* ports, uint8_t count);
     bool defineAnalogInput(const IOAnalogDefinition& def);
     bool applyAnalogInputDefaults(const IOAnalogDefinition& def);
@@ -173,7 +180,10 @@ private:
                                       bool& usesPcfOut,
                                       bool& usesTcaOut,
                                       bool& usesMcpOut) const;
-    bool resolveDsBusAddress_(OneWireBus* bus, const char* runtimeKey, uint8_t outAddr[8]);
+    bool resolveDsBusAddress_(IOneWireTemperatureBus* bus,
+                              const char* runtimeKey,
+                              uint8_t index,
+                              uint8_t outAddr[8]);
     bool runtimeSnapshotRouteFromIndex_(uint8_t snapshotIdx, uint8_t& routeTypeOut, uint8_t& slotIdxOut) const;
     bool buildEndpointSnapshot_(IOEndpoint* ep, char* out, size_t len, uint32_t& maxTsOut, bool invalidAsUndefined = false) const;
     bool buildGroupSnapshot_(char* out, size_t len, bool inputGroup, uint32_t& maxTsOut) const;
@@ -228,7 +238,10 @@ private:
                                             uint8_t edgeMode = IO_EDGE_RISING,
                                             uint32_t counterDebounceUs = 0);
     IAnalogSourceDriver* allocAdsDriver_(const char* driverId, I2CBus* bus, const Ads1115DriverConfig& cfg);
-    IAnalogSourceDriver* allocDsDriver_(const char* driverId, OneWireBus* bus, const uint8_t address[8], const Ds18b20DriverConfig& cfg);
+    IAnalogSourceDriver* allocDsDriver_(const char* driverId,
+                                        IOneWireTemperatureBus* bus,
+                                        const uint8_t address[8],
+                                        const Ds18b20DriverConfig& cfg);
     IAnalogSourceDriver* allocSht40Driver_(const char* driverId, I2CBus* bus, const Sht40DriverConfig& cfg);
     IAnalogSourceDriver* allocBmp280Driver_(const char* driverId, I2CBus* bus, const Bmp280DriverConfig& cfg);
     IAnalogSourceDriver* allocBme680Driver_(const char* driverId, I2CBus* bus, const Bme680DriverConfig& cfg);
@@ -529,9 +542,17 @@ private:
     IORegistry registry_{};
     IOScheduler scheduler_{};
     I2CBus i2cBus_{};
+    Ds2484OneWireBus ds2484Bus_{};
 
-    OneWireBus* oneWireWater_ = nullptr;
-    OneWireBus* oneWireAir_ = nullptr;
+    IOneWireTemperatureBus* oneWireWater_ = nullptr;
+    IOneWireTemperatureBus* oneWireAir_ = nullptr;
+    bool useDs2484_ = false;
+    bool selectableTemperatureBuses_ = false;
+    IOneWireTemperatureBus* directOneWireWater_ = nullptr;
+    IOneWireTemperatureBus* directOneWireAir_ = nullptr;
+    uint8_t ds2484Address_ = 0x18;
+    uint8_t oneWireWaterIndex_ = 0;
+    uint8_t oneWireAirIndex_ = 0;
     uint8_t oneWireWaterAddr_[8] = {0};
     uint8_t oneWireAirAddr_[8] = {0};
     bool oneWireWaterAddrValid_ = false;
@@ -629,6 +650,7 @@ private:
 #endif
     ConfigVariable<int32_t,0> adsPollVar_ { NVS_KEY(NvsKeys::Io::IO_ADS),"poll_ms","io/drivers/ads1115",ConfigType::Int32,&cfgData_.adsPollMs,ConfigPersistence::Persistent,0 };
     ConfigVariable<int32_t,0> dsPollVar_ { NVS_KEY(NvsKeys::Io::IO_DS),"poll_ms","io/drivers/ds18b20",ConfigType::Int32,&cfgData_.dsPollMs,ConfigPersistence::Persistent,0 };
+    ConfigVariable<uint8_t,0> dsTransportVar_ { NVS_KEY(NvsKeys::Io::IO_DSSRC),"transport","io/drivers/ds18b20",ConfigType::UInt8,&cfgData_.ds18Transport,ConfigPersistence::Persistent,0 };
     ConfigVariable<int32_t,0> digitalPollVar_ { NVS_KEY(NvsKeys::Io::IO_DIN),"poll_ms","io/drivers/gpio",ConfigType::Int32,&cfgData_.digitalPollMs,ConfigPersistence::Persistent,0 };
     ConfigVariable<uint8_t,0> adsInternalAddrVar_ { NVS_KEY(NvsKeys::Io::IO_AIAD),"address","io/drivers/ads1115_int",ConfigType::UInt8,&cfgData_.adsInternalAddr,ConfigPersistence::Persistent,0 };
     ConfigVariable<uint8_t,0> adsExternalAddrVar_ { NVS_KEY(NvsKeys::Io::IO_AEAD),"address","io/drivers/ads1115_ext",ConfigType::UInt8,&cfgData_.adsExternalAddr,ConfigPersistence::Persistent,0 };
