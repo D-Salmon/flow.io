@@ -1,5 +1,9 @@
 # Documentation flow.io
 
+Version Waveshare actuelle : **3.1.1** — voir les
+[notes de version](release-3.1.1.md) et le
+[travail restant avant production](../RESTANT_A_FAIRE.md).
+
 Cette documentation est organisée pour deux usages distincts:
 
 - mise en service et adaptation légère par un intégrateur technique

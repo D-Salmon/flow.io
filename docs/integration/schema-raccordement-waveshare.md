@@ -6,9 +6,9 @@ du coffret, le dimensionnement des protections, ni la validation par un
 électricien qualifié.
 
 > [!WARNING]
-> Ne pas relier GPIO21 à la masse avec le firmware 3.1.0 : cette broche pilote
+> Ne pas relier GPIO21 à la masse avec les firmwares 3.1.0 et 3.1.1 : cette broche pilote
 > désormais le rétroéclairage TFT. L’ancien cavalier de récupération 2.5.1
-> n’est pas compatible avec le matériel actuel. La récupération 3.1.0 se
+> n’est pas compatible avec le matériel actuel. La récupération 3.1.1 se
 > déclenche après un démarrage normal en maintenant le bouton BOOT pendant
 > 5 secondes ; ne pas maintenir BOOT pendant un reset ou une mise sous tension.
 

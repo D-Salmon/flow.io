@@ -30,16 +30,16 @@ fermee avec `Cle publique OTA non provisionnee`.
 ## 3. Signer un artefact
 
 ```sh
-python scripts/sign_ota.py binary/flowios3-3.1.0.bin \
+python scripts/sign_ota.py binary/flowios3-3.1.1.bin \
   --private-key /chemin/protege/flowio-ota-private.pem
 ```
 
-Le script produit `flowios3-3.1.0.bin.sig`, qui contient la signature DER
+Le script produit `flowios3-3.1.1.bin.sig`, qui contient la signature DER
 encodee en Base64. Publier les deux fichiers cote a cote :
 
 ```text
-flowios3-3.1.0.bin
-flowios3-3.1.0.bin.sig
+flowios3-3.1.1.bin
+flowios3-3.1.1.bin.sig
 ```
 
 ## 4. Installer
