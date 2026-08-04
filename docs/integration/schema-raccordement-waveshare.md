@@ -3,6 +3,9 @@
 Ce document décrit le profil autonome `Waveshare-ESP32-S3`. Une seule carte
 ESP32-S3 est nécessaire.
 
+Le dessin éditable correspondant est disponible dans
+[`docs/fritzing/FlowIO-Waveshare-3.1.2.fzz`](../fritzing/FlowIO-Waveshare-3.1.2.fzz).
+
 > **Sécurité** — Couper toutes les alimentations avant intervention. Les relais
 > doivent piloter des contacteurs correctement protégés. Ne jamais appliquer la
 > tension secteur ni 24 V sur une broche GPIO 3,3 V. Faire valider le coffret

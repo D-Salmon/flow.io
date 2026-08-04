@@ -28,6 +28,7 @@ dans les deux modes pour la RTC, les ADS1115 et les autres capteurs.
 - [Installer et utiliser la version 3.1.2](docs/README.md)
 - [Notes de version 3.1.2](docs/release-3.1.2.md)
 - [Schéma et tableau de raccordement](docs/integration/schema-raccordement-waveshare.md)
+- [Schéma éditable Fritzing 3.1.2](docs/fritzing/FlowIO-Waveshare-3.1.2.fzz)
 - [Validations restantes avant production](RESTANT_A_FAIRE.md)
 
 ## Compilation

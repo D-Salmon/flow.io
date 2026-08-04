@@ -41,6 +41,7 @@ Le mode Qwiic est la valeur par défaut et préserve les configurations 3.1.0 et
 
 - [Notes de version 3.1.2](release-3.1.2.md)
 - [Raccordement complet](integration/schema-raccordement-waveshare.md)
+- [Schéma éditable Fritzing](fritzing/FlowIO-Waveshare-3.1.2.fzz)
 - [Mise en service et essais](integration/mise-en-service.md)
 - [Durcissement MQTT](mqtt-hardening.md)
 - [Signature OTA](ota-signing.md)

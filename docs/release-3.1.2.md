@@ -57,5 +57,6 @@ indispensables avant production.
 
 - [Guide principal](README.md)
 - [Raccordement 3.1.2](integration/schema-raccordement-waveshare.md)
+- [Schéma Fritzing 3.1.2](fritzing/FlowIO-Waveshare-3.1.2.fzz)
 - [Mise en service](integration/mise-en-service.md)
 - [Validations restantes](../RESTANT_A_FAIRE.md)

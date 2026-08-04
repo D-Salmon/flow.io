@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module fritzingVersion="1.0.4" moduleId="flowio_waveshare_3_1_2_diagram" referenceFile="flowio-waveshare-3.1.2.fzp">
+  <version>1</version>
+  <date>2026-08-04</date>
+  <label>FLOWIO</label>
+  <author>Flow.io</author>
+  <description>Schéma documentaire Flow.io Waveshare 3.1.2 : Qwiic permanent et températures Qwiic ou GPIO.</description>
+  <title>Flow.io Waveshare 3.1.2</title>
+  <tags><tag>flow.io</tag><tag>waveshare</tag><tag>esp32-s3</tag><tag>ds18b20</tag></tags>
+  <properties><property name="family">Flow.io documentation</property><property name="variant">3.1.2</property></properties>
+  <views>
+    <breadboardView><layers image="breadboard/flowio-waveshare-3.1.2_breadboard.svg"><layer layerId="breadboard"/></layers></breadboardView>
+    <schematicView><layers image="schematic/flowio-waveshare-3.1.2_schematic.svg"><layer layerId="schematic"/></layers></schematicView>
+    <pcbView><layers image="pcb/flowio-waveshare-3.1.2_pcb.svg"><layer layerId="silkscreen"/></layers></pcbView>
+    <iconView><layers image="icon/flowio-waveshare-3.1.2_icon.svg"><layer layerId="icon"/></layers></iconView>
+  </views>
+  <connectors/>
+  <buses/>
+</module>
