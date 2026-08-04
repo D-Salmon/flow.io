@@ -1,21 +1,31 @@
 # Documentation flow.io
 
+Version Waveshare actuelle : **3.1.1** — voir les
+[notes de version](release-3.1.1.md) et le
+[travail restant avant production](../RESTANT_A_FAIRE.md).
+
 Cette documentation est organisée pour deux usages distincts:
 
 - mise en service et adaptation légère par un intégrateur technique
 - référence technique descriptive de l'implémentation actuelle
 
-Le projet est prévu pour fonctionner avec deux ESP32 distincts, chacun avec son propre firmware:
+La cible recommandée Waveshare fonctionne avec **un seul ESP32-S3**. Ce même
+microcontrôleur exécute la logique piscine, les 8 entrées et 8 relais,
+Ethernet, Wi-Fi, le portail de configuration, l'interface Web, MQTT, Home
+Assistant, l'OTA, la RTC et l'interface HMI. Aucun second ESP32 ni Supervisor
+n'est nécessaire pour ce profil.
 
-- `flowIO`: ESP32 principal qui exécute la logique métier et pilote les entrées/sorties
-- `Supervisor`: ESP32 de supervision qui configure le système, assure le provisioning Wi-Fi, gère l'écran TFT, permet la consultation des logs et pilote les mises à jour
+Le dépôt conserve aussi les profils historiques `FlowIO` et `Supervisor` pour
+les anciennes installations à deux cartes. Ils ne décrivent pas l'architecture
+du firmware `Waveshare-ESP32-S3`.
 
-Le projet compile aujourd'hui deux firmwares ESP32:
+Le projet compile notamment les firmwares suivants:
 
 | Firmware | Environnement PlatformIO | Rôle |
 |---|---|---|
+| `Waveshare` | `Waveshare-ESP32-S3` | Contrôleur autonome sur un seul ESP32-S3 : logique piscine, E/S, Ethernet, Wi-Fi, Web, MQTT, Home Assistant, OTA, RTC et HMI |
 | `FlowIO` | `FlowIO` | ESP32 principal: logique métier, entrées/sorties, MQTT, Home Assistant, écran Nextion |
-| `Supervisor` | `Supervisor` | ESP32 de supervision: configuration, provisioning Wi-Fi, écran TFT, consultation des logs, mises à jour, passerelle I2C vers `FlowIO` |
+| `Supervisor` | `Supervisor` | Profil historique optionnel de supervision pour les installations à deux ESP32 |
 
 ## Parcours de lecture
 

@@ -1,5 +1,13 @@
 # Historique des correctifs de securite
 
+## Version 3.1.1 - 2026-08-04
+
+- ajout d'une voie Wi-Fi de secours après échec immédiat de `WiFi.begin()` ;
+- validation bornée du SSID et du mot de passe avant l'appel ESP-IDF ;
+- conservation du mode AP+station et de la machine d'état Flow.io ;
+- aucune modification des règles CSRF, Digest, récupération BOOT ou OTA signée ;
+- publication CI du firmware, du SPIFFS, du manifeste et des sommes SHA-256.
+
 > **Note de re-verification (2026-08-02)** : ce document decrit un lot de
 > correctifs anterieur (aligne sur la branche 2.5.0). Verifie point par
 > point sur le depot `flow.io-agent-waveshare-3.1.0`.

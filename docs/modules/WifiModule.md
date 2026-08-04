@@ -1,5 +1,17 @@
 # WifiModule (`moduleId: wifi`)
 
+## Reprise de connexion en 3.1.1
+
+Le chemin normal utilise `WiFi.begin()`. Si cet appel retourne immédiatement
+`WL_CONNECT_FAILED`, le module valide les longueurs des identifiants puis arme
+une connexion de secours avec `esp_wifi_set_config()` et
+`esp_wifi_connect()`. La recherche couvre tous les canaux, sélectionne le point
+d'accès selon le signal et conserve AP+station si le portail est actif.
+
+Le reconnecteur automatique interne reste désactivé : les temporisations et
+les nouvelles tentatives restent gérées par la machine d'état du module, en
+coordination avec Ethernet.
+
 ## Rôle
 
 Gestion de la connectivité WiFi STA:

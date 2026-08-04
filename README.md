@@ -1,5 +1,15 @@
 # flow.io
 
+## Version actuelle
+
+La version Waveshare actuelle est **3.1.1**. Elle conserve Ethernet prioritaire
+et le Wi-Fi de secours, et ajoute une seconde voie de connexion Wi-Fi lorsque
+`WiFi.begin()` échoue immédiatement. GitHub Actions produit le firmware, le
+SPIFFS, le manifeste et les sommes SHA-256.
+
+- [Notes de version 3.1.1](docs/release-3.1.1.md)
+- [Travail restant avant production](RESTANT_A_FAIRE.md)
+
 flow.io est une plateforme autonome permettant de gérer automatiquement votre piscine: elle automatise la gestion de la qualité de l'eau, réduit les opérations manuelles, et donne une supervision claire des équipements en local comme à distance.
 
 <p align="center">
@@ -104,7 +114,7 @@ Résultat: une eau plus stable, une maintenance plus prévisible et une meilleur
 La documentation complète (architecture, services Core, flux EventBus/DataStore/MQTT, et fiche détaillée par module) est disponible ici:
 
 - [Documentation complète](docs/README.md)
-- [Protocole flow.io <-> Supervisor (I2C cfg/status)](docs/core/flow-supervisor-i2c-protocol.md)
+- [Protocole historique flow.io <-> Supervisor (installations à deux ESP32)](docs/core/flow-supervisor-i2c-protocol.md)
 - [Quality Gates Modules (notes + description des 10 points)](docs/core/module-quality-gates.md)
 
 ## Documentation utilisateur

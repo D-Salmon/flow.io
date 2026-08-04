@@ -1,5 +1,12 @@
 # Travail restant avant production
 
+> **Mise à jour 3.1.1 (2026-08-04)** : le firmware Waveshare est maintenant en
+> version `3.1.1`. La CI compile le firmware et le SPIFFS, vérifie la livraison,
+> calcule les sommes SHA-256 et conserve les fichiers comme artefacts
+> téléchargeables. Le Wi-Fi dispose d'une voie ESP-IDF de secours lorsque
+> `WiFi.begin()` échoue immédiatement. Les validations matérielles ci-dessous
+> restent nécessaires avant production.
+
 > **Note de re-verification (2026-08-02)** : ce document decrit l'etat
 > `2.5.1`. Verifie point par point sur le depot livre
 > `flow.io-agent-waveshare-3.1.0` (`waveshare_firmware_version = 3.1.0`),
