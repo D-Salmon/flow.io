@@ -508,10 +508,12 @@ void configureIoModule(const AppContext& ctx, ModuleInstances& modules)
 {
     requireSetup(ctx.domain != nullptr, "missing domain spec");
 
-    modules.ioModule.useDs2484OneWireBus(
+    modules.ioModule.useSelectableTemperatureBuses(
         (uint8_t)FLOW_DS18_DS2484_ADDRESS,
         0U,
-        1U);
+        1U,
+        &modules.oneWireWater,
+        &modules.oneWireAir);
     modules.ioModule.setBindingPorts(
         FlowIoLayout::kBindingPorts,
         (uint8_t)(sizeof(FlowIoLayout::kBindingPorts) / sizeof(FlowIoLayout::kBindingPorts[0]))

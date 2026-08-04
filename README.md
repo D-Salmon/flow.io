@@ -2,12 +2,12 @@
 
 ## Version actuelle
 
-La version Waveshare actuelle est **3.1.1**. Elle conserve Ethernet prioritaire
+La version Waveshare en préparation est **3.1.2**. Elle conserve Ethernet prioritaire
 et le Wi-Fi de secours, et ajoute une seconde voie de connexion Wi-Fi lorsque
 `WiFi.begin()` échoue immédiatement. GitHub Actions produit le firmware, le
 SPIFFS, le manifeste et les sommes SHA-256.
 
-- [Notes de version 3.1.1](docs/release-3.1.1.md)
+- [Notes de version 3.1.2](docs/release-3.1.2.md)
 - [Travail restant avant production](RESTANT_A_FAIRE.md)
 
 flow.io est une plateforme autonome permettant de gérer automatiquement votre piscine: elle automatise la gestion de la qualité de l'eau, réduit les opérations manuelles, et donne une supervision claire des équipements en local comme à distance.

@@ -8,6 +8,7 @@
 #include "Modules/HMIModule/HMIModule.h"
 #include "Modules/HMIBuzzerModule/HMIBuzzerModule.h"
 #include "Modules/IOModule/IOModule.h"
+#include "Modules/IOModule/IOBus/OneWireBus.h"
 #if FLOW_ENABLE_BOOT_LOG_CAPTURE
 #include "Modules/Logs/BootLogCaptureModule/BootLogCaptureModule.h"
 #endif
@@ -76,6 +77,8 @@ struct ModuleInstances {
     HMIModule hmiModule;
     HMIBuzzerModule hmiBuzzerModule;
     IOModule ioModule;
+    OneWireBus oneWireWater{20};
+    OneWireBus oneWireAir{19};
     PoolDeviceModule poolDeviceModule{};
     PoolLogicModule poolLogicModule{};
     DataStore* ioDataStore = nullptr;

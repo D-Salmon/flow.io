@@ -26,6 +26,9 @@
     "io/drivers/sht40/address": {
       "display_format": "hex"
     },
+    "io/drivers/ds18b20/transport": {
+      "enum_set": "ds18b20_transport"
+    },
     "io/input": {
       "label_t": "cfgmods.io.input.label"
     },
@@ -361,6 +364,16 @@
       }
     ],
     "enum_sets": {
+      "ds18b20_transport": [
+        {
+          "value": 0,
+          "label_t": "cfgmods_meta.iomodule.enum_sets.ds18b20_transport.0.label"
+        },
+        {
+          "value": 1,
+          "label_t": "cfgmods_meta.iomodule.enum_sets.ds18b20_transport.1.label"
+        }
+      ],
       "flowio_digital_input_mode": [
         {
           "value": 0,

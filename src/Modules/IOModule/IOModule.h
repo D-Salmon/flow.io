@@ -90,6 +90,11 @@ public:
 
     void setOneWireBuses(IOneWireTemperatureBus* water, IOneWireTemperatureBus* air);
     void useDs2484OneWireBus(uint8_t address, uint8_t waterIndex, uint8_t airIndex);
+    void useSelectableTemperatureBuses(uint8_t address,
+                                       uint8_t waterIndex,
+                                       uint8_t airIndex,
+                                       IOneWireTemperatureBus* directWater,
+                                       IOneWireTemperatureBus* directAir);
     void setBindingPorts(const IOBindingPortSpec* ports, uint8_t count);
     bool defineAnalogInput(const IOAnalogDefinition& def);
     bool applyAnalogInputDefaults(const IOAnalogDefinition& def);
@@ -542,6 +547,9 @@ private:
     IOneWireTemperatureBus* oneWireWater_ = nullptr;
     IOneWireTemperatureBus* oneWireAir_ = nullptr;
     bool useDs2484_ = false;
+    bool selectableTemperatureBuses_ = false;
+    IOneWireTemperatureBus* directOneWireWater_ = nullptr;
+    IOneWireTemperatureBus* directOneWireAir_ = nullptr;
     uint8_t ds2484Address_ = 0x18;
     uint8_t oneWireWaterIndex_ = 0;
     uint8_t oneWireAirIndex_ = 0;
@@ -642,6 +650,7 @@ private:
 #endif
     ConfigVariable<int32_t,0> adsPollVar_ { NVS_KEY(NvsKeys::Io::IO_ADS),"poll_ms","io/drivers/ads1115",ConfigType::Int32,&cfgData_.adsPollMs,ConfigPersistence::Persistent,0 };
     ConfigVariable<int32_t,0> dsPollVar_ { NVS_KEY(NvsKeys::Io::IO_DS),"poll_ms","io/drivers/ds18b20",ConfigType::Int32,&cfgData_.dsPollMs,ConfigPersistence::Persistent,0 };
+    ConfigVariable<uint8_t,0> dsTransportVar_ { NVS_KEY(NvsKeys::Io::IO_DSSRC),"transport","io/drivers/ds18b20",ConfigType::UInt8,&cfgData_.ds18Transport,ConfigPersistence::Persistent,0 };
     ConfigVariable<int32_t,0> digitalPollVar_ { NVS_KEY(NvsKeys::Io::IO_DIN),"poll_ms","io/drivers/gpio",ConfigType::Int32,&cfgData_.digitalPollMs,ConfigPersistence::Persistent,0 };
     ConfigVariable<uint8_t,0> adsInternalAddrVar_ { NVS_KEY(NvsKeys::Io::IO_AIAD),"address","io/drivers/ads1115_int",ConfigType::UInt8,&cfgData_.adsInternalAddr,ConfigPersistence::Persistent,0 };
     ConfigVariable<uint8_t,0> adsExternalAddrVar_ { NVS_KEY(NvsKeys::Io::IO_AEAD),"address","io/drivers/ads1115_ext",ConfigType::UInt8,&cfgData_.adsExternalAddr,ConfigPersistence::Persistent,0 };

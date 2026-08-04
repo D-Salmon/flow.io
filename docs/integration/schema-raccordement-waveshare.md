@@ -47,8 +47,16 @@ flowchart LR
 ```
 
 Le bus Qwiic doit présenter exactement les trois adresses attendues :
-`0x18`, `0x48` et `0x49`. Les sondes DS18B20 eau et air partagent le bus
-1-Wire du DS2484 et sont différenciées par leur ROM ID.
+`0x18`, `0x48` et `0x49` en mode Qwiic. Les sondes DS18B20 proposent deux
+modes dans l'interface Web (`io/drivers/ds18b20`) :
+
+- `Qwiic / DS2484` (par défaut) : eau et air partagent le bus 1-Wire du
+  DS2484 et sont différenciées par leur ROM ID ;
+- `GPIO direct` : eau sur GPIO20 et air sur GPIO19, avec une résistance de
+  rappel de 4,7 kΩ entre DATA et 3,3 V sur chaque ligne.
+
+Ce choix concerne uniquement les températures. Qwiic/I²C sur GPIO42/GPIO41
+reste actif pour tous les autres composants. Redémarrer après modification.
 
 Le Nextion utilise l'UART2 à 115200 bauds dans le profil Waveshare :
 `RX = GPIO44` et `TX = GPIO43`. Les signaux sont croisés (`TX` de l'écran vers
