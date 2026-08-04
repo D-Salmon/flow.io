@@ -2,7 +2,11 @@
 
 Cette page s'adresse à l'intégrateur qui veut câbler la carte, compiler le bon firmware et vérifier le démarrage sans modifier l'architecture du projet.
 
-L'architecture cible du projet repose sur deux ESP32:
+> Cette procédure décrit l'architecture historique à deux ESP32. Pour la cible
+> `Waveshare-ESP32-S3` 3.1.1, un seul ESP32-S3 exécute toutes les fonctions et
+> le Supervisor n'est pas nécessaire.
+
+L'architecture historique du projet repose sur deux ESP32:
 
 - un ESP32 `FlowIO` pour la logique métier et la gestion des entrées/sorties
 - un ESP32 `Supervisor` pour la configuration, le provisioning Wi-Fi, l'écran TFT, l'accès aux logs et les mises à jour du système
