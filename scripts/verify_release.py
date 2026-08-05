@@ -12,7 +12,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "3.1.2"
+VERSION = "3.1.3"
 
 
 def fail(message: str) -> None:
@@ -101,7 +101,7 @@ def verify_profile_and_safety_defaults() -> None:
     filtration = read("src/Modules/PoolLogicModule/FiltrationWindow.cpp")
 
     required = (
-        ("firmware version", 'waveshare_firmware_version = \'"3.1.2"\'', ini),
+        ("firmware version", 'waveshare_firmware_version = \'"3.1.3"\'', ini),
         ("16 MB OTA partition map", "partitions_flowios3_ota_16mb.csv", ini),
         ("octal PSRAM", "board_build.psram_type = opi", ini),
         ("ArduinoJson 7.4.3", "bblanchon/ArduinoJson @ 7.4.3", ini),
@@ -155,7 +155,7 @@ def verify_profile_and_safety_defaults() -> None:
 
 
 def verify_declared_limits() -> None:
-    status = read("docs/release-3.1.2.md")
+    status = read("docs/release-3.1.3.md")
     required = (
         "Qwiic / DS2484",
         "GPIO20",
