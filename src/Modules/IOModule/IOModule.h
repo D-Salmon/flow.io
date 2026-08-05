@@ -43,6 +43,7 @@
 #include <stdio.h>
 
 class DataStore;
+struct IOConfigDescriptorStorage;
 
 class IOModule : public Module, public IRuntimeSnapshotProvider, public IRuntimeUiValueProvider {
 public:
