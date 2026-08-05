@@ -202,6 +202,40 @@ static constexpr uint8_t analogCfgBranch_(uint8_t idx)
                            ConfigBranchRef::UnknownLocalBranch;
 }
 
+static constexpr uint8_t digitalInputCfgBranch_(uint8_t idx)
+{
+    return (idx == 0U) ? kCfgBranchIoI0 :
+           (idx == 1U) ? kCfgBranchIoI1 :
+           (idx == 2U) ? kCfgBranchIoI2 :
+           (idx == 3U) ? kCfgBranchIoI3 :
+           (idx == 4U) ? kCfgBranchIoI4 :
+           (idx == 5U) ? kCfgBranchIoI5 :
+           (idx == 6U) ? kCfgBranchIoI6 :
+           (idx == 7U) ? kCfgBranchIoI7 :
+                          ConfigBranchRef::UnknownLocalBranch;
+}
+
+static constexpr uint8_t digitalOutputCfgBranch_(uint8_t idx)
+{
+    return (idx == 0U) ? kCfgBranchIoD0 :
+           (idx == 1U) ? kCfgBranchIoD1 :
+           (idx == 2U) ? kCfgBranchIoD2 :
+           (idx == 3U) ? kCfgBranchIoD3 :
+           (idx == 4U) ? kCfgBranchIoD4 :
+           (idx == 5U) ? kCfgBranchIoD5 :
+           (idx == 6U) ? kCfgBranchIoD6 :
+           (idx == 7U) ? kCfgBranchIoD7 :
+           (idx == 8U) ? kCfgBranchIoD8 :
+           (idx == 9U) ? kCfgBranchIoD9 :
+           (idx == 10U) ? kCfgBranchIoD10 :
+           (idx == 11U) ? kCfgBranchIoD11 :
+           (idx == 12U) ? kCfgBranchIoD12 :
+           (idx == 13U) ? kCfgBranchIoD13 :
+           (idx == 14U) ? kCfgBranchIoD14 :
+           (idx == 15U) ? kCfgBranchIoD15 :
+                           ConfigBranchRef::UnknownLocalBranch;
+}
+
 PhysicalPortId normalizeConfiguredBindingPort(PhysicalPortId port)
 {
     return (port == kLegacyDisconnectedBindingPort) ? IO_PORT_INVALID : port;
