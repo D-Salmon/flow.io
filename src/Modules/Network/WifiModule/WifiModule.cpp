@@ -1080,9 +1080,15 @@ void WifiModule::syncMdns_()
         return;
     }
 
+    if (!MDNS.addService("http", "tcp", 80)) {
+        LOGW("mDNS HTTP service registration failed host=%s", host);
+        MDNS.end();
+        return;
+    }
+
     mdnsStarted = true;
     snprintf(mdnsApplied, sizeof(mdnsApplied), "%s", host);
-    LOGD("mDNS started host=%s.local", mdnsApplied);
+    LOGI("mDNS started host=%s.local service=http/tcp:80", mdnsApplied);
 }
 
 void WifiModule::loop() {

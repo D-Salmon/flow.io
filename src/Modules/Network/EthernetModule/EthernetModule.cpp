@@ -492,9 +492,14 @@ void EthernetModule::startMdns_()
         LOGW("mDNS start failed host=%s on Ethernet", host);
         return;
     }
+    if (!MDNS.addService("http", "tcp", 80)) {
+        LOGW("mDNS HTTP service registration failed host=%s on Ethernet", host);
+        MDNS.end();
+        return;
+    }
     mdnsStarted_ = true;
     snprintf(mdnsApplied_, sizeof(mdnsApplied_), "%s", host);
-    LOGI("mDNS started host=%s.local (Ethernet)", mdnsApplied_);
+    LOGI("mDNS started host=%s.local service=http/tcp:80 (Ethernet)", mdnsApplied_);
 }
 
 void EthernetModule::stopMdns_()
