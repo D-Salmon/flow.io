@@ -33,7 +33,9 @@ namespace {
 
 using Profiles::Waveshare::ModuleInstances;
 
-constexpr size_t kFlowIos3PsramMallocAlwaysInternalBytes = 128U;
+// Preserve scarce internal RAM for TLS and DMA-capable allocations. Ordinary
+// allocations larger than this threshold may use the 8 MB PSRAM.
+constexpr size_t kFlowIos3PsramMallocAlwaysInternalBytes = 32U;
 
 const PoolDevicePreset* findPoolPresetById(const DomainSpec& domain, PoolDeviceId id)
 {

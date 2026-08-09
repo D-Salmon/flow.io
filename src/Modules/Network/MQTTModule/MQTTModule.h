@@ -103,6 +103,8 @@ public:
 
     void formatTopic(char* out, size_t outLen, const char* suffix) const;
     bool isConnected() const { return state_ == MQTTState::Connected; }
+    bool isEnabled() const { return cfgData_.enabled; }
+    bool wasValidPreviousBoot() const { return mqttValidPreviousBoot_; }
     DataStore* dataStorePtr() const { return dataStore_; }
 
 private:
@@ -241,6 +243,8 @@ private:
     bool clientStarted_ = false;
     bool clientConfigDirty_ = true;
     bool suppressDisconnectEvent_ = false;
+    bool mqttValidPreviousBoot_ = false;
+    bool mqttValidCurrentBoot_ = false;
 
     const WifiService* wifiSvc_ = nullptr;
     const CommandService* cmdSvc_ = nullptr;
@@ -317,6 +321,8 @@ private:
     bool allocateRxQueue_();
     void refreshTopicDeviceId_();
     void buildTopics_();
+    void loadAndArmBootValidation_();
+    void persistBootValidation_(bool valid);
     static void onEventStatic_(const Event& e, void* user);
     void onEvent_(const Event& e);
 
@@ -397,6 +403,8 @@ private:
         ServiceBinding::bind<&MQTTModule::registerProducer>,
         ServiceBinding::bind<&MQTTModule::formatTopicSvc_>,
         ServiceBinding::bind<&MQTTModule::isConnected>,
+        ServiceBinding::bind<&MQTTModule::isEnabled>,
+        ServiceBinding::bind<&MQTTModule::wasValidPreviousBoot>,
         ServiceBinding::bind<&MQTTModule::registerInboundHandler>,
         this
     };

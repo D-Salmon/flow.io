@@ -205,6 +205,49 @@ void MQTTModule::buildTopics_()
     snprintf(topicCfgSet_, sizeof(topicCfgSet_), "%s/%s/%s", cfgData_.baseTopic, deviceId_, MqttTopics::SuffixCfgSet);
 }
 
+void MQTTModule::persistBootValidation_(bool valid)
+{
+    if (mqttValidCurrentBoot_ == valid) return;
+    if (!cfgSvc_ || !cfgSvc_->writeRuntimeBlob) {
+        LOGW("mqtt boot validation persistence unavailable");
+        return;
+    }
+
+    const uint8_t marker = valid ? 1U : 0U;
+    if (!cfgSvc_->writeRuntimeBlob(cfgSvc_->ctx,
+                                   NvsKeys::Mqtt::PreviousBootValid,
+                                   &marker,
+                                   sizeof(marker))) {
+        LOGW("mqtt boot validation persistence failed value=%u", (unsigned)marker);
+        return;
+    }
+
+    mqttValidCurrentBoot_ = valid;
+    LOGI("mqtt boot validation persisted value=%u", (unsigned)marker);
+}
+
+void MQTTModule::loadAndArmBootValidation_()
+{
+    uint8_t marker = 0U;
+    size_t actualLen = 0U;
+    const bool readOk = cfgSvc_ && cfgSvc_->readRuntimeBlob &&
+                        cfgSvc_->readRuntimeBlob(cfgSvc_->ctx,
+                                                 NvsKeys::Mqtt::PreviousBootValid,
+                                                 &marker,
+                                                 sizeof(marker),
+                                                 &actualLen);
+    mqttValidPreviousBoot_ = readOk && actualLen == sizeof(marker) && marker == 1U;
+    mqttValidCurrentBoot_ = mqttValidPreviousBoot_;
+    LOGI("mqtt previous boot validation=%u", (unsigned)mqttValidPreviousBoot_);
+
+    // Arm the current boot as failed until an actual MQTT connection proves it
+    // valid. If this boot never connects, the following boot can expose the Web
+    // configuration immediately instead of waiting for MQTT.
+    if (mqttValidCurrentBoot_) {
+        persistBootValidation_(false);
+    }
+}
+
 void MQTTModule::onEventStatic_(const Event& e, void* user)
 {
     MQTTModule* self = static_cast<MQTTModule*>(user);
@@ -326,6 +369,8 @@ void MQTTModule::onEvent_(const Event& e)
 
         const char* key = p->nvsKey;
         if (key && key[0] != '\0' && isMqttConnKey(key)) {
+            mqttValidPreviousBoot_ = false;
+            persistBootValidation_(false);
             clientConfigDirty_ = true;
             stopClient_(true);
             netReadyTs_ = millis();
@@ -476,6 +521,7 @@ void MQTTModule::init(ConfigStore& cfg, ServiceRegistry& services)
 
 void MQTTModule::onConfigLoaded(ConfigStore&, ServiceRegistry& services)
 {
+    loadAndArmBootValidation_();
     if (!cfgProducer_) {
         cfgProducer_ = new (std::nothrow) MqttConfigRouteProducer();
     }

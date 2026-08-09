@@ -33,6 +33,7 @@ constexpr char TopicDeviceId[] = "mq_tid"; // MQTT topic device id override for 
 constexpr char DeviceName[] = "mq_name"; // MQTT device display name used by HA discovery `device.name`.
 constexpr char Enabled[] = "mq_en"; // MQTT module persisted key for field `mq_en`.
 constexpr char SensorMinPublishMs[] = "mq_smin"; // MQTT module persisted key for field `mq_smin`.
+constexpr char PreviousBootValid[] = "mq_prevok"; // Internal marker: the previous boot reached MQTT connected state.
 }  // namespace Mqtt
 
 namespace Ha {

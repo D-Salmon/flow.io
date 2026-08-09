@@ -64,6 +64,8 @@ struct MqttService {
     bool (*registerProducer)(void* ctx, const MqttPublishProducer* producer);
     void (*formatTopic)(void* ctx, const char* suffix, char* out, size_t outLen);
     bool (*isConnected)(void* ctx);
+    bool (*isEnabled)(void* ctx);
+    bool (*wasValidPreviousBoot)(void* ctx);
     bool (*registerInboundHandler)(void* ctx, const MqttInboundHandler* handler);
     void* ctx;
 };

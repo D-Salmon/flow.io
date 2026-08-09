@@ -10433,7 +10433,28 @@
       if (controlsPrimaryPane) {
         flowCfgApplyBtn.hidden = perFieldApply;
       }
-      const keys = Object.keys(data).sort();
+      const mqttFieldOrder = [
+        'deviceName',
+        'baseTopic',
+        'enabled',
+        'host',
+        'port',
+        'user',
+        'pass',
+        'topicDeviceId'
+      ];
+      const preferredFieldOrder = nettoyerNomFlowCfg(moduleName) === 'mqtt'
+        ? mqttFieldOrder
+        : null;
+      const keys = Object.keys(data).sort((left, right) => {
+        if (!preferredFieldOrder) return left.localeCompare(right);
+        const leftIndex = preferredFieldOrder.indexOf(left);
+        const rightIndex = preferredFieldOrder.indexOf(right);
+        if (leftIndex >= 0 && rightIndex >= 0) return leftIndex - rightIndex;
+        if (leftIndex >= 0) return -1;
+        if (rightIndex >= 0) return 1;
+        return left.localeCompare(right);
+      });
       if (sectionTitle && keys.length > 0) {
         const sectionEl = document.createElement('div');
         sectionEl.className = 'control-section-title';

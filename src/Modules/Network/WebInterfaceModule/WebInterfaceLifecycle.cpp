@@ -224,6 +224,9 @@ void WebInterfaceModule::loop()
     if (!netAccessSvc_ && services_) {
         netAccessSvc_ = services_->get<NetworkAccessService>(ServiceId::NetworkAccess);
     }
+    if (!mqttSvc_ && services_) {
+        mqttSvc_ = services_->get<MqttService>(ServiceId::Mqtt);
+    }
 
     if (!started_) {
         char ip[16] = {0};
@@ -237,6 +240,46 @@ void WebInterfaceModule::loop()
         if (mode == NetworkAccessMode::AccessPoint) {
             provisioningOnly_ = true;
             LOGI("Web startup in flow.io AP provisioning mode");
+        }
+
+        // The full ESPAsyncWebServer route table consumes a large amount of
+        // scarce internal RAM. On WiFi, starting it before MQTT makes the RSA
+        // certificate verification fail with a nested MPI allocation error.
+        // Ethernet succeeds because MQTT wins this startup race. Reproduce that
+        // proven order on every interface: establish TLS first, then release
+        // the full station-mode web server.
+        if (mode == NetworkAccessMode::Station &&
+            mqttSvc_ && mqttSvc_->isEnabled && mqttSvc_->isEnabled(mqttSvc_->ctx)) {
+            const bool mqttWasValidPreviousBoot =
+                mqttSvc_->wasValidPreviousBoot &&
+                mqttSvc_->wasValidPreviousBoot(mqttSvc_->ctx);
+            const bool mqttConnected =
+                mqttSvc_->isConnected && mqttSvc_->isConnected(mqttSvc_->ctx);
+            if (!mqttConnected && mqttWasValidPreviousBoot) {
+                const uint32_t nowMs = millis();
+                if (stationMqttWaitStartedMs_ == 0U) {
+                    stationMqttWaitStartedMs_ = nowMs;
+                }
+                const uint32_t waitElapsedMs = nowMs - stationMqttWaitStartedMs_;
+                if (!stationWebDeferredLogged_) {
+                    stationWebDeferredLogged_ = true;
+                    LOGI("Web station server deferred up to %lus for MQTT TLS",
+                         (unsigned long)(kStationMqttWebGraceMs / 1000U));
+                }
+                if (waitElapsedMs < kStationMqttWebGraceMs) {
+                    vTaskDelay(pdMS_TO_TICKS(250));
+                    return;
+                }
+                LOGW("Web station recovery release after MQTT TLS timeout; "
+                     "save corrected MQTT settings and reboot");
+            }
+            if (mqttConnected && stationWebDeferredLogged_) {
+                stationWebDeferredLogged_ = false;
+                LOGI("Web station server released after MQTT TLS connected");
+            }
+            if (!mqttConnected && !mqttWasValidPreviousBoot) {
+                LOGI("Web station server released immediately: MQTT was not valid on previous boot");
+            }
         }
 #endif
 

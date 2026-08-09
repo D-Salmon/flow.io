@@ -238,6 +238,7 @@ void MQTTModule::connectMqtt_()
 void MQTTModule::onConnect_(bool)
 {
     suppressDisconnectEvent_ = false;
+    persistBootValidation_(true);
 
     (void)esp_mqtt_client_subscribe(client_, topicCmd_, 0);
     (void)esp_mqtt_client_subscribe(client_, topicCfgSet_, 1);

@@ -4839,6 +4839,7 @@ void WebInterfaceModule::init(ConfigStore& cfg, ServiceRegistry& services)
     hmiSvc_ = services.get<HmiService>(ServiceId::Hmi);
     flowCfgSvc_ = services.get<FlowCfgRemoteService>(ServiceId::FlowCfg);
     netAccessSvc_ = services.get<NetworkAccessService>(ServiceId::NetworkAccess);
+    mqttSvc_ = services.get<MqttService>(ServiceId::Mqtt);
     ioSvc_ = services.get<IOServiceV2>(ServiceId::Io);
     alarmSvc_ = services.get<AlarmService>(ServiceId::Alarm);
     const DataStoreService* dsSvc = services.get<DataStoreService>(ServiceId::DataStore);

@@ -91,7 +91,7 @@ public:
     void onStart(ConfigStore& cfg, ServiceRegistry& services) override;
     uint32_t startDelayMs() const override {
 #if defined(FLOW_PROFILE_WAVESHARE)
-        return 3000U;
+        return Limits::Boot::WebInterfaceStartDelayMs;
 #else
         return Limits::Boot::WebInterfaceStartDelayMs;
 #endif
@@ -232,6 +232,7 @@ private:
     const HmiService* hmiSvc_ = nullptr;
     const FlowCfgRemoteService* flowCfgSvc_ = nullptr;
     const NetworkAccessService* netAccessSvc_ = nullptr;
+    const MqttService* mqttSvc_ = nullptr;
     const IOServiceV2* ioSvc_ = nullptr;
     const AlarmService* alarmSvc_ = nullptr;
     DataStore* dataStore_ = nullptr;
@@ -245,6 +246,9 @@ private:
     const FirmwareUpdateService* fwUpdateSvc_ = nullptr;
     ServiceRegistry* services_ = nullptr;
     bool provisioningOnly_ = false;
+    bool stationWebDeferredLogged_ = false;
+    uint32_t stationMqttWaitStartedMs_ = 0U;
+    static constexpr uint32_t kStationMqttWebGraceMs = 30000U;
     bool provisioningDisableAfterConfigured_ = false;
     bool provisioningRequireMqttForConfigured_ = false;
     bool rebootPending_ = false;
