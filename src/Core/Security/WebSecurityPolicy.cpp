@@ -146,6 +146,74 @@ bool csrfRequestAllowed(const CsrfRequestFacts& facts,
     return constantTimeEquals(expectedToken, suppliedToken, suppliedTokenLen);
 }
 
+bool unauthenticatedWebRouteAllowed(bool credentialsReady,
+                                    bool physicalRecoveryActive,
+                                    bool provisioningOnly,
+                                    WebRouteMethod method,
+                                    const char* path)
+{
+    if (!path) return false;
+
+    const bool isGet = method == WebRouteMethod::Get;
+    const bool isPost = method == WebRouteMethod::Post;
+    const bool isRootOrRecoveryPage =
+        strcmp(path, "/") == 0 ||
+        strcmp(path, "/rescue") == 0 ||
+        strcmp(path, "/webinterface/rescue") == 0;
+    const bool isCaptivePortalProbe =
+        strcmp(path, "/generate_204") == 0 ||
+        strcmp(path, "/gen_204") == 0 ||
+        strcmp(path, "/hotspot-detect.html") == 0 ||
+        strcmp(path, "/connecttest.txt") == 0 ||
+        strcmp(path, "/ncsi.txt") == 0;
+    const bool isWebInterfaceEntry =
+        strcmp(path, "/webinterface") == 0 ||
+        strcmp(path, "/webinterface/") == 0;
+    const bool isWebInterfaceAsset =
+        strncmp(path, "/webinterface/", strlen("/webinterface/")) == 0 &&
+        strcmp(path, "/webinterface/health") != 0;
+    const bool isPublicBootstrapApi =
+        strcmp(path, "/api/web/meta") == 0 ||
+        strcmp(path, "/api/recovery/status") == 0;
+
+    if (physicalRecoveryActive) {
+        if (isGet) {
+            return isRootOrRecoveryPage ||
+                   isCaptivePortalProbe ||
+                   isWebInterfaceEntry ||
+                   isWebInterfaceAsset ||
+                   isPublicBootstrapApi ||
+                   strcmp(path, "/api/network/mode") == 0 ||
+                   strcmp(path, "/api/wifi/ap") == 0 ||
+                   strcmp(path, "/api/wifi/config") == 0 ||
+                   strcmp(path, "/api/wifi/scan") == 0 ||
+                   strcmp(path, "/api/mqtt/config") == 0;
+        }
+        return isPost &&
+               (strcmp(path, "/api/recovery/web-credentials") == 0 ||
+                strcmp(path, "/api/wifi/config") == 0 ||
+                strcmp(path, "/api/wifi/scan") == 0 ||
+                strcmp(path, "/api/mqtt/config") == 0);
+    }
+
+    if (!credentialsReady) {
+        return isGet &&
+               (isRootOrRecoveryPage ||
+                isCaptivePortalProbe ||
+                isWebInterfaceEntry ||
+                isPublicBootstrapApi);
+    }
+
+    if (provisioningOnly && isGet) {
+        return isRootOrRecoveryPage ||
+               isCaptivePortalProbe ||
+               isWebInterfaceEntry ||
+               isWebInterfaceAsset;
+    }
+
+    return false;
+}
+
 WebCspProfile cspProfileForPath(const char* path)
 {
     if (!path) return WebCspProfile::StrictApplication;

@@ -1,4 +1,4 @@
-# Mise en service Flow.io Waveshare 3.1.2
+# Mise en service Flow.io Waveshare 3.1.4
 
 Cette procédure concerne une seule carte Waveshare ESP32-S3-ETH-8DI-8RO.
 
@@ -9,7 +9,7 @@ Cette procédure concerne une seule carte Waveshare ESP32-S3-ETH-8DI-8RO.
   règles applicables.
 - Raccorder Ethernet si disponible.
 - Câbler les capteurs et les contacteurs selon le
-  [schéma 3.1.2](schema-raccordement-waveshare.md).
+  [schéma Waveshare](schema-raccordement-waveshare.md).
 - Laisser les équipements de puissance désactivés pour le premier démarrage.
 
 ## 2. Compiler et installer
@@ -30,6 +30,10 @@ Le firmware et le SPIFFS doivent provenir exactement de la même version.
 Au démarrage, Ethernet est essayé en priorité. Si Ethernet n'est pas
 opérationnel, le contrôleur tente le Wi-Fi enregistré. Sans réseau valide, le
 portail de configuration Wi-Fi est activé.
+
+Sur une carte neuve ou effacée, suivre le
+[tutoriel de première connexion](premiere-connexion.md) pour récupérer le mot
+de passe du point d'accès, créer l'administrateur Web et configurer le réseau.
 
 Ne pas exposer l'interface HTTP directement à Internet.
 
@@ -64,5 +68,5 @@ pour les autres capteurs dans les deux modes.
 
 ## 7. Sauvegarder
 
-Après validation, exporter la configuration, noter la version 3.1.2 et
+Après validation, exporter la configuration, noter la version 3.1.4 et
 conserver les sommes SHA-256 des fichiers installés avec le dossier du coffret.

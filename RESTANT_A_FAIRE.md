@@ -1,7 +1,7 @@
 # Flow.io Waveshare — améliorations restantes
 
 Ce document décrit uniquement les travaux encore ouverts pour la cible autonome
-`Waveshare-ESP32-S3` en version 3.1.3. Il ne sert pas de journal de versions et
+`Waveshare-ESP32-S3` en version candidate 3.1.4. Il ne sert pas de journal de versions et
 ne recense pas les travaux déjà terminés.
 
 ## Situation générale
@@ -12,18 +12,24 @@ fonctionnelle validée sur banc : il manque une campagne matérielle exhaustive,
 une chaîne de livraison totalement reproductible et plusieurs protections
 nécessaires avant de qualifier une installation autonome sans surveillance.
 
-## Priorité 1 — rendre la livraison 3.1.3 complète et reproductible
+## Priorité 1 — qualifier et publier la livraison 3.1.4
 
 ### Publier un jeu d’artefacts cohérent
 
-Le firmware `flowios3-3.1.3.bin` est présent, mais l’image
-`flowios3-spiffs-3.1.3.bin` n’est pas enregistrée dans `binary` ni dans le
-manifeste courant.
+Le firmware `flowios3-3.1.4.bin` et l’image
+`flowios3-spiffs-3.1.4.bin` sont présents dans `binary` et enregistrés dans le
+manifeste. Ils ont été reconstruits localement depuis la même révision, mais la
+3.1.4 n’a pas encore été qualifiée sur une carte réelle.
 
 À faire :
 
-- reconstruire firmware et SPIFFS depuis le même commit propre ;
-- publier les deux fichiers, le manifeste et un fichier `SHA256SUMS` ;
+- repartir d'une carte effacée et flasher le firmware puis SPIFFS 3.1.4 ;
+- valider la création initiale de l'administrateur, le mot de passe de point
+  d'accès propre à la carte et la fenêtre BOOT de cinq minutes ;
+- valider que les secrets Wi-Fi et MQTT ne sont jamais renvoyés par les API et
+  qu'un champ vide conserve bien le mot de passe existant ;
+- publier les deux fichiers, le manifeste et un fichier `SHA256SUMS` depuis un
+  commit propre ;
 - vérifier qu’un flash sur mémoire vierge démarre avec l’interface Web complète ;
 - publier un paquet unique clairement identifié pour l’installation initiale ;
 - faire échouer la CI si le manifeste versionné ne correspond pas aux artefacts
@@ -224,7 +230,7 @@ portent encore le numéro 3.1.2 ou renvoient vers des ressources absentes.
 À faire :
 
 - actualiser `docs/README.md`, la mise en service, le raccordement et le projet
-  Fritzing pour la 3.1.3 ;
+  Fritzing pour la 3.1.4 ;
 - supprimer ou corriger les liens vers `mqtt-hardening.md`, absent du dépôt ;
 - distinguer clairement les documents Waveshare actuels des profils FlowIO,
   Supervisor, FlowConnectDisplay et Micronova ;

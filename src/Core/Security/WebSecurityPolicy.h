@@ -60,6 +60,18 @@ bool csrfRequestAllowed(const CsrfRequestFacts& facts,
                         const char* suppliedToken,
                         size_t suppliedTokenLen);
 
+enum class WebRouteMethod : uint8_t {
+    Get = 0,
+    Post = 1,
+    Other = 2,
+};
+
+bool unauthenticatedWebRouteAllowed(bool credentialsReady,
+                                    bool physicalRecoveryActive,
+                                    bool provisioningOnly,
+                                    WebRouteMethod method,
+                                    const char* path);
+
 enum class WebCspProfile : uint8_t {
     StrictApplication = 0,
     InlineRecovery = 1,

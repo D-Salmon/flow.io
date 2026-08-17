@@ -1,4 +1,4 @@
-# Documentation Flow.io Waveshare 3.1.3
+# Documentation Flow.io Waveshare 3.1.4
 
 Cette documentation concerne la cible autonome
 `Waveshare-ESP32-S3` : une seule carte Waveshare
@@ -20,7 +20,9 @@ Les travaux encore ouverts sont regroupés dans
 5. Compiler et téléverser SPIFFS si la carte est vierge ou si l’interface Web a
    changé.
 6. Ouvrir le moniteur série à 115200 bauds.
-7. Accéder à `http://flowio.local/webinterface` ou utiliser l’adresse IP affichée.
+7. Suivre le [tutoriel de première connexion](integration/premiere-connexion.md)
+   pour récupérer le mot de passe du point d'accès, créer l'administrateur et
+   configurer le réseau.
 8. Vérifier toutes les mesures et sorties avant d’activer un automatisme.
 
 Le firmware et l’image SPIFFS doivent provenir de la même révision du projet.
@@ -46,6 +48,8 @@ exposée directement à Internet.
 
 ## Installation et raccordement
 
+- [Première connexion](integration/premiere-connexion.md) : point d'accès de
+  secours, création de l'administrateur, Wi-Fi domestique et MQTT.
 - [Mise en service](integration/mise-en-service.md) : flash, réseau, contrôles
   des entrées/sorties et activation progressive des automatismes.
 - [Raccordement Waveshare](integration/schema-raccordement-waveshare.md) :
@@ -133,10 +137,14 @@ endommagé.
 - [Durcissement de sécurité](security-hardening.md).
 - [Signature des mises à jour OTA](ota-signing.md).
 
-Les protections déjà présentes comprennent l’authentification Web Digest après
-configuration des identifiants, la validation CSRF, la limitation des échecs
-d’authentification, la récupération physique par le bouton BOOT, MQTT TLS et la
-vérification ECDSA P-256 des firmwares OTA.
+Les protections présentes comprennent l’authentification Web Digest, la
+validation CSRF, la limitation des échecs d’authentification, MQTT TLS et la
+vérification ECDSA P-256 des firmwares OTA. Aucun administrateur par défaut
+n’existe : la création ou le remplacement du compte nécessite une pression de
+cinq secondes sur BOOT et ouvre une fenêtre de récupération de cinq minutes.
+Le point d’accès de secours utilise un secret aléatoire propre à la carte,
+visible uniquement sur le moniteur série USB. Les API n’exposent pas les mots de
+passe Wi-Fi ou MQTT enregistrés.
 
 La clé publique OTA de production n’est pas incluse dans le dépôt. Secure Boot,
 le chiffrement de la flash/NVS, l’anti-retour et la mise à jour signée de SPIFFS
@@ -161,7 +169,7 @@ système.
 
 Les environnements `FlowIO`, `Supervisor`, `FlowConnectDisplay`, `Micronova` et
 les variantes Wokwi utilisent une partie du même socle logiciel. Ils ne font pas
-partie du périmètre de validation de la cible autonome Waveshare 3.1.3.
+partie du périmètre de validation de la cible autonome Waveshare 3.1.4.
 
 Les documents suivants concernent ces architectures distinctes :
 

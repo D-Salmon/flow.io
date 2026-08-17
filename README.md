@@ -5,29 +5,31 @@ est actuellement la carte **Waveshare ESP32-S3-ETH-8DI-8RO N16R8**, utilisée de
 façon autonome : un seul ESP32-S3 exécute les entrées/sorties, les automatismes,
 les sécurités, le réseau, l’interface Web, MQTT et l’intégration Home Assistant.
 
-La version déclarée pour cette cible est **3.1.3**. L’environnement PlatformIO à
+La version déclarée pour cette cible est **3.1.4**. L’environnement PlatformIO à
 utiliser est `Waveshare-ESP32-S3`, également défini comme environnement par
 défaut dans `platformio.ini`.
 
 ## État actuel
 
-Le firmware 3.1.3 est compilable et a été flashé sur la carte réelle. Les essais
-effectués couvrent le démarrage, l’accès Web par adresse IP et par
-`flowio.local`, la connexion MQTT TLS ainsi que le fonctionnement réseau en
-Ethernet et en Wi-Fi. Ces essais confirment l’intégration générale, mais ne
+La 3.1.4 a été flashée sur la carte réelle. Le parcours de première connexion a
+été validé avec le point d'accès de secours, la récupération physique BOOT, la
+création de l'administrateur, la connexion au Wi-Fi domestique et
+l'enregistrement de la configuration MQTT. Les essais matériels précédents
+couvrent aussi l'accès Web par adresse IP et par `flowio.local`, la connexion
+MQTT TLS ainsi que le fonctionnement réseau en Ethernet et en Wi-Fi. Ils ne
 constituent pas encore une validation exhaustive de toutes les entrées, sorties
 et séquences de sécurité sur une installation complète.
 
-Le dépôt contient le firmware validé :
+Le dossier `binary` contient les deux images candidates issues de la même
+révision :
 
-- `binary/flowios3-3.1.3.bin` ;
-- taille : `2 133 488` octets ;
-- SHA-256 : `f5ff41e35f2024a962596e8ccbb91e68eb27cddbd8608b1e04e6f5b12e7304f2`.
+- `binary/flowios3-3.1.4.bin` — `2 139 008` octets — SHA-256
+  `6ced5f516f5e79daf9cd230c0485a30b10367f46435227f1c5d989962367cf2d` ;
+- `binary/flowios3-spiffs-3.1.4.bin` — `8 257 536` octets — SHA-256
+  `c900ddf9fef60ce7301dc750fc383cc3399fcd97fa307415d23b601a82d2765c`.
 
-L’image SPIFFS 3.1.3 contenant l’interface Web est générée par `buildfs`. Elle
-n’est pas encore présente comme artefact 3.1.3 final dans le dossier `binary` :
-un effacement complet de la carte doit donc être suivi d’une compilation et
-d’un téléversement du système de fichiers depuis la même révision du projet.
+Ces images ne deviennent une livraison validée qu’après un flash complet et la
+campagne de contrôle décrite dans `RESTANT_A_FAIRE.md`.
 
 ## Architecture exécutée
 
@@ -196,9 +198,12 @@ Le firmware et SPIFFS doivent toujours provenir de la même révision.
 
 ### Mise en service
 
+Pour une carte neuve ou effacée, suivre d'abord le
+[tutoriel de première connexion](docs/integration/premiere-connexion.md).
+
 1. Laisser les équipements de puissance arrêtés.
 2. Vérifier les journaux de démarrage et l’adresse IP.
-3. Ouvrir l’interface Web par IP ou par `flowio.local`.
+3. Créer l'administrateur par la récupération physique BOOT.
 4. Configurer le Wi-Fi de secours et, si nécessaire, MQTT.
 5. Choisir le raccordement des sondes DS18B20, puis redémarrer.
 6. Vérifier chaque mesure, entrée et relais individuellement.
@@ -211,11 +216,21 @@ L’interface Web locale utilise HTTP et ne doit jamais être exposée directeme
 à Internet. Utiliser un réseau d’administration de confiance, un VPN ou Home
 Assistant pour l’accès distant.
 
-Une fois un utilisateur et un mot de passe Web configurés, les routes
-d’administration utilisent l’authentification Digest. Les actions modifiant
-l’état nécessitent également un jeton CSRF. Le bouton BOOT maintenu cinq
-secondes après un démarrage normal ouvre une fenêtre physique de récupération
-de dix minutes permettant de remplacer les identifiants Web.
+Aucun administrateur par défaut n’est créé. Sur une carte vierge, maintenir le
+bouton BOOT cinq secondes après un démarrage normal ouvre pendant cinq minutes
+la configuration initiale et permet de définir un administrateur. La même
+présence physique permet ensuite de remplacer ses identifiants. Hors de cette
+fenêtre, les réglages Wi-Fi et MQTT exigent l’administrateur Web.
+
+Le point d’accès de secours reçoit un mot de passe aléatoire propre à la carte,
+conservé en NVS et affiché uniquement sur le moniteur série USB lorsqu’il
+démarre. Les API Web ne renvoient plus les mots de passe Wi-Fi ou MQTT
+enregistrés ; un champ vide lors d’une modification conserve le secret existant.
+L’interface indique explicitement si l’utilisateur est administrateur, si la
+récupération physique est active ou si l’accès n’est pas authentifié.
+
+Les routes d’administration utilisent l’authentification Digest et les actions
+modifiant l’état nécessitent également un jeton CSRF.
 
 Les mises à jour du firmware sont prévues pour être signées en ECDSA P-256 et
 échouent si la clé publique de production ou la signature manque. La clé de
@@ -257,14 +272,15 @@ automatismes. Les validations encore nécessaires sont décrites dans
 
 Les profils `FlowIO`, `Supervisor`, `FlowConnectDisplay`, `Micronova` et les
 profils Wokwi restent présents dans le code. Ils ne font pas partie du périmètre
-de validation de la version Waveshare 3.1.3 et ne doivent pas être utilisés pour
+de validation de la version Waveshare 3.1.4 et ne doivent pas être utilisés pour
 déduire le câblage de la cible autonome actuelle.
 
 ## Références utiles
 
 - [État des améliorations restantes](RESTANT_A_FAIRE.md)
-- [Notes techniques 3.1.3](docs/release-3.1.3.md)
+- [Audit technique du socle 3.1.3](AUDIT_2026-08-16.md)
 - [Raccordement Waveshare](docs/integration/schema-raccordement-waveshare.md)
+- [Première connexion](docs/integration/premiere-connexion.md)
 - [Mise en service](docs/integration/mise-en-service.md)
 - [Logique piscine](docs/modules/PoolLogicModule.md)
 - [Topics MQTT](docs/core/mqtt-topics.md)

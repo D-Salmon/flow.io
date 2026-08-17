@@ -7,6 +7,7 @@
 
 #include "App/BuildFlags.h"
 #include "Core/FirmwareVersion.h"
+#include "Core/NvsKeys.h"
 
 #define LOG_MODULE_ID ((LogModuleId)LogModuleIdValue::WifiProvisioningModule)
 #include "Core/ModuleLog.h"
@@ -23,12 +24,41 @@
 #include <strings.h>
 
 namespace {
-constexpr const char* kDefaultApPass = "flowio1234";
 WifiProvisioningModule* gWifiProvisioningInstance = nullptr;
 constexpr wifi_auth_mode_t kProvisioningApAuthMode = WIFI_AUTH_WPA2_PSK;
 constexpr wifi_cipher_type_t kProvisioningApCipher = WIFI_CIPHER_TYPE_CCMP;
 constexpr uint8_t kProvisioningApChannel = 1U;
 constexpr uint8_t kProvisioningApMaxConnections = 2U;
+constexpr uint8_t kProvisioningApPasswordLength = 16U;
+constexpr char kProvisioningApPasswordAlphabet[] =
+    "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+
+struct ProvisioningApPasswordRecord {
+    uint8_t version = 1U;
+    char password[kProvisioningApPasswordLength + 1U] = {0};
+};
+
+bool provisioningApPasswordValid_(const ProvisioningApPasswordRecord& record)
+{
+    if (record.version != 1U ||
+        strnlen(record.password, sizeof(record.password)) != kProvisioningApPasswordLength) {
+        return false;
+    }
+    for (uint8_t i = 0U; i < kProvisioningApPasswordLength; ++i) {
+        if (!strchr(kProvisioningApPasswordAlphabet, record.password[i])) return false;
+    }
+    return true;
+}
+
+void generateProvisioningApPassword_(ProvisioningApPasswordRecord& record)
+{
+    record = ProvisioningApPasswordRecord{};
+    constexpr uint32_t alphabetLength = sizeof(kProvisioningApPasswordAlphabet) - 1U;
+    for (uint8_t i = 0U; i < kProvisioningApPasswordLength; ++i) {
+        record.password[i] = kProvisioningApPasswordAlphabet[esp_random() % alphabetLength];
+    }
+    record.password[kProvisioningApPasswordLength] = '\0';
+}
 
 const char* wifiModeName_(wifi_mode_t mode)
 {
@@ -338,7 +368,30 @@ void WifiProvisioningModule::buildApCredentials_()
     uint64_t id=0;
     for(int i=0; i<17; i=i+8) id |= ((chipId >> (40 - i)) & 0xff) << i;
     snprintf(apSsid_, sizeof(apSsid_), "flow.io-%06X", static_cast<unsigned int>(id));
-    snprintf(apPass_, sizeof(apPass_), "%s", kDefaultApPass);
+
+    ProvisioningApPasswordRecord stored{};
+    size_t storedLength = 0U;
+    const bool loaded = cfgStore_ &&
+        cfgStore_->readRuntimeBlob(
+            NvsKeys::Provisioning::ApPassword,
+            &stored,
+            sizeof(stored),
+            &storedLength) &&
+        storedLength == sizeof(stored) &&
+        provisioningApPasswordValid_(stored);
+    if (!loaded) {
+        generateProvisioningApPassword_(stored);
+        if (!cfgStore_ ||
+            !cfgStore_->writeRuntimeBlob(
+                NvsKeys::Provisioning::ApPassword,
+                &stored,
+                sizeof(stored))) {
+            LOGE("Provisioning AP password could not be persisted; it will change after reboot");
+        } else {
+            LOGI("Provisioning AP password generated and stored for this device");
+        }
+    }
+    snprintf(apPass_, sizeof(apPass_), "%s", stored.password);
 }
 
 void WifiProvisioningModule::refreshWifiConfig_()
@@ -567,6 +620,13 @@ bool WifiProvisioningModule::startCaptivePortal_(NetworkPortalReason reason)
          (unsigned)kProvisioningApChannel,
          (unsigned)kProvisioningApMaxConnections,
          apIp[0], apIp[1], apIp[2], apIp[3]);
+#if defined(FLOW_PROFILE_WAVESHARE)
+    // This deliberately bypasses LogHub/boot-log capture: the AP secret must
+    // only be disclosed to a person with physical USB serial access.
+    Serial.printf("[SECURITY] flow.io provisioning AP SSID=%s password=%s\r\n",
+                  apSsid_,
+                  apPass_);
+#endif
     return true;
 }
 
@@ -1084,14 +1144,14 @@ void WifiProvisioningModule::sendWifiConfigJson_(WiFiClient& client)
     }
 
     (void)jsonEscape_(ssid, portalEscSsid_, sizeof(portalEscSsid_));
-    (void)jsonEscape_(pass, portalEscPass_, sizeof(portalEscPass_));
     char out[320] = {0};
     const int n = snprintf(out,
                            sizeof(out),
-                           "{\"ok\":true,\"enabled\":%s,\"ssid\":\"%s\",\"pass\":\"%s\"}",
+                           "{\"ok\":true,\"enabled\":%s,\"ssid\":\"%s\","
+                           "\"password_configured\":%s}",
                            enabled ? "true" : "false",
                            portalEscSsid_,
-                           portalEscPass_);
+                           (pass && pass[0] != '\0') ? "true" : "false");
     sendJson_(client,
               (n > 0 && (size_t)n < sizeof(out)) ? "200 OK" : "500 Internal Server Error",
               (n > 0 && (size_t)n < sizeof(out))
@@ -1111,11 +1171,11 @@ void WifiProvisioningModule::sendApStatusJson_(WiFiClient& client)
     const int n = snprintf(out,
                            sizeof(out),
                            "{\"ok\":true,\"active\":%s,\"mode\":\"%s\",\"ssid\":\"%s\","
-                           "\"pass\":\"%s\",\"ip\":\"%s\",\"clients\":%u}",
+                           "\"password_configured\":true,\"password_disclosure\":\"usb_serial_only\","
+                           "\"ip\":\"%s\",\"clients\":%u}",
                            apActive_ ? "true" : "false",
                            apActive_ ? "ap" : "none",
                            portalEscSsid_,
-                           apPass_,
                            ip,
                            (unsigned)WiFi.softAPgetStationNum());
     sendJson_(client,

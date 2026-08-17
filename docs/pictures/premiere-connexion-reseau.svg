@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 520" role="img" aria-labelledby="title desc">
+  <title id="title">Connexion du Waveshare au Wi-Fi domestique</title>
+  <desc id="desc">Dans Configuration réseau, activer le Wi-Fi, choisir le SSID, saisir son mot de passe et appliquer, puis rejoindre le Waveshare sur son adresse du réseau domestique.</desc>
+  <defs>
+    <marker id="arrow3" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#1473e6"/></marker>
+    <style>.title{font:700 28px Arial,sans-serif;fill:#08243f}.head{font:700 20px Arial,sans-serif;fill:#08243f}.text{font:16px Arial,sans-serif;fill:#29465f}.small{font:14px Arial,sans-serif;fill:#537087}.card{fill:white;stroke:#8cb6df;stroke-width:2}.field{fill:#f8fbff;stroke:#9db8d1;stroke-width:2}.arrow{stroke:#1473e6;stroke-width:4;fill:none;marker-end:url(#arrow3)}.blue{fill:#1473e6}</style>
+  </defs>
+  <rect width="1200" height="520" rx="24" fill="#eef6ff"/>
+  <text x="40" y="50" class="title">Configuration réseau : le commutateur Activer doit être bleu</text>
+
+  <rect x="40" y="85" width="730" height="380" rx="18" class="card"/>
+  <text x="70" y="130" class="head">Configuration réseau</text>
+  <text x="620" y="130" class="head">Activer</text>
+  <rect x="690" y="108" width="52" height="28" rx="14" fill="#79cdeb"/>
+  <circle cx="728" cy="122" r="12" fill="#1473e6"/>
+  <text x="70" y="175" class="small">SSID</text>
+  <rect x="70" y="188" width="300" height="52" rx="10" class="field"/>
+  <text x="90" y="220" class="text">Mon_WiFi_2G</text>
+  <text x="400" y="175" class="small">Réseaux détectés</text>
+  <rect x="400" y="188" width="330" height="52" rx="10" class="field"/>
+  <text x="420" y="220" class="text">Mon_WiFi_2G (sécurisé)</text>
+  <text x="70" y="280" class="small">Mot de passe du Wi-Fi domestique</text>
+  <rect x="70" y="293" width="660" height="52" rx="10" class="field"/>
+  <text x="90" y="326" style="font:22px Arial,sans-serif;fill:#29465f">••••••••••••••••</text>
+  <rect x="70" y="380" width="215" height="58" rx="12" class="blue"/>
+  <text x="92" y="416" style="font:700 18px Arial,sans-serif;fill:white">Appliquer réseau</text>
+  <text x="315" y="403" class="text">Reconnexion en cours…</text>
+  <text x="315" y="428" class="small">La page peut se couper : c'est normal.</text>
+
+  <path d="M770 275 L845 275" class="arrow"/>
+  <rect x="845" y="115" width="310" height="300" rx="18" class="card"/>
+  <path d="M900 205 Q1000 115 1100 205" fill="none" stroke="#1473e6" stroke-width="8"/>
+  <path d="M930 220 Q1000 160 1070 220" fill="none" stroke="#1473e6" stroke-width="8"/>
+  <path d="M965 238 Q1000 210 1035 238" fill="none" stroke="#1473e6" stroke-width="8"/>
+  <circle cx="1000" cy="255" r="9" fill="#1473e6"/>
+  <text x="925" y="305" class="head">Réseau domestique</text>
+  <text x="885" y="340" class="text">Le Waveshare reçoit une IP DHCP</text>
+  <text x="915" y="370" style="font:16px Consolas,monospace;fill:#075c58">192.168.x.xxx</text>
+  <text x="905" y="398" class="small">Le PC revient sur ce même réseau.</text>
+</svg>

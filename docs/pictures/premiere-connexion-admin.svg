@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 460" role="img" aria-labelledby="title desc">
+  <title id="title">Création de l'administrateur Flow.io</title>
+  <desc id="desc">Maintenir BOOT cinq secondes, rafraîchir la page, vérifier que la récupération est active, saisir les identifiants puis enregistrer.</desc>
+  <defs>
+    <marker id="arrow2" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#1473e6"/></marker>
+    <style>.title{font:700 28px Arial,sans-serif;fill:#08243f}.head{font:700 19px Arial,sans-serif;fill:#08243f}.text{font:16px Arial,sans-serif;fill:#29465f}.mono{font:15px Consolas,monospace;fill:#075c58}.card{fill:white;stroke:#8cb6df;stroke-width:2}.blue{fill:#1473e6}.green{fill:#dff8ef;stroke:#35ad83;stroke-width:2}.arrow{stroke:#1473e6;stroke-width:4;fill:none;marker-end:url(#arrow2)}.num{font:700 18px Arial,sans-serif;fill:white}</style>
+  </defs>
+  <rect width="1200" height="460" rx="24" fill="#eef6ff"/>
+  <text x="40" y="50" class="title">Créer l'administrateur avec une présence physique</text>
+
+  <rect x="45" y="100" width="220" height="270" rx="18" class="card"/>
+  <circle cx="80" cy="135" r="22" class="blue"/><text x="74" y="142" class="num">1</text>
+  <rect x="85" y="190" width="140" height="72" rx="18" fill="#263b4d"/>
+  <circle cx="155" cy="226" r="24" fill="#ffcc4d" stroke="#9b7410" stroke-width="3"/>
+  <text x="126" y="231" class="head">BOOT</text>
+  <text x="83" y="305" class="head">Maintenir 5 s</text>
+  <text x="70" y="334" class="text">Carte déjà démarrée</text>
+
+  <path d="M265 235 L335 235" class="arrow"/>
+  <rect x="335" y="100" width="220" height="270" rx="18" class="card"/>
+  <circle cx="370" cy="135" r="22" class="blue"/><text x="364" y="142" class="num">2</text>
+  <rect x="380" y="185" width="130" height="55" rx="10" fill="#e4effc" stroke="#1473e6" stroke-width="2"/>
+  <text x="401" y="219" class="head">Rafraîchir</text>
+  <rect x="365" y="275" width="160" height="55" rx="10" class="green"/>
+  <text x="379" y="298" class="mono">recovery_active</text>
+  <text x="422" y="319" class="mono">true</text>
+
+  <path d="M555 235 L625 235" class="arrow"/>
+  <rect x="625" y="100" width="250" height="270" rx="18" class="card"/>
+  <circle cx="660" cy="135" r="22" class="blue"/><text x="654" y="142" class="num">3</text>
+  <text x="655" y="185" class="head">Sécurité Web</text>
+  <text x="655" y="220" class="text">Utilisateur administrateur</text>
+  <rect x="655" y="235" width="190" height="35" rx="7" fill="#f5f8fb" stroke="#9db8d1"/>
+  <text x="655" y="300" class="text">Mot de passe (12–32)</text>
+  <rect x="655" y="315" width="190" height="35" rx="7" fill="#f5f8fb" stroke="#9db8d1"/>
+
+  <path d="M875 235 L945 235" class="arrow"/>
+  <rect x="945" y="100" width="210" height="270" rx="18" class="card"/>
+  <circle cx="980" cy="135" r="22" class="blue"/><text x="974" y="142" class="num">4</text>
+  <rect x="975" y="190" width="150" height="68" rx="12" class="blue"/>
+  <text x="994" y="218" style="font:700 16px Arial,sans-serif;fill:white">Enregistrer les</text>
+  <text x="998" y="240" style="font:700 16px Arial,sans-serif;fill:white">accès Web</text>
+  <text x="988" y="302" class="head">Redémarrage</text>
+  <text x="1011" y="330" class="text">≈ 8 secondes</text>
+</svg>

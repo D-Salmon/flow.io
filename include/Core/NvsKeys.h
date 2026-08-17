@@ -507,4 +507,8 @@ namespace WebSecurity {
 constexpr char Credentials[] = "web_auth";
 }  // namespace WebSecurity
 
+namespace Provisioning {
+constexpr char ApPassword[] = "prov_ap_pass"; // Per-device provisioning AP password generated on first boot.
+}  // namespace Provisioning
+
 }  // namespace NvsKeys

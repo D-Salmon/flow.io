@@ -149,7 +149,10 @@ async function loadAll() {
     const wifi = await json("/api/wifi/config");
     $("wifiEnabled").checked = !!wifi.enabled;
     $("wifiSsid").value = wifi.ssid || "";
-    $("wifiPass").value = wifi.pass || "";
+    $("wifiPass").value = "";
+    $("wifiPass").placeholder = wifi.password_configured
+      ? "Laisser vide pour conserver"
+      : "Mot de passe reseau";
     status("Pret");
   } catch (err) {
     status("Erreur réseau: " + err.message);

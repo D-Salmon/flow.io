@@ -220,7 +220,7 @@ private:
     bool bootRecoveryLatched_ = false;
     static constexpr int kBootRecoveryPin = 0;
     static constexpr uint32_t kBootRecoveryHoldMs = 5000U;
-    static constexpr uint32_t kPhysicalRecoveryWindowMs = 600000U;
+    static constexpr uint32_t kPhysicalRecoveryWindowMs = 300000U;
 
     const LogHubService* logHub_ = nullptr;
     const LogSinkRegistryService* logSinkReg_ = nullptr;

@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 500" role="img" aria-labelledby="title desc">
+  <title id="title">Première connexion au point d'accès Flow.io</title>
+  <desc id="desc">Le Waveshare fournit le nom et le mot de passe du point d'accès sur le port série, puis le PC ouvre la page de secours à l'adresse 192.168.4.1.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#1473e6"/>
+    </marker>
+    <style>
+      .title{font:700 28px Arial,sans-serif;fill:#08243f}.label{font:700 20px Arial,sans-serif;fill:#08243f}.text{font:16px Arial,sans-serif;fill:#29465f}.mono{font:16px Consolas,monospace;fill:#053b5c}.box{fill:#f7fbff;stroke:#7caee6;stroke-width:2}.screen{fill:#071827;stroke:#36c9c6;stroke-width:2}.screenText{font:15px Consolas,monospace;fill:#63e3d7}.step{fill:#1473e6}.stepText{font:700 18px Arial,sans-serif;fill:white}.arrow{stroke:#1473e6;stroke-width:4;fill:none;marker-end:url(#arrow)}
+    </style>
+  </defs>
+  <rect width="1200" height="500" rx="24" fill="#eef6ff"/>
+  <text x="40" y="50" class="title">Première connexion : récupérer l'accès puis ouvrir la page Rescue</text>
+
+  <circle cx="90" cy="125" r="24" class="step"/><text x="84" y="132" class="stepText">1</text>
+  <rect x="40" y="165" width="260" height="190" rx="18" class="box"/>
+  <rect x="85" y="200" width="170" height="90" rx="12" fill="#173d5c"/>
+  <circle cx="120" cy="315" r="9" fill="#36c9c6"/><circle cx="155" cy="315" r="9" fill="#36c9c6"/>
+  <text x="82" y="385" class="label">Waveshare</text>
+  <text x="60" y="415" class="text">Démarrage normal</text>
+
+  <path d="M300 235 C350 185,390 185,435 215" class="arrow"/>
+  <text x="325" y="170" class="label">USB série</text>
+  <text x="328" y="194" class="text">115200 bauds</text>
+
+  <circle cx="485" cy="125" r="24" class="step"/><text x="479" y="132" class="stepText">2</text>
+  <rect x="430" y="165" width="360" height="190" rx="18" class="screen"/>
+  <text x="455" y="205" class="screenText">[SECURITY] provisioning AP</text>
+  <text x="455" y="240" class="screenText">SSID=flow.io-XXXXXX</text>
+  <text x="455" y="275" class="screenText">password=XXXXXXXXXXXXXXXX</text>
+  <text x="455" y="320" class="screenText">IP=192.168.4.1</text>
+  <text x="515" y="385" class="label">Moniteur série</text>
+
+  <path d="M790 250 C850 250,870 250,920 250" class="arrow"/>
+  <text x="815" y="218" class="label">Wi-Fi</text>
+  <text x="807" y="280" class="mono">flow.io-XXXXXX</text>
+
+  <circle cx="975" cy="125" r="24" class="step"/><text x="969" y="132" class="stepText">3</text>
+  <rect x="920" y="165" width="240" height="190" rx="18" class="box"/>
+  <rect x="955" y="195" width="170" height="105" rx="8" fill="white" stroke="#7caee6" stroke-width="2"/>
+  <rect x="955" y="195" width="170" height="28" rx="8" fill="#dcecff"/>
+  <circle cx="972" cy="209" r="5" fill="#ff6b6b"/><circle cx="988" cy="209" r="5" fill="#ffd166"/><circle cx="1004" cy="209" r="5" fill="#41c98e"/>
+  <text x="976" y="258" class="mono">192.168.4.1</text>
+  <text x="998" y="281" class="mono">/rescue</text>
+  <text x="1008" y="385" class="label">PC</text>
+  <text x="950" y="415" class="text">Page flow.io Rescue</text>
+</svg>

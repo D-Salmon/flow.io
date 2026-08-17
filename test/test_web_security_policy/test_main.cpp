@@ -30,6 +30,52 @@ void test_csrf_policy()
     TEST_ASSERT_FALSE(csrfRequestAllowed(facts, expected, expected, strlen(expected)));
 }
 
+void test_first_boot_only_exposes_bootstrap_routes()
+{
+    TEST_ASSERT_TRUE(unauthenticatedWebRouteAllowed(
+        false, false, true, WebRouteMethod::Get, "/rescue"));
+    TEST_ASSERT_TRUE(unauthenticatedWebRouteAllowed(
+        false, false, true, WebRouteMethod::Get, "/api/web/meta"));
+    TEST_ASSERT_FALSE(unauthenticatedWebRouteAllowed(
+        false, false, true, WebRouteMethod::Get, "/api/wifi/config"));
+    TEST_ASSERT_FALSE(unauthenticatedWebRouteAllowed(
+        false, false, true, WebRouteMethod::Post, "/api/wifi/config"));
+    TEST_ASSERT_FALSE(unauthenticatedWebRouteAllowed(
+        false, false, true, WebRouteMethod::Post, "/api/mqtt/config"));
+    TEST_ASSERT_FALSE(unauthenticatedWebRouteAllowed(
+        false, false, true, WebRouteMethod::Post, "/api/poollogic/mode"));
+}
+
+void test_boot_recovery_only_opens_network_and_credentials()
+{
+    TEST_ASSERT_TRUE(unauthenticatedWebRouteAllowed(
+        true, true, true, WebRouteMethod::Get, "/api/wifi/config"));
+    TEST_ASSERT_TRUE(unauthenticatedWebRouteAllowed(
+        true, true, true, WebRouteMethod::Post, "/api/wifi/config"));
+    TEST_ASSERT_TRUE(unauthenticatedWebRouteAllowed(
+        true, true, true, WebRouteMethod::Post, "/api/mqtt/config"));
+    TEST_ASSERT_TRUE(unauthenticatedWebRouteAllowed(
+        true, true, true, WebRouteMethod::Post, "/api/recovery/web-credentials"));
+    TEST_ASSERT_FALSE(unauthenticatedWebRouteAllowed(
+        true, true, true, WebRouteMethod::Post, "/api/fwupdate/config"));
+    TEST_ASSERT_FALSE(unauthenticatedWebRouteAllowed(
+        true, true, true, WebRouteMethod::Post, "/api/poollogic/mode"));
+    TEST_ASSERT_FALSE(unauthenticatedWebRouteAllowed(
+        true, true, true, WebRouteMethod::Get, "/webinterface/health"));
+}
+
+void test_provisioning_with_admin_keeps_configuration_protected()
+{
+    TEST_ASSERT_TRUE(unauthenticatedWebRouteAllowed(
+        true, false, true, WebRouteMethod::Get, "/webinterface/prov.js"));
+    TEST_ASSERT_FALSE(unauthenticatedWebRouteAllowed(
+        true, false, true, WebRouteMethod::Get, "/api/wifi/config"));
+    TEST_ASSERT_FALSE(unauthenticatedWebRouteAllowed(
+        true, false, true, WebRouteMethod::Post, "/api/mqtt/config"));
+    TEST_ASSERT_FALSE(unauthenticatedWebRouteAllowed(
+        true, false, false, WebRouteMethod::Get, "/api/web/meta"));
+}
+
 void test_source_auth_throttle_blocks_and_expires()
 {
     WebAuthThrottleState state{};
@@ -117,6 +163,9 @@ int main()
     UNITY_BEGIN();
     RUN_TEST(test_constant_time_token_comparison);
     RUN_TEST(test_csrf_policy);
+    RUN_TEST(test_first_boot_only_exposes_bootstrap_routes);
+    RUN_TEST(test_boot_recovery_only_opens_network_and_credentials);
+    RUN_TEST(test_provisioning_with_admin_keeps_configuration_protected);
     RUN_TEST(test_source_auth_throttle_blocks_and_expires);
     RUN_TEST(test_global_auth_throttle);
     RUN_TEST(test_success_clears_source_failures);

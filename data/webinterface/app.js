@@ -12,6 +12,7 @@
     const headerWifiStatus = document.getElementById('headerWifiStatus');
     const headerReachabilityDot = document.getElementById('headerReachabilityDot');
     const headerDeviceStatus = document.getElementById('headerDeviceStatus');
+    const headerSecurityStatus = document.getElementById('headerSecurityStatus');
     const headerClockLabel = document.getElementById('headerClockLabel');
     const headerClockStatus = document.getElementById('headerClockStatus');
     const themeToggle = document.getElementById('themeToggle');
@@ -65,6 +66,9 @@
     let webLocalConfigLabel = 'Config Store Supervisor';
     let webLocalRuntime = false;
     let webRemoteConfigEnabled = true;
+    let webAdminAuthenticated = false;
+    let webPhysicalRecoveryActive = false;
+    let webPhysicalRecoveryRemainingSeconds = 0;
     let hideMenuSvg = false;
     let disableWebIcons = false;
     let unifyStatusCardIcons = false;
@@ -1010,6 +1014,9 @@
           handleUpgradeReconnectSuccess();
         }
         ingestWebProfileMeta(data);
+        webAdminAuthenticated = data.admin_authenticated === true;
+        webPhysicalRecoveryActive = data.physical_recovery_active === true;
+        webPhysicalRecoveryRemainingSeconds = Math.max(0, Number(data.physical_recovery_remaining_s) || 0);
 
         if (typeof data.web_asset_version === 'string') {
           const announcedVersion = data.web_asset_version.trim();
@@ -1184,6 +1191,19 @@
       }
       if (headerWifiDot) {
         headerWifiDot.classList.toggle('is-connected', isHeaderWifiConnected());
+      }
+      if (headerSecurityStatus) {
+        if (webPhysicalRecoveryActive) {
+          const minutes = Math.max(1, Math.ceil(webPhysicalRecoveryRemainingSeconds / 60));
+          headerSecurityStatus.textContent = tr(
+            'header.security.recovery',
+            'Récupération · {minutes} min'
+          ).replace('{minutes}', String(minutes));
+        } else if (webAdminAuthenticated) {
+          headerSecurityStatus.textContent = tr('header.security.admin', 'Administrateur connecté');
+        } else {
+          headerSecurityStatus.textContent = tr('header.security.unauthenticated', 'Accès non authentifié');
+        }
       }
       renderHeaderReachability();
     }
@@ -2244,6 +2264,7 @@
     let poolConfigModulesCache = {};
     let poolConfigAlarmSlotsCache = [];
     let poolConfigLiveState = {};
+    let poolChemistryHasPendingChanges = false;
     const poolConfigModuleDefs = Object.freeze([
       Object.freeze({ module: 'poollogic/modes', titleKey: 'pool.card.modes.title', title: 'Pilotage général', icon: 'tune', noteKey: 'pool.card.modes.note', note: 'Choisissez entre Manuel / maintenance, Manuel sécurisé et Automatique.' }),
       Object.freeze({ module: 'hmi/buzzer', titleKey: 'pool.card.alarmSound.title', title: 'Signal sonore', icon: 'notifications_active', noteKey: 'pool.card.alarmSound.note', note: 'Le son des alarmes peut être coupé sans masquer les alarmes affichées.' }),
@@ -6791,7 +6812,7 @@
     }
 
     function poolConfigAppendMetric(parent, label, value, options) {
-      if (!parent) return;
+      if (!parent) return null;
       const opts = options || {};
       const item = document.createElement('div');
       item.className = 'pool-metric' + (opts.featured ? ' is-featured' : '');
@@ -6822,17 +6843,19 @@
           if (Number.isFinite(Number(edit.min))) control.min = String(edit.min);
           if (Number.isFinite(Number(edit.max))) control.max = String(edit.max);
           control.step = Number.isFinite(Number(edit.step)) ? String(edit.step) : 'any';
+          control.required = true;
         }
-        control.addEventListener('change', () => {
-          let nextValue;
-          if (edit.type === 'bool') {
-            nextValue = control.value === 'true';
-          } else {
-            nextValue = Number(control.value);
-            if (!Number.isFinite(nextValue)) return;
-          }
-          poolConfigApplyQuickSetting(edit.module, edit.key, nextValue, control, item).catch(() => {});
-        });
+        if (!opts.deferApply) {
+          control.addEventListener('change', () => {
+            let nextValue;
+            try {
+              nextValue = poolConfigEditorStoredValue(edit, control);
+            } catch (err) {
+              return;
+            }
+            poolConfigApplyQuickSetting(edit.module, edit.key, nextValue, control, item).catch(() => {});
+          });
+        }
         wrap.appendChild(control);
         if (edit.unit) {
           const unit = document.createElement('span');
@@ -6843,7 +6866,12 @@
         item.appendChild(labelEl);
         item.appendChild(wrap);
         parent.appendChild(item);
-        return;
+        return {
+          edit,
+          control,
+          item,
+          initialValue: edit.value
+        };
       }
       const valueEl = document.createElement('b');
       valueEl.className = 'pool-metric-value';
@@ -6851,6 +6879,7 @@
       item.appendChild(labelEl);
       item.appendChild(valueEl);
       parent.appendChild(item);
+      return null;
     }
 
     async function poolConfigApplyQuickSetting(moduleName, key, value, control, item) {
@@ -6877,6 +6906,81 @@
         poolConfigFieldApplyBusy = false;
         if (control) control.disabled = false;
         if (item) item.removeAttribute('aria-busy');
+      }
+    }
+
+    function poolConfigChemistryEntryValue(entry) {
+      return poolConfigEditorStoredValue(entry.edit, entry.control);
+    }
+
+    function poolConfigRestoreChemistryEntry(entry) {
+      if (!entry || !entry.control || !entry.edit) return;
+      if (entry.edit.type === 'bool') {
+        entry.control.value = toBool(entry.initialValue) ? 'true' : 'false';
+        return;
+      }
+      entry.control.value = String(poolConfigEditorDisplayValue(entry.edit, entry.initialValue));
+    }
+
+    function poolConfigRefreshChemistryPendingFlag() {
+      poolChemistryHasPendingChanges = !!(
+        poolChemistryPanel && poolChemistryPanel.querySelector('.pool-chemistry-card.is-dirty')
+      );
+    }
+
+    async function poolConfigApplyChemistryCard(entries, card, syncState) {
+      if (poolConfigFieldApplyBusy || !Array.isArray(entries) || !entries.length) return;
+      const changesByModule = {};
+      try {
+        entries.forEach((entry) => {
+          if (!entry.control.reportValidity()) throw new Error(tr('pool.chemistry.invalid', 'Valeur invalide.'));
+          const nextValue = poolConfigChemistryEntryValue(entry);
+          if (poolConfigValuesEqual(nextValue, entry.initialValue)) return;
+          if (!changesByModule[entry.edit.module]) changesByModule[entry.edit.module] = {};
+          changesByModule[entry.edit.module][entry.edit.key] = nextValue;
+        });
+      } catch (err) {
+        syncState('error', String(err));
+        return;
+      }
+      if (!Object.keys(changesByModule).length) {
+        syncState();
+        return;
+      }
+
+      poolConfigFieldApplyBusy = true;
+      card.setAttribute('aria-busy', 'true');
+      entries.forEach((entry) => { entry.control.disabled = true; });
+      syncState('saving', tr('pool.chemistry.saving', 'Enregistrement en cours…'));
+      let saved = false;
+      try {
+        await fetchOkJson(
+          '/api/flowcfg/apply',
+          createFormPostOptions({ patch: JSON.stringify(changesByModule) }),
+          tr('pool.chemistry.saveFailed', 'Enregistrement refusé'),
+          fetchFlowRemoteQueued
+        );
+        entries.forEach((entry) => {
+          const moduleChanges = changesByModule[entry.edit.module];
+          if (!moduleChanges || !Object.prototype.hasOwnProperty.call(moduleChanges, entry.edit.key)) return;
+          const nextValue = moduleChanges[entry.edit.key];
+          entry.initialValue = nextValue;
+          if (poolConfigModulesCache[entry.edit.module]) {
+            poolConfigModulesCache[entry.edit.module][entry.edit.key] = nextValue;
+          }
+        });
+        saved = true;
+      } catch (err) {
+        syncState('error', tr('pool.chemistry.saveFailed', 'Échec de l’enregistrement') + ' : ' + String(err));
+      } finally {
+        poolConfigFieldApplyBusy = false;
+        card.removeAttribute('aria-busy');
+        entries.forEach((entry) => { entry.control.disabled = false; });
+        if (saved) {
+          syncState('saved', tr('pool.chemistry.saved', 'Modifications enregistrées.'));
+        } else {
+          syncState('keep');
+        }
       }
     }
 
@@ -7526,13 +7630,88 @@
 
       const metrics = document.createElement('div');
       metrics.className = 'pool-chemistry-metrics';
+      const editableEntries = [];
       (opts.metrics || []).forEach((metric) => {
-        poolConfigAppendMetric(metrics, metric.label, metric.value, {
+        const entry = poolConfigAppendMetric(metrics, metric.label, metric.value, {
           featured: !!metric.featured,
-          editable: metric.editable || null
+          editable: metric.editable || null,
+          deferApply: true
         });
+        if (entry) editableEntries.push(entry);
       });
       card.appendChild(metrics);
+
+      if (editableEntries.length) {
+        const footer = document.createElement('div');
+        footer.className = 'pool-chemistry-footer';
+        const status = document.createElement('span');
+        status.className = 'pool-chemistry-status';
+        status.setAttribute('role', 'status');
+        status.setAttribute('aria-live', 'polite');
+        const actions = document.createElement('div');
+        actions.className = 'pool-chemistry-actions';
+        const cancel = document.createElement('button');
+        cancel.type = 'button';
+        cancel.className = 'btn-tonal pool-chemistry-cancel';
+        cancel.textContent = tr('pool.chemistry.cancel', 'Annuler');
+        const validate = document.createElement('button');
+        validate.type = 'button';
+        validate.className = 'btn-primary pool-chemistry-validate';
+        validate.textContent = tr('pool.chemistry.validate', 'Valider');
+        actions.appendChild(cancel);
+        actions.appendChild(validate);
+        footer.appendChild(status);
+        footer.appendChild(actions);
+        card.appendChild(footer);
+
+        const syncState = (state, message) => {
+          let dirty = false;
+          let valid = true;
+          editableEntries.forEach((entry) => {
+            valid = entry.control.checkValidity() && valid;
+            try {
+              dirty = !poolConfigValuesEqual(
+                poolConfigChemistryEntryValue(entry),
+                entry.initialValue
+              ) || dirty;
+            } catch (err) {
+              dirty = true;
+              valid = false;
+            }
+          });
+          card.classList.toggle('is-dirty', dirty);
+          const busy = poolConfigFieldApplyBusy || card.getAttribute('aria-busy') === 'true';
+          cancel.disabled = !dirty || busy;
+          validate.disabled = !dirty || !valid || busy;
+          if (state !== 'keep') {
+            status.className = 'pool-chemistry-status';
+            if (state === 'saved') status.classList.add('is-ok');
+            if (state === 'error') status.classList.add('is-error');
+            if (state === 'saving') status.classList.add('is-pending');
+            if (message) {
+              status.textContent = message;
+            } else {
+              status.textContent = dirty
+                ? tr('pool.chemistry.unsaved', 'Modifications non enregistrées.')
+                : '';
+            }
+          }
+          poolConfigRefreshChemistryPendingFlag();
+        };
+
+        editableEntries.forEach((entry) => {
+          entry.control.addEventListener('input', () => syncState());
+          entry.control.addEventListener('change', () => syncState());
+        });
+        cancel.addEventListener('click', () => {
+          editableEntries.forEach(poolConfigRestoreChemistryEntry);
+          syncState('cancelled', tr('pool.chemistry.cancelled', 'Modifications annulées.'));
+        });
+        validate.addEventListener('click', () => {
+          poolConfigApplyChemistryCard(editableEntries, card, syncState).catch(() => {});
+        });
+        syncState();
+      }
       parent.appendChild(card);
     }
 
@@ -8016,7 +8195,9 @@
         poolConfigLiveState = {};
       }
       if (poolConfigLoadedOnce && getActivePageId() === 'page-pool') {
-        poolConfigRenderChemistry(poolConfigModulesCache, poolConfigLiveState);
+        if (!poolChemistryHasPendingChanges) {
+          poolConfigRenderChemistry(poolConfigModulesCache, poolConfigLiveState);
+        }
       }
     }
 
@@ -8726,7 +8907,10 @@
         const data = await fetchOkJson('/api/wifi/config', { cache: 'no-store' }, 'chargement réseau indisponible');
         wifiEnabled.checked = toBool(data.enabled);
         wifiSsid.value = data.ssid || '';
-        wifiPass.value = data.pass || '';
+        wifiPass.value = '';
+        wifiPass.placeholder = data.password_configured
+          ? tr('wifi.password.keep', 'Conserver le mot de passe enregistré')
+          : tr('wifi.password.enter', 'Saisir le mot de passe réseau');
         wifiConfigStatus.textContent = 'Configuration réseau chargée.';
       } catch (err) {
         wifiConfigStatus.textContent = 'Chargement réseau échoué: ' + err;

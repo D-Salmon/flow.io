@@ -148,7 +148,10 @@
       const data = await apiJson("/api/wifi/config", { cache: "no-store" }, "wifi");
       el("provWifiEnabled").checked = toBool(data.enabled);
       el("provWifiSsid").value = data.ssid || "";
-      el("provWifiPass").value = data.pass || "";
+      el("provWifiPass").value = "";
+      el("provWifiPass").placeholder = data.password_configured
+        ? "Laisser vide pour conserver"
+        : "Mot de passe reseau";
       setStatus("Configuration reseau prete.", "ok");
       refreshScan(true);
     } catch (err) {

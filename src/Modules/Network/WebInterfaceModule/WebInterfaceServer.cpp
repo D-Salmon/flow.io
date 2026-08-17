@@ -3848,7 +3848,7 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
     <h2>Securite Web</h2>
     <p>
       Pour creer ou remplacer les acces, demarrez normalement le Waveshare puis
-      maintenez le bouton BOOT pendant 5 secondes. La recuperation reste active 10 minutes.
+      maintenez le bouton BOOT pendant 5 secondes. La recuperation reste active 5 minutes.
     </p>
     <label for="adminUser">Utilisateur administrateur</label>
     <input id="adminUser" value="admin" maxlength="32" autocomplete="username" />
@@ -3863,7 +3863,7 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
   </section>
 
   <div class="grid" id="serviceGrid">
-    <section>
+    <section id="networkSection" hidden>
       <h2>Réseau Waveshare</h2>
       <label><input id="wifiEnabled" type="checkbox" checked />Activer le réseau station</label>
       <label for="wifiList">Reseaux detectes</label>
@@ -3878,7 +3878,28 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
       <div class="status" id="wifiMsg">-</div>
     </section>
 
-    <section>
+    <section id="mqttSection" hidden>
+      <h2>Broker MQTT</h2>
+      <label><input id="mqttEnabled" type="checkbox" />Activer MQTT</label>
+      <label for="mqttHost">Broker MQTT</label>
+      <input id="mqttHost" autocomplete="off" />
+      <label for="mqttPort">Port MQTT</label>
+      <input id="mqttPort" inputmode="numeric" value="8883" />
+      <label for="mqttUser">Utilisateur MQTT</label>
+      <input id="mqttUser" autocomplete="username" />
+      <label for="mqttPass">Mot de passe MQTT</label>
+      <input id="mqttPass" type="password" autocomplete="off" />
+      <label for="mqttBaseTopic">Topic de base</label>
+      <input id="mqttBaseTopic" value="flowio" autocomplete="off" />
+      <label for="mqttDeviceName">Nom d'appareil MQTT</label>
+      <input id="mqttDeviceName" autocomplete="off" />
+      <div class="row">
+        <button id="saveMqtt" type="button">Enregistrer MQTT</button>
+      </div>
+      <div class="status" id="mqttMsg">-</div>
+    </section>
+
+    <section id="adminFwConfigSection" hidden>
       <h2>Serveur d'upgrade</h2>
       <label for="host">Hote HTTP</label>
       <input id="host" placeholder="192.168.1.10:8000" autocomplete="off" />
@@ -3891,7 +3912,7 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
       <div class="status" id="fwCfgMsg">-</div>
     </section>
 
-    <section class="wide">
+    <section class="wide" id="adminUpdateSection" hidden>
       <h2>Upgrade de secours</h2>
       <p>Renseigner une URL explicite vers l'image a installer.</p>
       <label for="waveshareUrl">URL explicite firmware Waveshare</label>
@@ -3911,16 +3932,21 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
   const $ = (id) => document.getElementById(id);
   const status = $("status");
   const wifiMsg = $("wifiMsg");
+  const mqttMsg = $("mqttMsg");
   const securityMsg = $("securityMsg");
   const fwCfgMsg = $("fwCfgMsg");
   const updateMsg = $("updateMsg");
   const buttons = Array.from(document.querySelectorAll("button"));
   let csrfToken = "";
   let recoveryAllowed = false;
+  let adminAuthenticated = false;
 
   const setBusy = (busy) => {
     buttons.forEach((b) => { b.disabled = busy; });
     $("saveCredentials").disabled = busy || !recoveryAllowed;
+    const sensitiveAllowed = recoveryAllowed || adminAuthenticated;
+    $("saveWifi").disabled = busy || !sensitiveAllowed;
+    $("saveMqtt").disabled = busy || !sensitiveAllowed;
   };
   const formBody = (data) => {
     const body = new URLSearchParams();
@@ -3957,25 +3983,22 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
   async function refreshAll() {
     setBusy(true);
     try {
-      const [meta, net, wifi, fw, fwst] = await Promise.all([
-        api("/api/web/meta").catch((e) => ({ ok:false, err:e.message })),
-        api("/api/network/mode").catch((e) => ({ ok:false, err:e.message })),
-        api("/api/wifi/config").catch((e) => ({ ok:false, err:e.message })),
-        api("/api/fwupdate/config").catch((e) => ({ ok:false, err:e.message })),
-        api("/api/fwupdate/status").catch((e) => ({ ok:false, err:e.message }))
-      ]);
-      if (wifi.ok !== false) {
-        $("wifiEnabled").checked = wifi.enabled !== false;
-        $("ssid").value = wifi.ssid || "";
-        $("pass").value = wifi.pass || "";
-      }
-      if (fw.ok !== false) {
-        $("host").value = fw.update_host || "";
-        $("basePath").value = fw.update_path || "";
-      }
+      const meta = await api("/api/web/meta").catch((e) => ({ ok:false, err:e.message }));
+      let net = { ok:false, skipped:true };
+      let wifi = { ok:false, skipped:true };
+      let mqtt = { ok:false, skipped:true };
+      let fw = { ok:false, skipped:true };
+      let fwst = { ok:false, skipped:true };
+
       if (meta.ok !== false) {
         recoveryAllowed = meta.physical_recovery_active === true;
-        $("serviceGrid").hidden = recoveryAllowed;
+        adminAuthenticated = meta.admin_authenticated === true;
+        const sensitiveAllowed = recoveryAllowed || adminAuthenticated;
+        $("serviceGrid").hidden = false;
+        $("networkSection").hidden = !sensitiveAllowed;
+        $("mqttSection").hidden = !sensitiveAllowed;
+        $("adminFwConfigSection").hidden = !adminAuthenticated;
+        $("adminUpdateSection").hidden = !adminAuthenticated;
         $("saveCredentials").disabled = !recoveryAllowed;
         if (recoveryAllowed) {
           put(
@@ -3984,19 +4007,59 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
             "Vous pouvez definir de nouveaux acces.",
             "note"
           );
-        } else if (meta.auth_enabled === true) {
+        } else if (adminAuthenticated) {
           put(
             securityMsg,
-            "Authentification active. Maintenez BOOT 5 secondes pour remplacer les acces.",
+            "Administrateur connecte. Les reglages Wi-Fi et MQTT sont modifiables.",
             "ok"
           );
+        } else if (meta.auth_enabled === true) {
+          put(securityMsg, "Acces non authentifie. Connectez-vous comme administrateur.", "note");
         } else {
           put(
             securityMsg,
-            "Acces Web actuellement ouvert. Maintenez BOOT 5 secondes pour activer l'authentification.",
+            "Aucun administrateur. Maintenez BOOT 5 secondes pour lancer la configuration initiale.",
             "note"
           );
         }
+
+        if (sensitiveAllowed) {
+          [net, wifi, mqtt] = await Promise.all([
+            api("/api/network/mode").catch((e) => ({ ok:false, err:e.message })),
+            api("/api/wifi/config").catch((e) => ({ ok:false, err:e.message })),
+            api("/api/mqtt/config").catch((e) => ({ ok:false, err:e.message }))
+          ]);
+        }
+        if (adminAuthenticated) {
+          [fw, fwst] = await Promise.all([
+            api("/api/fwupdate/config").catch((e) => ({ ok:false, err:e.message })),
+            api("/api/fwupdate/status").catch((e) => ({ ok:false, err:e.message }))
+          ]);
+        }
+      }
+      if (wifi.ok !== false) {
+        $("wifiEnabled").checked = wifi.enabled !== false;
+        $("ssid").value = wifi.ssid || "";
+        $("pass").value = "";
+        $("pass").placeholder = wifi.password_configured
+          ? "Laisser vide pour conserver"
+          : "Mot de passe reseau";
+      }
+      if (mqtt.ok !== false) {
+        $("mqttEnabled").checked = mqtt.enabled === true;
+        $("mqttHost").value = mqtt.host || "";
+        $("mqttPort").value = mqtt.port || 8883;
+        $("mqttUser").value = mqtt.user || "";
+        $("mqttPass").value = "";
+        $("mqttPass").placeholder = mqtt.password_configured
+          ? "Laisser vide pour conserver"
+          : "Mot de passe MQTT";
+        $("mqttBaseTopic").value = mqtt.baseTopic || "flowio";
+        $("mqttDeviceName").value = mqtt.deviceName || "";
+      }
+      if (fw.ok !== false) {
+        $("host").value = fw.update_host || "";
+        $("basePath").value = fw.update_path || "";
       }
       put(status, { web: meta, network: net, updater: fwst }, "ok");
     } catch (e) {
@@ -4094,6 +4157,30 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
     }
   }
 
+  async function saveMqtt() {
+    setBusy(true);
+    try {
+      const out = await api("/api/mqtt/config", {
+        method: "POST",
+        body: formBody({
+          enabled: $("mqttEnabled").checked ? "1" : "0",
+          host: $("mqttHost").value.trim(),
+          port: $("mqttPort").value.trim(),
+          user: $("mqttUser").value.trim(),
+          pass: $("mqttPass").value,
+          baseTopic: $("mqttBaseTopic").value.trim() || "flowio",
+          deviceName: $("mqttDeviceName").value.trim()
+        })
+      });
+      put(mqttMsg, out.reboot_scheduled ? "MQTT enregistre. Redemarrage planifie." : "MQTT enregistre.", "ok");
+      await refreshAll();
+    } catch (e) {
+      put(mqttMsg, e.message, "bad");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function saveFwConfig() {
     setBusy(true);
     try {
@@ -4164,6 +4251,7 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
   $("scan").addEventListener("click", scanWifi);
   $("saveCredentials").addEventListener("click", saveCredentials);
   $("saveWifi").addEventListener("click", saveWifi);
+  $("saveMqtt").addEventListener("click", saveMqtt);
   $("saveFwCfg").addEventListener("click", saveFwConfig);
   $("checkManifest").addEventListener("click", checkManifest);
   $("updateSpiffs").addEventListener("click", () => startUpdate("spiffs"));
@@ -5226,7 +5314,9 @@ void WebInterfaceModule::startServer_()
     };
 
     server_.on("/", HTTP_GET, [this, webInterfaceLandingUrl](AsyncWebServerRequest* request) {
-        request->redirect(physicalRecoveryActive_() ? "/rescue" : webInterfaceLandingUrl());
+        request->redirect((physicalRecoveryActive_() || !webCredentialsReady_)
+                              ? "/rescue"
+                              : webInterfaceLandingUrl());
     });
 
     server_.on("/rescue", HTTP_GET, [sendRescuePage](AsyncWebServerRequest* request) {
@@ -5657,6 +5747,7 @@ void WebInterfaceModule::startServer_()
         doc["ok"] = true;
         doc["csrf_token"] = csrfToken_;
         doc["auth_enabled"] = webCredentialsReady_;
+        doc["admin_authenticated"] = webRequestAuthorized_(request);
         doc["physical_recovery_active"] = physicalRecoveryActive_();
         doc["physical_recovery_remaining_s"] =
             (physicalRecoveryRemainingMs_() + 999U) / 1000U;
@@ -5817,6 +5908,10 @@ void WebInterfaceModule::startServer_()
                                            provisioningUiAssetsAvailable,
                                            sendRescuePage](AsyncWebServerRequest* request) {
         HttpLatencyScope latency(request, "/webinterface");
+        if (!webCredentialsReady_ && !physicalRecoveryActive_()) {
+            request->redirect("/rescue");
+            return;
+        }
         NetworkAccessMode mode = NetworkAccessMode::None;
         if (!netAccessSvc_ && services_) {
             netAccessSvc_ = services_->get<NetworkAccessService>(ServiceId::NetworkAccess);
@@ -5912,8 +6007,10 @@ void WebInterfaceModule::startServer_()
         LOGW("Full web assets missing; redirecting to PROGMEM rescue UI");
         request->redirect("/rescue");
     });
-    server_.on("/webinterface/", HTTP_GET, [webInterfaceLandingUrl](AsyncWebServerRequest* request) {
-        request->redirect(webInterfaceLandingUrl());
+    server_.on("/webinterface/", HTTP_GET, [this, webInterfaceLandingUrl](AsyncWebServerRequest* request) {
+        request->redirect((physicalRecoveryActive_() || !webCredentialsReady_)
+                              ? "/rescue"
+                              : webInterfaceLandingUrl());
     });
     server_.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest* request) { request->redirect("/webinterface/favicon.png"); });
     server_.on("/webserial", HTTP_GET, [this](AsyncWebServerRequest* request) {
@@ -6144,21 +6241,20 @@ void WebInterfaceModule::startServer_()
         bool enabled = root["enabled"] | true;
         const char* ssid = root["ssid"] | "";
         const char* pass = root["pass"] | "";
+        const bool passwordConfigured = pass && pass[0] != '\0';
 
         char ssidSafe[96] = {0};
-        char passSafe[96] = {0};
         snprintf(ssidSafe, sizeof(ssidSafe), "%s", ssid ? ssid : "");
-        snprintf(passSafe, sizeof(passSafe), "%s", pass ? pass : "");
         sanitizeJsonString_(ssidSafe);
-        sanitizeJsonString_(passSafe);
 
         char out[360] = {0};
         const int n = snprintf(out,
                                sizeof(out),
-                               "{\"ok\":true,\"enabled\":%s,\"ssid\":\"%s\",\"pass\":\"%s\"}",
+                               "{\"ok\":true,\"enabled\":%s,\"ssid\":\"%s\","
+                               "\"password_configured\":%s}",
                                enabled ? "true" : "false",
                                ssidSafe,
-                               passSafe);
+                               passwordConfigured ? "true" : "false");
         if (n <= 0 || (size_t)n >= sizeof(out)) {
             request->send(500, "application/json",
                           "{\"ok\":false,\"err\":{\"code\":\"Failed\",\"where\":\"wifi.config.get\"}}");
@@ -6197,7 +6293,9 @@ void WebInterfaceModule::startServer_()
         else if (mode == NetworkAccessMode::AccessPoint) modeTxt = "ap";
         const int n = snprintf(out,
                                sizeof(out),
-                               "{\"ok\":true,\"active\":%s,\"mode\":\"%s\",\"ssid\":\"%s\",\"pass\":\"flowio1234\",\"ip\":\"%s\",\"clients\":%u}",
+                               "{\"ok\":true,\"active\":%s,\"mode\":\"%s\",\"ssid\":\"%s\","
+                               "\"password_configured\":true,\"password_disclosure\":\"usb_serial_only\","
+                               "\"ip\":\"%s\",\"clients\":%u}",
                                mode == NetworkAccessMode::AccessPoint ? "true" : "false",
                                modeTxt,
                                ssid,
@@ -6222,13 +6320,13 @@ void WebInterfaceModule::startServer_()
         int32_t port = Limits::Mqtt::Defaults::Port;
         char host[96] = {0};
         char user[64] = {0};
-        char pass[64] = {0};
+        bool passwordConfigured = false;
         char baseTopic[48] = "flowio";
         char topicDeviceId[48] = {0};
         char deviceName[48] = {0};
 
         char mqttJson[640] = {0};
-        if (cfgStore_->toJsonModule("mqtt", mqttJson, sizeof(mqttJson), nullptr, true)) {
+        if (cfgStore_->toJsonModule("mqtt", mqttJson, sizeof(mqttJson), nullptr, false)) {
             JsonDocument doc;
             const DeserializationError err = deserializeJson(doc, mqttJson);
             if (err || !doc.is<JsonObjectConst>()) {
@@ -6242,7 +6340,9 @@ void WebInterfaceModule::startServer_()
             port = root["port"] | Limits::Mqtt::Defaults::Port;
             snprintf(host, sizeof(host), "%s", root["host"] | "");
             snprintf(user, sizeof(user), "%s", root["user"] | "");
-            snprintf(pass, sizeof(pass), "%s", root["pass"] | "");
+            const char* configuredPass = root["pass"] | "";
+            passwordConfigured = configuredPass && configuredPass[0] != '\0' &&
+                                 strcmp(configuredPass, "***") != 0;
             snprintf(baseTopic, sizeof(baseTopic), "%s", root["baseTopic"] | "flowio");
             snprintf(topicDeviceId, sizeof(topicDeviceId), "%s", root["topicDeviceId"] | "");
             snprintf(deviceName, sizeof(deviceName), "%s", root["deviceName"] | "");
@@ -6252,7 +6352,6 @@ void WebInterfaceModule::startServer_()
 
         sanitizeJsonString_(host);
         sanitizeJsonString_(user);
-        sanitizeJsonString_(pass);
         sanitizeJsonString_(baseTopic);
         sanitizeJsonString_(topicDeviceId);
         sanitizeJsonString_(deviceName);
@@ -6261,13 +6360,13 @@ void WebInterfaceModule::startServer_()
         const int n = snprintf(out,
                                sizeof(out),
                                "{\"ok\":true,\"enabled\":%s,\"host\":\"%s\",\"port\":%ld,"
-                               "\"user\":\"%s\",\"pass\":\"%s\",\"baseTopic\":\"%s\","
+                               "\"user\":\"%s\",\"password_configured\":%s,\"baseTopic\":\"%s\","
                                "\"topicDeviceId\":\"%s\",\"deviceName\":\"%s\"}",
                                enabled ? "true" : "false",
                                host,
                                (long)port,
                                user,
-                               pass,
+                               passwordConfigured ? "true" : "false",
                                baseTopic,
                                topicDeviceId,
                                deviceName);
@@ -6296,17 +6395,35 @@ void WebInterfaceModule::startServer_()
         char enabledStr[8] = {0};
         char ssid[96] = {0};
         char pass[96] = {0};
+        char previousPass[96] = {0};
+        char clearPassStr[8] = {0};
         copyRequestParamValue_(request, "enabled", true, enabledStr, sizeof(enabledStr), "1");
         const bool enabled = parseBoolParam_(enabledStr, true);
         copyRequestParamValue_(request, "ssid", true, ssid, sizeof(ssid), "");
         copyRequestParamValue_(request, "pass", true, pass, sizeof(pass), "");
+        copyRequestParamValue_(request, "clearPass", true, clearPassStr, sizeof(clearPassStr), "0");
+        const bool clearPass = parseBoolParam_(clearPassStr, false);
+
+        char previousWifiJson[320] = {0};
+        if (!clearPass && pass[0] == '\0' &&
+            cfgStore_->toJsonModule("wifi", previousWifiJson, sizeof(previousWifiJson), nullptr, false)) {
+            JsonDocument previousDoc;
+            if (deserializeJson(previousDoc, previousWifiJson) == DeserializationError::Ok &&
+                previousDoc.is<JsonObjectConst>()) {
+                snprintf(previousPass,
+                         sizeof(previousPass),
+                         "%s",
+                         previousDoc.as<JsonObjectConst>()["pass"] | "");
+            }
+        }
+        const char* effectivePass = clearPass ? "" : (pass[0] != '\0' ? pass : previousPass);
 
         JsonDocument patch;
         JsonObject root = patch.to<JsonObject>();
         JsonObject wifi = root["wifi"].to<JsonObject>();
         wifi["enabled"] = enabled;
         wifi["ssid"] = ssid;
-        wifi["pass"] = pass;
+        wifi["pass"] = effectivePass;
 
         char patchJson[320] = {0};
         if (serializeJson(patch, patchJson, sizeof(patchJson)) == 0) {
@@ -6343,7 +6460,7 @@ void WebInterfaceModule::startServer_()
             JsonObject flowWifi = flowRoot["wifi"].to<JsonObject>();
             flowWifi["enabled"] = enabled;
             flowWifi["ssid"] = ssid;
-            flowWifi["pass"] = pass;
+            flowWifi["pass"] = effectivePass;
 
             char flowPatchJson[320] = {0};
             const size_t flowPatchLen = serializeJson(flowPatchDoc, flowPatchJson, sizeof(flowPatchJson));
@@ -6444,16 +6561,21 @@ void WebInterfaceModule::startServer_()
         char enabledStr[8] = {0};
         char host[96] = {0};
         char portStr[12] = {0};
+        char defaultPortStr[12] = {0};
         char user[64] = {0};
         char pass[64] = {0};
+        char previousPass[64] = {0};
+        char clearPassStr[8] = {0};
         char baseTopic[48] = {0};
         char topicDeviceId[48] = {0};
         char deviceName[48] = {0};
         copyRequestParamValue_(request, "enabled", true, enabledStr, sizeof(enabledStr), "0");
         copyRequestParamValue_(request, "host", true, host, sizeof(host), "");
-        copyRequestParamValue_(request, "port", true, portStr, sizeof(portStr), "1883");
+        snprintf(defaultPortStr, sizeof(defaultPortStr), "%u", (unsigned)Limits::Mqtt::Defaults::Port);
+        copyRequestParamValue_(request, "port", true, portStr, sizeof(portStr), defaultPortStr);
         copyRequestParamValue_(request, "user", true, user, sizeof(user), "");
         copyRequestParamValue_(request, "pass", true, pass, sizeof(pass), "");
+        copyRequestParamValue_(request, "clearPass", true, clearPassStr, sizeof(clearPassStr), "0");
         copyRequestParamValue_(request, "baseTopic", true, baseTopic, sizeof(baseTopic), "flowio");
         copyRequestParamValue_(request, "topicDeviceId", true, topicDeviceId, sizeof(topicDeviceId), "");
         copyRequestParamValue_(request, "deviceName", true, deviceName, sizeof(deviceName), "");
@@ -6468,6 +6590,22 @@ void WebInterfaceModule::startServer_()
         sanitizeJsonString_(topicDeviceId);
         sanitizeJsonString_(deviceName);
 
+        const bool clearPass = parseBoolParam_(clearPassStr, false);
+        char previousMqttJson[640] = {0};
+        if (!clearPass && pass[0] == '\0' &&
+            cfgStore_->toJsonModule("mqtt", previousMqttJson, sizeof(previousMqttJson), nullptr, false)) {
+            JsonDocument previousDoc;
+            if (deserializeJson(previousDoc, previousMqttJson) == DeserializationError::Ok &&
+                previousDoc.is<JsonObjectConst>()) {
+                snprintf(previousPass,
+                         sizeof(previousPass),
+                         "%s",
+                         previousDoc.as<JsonObjectConst>()["pass"] | "");
+                sanitizeJsonString_(previousPass);
+            }
+        }
+        const char* effectivePass = clearPass ? "" : (pass[0] != '\0' ? pass : previousPass);
+
         char patchJson[640] = {0};
         const int n = snprintf(patchJson,
                                sizeof(patchJson),
@@ -6478,7 +6616,7 @@ void WebInterfaceModule::startServer_()
                                host,
                                (long)port,
                                user,
-                               pass,
+                               effectivePass,
                                baseTopic,
                                topicDeviceId,
                                deviceName);
@@ -7794,56 +7932,15 @@ void WebInterfaceModule::noteWebAuthSuccess_(AsyncWebServerRequest* request)
 bool WebInterfaceModule::allowUnauthenticatedRequest_(AsyncWebServerRequest* request) const
 {
     if (!request) return false;
-
-    // Preserve the historical open setup until an administrator explicitly
-    // provisions credentials through the physical recovery workflow.
-    if (!webCredentialsReady_) return true;
-
-    const String& url = request->url();
-    const WebRequestMethodComposite method = request->method();
-
-    if (physicalRecoveryActive_()) {
-        if (method == HTTP_GET) {
-            return url == "/" ||
-                   url == "/rescue" ||
-                   url == "/webinterface/rescue" ||
-                   url == "/api/web/meta" ||
-                   url == "/api/recovery/status";
-        }
-        return method == HTTP_POST &&
-               url == "/api/recovery/web-credentials";
-    }
-
-    if (!provisioningOnly_) return false;
-
-    if (method == HTTP_GET) {
-        if (url == "/" ||
-            url == "/webinterface" ||
-            url == "/webinterface/" ||
-            url == "/rescue" ||
-            url == "/webinterface/rescue" ||
-            url == "/generate_204" ||
-            url == "/gen_204" ||
-            url == "/hotspot-detect.html" ||
-            url == "/connecttest.txt" ||
-            url == "/ncsi.txt" ||
-            url == "/api/web/meta" ||
-            url == "/api/network/mode" ||
-            url == "/api/wifi/ap" ||
-            url == "/api/wifi/config" ||
-            url == "/api/wifi/scan" ||
-            url == "/api/mqtt/config") {
-            return true;
-        }
-        return url.startsWith("/webinterface/") &&
-               url != "/webinterface/health";
-    }
-    if (method == HTTP_POST) {
-        return url == "/api/wifi/config" ||
-               url == "/api/wifi/scan" ||
-               url == "/api/mqtt/config";
-    }
-    return false;
+    Security::WebRouteMethod method = Security::WebRouteMethod::Other;
+    if (request->method() == HTTP_GET) method = Security::WebRouteMethod::Get;
+    else if (request->method() == HTTP_POST) method = Security::WebRouteMethod::Post;
+    return Security::unauthenticatedWebRouteAllowed(
+        webCredentialsReady_,
+        physicalRecoveryActive_(),
+        provisioningOnly_,
+        method,
+        request->url().c_str());
 }
 
 void WebInterfaceModule::noteInvalidOtaSignature_()
