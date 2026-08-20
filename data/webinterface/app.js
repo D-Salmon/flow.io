@@ -6816,6 +6816,8 @@
       const opts = options || {};
       const item = document.createElement('div');
       item.className = 'pool-metric' + (opts.featured ? ' is-featured' : '');
+      if (opts.module) item.dataset.poolModule = String(opts.module);
+      if (opts.key) item.dataset.poolKey = String(opts.key);
       const labelEl = document.createElement('span');
       labelEl.className = 'pool-metric-label';
       labelEl.textContent = String(label || '');
@@ -6928,6 +6930,40 @@
       );
     }
 
+    function poolConfigRefreshChemistryMirrors(changesByModule) {
+      const changes = changesByModule && typeof changesByModule === 'object'
+        ? changesByModule
+        : {};
+      Object.entries(changes).forEach(([moduleName, moduleChanges]) => {
+        const values = moduleChanges && typeof moduleChanges === 'object' ? moduleChanges : {};
+        const specs = poolEditableFieldSpecs[moduleName] || [];
+        document.querySelectorAll('form.pool-settings-form').forEach((form) => {
+          if (String(form.dataset.poolModule || '') !== moduleName) return;
+          Object.entries(values).forEach(([key, value]) => {
+            const spec = specs.find((entry) => entry && entry.key === key);
+            if (!spec) return;
+            Array.from(form.elements).forEach((control) => {
+              if (!control || String(control.name || '') !== key) return;
+              if (spec.type === 'bool') {
+                control.value = toBool(value) ? 'true' : 'false';
+              } else if (spec.type === 'enum') {
+                control.value = String(value);
+              } else {
+                control.value = String(poolConfigEditorDisplayValue(spec, value));
+              }
+            });
+          });
+        });
+        document.querySelectorAll('.pool-metric[data-pool-module][data-pool-key]').forEach((metric) => {
+          if (String(metric.dataset.poolModule || '') !== moduleName) return;
+          const key = String(metric.dataset.poolKey || '');
+          if (!Object.prototype.hasOwnProperty.call(values, key)) return;
+          const valueEl = metric.querySelector('.pool-metric-value');
+          if (valueEl) valueEl.textContent = poolConfigFormatValue(moduleName, key, values[key]);
+        });
+      });
+    }
+
     async function poolConfigApplyChemistryCard(entries, card, syncState) {
       if (poolConfigFieldApplyBusy || !Array.isArray(entries) || !entries.length) return;
       const changesByModule = {};
@@ -6969,6 +7005,7 @@
             poolConfigModulesCache[entry.edit.module][entry.edit.key] = nextValue;
           }
         });
+        poolConfigRefreshChemistryMirrors(changesByModule);
         saved = true;
       } catch (err) {
         syncState('error', tr('pool.chemistry.saveFailed', 'Échec de l’enregistrement') + ' : ' + String(err));
@@ -7127,6 +7164,7 @@
       const specs = Array.isArray(fieldSpecs) ? fieldSpecs : [];
       const form = document.createElement('form');
       form.className = 'pool-settings-form';
+      form.dataset.poolModule = moduleName;
       form.noValidate = false;
       const robotSettingsEnabled = moduleName !== 'poollogic/robot'
         || toBool((poolConfigModulesCache['poollogic/modes'] || {}).robot_auto_mode);
@@ -7885,9 +7923,9 @@
       metrics.className = 'pool-metric-grid';
       if (selected) {
         if (selectedDef.key === 'chlorine') {
-          poolConfigAppendMetric(metrics, tr('pool.metric.autoOrp', 'Auto ORP'), poolConfigBoolLabel(data.dis_auto_mode));
-          poolConfigAppendMetric(metrics, tr('pool.metric.setpoint', 'Consigne'), poolConfigFormatValue(selectedDef.module, 'dis_setpoint', data.dis_setpoint), { featured: true });
-          poolConfigAppendMetric(metrics, tr('pool.metric.window', 'Fenêtre'), poolConfigFormatValue(selectedDef.module, 'dis_window_ms', data.dis_window_ms));
+          poolConfigAppendMetric(metrics, tr('pool.metric.autoOrp', 'Auto ORP'), poolConfigBoolLabel(data.dis_auto_mode), { module: selectedDef.module, key: 'dis_auto_mode' });
+          poolConfigAppendMetric(metrics, tr('pool.metric.setpoint', 'Consigne'), poolConfigFormatValue(selectedDef.module, 'dis_setpoint', data.dis_setpoint), { featured: true, module: selectedDef.module, key: 'dis_setpoint' });
+          poolConfigAppendMetric(metrics, tr('pool.metric.window', 'Fenêtre'), poolConfigFormatValue(selectedDef.module, 'dis_window_ms', data.dis_window_ms), { module: selectedDef.module, key: 'dis_window_ms' });
         } else if (selectedDef.key === 'o2') {
           poolConfigAppendMetric(metrics, tr('pool.metric.poolVolume', 'Volume bassin'), poolConfigFormatValue(selectedDef.module, 'pool_volume_m3', data.pool_volume_m3), { featured: true });
           poolConfigAppendMetric(metrics, tr('pool.metric.weeklyDose', 'Dose hebdo'), poolConfigFormatValue(selectedDef.module, 'dose_ml_10m3_week', data.dose_ml_10m3_week));
