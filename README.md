@@ -137,7 +137,10 @@ Home Assistant ; le firmware n’envoie pas directement de SMS ou de courriel.
 - accès de secours par l’adresse IP affichée dans le moniteur série ;
 - publication mDNS du service HTTP sur Ethernet et Wi-Fi ;
 - interface complète depuis SPIFFS et page minimale de récupération intégrée au
-  firmware.
+  firmware ;
+- réglages de l’onglet Piscine préparés localement dans chaque carte, avec
+  indication des modifications en attente et choix explicite entre annulation
+  et enregistrement.
 
 Lorsque MQTT était valide au démarrage précédent, le serveur Web en mode station
 peut attendre jusqu’à 30 secondes la connexion MQTT TLS afin de préserver assez

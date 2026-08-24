@@ -7808,17 +7808,68 @@
       const status = document.createElement('span');
       status.className = 'pool-settings-status';
       status.setAttribute('role', 'status');
+      status.setAttribute('aria-live', 'polite');
+      const cancel = document.createElement('button');
+      cancel.type = 'button';
+      cancel.className = 'btn-tonal pool-settings-cancel';
+      cancel.textContent = tr('pool.settings.cancel', 'Annuler');
       const submit = document.createElement('button');
       submit.type = 'submit';
       submit.className = 'btn-primary pool-settings-save';
-      submit.textContent = 'Enregistrer';
+      submit.textContent = tr('pool.settings.save', 'Enregistrer');
       footer.appendChild(status);
+      footer.appendChild(cancel);
       footer.appendChild(submit);
+
+      const trackedControls = Array.from(fields.querySelectorAll('input, select'));
+      const initialControlValues = trackedControls.map((control) => ({
+        control,
+        value: control.value
+      }));
+      const editorHasChanges = () => {
+        try {
+          return entries.some((entry) => {
+            const nextValue = typeof entry.read === 'function'
+              ? entry.read()
+              : poolConfigEditorStoredValue(entry.spec, entry.input);
+            return !poolConfigValuesEqual(nextValue, data[entry.spec.key]);
+          });
+        } catch (err) {
+          return true;
+        }
+      };
+      const syncEditorActions = (preserveStatus) => {
+        const dirty = editorHasChanges();
+        form.classList.toggle('is-dirty', dirty);
+        cancel.disabled = !dirty || poolConfigFieldApplyBusy;
+        submit.disabled = !dirty || poolConfigFieldApplyBusy;
+        if (!preserveStatus) {
+          status.className = 'pool-settings-status' + (dirty ? ' is-pending' : '');
+          status.textContent = dirty
+            ? tr('pool.settings.pending', 'Modifications non enregistrées.')
+            : '';
+        }
+      };
+
+      trackedControls.forEach((control) => {
+        control.addEventListener('input', () => syncEditorActions(false));
+        control.addEventListener('change', () => syncEditorActions(false));
+      });
+      cancel.addEventListener('click', () => {
+        initialControlValues.forEach((entry) => {
+          entry.control.value = entry.value;
+        });
+        trackedControls.forEach((control) => {
+          control.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        syncEditorActions(false);
+      });
       if (!robotSettingsEnabled) {
         form.classList.add('is-disabled');
         Array.from(fields.querySelectorAll('input, select, button')).forEach((element) => {
           element.disabled = true;
         });
+        cancel.disabled = true;
         submit.disabled = true;
         const disabledNote = document.createElement('p');
         disabledNote.className = 'pool-setting-disabled-note';
@@ -7833,6 +7884,7 @@
         event.preventDefault();
         poolConfigApplyEditor(moduleName, data, entries, form, status).catch(() => {});
       });
+      syncEditorActions(false);
       return form;
     }
 
