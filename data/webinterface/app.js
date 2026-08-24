@@ -8016,10 +8016,81 @@
       return formatted + (unit ? ' ' + unit : '');
     }
 
+    function poolConfigChemistryTargetState(measured, target, tolerance, unit) {
+      const current = Number(measured);
+      const setpoint = Number(target);
+      if (!Number.isFinite(current) || !Number.isFinite(setpoint)) {
+        return {
+          kind: 'unavailable',
+          label: tr('pool.chemistry.sensorUnavailable', 'Sonde indisponible'),
+          note: tr('pool.chemistry.comparisonUnavailable', 'Comparaison à la consigne impossible.')
+        };
+      }
+      const delta = current - setpoint;
+      const band = Math.max(0, Number(tolerance) || 0);
+      const absDelta = Math.abs(delta);
+      const deltaText = (delta > 0 ? '+' : (delta < 0 ? '−' : '')) + poolConfigFormatNumber(absDelta) + (unit ? ' ' + unit : '');
+      if (absDelta <= band) {
+        return {
+          kind: 'ok',
+          label: tr('pool.chemistry.nearTarget', 'Proche de la cible'),
+          note: tr('pool.chemistry.deltaTarget', 'Écart avec la consigne : {delta}').replace('{delta}', deltaText)
+        };
+      }
+      return {
+        kind: delta < 0 ? 'low' : 'high',
+        label: delta < 0 ? tr('pool.chemistry.belowTarget', 'Sous la consigne') : tr('pool.chemistry.aboveTarget', 'Au-dessus de la consigne'),
+        note: tr('pool.chemistry.deltaTarget', 'Écart avec la consigne : {delta}').replace('{delta}', deltaText)
+      };
+    }
+
+    function poolConfigPressureState(measured, lowValue, highValue, monitoringEnabled) {
+      const current = Number(measured);
+      const low = Number(lowValue);
+      const high = Number(highValue);
+      if (!Number.isFinite(current)) {
+        return {
+          kind: 'unavailable',
+          label: tr('pool.chemistry.sensorUnavailable', 'Sonde indisponible'),
+          note: tr('pool.chemistry.pressureUnavailable', 'La pression hydraulique ne peut pas être contrôlée.')
+        };
+      }
+      if (!toBool(monitoringEnabled)) {
+        return {
+          kind: 'neutral',
+          label: tr('pool.chemistry.monitoringDisabled', 'Surveillance désactivée'),
+          note: tr('pool.chemistry.pressureMonitoringDisabled', 'La mesure reste visible mais ne déclenche pas de sécurité.')
+        };
+      }
+      if (Number.isFinite(low) && current < low) {
+        return {
+          kind: 'alert',
+          label: tr('pool.chemistry.pressureLow', 'Pression basse'),
+          note: tr('pool.chemistry.pressureBelowMinimum', 'Valeur inférieure au minimum configuré de {value} bar.').replace('{value}', poolConfigFormatNumber(low))
+        };
+      }
+      if (Number.isFinite(high) && current > high) {
+        return {
+          kind: 'alert',
+          label: tr('pool.chemistry.pressureHigh', 'Pression haute'),
+          note: tr('pool.chemistry.pressureAboveMaximum', 'Valeur supérieure au maximum configuré de {value} bar.').replace('{value}', poolConfigFormatNumber(high))
+        };
+      }
+      return {
+        kind: 'ok',
+        label: tr('pool.chemistry.pressureNormal', 'Pression normale'),
+        note: Number.isFinite(low) && Number.isFinite(high)
+          ? tr('pool.chemistry.pressureRange', 'Plage configurée : {low} à {high} bar.').replace('{low}', poolConfigFormatNumber(low)).replace('{high}', poolConfigFormatNumber(high))
+          : tr('pool.chemistry.pressureRead', 'Mesure hydraulique disponible.')
+      };
+    }
+
     function poolConfigAppendChemistryCard(parent, options) {
       const opts = options || {};
+      const state = opts.state && typeof opts.state === 'object' ? opts.state : {};
+      const stateKind = ['ok', 'low', 'high', 'alert', 'neutral', 'unavailable'].includes(state.kind) ? state.kind : (opts.available ? 'neutral' : 'unavailable');
       const card = document.createElement('article');
-      card.className = 'pool-chemistry-card ' + (opts.accent || '');
+      card.className = 'pool-chemistry-card ' + (opts.accent || '') + ' is-state-' + stateKind;
       const head = document.createElement('div');
       head.className = 'pool-chemistry-head';
       const icon = document.createElement('span');
@@ -8036,7 +8107,16 @@
       copy.appendChild(subtitle);
       head.appendChild(icon);
       head.appendChild(copy);
+      const statePill = document.createElement('span');
+      statePill.className = 'pool-chemistry-state is-' + stateKind;
+      const stateDot = document.createElement('span');
+      stateDot.setAttribute('aria-hidden', 'true');
+      const stateLabel = document.createElement('span');
+      stateLabel.textContent = state.label || (opts.available ? tr('pool.chemistry.sensorAvailable', 'Sonde active') : tr('pool.chemistry.sensorUnavailable', 'Sonde indisponible'));
+      statePill.appendChild(stateDot);
+      statePill.appendChild(stateLabel);
       card.appendChild(head);
+      card.appendChild(statePill);
 
       const measurement = document.createElement('div');
       measurement.className = 'pool-chemistry-measure' + (opts.available ? '' : ' is-unavailable');
@@ -8046,6 +8126,12 @@
       measurementValue.textContent = opts.measured || 'Sonde indisponible';
       measurement.appendChild(measurementLabel);
       measurement.appendChild(measurementValue);
+      if (state.note) {
+        const measurementNote = document.createElement('p');
+        measurementNote.className = 'pool-chemistry-measure-note is-' + stateKind;
+        measurementNote.textContent = state.note;
+        measurement.appendChild(measurementNote);
+      }
       card.appendChild(measurement);
 
       const metrics = document.createElement('div');
@@ -8143,10 +8229,33 @@
       const ph = source['poollogic/ph'] || {};
       const chlorine = source['poollogic/chlorine'] || {};
       const modes = source['poollogic/modes'] || {};
+      const swg = source['poollogic/swg'] || {};
+      const safety = source['poollogic/safety'] || {};
+      const sensors = source['poollogic/sensors'] || {};
       const swgSelected = Number(modes.disinfection_type) === 1;
       const phAvailable = live.ph !== null && typeof live.ph !== 'undefined' && Number.isFinite(Number(live.ph));
       const orpAvailable = live.orp !== null && typeof live.orp !== 'undefined' && Number.isFinite(Number(live.orp));
       const waterAvailable = live.wat !== null && typeof live.wat !== 'undefined' && Number.isFinite(Number(live.wat));
+      const pressureAvailable = live.psi !== null && typeof live.psi !== 'undefined' && Number.isFinite(Number(live.psi));
+      const phState = poolConfigChemistryTargetState(live.ph, ph.ph_setpoint, 0.1, '');
+      const orpUsesSetpoint = !swgSelected || Number(swg.swg_control_mode) === 0;
+      const orpState = orpUsesSetpoint
+        ? poolConfigChemistryTargetState(live.orp, chlorine.dis_setpoint, 25, 'mV')
+        : {
+            kind: orpAvailable ? 'neutral' : 'unavailable',
+            label: orpAvailable ? tr('pool.chemistry.sensorAvailable', 'Sonde active') : tr('pool.chemistry.sensorUnavailable', 'Sonde indisponible'),
+            note: orpAvailable
+              ? tr('pool.chemistry.orpContinuous', 'Mesure informative : l’électrolyse fonctionne en mode continu pendant la filtration.')
+              : tr('pool.chemistry.comparisonUnavailable', 'Comparaison à la consigne impossible.')
+          };
+      const temperatureState = {
+        kind: waterAvailable ? 'ok' : 'unavailable',
+        label: waterAvailable ? tr('pool.chemistry.sensorAvailable', 'Sonde active') : tr('pool.chemistry.sensorUnavailable', 'Sonde indisponible'),
+        note: waterAvailable
+          ? tr('pool.chemistry.temperatureUsage', 'Cette mesure sert au calcul du temps de filtration et aux sécurités thermiques.')
+          : tr('pool.chemistry.temperatureUnavailable', 'Le calcul thermique conserve sa dernière plage valide.')
+      };
+      const pressureState = poolConfigPressureState(live.psi, safety.psi_low_th, safety.psi_high_th, sensors.psi_monitoring);
 
       const heading = document.createElement('div');
       heading.className = 'pool-section-heading';
@@ -8156,9 +8265,9 @@
       headingIcon.textContent = 'monitoring';
       const headingCopy = document.createElement('div');
       const headingTitle = document.createElement('h2');
-      headingTitle.textContent = 'Qualité de l’eau';
+      headingTitle.textContent = tr('pool.chemistry.title', 'Qualité de l’eau');
       const headingNote = document.createElement('p');
-      headingNote.textContent = 'Mesures actualisées automatiquement toutes les 10 secondes.';
+      headingNote.textContent = tr('pool.chemistry.refreshNote', 'Mesures actualisées automatiquement toutes les 10 secondes. Les écarts affichés sont informatifs.');
       headingCopy.appendChild(headingTitle);
       headingCopy.appendChild(headingNote);
       heading.appendChild(headingIcon);
@@ -8173,6 +8282,7 @@
         icon: 'science',
         accent: 'is-ph',
         available: phAvailable,
+        state: phState,
         measured: poolConfigLiveNumber(live.ph, 2, ''),
         metrics: [
           {
@@ -8194,6 +8304,7 @@
         icon: 'water_drop',
         accent: 'is-orp',
         available: orpAvailable,
+        state: orpState,
         measured: poolConfigLiveNumber(live.orp, 0, 'mV'),
         metrics: [
           {
@@ -8217,12 +8328,28 @@
         icon: 'thermostat',
         accent: 'is-temperature',
         available: waterAvailable,
+        state: temperatureState,
         measurementLabel: 'Eau',
         measured: poolConfigLiveNumber(live.wat, 1, '°C'),
         metrics: [
           { label: 'Air', value: poolConfigLiveNumber(live.air, 1, '°C') },
           { label: 'Filtration', value: poolConfigBoolLabel(live.fil, 'En marche', 'Arrêt'), featured: true },
           { label: 'Mode piscine', value: poolConfigBoolLabel(live.auto, 'Automatique', 'Manuel') }
+        ]
+      });
+      poolConfigAppendChemistryCard(grid, {
+        title: tr('pool.chemistry.pressure', 'Pression'),
+        subtitle: tr('pool.chemistry.pressureSubtitle', 'Surveillance du circuit hydraulique'),
+        icon: 'speed',
+        accent: 'is-pressure',
+        available: pressureAvailable,
+        state: pressureState,
+        measured: poolConfigLiveNumber(live.psi, 2, 'bar'),
+        metrics: [
+          { label: tr('pool.chemistry.minimum', 'Minimum'), value: Number.isFinite(Number(safety.psi_low_th)) ? poolConfigLiveNumber(safety.psi_low_th, 2, 'bar') : '—' },
+          { label: tr('pool.chemistry.maximum', 'Maximum'), value: Number.isFinite(Number(safety.psi_high_th)) ? poolConfigLiveNumber(safety.psi_high_th, 2, 'bar') : '—' },
+          { label: tr('pool.chemistry.monitoring', 'Surveillance'), value: poolConfigBoolLabel(sensors.psi_monitoring, tr('pool.state.active', 'Actif'), tr('pool.state.disabled', 'Désactivé')), featured: true },
+          { label: tr('pool.chemistry.filtration', 'Filtration'), value: poolConfigBoolLabel(live.fil, tr('dashboard.equipment.on', 'En marche'), tr('pool.state.stopped', 'Arrêt')) }
         ]
       });
       poolChemistryPanel.appendChild(grid);
@@ -8609,11 +8736,18 @@
     }
 
     async function refreshPoolConfigLive(forceRefresh) {
-      try {
-        const payload = await fetchFlowStatusDomain('pool', !!forceRefresh, 'pool-page');
-        poolConfigLiveState = payload && payload.pool && typeof payload.pool === 'object' ? payload.pool : {};
-      } catch (err) {
-        poolConfigLiveState = {};
+      const [poolResult, pressureResult] = await Promise.all([
+        fetchFlowStatusDomain('pool', !!forceRefresh, 'pool-page').catch(() => null),
+        fetchRuntimeValues([2206]).catch(() => [])
+      ]);
+      poolConfigLiveState = poolResult && poolResult.pool && typeof poolResult.pool === 'object'
+        ? { ...poolResult.pool }
+        : {};
+      const pressureEntry = Array.isArray(pressureResult)
+        ? pressureResult.find((entry) => Number(entry && entry.id) === 2206)
+        : null;
+      if (infoRuntimeValueAvailable(pressureEntry) && Number.isFinite(Number(pressureEntry.value))) {
+        poolConfigLiveState.psi = Number(pressureEntry.value);
       }
       if (poolConfigLoadedOnce && getActivePageId() === 'page-pool') {
         if (!poolChemistryHasPendingChanges) {

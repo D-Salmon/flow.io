@@ -26,7 +26,7 @@ révision :
 - `binary/flowios3-3.1.4.bin` — `2 139 008` octets — SHA-256
   `6ced5f516f5e79daf9cd230c0485a30b10367f46435227f1c5d989962367cf2d` ;
 - `binary/flowios3-spiffs-3.1.4.bin` — `8 257 536` octets — SHA-256
-  `aceabe62cf186544c5c5f748a253004b0361768840a70dc3741d49d66c590c98`.
+  `eb1b29cf9b1d956cd46c8474beb2292bb6622e86b31dc42eb8ed9843e6e452be`.
 
 Ces images ne deviennent une livraison validée qu’après un flash complet et la
 campagne de contrôle décrite dans `RESTANT_A_FAIRE.md`.

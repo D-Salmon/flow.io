@@ -788,20 +788,34 @@ body.web-icons-disabled .control-field-apply{font-size:15px;font-weight:800;lett
 .pool-section-heading>div{display:grid;gap:2px;}
 .pool-section-heading h2{margin:0;font-size:20px;font-weight:850;line-height:1.2;}
 .pool-section-heading p{margin:0;color:var(--text-muted);font-size:13px;font-weight:650;line-height:1.4;}
-.pool-chemistry-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;}
-.pool-chemistry-card{min-width:0;border:1px solid var(--border);border-radius:var(--radius);background:#FFFFFF;box-shadow:0 8px 22px rgba(7,26,53,0.045);padding:18px;display:grid;gap:14px;align-content:start;}
+.pool-chemistry-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;}
+.pool-chemistry-card{position:relative;overflow:hidden;min-width:0;border:1px solid var(--border);border-radius:14px;background:#FFFFFF;box-shadow:0 8px 22px rgba(7,26,53,0.045);padding:18px;display:grid;gap:13px;align-content:start;}
+.pool-chemistry-card::after{content:"";position:absolute;right:-30px;top:-38px;width:112px;height:112px;border-radius:50%;background:var(--chemistry-soft,rgba(0,116,232,.07));pointer-events:none;}
 .pool-chemistry-card.is-dirty{border-color:rgba(0,116,232,0.58);box-shadow:0 8px 22px rgba(7,26,53,0.045),0 0 0 2px rgba(0,116,232,0.08);}
+.pool-chemistry-card.is-state-alert{border-color:rgba(214,69,93,.35);}
 .pool-chemistry-card[aria-busy="true"]{opacity:0.72;}
-.pool-chemistry-head{display:grid;grid-template-columns:42px minmax(0,1fr);gap:12px;align-items:start;}
-.pool-chemistry-card.is-ph .pool-card-icon{background:#EAF4FF;color:#0876C9;}
-.pool-chemistry-card.is-orp .pool-card-icon{background:#ECF9F4;color:#087D5E;}
-.pool-chemistry-card.is-temperature .pool-card-icon{background:#FFF4E5;color:#A95B00;}
-.pool-chemistry-measure{border-radius:var(--radius);background:#F0F8FF;border:1px solid #B8DDF9;padding:14px;display:grid;gap:4px;}
+.pool-chemistry-head{position:relative;z-index:1;display:grid;grid-template-columns:42px minmax(0,1fr);gap:12px;align-items:start;}
+.pool-chemistry-card.is-ph{--chemistry-color:#0876C9;--chemistry-soft:rgba(8,118,201,.10);}
+.pool-chemistry-card.is-orp{--chemistry-color:#087D5E;--chemistry-soft:rgba(8,125,94,.10);}
+.pool-chemistry-card.is-temperature{--chemistry-color:#A95B00;--chemistry-soft:rgba(232,139,18,.11);}
+.pool-chemistry-card.is-pressure{--chemistry-color:#C53F5A;--chemistry-soft:rgba(197,63,90,.10);}
+.pool-chemistry-card .pool-card-icon{background:var(--chemistry-soft);color:var(--chemistry-color);}
+.pool-chemistry-state{position:relative;z-index:1;display:inline-flex;align-items:center;gap:7px;width:max-content;max-width:100%;min-height:28px;padding:0 10px;border-radius:999px;background:var(--state-muted-bg);color:var(--state-muted-fg);font-size:11px;font-weight:850;}
+.pool-chemistry-state>span:first-child{width:7px;height:7px;border-radius:50%;background:currentColor;box-shadow:0 0 0 3px rgba(128,145,168,.12);}
+.pool-chemistry-state.is-ok{background:var(--state-ok-bg);color:var(--state-ok-fg);}
+.pool-chemistry-state.is-low,.pool-chemistry-state.is-high{background:rgba(240,138,0,.11);color:#B26300;}
+.pool-chemistry-state.is-alert{background:var(--state-alert-bg);color:var(--state-alert-fg);}
+.pool-chemistry-state.is-unavailable{background:var(--surface-soft);color:var(--state-muted-fg);}
+.pool-chemistry-measure{position:relative;z-index:1;border-radius:12px;background:var(--chemistry-soft,#F0F8FF);border:1px solid color-mix(in srgb,var(--chemistry-color,var(--primary)) 22%,transparent);padding:14px;display:grid;gap:5px;}
 .pool-chemistry-measure>span{color:#566E85;font-size:12px;font-weight:800;}
 .pool-chemistry-measure>b{color:var(--text);font-size:30px;font-weight:900;line-height:1.08;letter-spacing:-0.02em;}
+.pool-chemistry-measure-note{min-height:31px;margin:3px 0 0;color:var(--text-muted);font-size:11px;font-weight:700;line-height:1.4;}
+.pool-chemistry-measure-note.is-ok{color:var(--state-ok-fg);}
+.pool-chemistry-measure-note.is-low,.pool-chemistry-measure-note.is-high{color:#A75C00;}
+.pool-chemistry-measure-note.is-alert{color:var(--state-alert-fg);}
 .pool-chemistry-measure.is-unavailable{background:#F7F9FC;border-color:#DCE5EE;}
 .pool-chemistry-measure.is-unavailable>b{color:#6D7F93;font-size:18px;letter-spacing:0;}
-.pool-chemistry-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
+.pool-chemistry-metrics{position:relative;z-index:1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
 .pool-chemistry-footer{display:flex;align-items:center;justify-content:flex-end;gap:12px;padding-top:2px;}
 .pool-chemistry-status{flex:1;min-width:0;color:var(--text-muted);font-size:12px;font-weight:750;line-height:1.3;}
 .pool-chemistry-status.is-ok{color:var(--success);}
@@ -899,8 +913,10 @@ body.web-icons-disabled .control-field-apply{font-size:15px;font-weight:800;lett
 .pool-config-skeleton{gap:10px;}
 .pool-config-skeleton .skeleton-line{height:12px;}
 .pool-config-skeleton .skeleton-line:first-child{width:68%;height:16px;}
+@media (max-width:1420px){
+  .pool-chemistry-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
+}
 @media (max-width:1180px){
-  .pool-chemistry-grid{grid-template-columns:1fr;}
   .pool-treatment-panel{grid-template-columns:1fr;}
   .pool-treatment-selector{border-right:0;border-bottom:1px solid var(--border);padding-right:0;padding-bottom:18px;}
 }
@@ -913,6 +929,7 @@ body.web-icons-disabled .control-field-apply{font-size:15px;font-weight:800;lett
   .pool-config-grid{grid-template-columns:1fr;}
 }
 @media (max-width:640px){
+  .pool-chemistry-grid{grid-template-columns:1fr;}
   .pool-hero-copy h2{font-size:23px;}
   .pool-filtration-daybar{grid-template-columns:auto minmax(80px,1fr) auto;gap:8px;}
   .pool-card-head{grid-template-columns:36px minmax(0,1fr);align-items:start;}
