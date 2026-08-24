@@ -12,12 +12,25 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "3.1.3"
 
+
+def waveshare_version() -> str:
+    ini = (ROOT / "platformio.ini").read_text(encoding="utf-8")
+    match = re.search(
+        r"^waveshare_firmware_version\s*=\s*['\"]?\"?([^'\"\s]+)\"?['\"]?\s*$",
+        ini,
+        flags=re.MULTILINE,
+    )
+    if not match:
+        fail("waveshare_firmware_version is missing from platformio.ini")
+    return match.group(1)
 
 def fail(message: str) -> None:
     print(f"ERROR: {message}", file=sys.stderr)
     raise SystemExit(1)
+
+
+VERSION = waveshare_version()
 
 
 def read(relative: str) -> str:
@@ -101,7 +114,7 @@ def verify_profile_and_safety_defaults() -> None:
     filtration = read("src/Modules/PoolLogicModule/FiltrationWindow.cpp")
 
     required = (
-        ("firmware version", 'waveshare_firmware_version = \'"3.1.3"\'', ini),
+        ("firmware version", f'waveshare_firmware_version = \'"{VERSION}"\'', ini),
         ("16 MB OTA partition map", "partitions_flowios3_ota_16mb.csv", ini),
         ("octal PSRAM", "board_build.psram_type = opi", ini),
         ("ArduinoJson 7.4.3", "bblanchon/ArduinoJson @ 7.4.3", ini),
