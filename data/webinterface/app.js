@@ -2001,6 +2001,21 @@
     const poolMeasuresDomains = document.getElementById('poolMeasuresDomains');
     const poolMeasuresStatus = document.getElementById('poolMeasuresStatus');
     const poolMeasuresGrid = document.getElementById('poolMeasuresGrid');
+    const dashboardModeTitle = document.getElementById('dashboardModeTitle');
+    const dashboardSummary = document.getElementById('dashboardSummary');
+    const dashboardConnectionBadges = document.getElementById('dashboardConnectionBadges');
+    const dashboardOverallState = document.getElementById('dashboardOverallState');
+    const dashboardKpiGrid = document.getElementById('dashboardKpiGrid');
+    const dashboardEquipmentCount = document.getElementById('dashboardEquipmentCount');
+    const dashboardEquipmentGrid = document.getElementById('dashboardEquipmentGrid');
+    const dashboardFiltrationState = document.getElementById('dashboardFiltrationState');
+    const dashboardFiltrationStart = document.getElementById('dashboardFiltrationStart');
+    const dashboardFiltrationStop = document.getElementById('dashboardFiltrationStop');
+    const dashboardFiltrationProgress = document.getElementById('dashboardFiltrationProgress');
+    const dashboardFiltrationHint = document.getElementById('dashboardFiltrationHint');
+    const dashboardAlarmCount = document.getElementById('dashboardAlarmCount');
+    const dashboardAlarmList = document.getElementById('dashboardAlarmList');
+    const dashboardShortcutButtons = Array.from(document.querySelectorAll('[data-dashboard-page]'));
     const poolConfigRefreshBtn = document.getElementById('poolConfigRefresh');
     const poolConfigTitle = document.getElementById('poolConfigTitle');
     const poolConfigSummary = document.getElementById('poolConfigSummary');
@@ -2122,6 +2137,8 @@
     let flowStatusReqSeq = 0;
     let ioSummaryReqSeq = 0;
     let ioSummaryLoadedOnce = false;
+    let dashboardOverviewReqSeq = 0;
+    let dashboardOverviewLoadedOnce = false;
     fieldApplyCheckIcon = iconCheckText();
     const flowCfgBackupFormat = 'flowio-configstore-backup';
     const flowCfgBackupVersion = 1;
@@ -2207,7 +2224,8 @@
       wifi: { data: null, fetchedAt: 0 },
       mqtt: { data: null, fetchedAt: 0 },
       pool: { data: null, fetchedAt: 0 },
-      i2c: { data: null, fetchedAt: 0 }
+      i2c: { data: null, fetchedAt: 0 },
+      alarm: { data: null, fetchedAt: 0 }
     };
     const infoFlowDomainKeys = ['system', 'wifi', 'mqtt'];
     const infoRuntimeDomainEntries = Object.freeze({
@@ -5524,8 +5542,10 @@
     }
 
     function showPoolMeasuresError(err) {
-      if (!poolMeasuresStatus) return;
-      poolMeasuresStatus.textContent = 'Chargement mesures echoue: ' + err;
+      if (poolMeasuresStatus) poolMeasuresStatus.textContent = 'Chargement mesures échoué : ' + err;
+      if (!dashboardOverviewLoadedOnce) {
+        dashboardSetOverallState('unavailable', tr('dashboard.state.unavailable', 'État piscine indisponible'), 'cloud_off');
+      }
     }
 
     function startPoolMeasuresTimer() {
@@ -6691,19 +6711,382 @@
       await loadPoolMeasureDomain(cleanDomain, false);
     }
 
+    function dashboardSetOverallState(kind, text, iconName) {
+      if (!dashboardOverallState) return;
+      const cleanKind = ['ok', 'alert', 'unavailable', 'loading'].includes(kind) ? kind : 'loading';
+      dashboardOverallState.className = 'dashboard-overall-state is-' + cleanKind;
+      dashboardOverallState.innerHTML = '';
+      const icon = document.createElement('span');
+      icon.className = 'ui-msr';
+      icon.setAttribute('aria-hidden', 'true');
+      icon.textContent = iconName || (cleanKind === 'ok' ? 'check_circle' : (cleanKind === 'alert' ? 'warning' : 'progress_activity'));
+      const label = document.createElement('span');
+      label.textContent = text;
+      dashboardOverallState.appendChild(icon);
+      dashboardOverallState.appendChild(label);
+    }
+
+    function dashboardAppendConnectionBadge(label, ready, detail) {
+      if (!dashboardConnectionBadges) return;
+      const badge = document.createElement('span');
+      badge.className = 'dashboard-connection-badge ' + (ready ? 'is-ok' : 'is-alert');
+      badge.textContent = label;
+      if (detail) badge.title = detail;
+      dashboardConnectionBadges.appendChild(badge);
+    }
+
+    function dashboardCreateKpiCard(config) {
+      const card = document.createElement('article');
+      card.className = 'dashboard-kpi-card ' + (config.className || '');
+      const icon = document.createElement('span');
+      icon.className = 'ui-msr dashboard-kpi-icon';
+      icon.setAttribute('aria-hidden', 'true');
+      icon.textContent = config.icon;
+      const copy = document.createElement('div');
+      copy.className = 'dashboard-kpi-copy';
+      const label = document.createElement('span');
+      label.className = 'dashboard-kpi-label';
+      label.textContent = config.label;
+      const valueWrap = document.createElement('span');
+      valueWrap.className = 'dashboard-kpi-value';
+      const value = document.createElement('span');
+      value.textContent = config.value;
+      valueWrap.appendChild(value);
+      if (config.unit) {
+        const unit = document.createElement('small');
+        unit.textContent = config.unit;
+        valueWrap.appendChild(unit);
+      }
+      copy.appendChild(label);
+      copy.appendChild(valueWrap);
+      card.appendChild(icon);
+      card.appendChild(copy);
+      return card;
+    }
+
+    function dashboardFormatNumber(value, decimals) {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return '—';
+      return n.toLocaleString(currentWebLocaleTag(), {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals
+      });
+    }
+
+    function dashboardSlotByRuntimeId(slotPayload, runtimeUiId) {
+      const slots = Array.isArray(slotPayload && slotPayload.slots) ? slotPayload.slots : [];
+      return slots.find((slot) => Number(slot && slot.runtime_ui_id) === Number(runtimeUiId)) || null;
+    }
+
+    function dashboardMetric(pool, slotPayload, config) {
+      const direct = pool && pool[config.poolKey];
+      if (direct !== null && typeof direct !== 'undefined' && Number.isFinite(Number(direct))) {
+        return {
+          value: dashboardFormatNumber(direct, config.decimals),
+          unit: config.unit
+        };
+      }
+      const slot = dashboardSlotByRuntimeId(slotPayload, config.runtimeUiId);
+      const split = splitPoolSondeValue(slot);
+      return {
+        value: split.value === '--' ? '—' : split.value,
+        unit: split.unit || (split.value !== '--' && split.value !== '-' ? config.unit : '')
+      };
+    }
+
+    function renderDashboardOverviewSkeleton() {
+      if (dashboardModeTitle) dashboardModeTitle.textContent = tr('dashboard.loading', 'Chargement en cours...');
+      if (dashboardSummary) dashboardSummary.textContent = tr('dashboard.overview.loading', 'Lecture de l’état de la piscine et des équipements…');
+      if (dashboardConnectionBadges) dashboardConnectionBadges.innerHTML = '';
+      dashboardSetOverallState('loading', tr('dashboard.loading', 'Chargement en cours...'), 'progress_activity');
+      if (dashboardKpiGrid) {
+        dashboardKpiGrid.innerHTML = '';
+        [
+          ['Température eau', 'water', 'is-water'],
+          ['Température air', 'thermostat', 'is-air'],
+          ['pH', 'science', 'is-ph'],
+          ['ORP', 'electric_bolt', 'is-orp'],
+          ['Pression', 'speed', 'is-pressure']
+        ].forEach((item) => dashboardKpiGrid.appendChild(dashboardCreateKpiCard({
+          label: item[0], value: '—', unit: '', icon: item[1], className: item[2]
+        })));
+      }
+      if (dashboardEquipmentCount) dashboardEquipmentCount.textContent = '—';
+      if (dashboardEquipmentGrid) dashboardEquipmentGrid.innerHTML = '';
+      if (dashboardFiltrationState) {
+        dashboardFiltrationState.className = 'dashboard-state-pill is-unknown';
+        dashboardFiltrationState.textContent = '—';
+      }
+      if (dashboardFiltrationStart) dashboardFiltrationStart.textContent = '—';
+      if (dashboardFiltrationStop) dashboardFiltrationStop.textContent = '—';
+      if (dashboardFiltrationProgress) dashboardFiltrationProgress.style.width = '0%';
+      if (dashboardFiltrationHint) dashboardFiltrationHint.textContent = tr('dashboard.filtration.loading', 'Chargement de la plage calculée…');
+      if (dashboardAlarmCount) dashboardAlarmCount.textContent = '—';
+      if (dashboardAlarmList) dashboardAlarmList.innerHTML = '';
+    }
+
+    function dashboardNormalizeAlarmSlots(slotPayload) {
+      const slots = Array.isArray(slotPayload && slotPayload.alarm_slots) ? slotPayload.alarm_slots : [];
+      return slots.map((slot) => ({
+        label: String(slot && slot.label ? slot.label : '').trim(),
+        enabled: !!(slot && slot.enabled),
+        available: !!(slot && slot.available),
+        latched: !!(slot && slot.latched),
+        conditionKnown: !!(slot && slot.condition_known),
+        conditionTrue: !!(slot && slot.condition_true)
+      }));
+    }
+
+    function dashboardSchedule(filtration) {
+      const data = filtration && typeof filtration === 'object' ? filtration : {};
+      if (Number.isFinite(Number(data.filtr_start_minute)) && Number.isFinite(Number(data.filtr_stop_minute))) {
+        return {
+          startValue: Number(data.filtr_start_minute),
+          stopValue: Number(data.filtr_stop_minute),
+          start: dashboardFormatMinuteOfDay(data.filtr_start_minute),
+          stop: dashboardFormatMinuteOfDay(data.filtr_stop_minute),
+          progress: dashboardDayProgressMinutes(data.filtr_start_minute, data.filtr_stop_minute)
+        };
+      }
+      const startLegacy = data.filtr_start_clc ?? data.filtr_start_min;
+      const stopLegacy = data.filtr_stop_clc ?? data.filtr_stop_max;
+      if (!Number.isFinite(Number(startLegacy)) || !Number.isFinite(Number(stopLegacy))) return null;
+      return {
+        startValue: Number(startLegacy),
+        stopValue: Number(stopLegacy),
+        start: poolConfigFormatHour(startLegacy),
+        stop: poolConfigFormatHour(stopLegacy),
+        progress: poolConfigDayProgress(startLegacy, stopLegacy)
+      };
+    }
+
+    function dashboardFormatMinuteOfDay(value) {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return '—';
+      const minute = Math.max(0, Math.min(1439, Math.trunc(n)));
+      return String(Math.floor(minute / 60)).padStart(2, '0') + ':' + String(minute % 60).padStart(2, '0');
+    }
+
+    function dashboardDayProgressMinutes(startValue, stopValue) {
+      const start = Number(startValue);
+      const stopRaw = Number(stopValue);
+      if (!Number.isFinite(start) || !Number.isFinite(stopRaw)) return 0;
+      let stop = stopRaw;
+      const now = new Date();
+      let current = now.getHours() * 60 + now.getMinutes();
+      if (stop <= start) {
+        stop += 1440;
+        if (current < start) current += 1440;
+      }
+      if (current <= start) return 0;
+      if (current >= stop) return 100;
+      return Math.max(0, Math.min(100, ((current - start) / (stop - start)) * 100));
+    }
+
+    function renderDashboardOverview(payload) {
+      const pool = payload.poolDomain && payload.poolDomain.ok === true && payload.poolDomain.pool
+        ? payload.poolDomain.pool
+        : null;
+      const wifi = payload.wifiDomain && payload.wifiDomain.ok === true && payload.wifiDomain.wifi
+        ? payload.wifiDomain.wifi
+        : null;
+      const mqtt = payload.mqttDomain && payload.mqttDomain.ok === true && payload.mqttDomain.mqtt
+        ? payload.mqttDomain.mqtt
+        : null;
+      const alarmDomain = payload.alarmDomain && payload.alarmDomain.ok === true && payload.alarmDomain.alm
+        ? payload.alarmDomain.alm
+        : {};
+      const modes = payload.modes || {};
+      const filtration = payload.filtration || {};
+      const poolLogicEnabled = Object.prototype.hasOwnProperty.call(modes, 'enabled') ? toBool(modes.enabled) : !!(pool && pool.has);
+      const automatic = poolLogicEnabled && (Object.prototype.hasOwnProperty.call(modes, 'auto_mode') ? toBool(modes.auto_mode) : !!(pool && pool.auto));
+      const winter = poolLogicEnabled && (Object.prototype.hasOwnProperty.call(modes, 'winter_mode') ? toBool(modes.winter_mode) : !!(pool && pool.wint));
+      const modeTitle = !poolLogicEnabled
+        ? tr('pool.mode.maintenance', 'Manuel / maintenance')
+        : (automatic ? tr('pool.mode.automatic', 'Automatique') + (winter ? ' · ' + tr('dashboard.mode.winter', 'Hiver') : '') : tr('pool.mode.safeManual', 'Manuel sécurisé'));
+      const schedule = dashboardSchedule(filtration);
+      const treatment = Object.prototype.hasOwnProperty.call(modes, 'disinfection_type')
+        ? poolConfigDisinfectionLabel(modes.disinfection_type)
+        : '';
+
+      if (dashboardModeTitle) dashboardModeTitle.textContent = modeTitle;
+      if (dashboardSummary) {
+        const details = [];
+        if (schedule) details.push(tr('dashboard.summary.filtration', 'Filtration {start}–{stop}').replace('{start}', schedule.start).replace('{stop}', schedule.stop));
+        if (treatment) details.push(tr('dashboard.summary.treatment', 'Traitement : {treatment}').replace('{treatment}', treatment));
+        dashboardSummary.textContent = details.length ? details.join(' · ') : tr('dashboard.summary.ready', 'État instantané de la piscine et des équipements.');
+      }
+
+      if (dashboardConnectionBadges) {
+        dashboardConnectionBadges.innerHTML = '';
+        const networkReady = !!(wifi && wifi.rdy);
+        const networkType = wifi && String(wifi.typ || '').toLowerCase() === 'ethernet' ? 'Ethernet' : 'Wi-Fi';
+        const networkLabel = networkReady
+          ? networkType + (wifi.ip ? ' · ' + wifi.ip : '')
+          : tr('dashboard.network.offline', 'Réseau indisponible');
+        dashboardAppendConnectionBadge(networkLabel, networkReady, networkLabel);
+        dashboardAppendConnectionBadge(mqtt && mqtt.rdy ? tr('dashboard.mqtt.connected', 'MQTT connecté') : tr('dashboard.mqtt.disconnected', 'MQTT déconnecté'), !!(mqtt && mqtt.rdy), mqtt && mqtt.srv ? String(mqtt.srv) : '');
+        dashboardAppendConnectionBadge(webAdminAuthenticated ? tr('header.security.admin', 'Administrateur connecté') : tr('header.security.unauthenticated', 'Accès non authentifié'), webAdminAuthenticated, '');
+      }
+
+      if (dashboardKpiGrid) {
+        dashboardKpiGrid.innerHTML = '';
+        [
+          { poolKey: 'wat', runtimeUiId: 2201, decimals: 1, unit: '°C', label: tr('dashboard.kpi.water', 'Température eau'), icon: 'water', className: 'is-water' },
+          { poolKey: 'air', runtimeUiId: 2202, decimals: 1, unit: '°C', label: tr('dashboard.kpi.air', 'Température air'), icon: 'thermostat', className: 'is-air' },
+          { poolKey: 'ph', runtimeUiId: 2203, decimals: 2, unit: '', label: 'pH', icon: 'science', className: 'is-ph' },
+          { poolKey: 'orp', runtimeUiId: 2204, decimals: 0, unit: 'mV', label: 'ORP', icon: 'electric_bolt', className: 'is-orp' },
+          { poolKey: 'psi', runtimeUiId: 2206, decimals: 2, unit: 'bar', label: tr('dashboard.kpi.pressure', 'Pression'), icon: 'speed', className: 'is-pressure' }
+        ].forEach((config) => {
+          const metric = dashboardMetric(pool, payload.slotPayload, config);
+          dashboardKpiGrid.appendChild(dashboardCreateKpiCard({ ...config, ...metric }));
+        });
+      }
+
+      const equipmentDefs = [
+        { key: 'fil', label: tr('dashboard.equipment.filtration', 'Filtration'), icon: 'waves' },
+        { key: 'php', label: tr('dashboard.equipment.phPump', 'Pompe pH'), icon: 'science' },
+        { key: 'clp', label: tr('dashboard.equipment.chlorinePump', 'Pompe chlore'), icon: 'water_drop' },
+        { key: 'swg', label: tr('dashboard.equipment.swg', 'Électrolyse'), icon: 'bolt' },
+        { key: 'rbt', label: tr('dashboard.equipment.robot', 'Robot'), icon: 'smart_toy' }
+      ];
+      let equipmentOnCount = 0;
+      let equipmentAvailableCount = 0;
+      if (dashboardEquipmentGrid) {
+        dashboardEquipmentGrid.innerHTML = '';
+        equipmentDefs.forEach((def) => {
+          const available = !!pool && typeof pool[def.key] === 'boolean';
+          const on = available && pool[def.key] === true;
+          if (available) equipmentAvailableCount += 1;
+          if (on) equipmentOnCount += 1;
+          const card = document.createElement('article');
+          card.className = 'dashboard-equipment-card ' + (available ? (on ? 'is-on' : 'is-off') : 'is-unavailable');
+          const icon = document.createElement('span');
+          icon.className = 'ui-msr';
+          icon.setAttribute('aria-hidden', 'true');
+          icon.textContent = def.icon;
+          const label = document.createElement('strong');
+          label.textContent = def.label;
+          const state = document.createElement('span');
+          state.textContent = !available ? tr('dashboard.equipment.unavailable', 'Indisponible') : (on ? tr('dashboard.equipment.on', 'En marche') : tr('dashboard.equipment.off', 'À l’arrêt'));
+          card.appendChild(icon);
+          card.appendChild(label);
+          card.appendChild(state);
+          dashboardEquipmentGrid.appendChild(card);
+        });
+      }
+      if (dashboardEquipmentCount) {
+        dashboardEquipmentCount.textContent = equipmentAvailableCount ? equipmentOnCount + '/' + equipmentAvailableCount : '—';
+        dashboardEquipmentCount.className = 'dashboard-count-badge' + (equipmentOnCount > 0 ? ' is-ok' : '');
+      }
+
+      const filtrationAvailable = !!pool && typeof pool.fil === 'boolean';
+      const filtrationOn = filtrationAvailable && pool.fil === true;
+      if (dashboardFiltrationState) {
+        dashboardFiltrationState.className = 'dashboard-state-pill ' + (filtrationAvailable ? (filtrationOn ? 'is-on' : 'is-off') : 'is-unknown');
+        dashboardFiltrationState.textContent = !filtrationAvailable ? tr('dashboard.equipment.unavailable', 'Indisponible') : (filtrationOn ? tr('dashboard.filtration.running', 'En cours') : tr('dashboard.filtration.stopped', 'Arrêtée'));
+      }
+      if (dashboardFiltrationStart) dashboardFiltrationStart.textContent = schedule ? schedule.start : '—';
+      if (dashboardFiltrationStop) dashboardFiltrationStop.textContent = schedule ? schedule.stop : '—';
+      if (dashboardFiltrationProgress) dashboardFiltrationProgress.style.width = (schedule ? schedule.progress : 0).toFixed(1) + '%';
+      if (dashboardFiltrationHint) {
+        dashboardFiltrationHint.textContent = schedule
+          ? (filtrationOn ? tr('dashboard.filtration.hint.running', 'Cycle actif dans la plage calculée.') : tr('dashboard.filtration.hint.next', 'Plage calculée pour le cycle de filtration.'))
+          : tr('dashboard.filtration.hint.unavailable', 'Plage calculée indisponible.');
+      }
+
+      const slotAlarms = poolConfigActiveAlarms(dashboardNormalizeAlarmSlots(payload.slotPayload));
+      const alarmCodes = Array.isArray(alarmDomain.codes) ? alarmDomain.codes.map((code) => String(code || '').trim()).filter(Boolean) : [];
+      const alarmCount = Math.max(Number(alarmDomain.cnt) || 0, slotAlarms.length, alarmCodes.length);
+      const alarmRows = slotAlarms.length
+        ? slotAlarms
+        : alarmCodes.map((code) => ({ label: code.replace(/^alarm_/, tr('dashboard.alarm.generic', 'Alarme').trim() + ' '), state: tr('pool.alarm.state.activeCondition', 'condition active') }));
+      if (dashboardAlarmCount) {
+        dashboardAlarmCount.textContent = String(alarmCount);
+        dashboardAlarmCount.className = 'dashboard-count-badge ' + (alarmCount ? 'is-alert' : 'is-ok');
+      }
+      if (dashboardAlarmList) {
+        dashboardAlarmList.innerHTML = '';
+        if (!alarmCount) {
+          const empty = document.createElement('div');
+          empty.className = 'dashboard-alarm-empty';
+          empty.innerHTML = '<span class="ui-msr" aria-hidden="true">verified</span>';
+          const text = document.createElement('span');
+          text.textContent = tr('dashboard.alarm.none', 'Aucune alarme active');
+          empty.appendChild(text);
+          dashboardAlarmList.appendChild(empty);
+        } else {
+          const rows = alarmRows.length ? alarmRows : [{ label: tr('pool.alarm.defaultLabel', 'Alarme piscine'), state: tr('pool.alarm.state.activeCondition', 'condition active') }];
+          rows.forEach((alarm) => {
+            const row = document.createElement('div');
+            row.className = 'dashboard-alarm-row';
+            const icon = document.createElement('span');
+            icon.className = 'ui-msr';
+            icon.setAttribute('aria-hidden', 'true');
+            icon.textContent = 'warning';
+            const copy = document.createElement('div');
+            const label = document.createElement('strong');
+            label.textContent = alarm.label;
+            const state = document.createElement('span');
+            state.textContent = alarm.state;
+            copy.appendChild(label);
+            copy.appendChild(state);
+            row.appendChild(icon);
+            row.appendChild(copy);
+            dashboardAlarmList.appendChild(row);
+          });
+        }
+      }
+      if (alarmCount > 0) {
+        dashboardSetOverallState('alert', alarmCount > 1 ? tr('dashboard.state.alarms', '{count} alarmes actives').replace('{count}', String(alarmCount)) : tr('dashboard.state.alarm', '1 alarme active'), 'warning');
+      } else if (pool) {
+        dashboardSetOverallState('ok', tr('dashboard.state.normal', 'Fonctionnement normal'), 'check_circle');
+      } else {
+        dashboardSetOverallState('unavailable', tr('dashboard.state.unavailable', 'État piscine indisponible'), 'cloud_off');
+      }
+    }
+
+    async function refreshDashboardOverview(forceRefresh) {
+      const reqSeq = ++dashboardOverviewReqSeq;
+      if (forceRefresh || !dashboardOverviewLoadedOnce) renderDashboardOverviewSkeleton();
+      const safe = (promise) => promise.catch(() => null);
+      const results = await Promise.all([
+        safe(fetchFlowStatusDomain('pool', !!forceRefresh, 'dashboard')),
+        safe(fetchFlowStatusDomain('wifi', !!forceRefresh, 'dashboard')),
+        safe(fetchFlowStatusDomain('mqtt', !!forceRefresh, 'dashboard')),
+        safe(fetchFlowStatusDomain('alarm', !!forceRefresh, 'dashboard')),
+        safe(fetchPoolDashboardSlots()),
+        safe(poolConfigFetchModule('poollogic/modes')),
+        safe(poolConfigFetchModule('poollogic/filtration'))
+      ]);
+      if (reqSeq !== dashboardOverviewReqSeq) return;
+      const payload = {
+        poolDomain: results[0],
+        wifiDomain: results[1],
+        mqttDomain: results[2],
+        alarmDomain: results[3],
+        slotPayload: results[4] || {},
+        modes: results[5] && results[5].data ? results[5].data : {},
+        filtration: results[6] && results[6].data ? results[6].data : {}
+      };
+      dashboardOverviewLoadedOnce = true;
+      renderDashboardOverview(payload);
+    }
+
     async function refreshPoolMeasures(forceRefresh) {
-      await refreshActivePoolMeasureDomains(!!forceRefresh);
+      await Promise.all([
+        refreshDashboardOverview(!!forceRefresh),
+        refreshActivePoolMeasureDomains(!!forceRefresh)
+      ]);
     }
 
     async function onPoolMeasuresPageShown() {
       refreshPoolMeasuresView();
       startPoolMeasuresTimer();
-      if (activePoolMeasureDomainKeys().length) {
-        try {
-          await refreshActivePoolMeasureDomains(false);
-        } catch (err) {
-          showPoolMeasuresError(err);
-        }
+      try {
+        await refreshPoolMeasures(!dashboardOverviewLoadedOnce);
+      } catch (err) {
+        showPoolMeasuresError(err);
       }
     }
 
@@ -7540,10 +7923,9 @@
       const modes = modules['poollogic/modes'] || {};
       const filtration = modules['poollogic/filtration'] || {};
       const alarms = poolConfigActiveAlarms(alarmSlots);
-      const startValue = filtration.filtr_start_clc ?? filtration.filtr_start_min;
-      const stopValue = filtration.filtr_stop_clc ?? filtration.filtr_stop_max;
-      const start = poolConfigFormatHour(startValue);
-      const stop = poolConfigFormatHour(stopValue);
+      const schedule = dashboardSchedule(filtration);
+      const start = schedule ? schedule.start : '—';
+      const stop = schedule ? schedule.stop : '—';
       if (poolConfigTitle) {
         poolConfigTitle.textContent = tr('pool.overview.title', 'État Général');
       }
@@ -7567,7 +7949,7 @@
       if (poolFiltrationStart) poolFiltrationStart.textContent = start;
       if (poolFiltrationStop) poolFiltrationStop.textContent = stop;
       if (poolFiltrationFill) {
-        poolFiltrationFill.style.width = poolConfigDayProgress(startValue, stopValue).toFixed(1) + '%';
+        poolFiltrationFill.style.width = (schedule ? schedule.progress : 0).toFixed(1) + '%';
       }
       poolConfigRenderModeBadges(modules);
     }
@@ -8027,8 +8409,9 @@
       head.appendChild(copy);
       card.appendChild(head);
 
-      const start = poolConfigFormatHour(data.filtr_start_clc ?? data.filtr_start_min);
-      const stop = poolConfigFormatHour(data.filtr_stop_clc ?? data.filtr_stop_max);
+      const schedule = dashboardSchedule(data);
+      const start = schedule ? schedule.start : '—';
+      const stop = schedule ? schedule.stop : '—';
       const times = document.createElement('div');
       times.className = 'pool-filtration-times';
       const startEl = document.createElement('b');
@@ -12312,6 +12695,12 @@
         }
       });
       bindClickAction(poolConfigRefreshBtn, () => onPoolConfigPageShown(true));
+      dashboardShortcutButtons.forEach((button) => {
+        bindClickAction(button, () => {
+          const pageId = String(button.dataset.dashboardPage || '').trim();
+          if (pageId) showPage(pageId);
+        });
+      });
     }
 
     function initInfoBindings() {

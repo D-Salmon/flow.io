@@ -198,7 +198,7 @@
         "kind": "esp32-spiffs",
         "route": "/fwupdate/spiffs",
         "size": 8257536,
-        "sha256": "17d15f993888258a2980800d84451237f14a78cd967dca4fd2fa364d2202624d"
+        "sha256": "aceabe62cf186544c5c5f748a253004b0361768840a70dc3741d49d66c590c98"
       },
       {
         "title": "waveshare-spiffs",
