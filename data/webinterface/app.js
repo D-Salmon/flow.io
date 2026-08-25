@@ -1951,11 +1951,17 @@
     const activityPrevBtn = document.getElementById('activityPrevBtn');
     const activityNextBtn = document.getElementById('activityNextBtn');
     const activityRangeText = document.getElementById('activityRangeText');
+    const activitySummaryTotal = document.getElementById('activitySummaryTotal');
+    const activitySummaryAlerts = document.getElementById('activitySummaryAlerts');
+    const activitySummaryManual = document.getElementById('activitySummaryManual');
+    const activitySummaryEquipment = document.getElementById('activitySummaryEquipment');
     const activityFilterBtns = Array.from(document.querySelectorAll('[data-activity-filter]'));
     let autoScrollEnabled = true;
     let logsOverlayOpen = false;
     let activityFilter = 'all';
     let activityWindowShiftHours = 0;
+    let activityEventsCache = [];
+    let activityStatsCache = null;
 
     const checkUpdatesBtn = document.getElementById('checkUpdates');
     const cancelUpgradeUiBtn = document.getElementById('cancelUpgradeUi');
@@ -2015,6 +2021,7 @@
     const dashboardFiltrationHint = document.getElementById('dashboardFiltrationHint');
     const dashboardAlarmCount = document.getElementById('dashboardAlarmCount');
     const dashboardAlarmList = document.getElementById('dashboardAlarmList');
+    const dashboardLightsShortcut = document.getElementById('dashboardLightsShortcut');
     const dashboardShortcutButtons = Array.from(document.querySelectorAll('[data-dashboard-page]'));
     const poolConfigRefreshBtn = document.getElementById('poolConfigRefresh');
     const poolConfigTitle = document.getElementById('poolConfigTitle');
@@ -2024,6 +2031,7 @@
     const poolFiltrationStop = document.getElementById('poolFiltrationStop');
     const poolFiltrationFill = document.getElementById('poolFiltrationFill');
     const poolModeBadges = document.getElementById('poolModeBadges');
+    const poolEquipmentControl = document.getElementById('poolEquipmentControl');
     const poolGeneralControl = document.getElementById('poolGeneralControl');
     const poolChemistryPanel = document.getElementById('poolChemistryPanel');
     const poolDisinfectionModes = document.getElementById('poolDisinfectionModes');
@@ -2283,6 +2291,20 @@
     let poolConfigAlarmSlotsCache = [];
     let poolConfigLiveState = {};
     let poolChemistryHasPendingChanges = false;
+    let poolEquipmentCommandBusy = '';
+    let poolEquipmentStatusMessage = '';
+    let poolEquipmentStatusTone = '';
+    let dashboardLightsOn = null;
+    const poolEquipmentDefs = Object.freeze([
+      Object.freeze({ key: 'filtration', stateKey: 'fil', labelKey: 'pool.control.filtration', label: 'Pompe de filtration', icon: 'water', noteKey: 'pool.control.filtration.note', note: 'Fait circuler et filtre l’eau du bassin.', automatic: true }),
+      Object.freeze({ key: 'ph', stateKey: 'php', labelKey: 'pool.control.ph', label: 'Pompe pH', icon: 'science', noteKey: 'pool.control.ph.note', note: 'Injecte le correcteur pH.', automatic: true }),
+      Object.freeze({ key: 'chlorine', stateKey: 'clp', labelKey: 'pool.control.chlorine', label: 'Pompe chlore', icon: 'water_drop', noteKey: 'pool.control.chlorine.note', note: 'Injecte le désinfectant liquide.', automatic: true }),
+      Object.freeze({ key: 'electrolysis', stateKey: 'swg', labelKey: 'pool.control.electrolysis', label: 'Électrolyseur', icon: 'bolt', noteKey: 'pool.control.electrolysis.note', note: 'Produit le désinfectant au sel.', automatic: true }),
+      Object.freeze({ key: 'robot', stateKey: 'rbt', labelKey: 'pool.control.robot', label: 'Robot', icon: 'smart_toy', noteKey: 'pool.control.robot.note', note: 'Lance le cycle du robot de nettoyage.', automatic: true }),
+      Object.freeze({ key: 'filling', stateKey: 'fill', labelKey: 'pool.control.filling', label: 'Remplissage', icon: 'faucet', noteKey: 'pool.control.filling.note', note: 'Commande l’appoint d’eau du bassin.', automatic: true }),
+      Object.freeze({ key: 'heater', stateKey: 'htr', labelKey: 'pool.control.heater', label: 'Chauffage', icon: 'local_fire_department', noteKey: 'pool.control.heater.note', note: 'Commande la pompe à chaleur.', automatic: true }),
+      Object.freeze({ key: 'lights', stateKey: 'lgt', labelKey: 'pool.control.lights', label: 'Éclairage piscine', icon: 'lightbulb', noteKey: 'pool.control.lights.note', note: 'Allume ou éteint immédiatement l’éclairage.', automatic: false, featured: true })
+    ]);
     const poolConfigModuleDefs = Object.freeze([
       Object.freeze({ module: 'poollogic/modes', titleKey: 'pool.card.modes.title', title: 'Pilotage général', icon: 'tune', noteKey: 'pool.card.modes.note', note: 'Choisissez entre Manuel / maintenance, Manuel sécurisé et Automatique.' }),
       Object.freeze({ module: 'hmi/buzzer', titleKey: 'pool.card.alarmSound.title', title: 'Signal sonore', icon: 'notifications_active', noteKey: 'pool.card.alarmSound.note', note: 'Le son des alarmes peut être coupé sans masquer les alarmes affichées.' }),
@@ -2749,42 +2771,119 @@
 
     function formatActivityTime(date) {
       if (!date) return '--:--:--';
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      return date.toLocaleTimeString(currentWebLocaleTag(), { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     }
 
     function formatActivityDay(date) {
-      if (!date) return 'Date inconnue';
-      return date.toLocaleDateString([], { day: 'numeric', month: 'long', year: 'numeric' });
+      if (!date) return tr('activity.date.unknown', 'Date inconnue');
+      return date.toLocaleDateString(currentWebLocaleTag(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     }
 
     function formatActivityRelative(date) {
-      if (!date) return 'heure non synchronisée';
+      if (!date) return tr('activity.time.unsynced', 'heure non synchronisée');
       const diffSec = Math.max(0, Math.round((Date.now() - date.getTime()) / 1000));
-      if (diffSec < 60) return diffSec <= 3 ? 'Maintenant' : ('Il y a ' + diffSec + ' secondes');
+      if (diffSec < 60) return diffSec <= 3
+        ? tr('activity.time.now', 'Maintenant')
+        : tr('activity.time.secondsAgo', 'Il y a') + ' ' + diffSec + ' s';
       const diffMin = Math.round(diffSec / 60);
-      if (diffMin < 60) return 'Il y a ' + diffMin + ' min';
+      if (diffMin < 60) return tr('activity.time.ago', 'Il y a') + ' ' + diffMin + ' min';
       const diffHour = Math.round(diffMin / 60);
-      if (diffHour < 24) return 'Il y a ' + diffHour + ' h';
+      if (diffHour < 24) return tr('activity.time.ago', 'Il y a') + ' ' + diffHour + ' h';
       const diffDay = Math.round(diffHour / 24);
-      return 'Il y a ' + diffDay + ' j';
+      return tr('activity.time.ago', 'Il y a') + ' ' + diffDay + ' j';
     }
 
-    function activityMatchesFilter(ev) {
+    function activityIsInWindow(ev) {
       const date = activityEventDate(ev);
       if (date) {
         const end = Date.now() - (activityWindowShiftHours * 3 * 3600000);
         const start = end - (3 * 3600000);
         const ts = date.getTime();
-        if (ts < start || ts > end) return false;
-      } else if (activityWindowShiftHours !== 0) {
-        return false;
+        return ts >= start && ts <= end;
       }
+      return activityWindowShiftHours === 0;
+    }
+
+    function activityIsAlert(ev) {
+      const severity = String(ev && ev.severity_name || '').toLowerCase();
+      return String(ev && ev.domain_name || '').toLowerCase() === 'alarm' ||
+        String(ev && ev.source_name || '').toLowerCase() === 'safety' ||
+        severity === 'warning' || severity === 'alarm';
+    }
+
+    function activityIsEquipment(ev) {
+      const role = String(ev && ev.role_name || '').toLowerCase();
+      return role !== '' && role !== 'none' && role !== 'unknown' ||
+        String(ev && ev.domain_name || '').toLowerCase() === 'pooldevice';
+    }
+
+    function activityMatchesSelectedFilter(ev) {
       if (activityFilter === 'all') return true;
-      if (activityFilter === 'poollogic') return ev.domain_name === 'poollogic' || ev.domain_name === 'pooldevice';
+      if (activityFilter === 'equipment') return activityIsEquipment(ev);
+      if (activityFilter === 'automatic') {
+        const source = String(ev && ev.source_name || '').toLowerCase();
+        return source === 'auto' || source === 'scheduler' || source === 'pid';
+      }
       if (activityFilter === 'manual') return ev.source_name === 'manual';
-      if (activityFilter === 'safety') return ev.source_name === 'safety' || ev.severity_name === 'warning' || ev.severity_name === 'alarm';
+      if (activityFilter === 'alerts') return activityIsAlert(ev);
       if (activityFilter === 'system') return ev.domain_name === 'system';
       return true;
+    }
+
+    function activitySeverityMeta(ev) {
+      const code = Number(ev && ev.code) || 0;
+      if (code === 10) return { key: 'alarm', label: tr('activity.state.raised', 'Alarme déclenchée'), icon: 'notification_important' };
+      if (code === 11) return { key: 'warning', label: tr('activity.state.acknowledge', 'À acquitter'), icon: 'notification_paused' };
+      if (code === 12) return { key: 'resolved', label: tr('activity.state.resolved', 'Retour à la normale'), icon: 'task_alt' };
+      const severity = String(ev && ev.severity_name || 'info').toLowerCase();
+      if (severity === 'alarm') return { key: 'alarm', label: tr('activity.severity.alarm', 'Alarme'), icon: 'error' };
+      if (severity === 'warning') return { key: 'warning', label: tr('activity.severity.warning', 'Attention'), icon: 'warning' };
+      if (severity === 'success') return { key: 'success', label: tr('activity.severity.success', 'Réussi'), icon: 'check_circle' };
+      return { key: 'info', label: tr('activity.severity.info', 'Information'), icon: 'info' };
+    }
+
+    function activityCategoryLabel(ev) {
+      const domain = String(ev && ev.domain_name || '').toLowerCase();
+      if (domain === 'alarm') return tr('activity.category.alert', 'Alerte');
+      if (activityIsEquipment(ev)) return tr('activity.category.equipment', 'Équipement');
+      if (domain === 'poollogic') return tr('activity.category.automation', 'Automatisme');
+      return tr('activity.category.system', 'Système');
+    }
+
+    function activitySourceLabel(source) {
+      const labels = {
+        auto: tr('activity.source.auto', 'Automatique'),
+        manual: tr('activity.source.manual', 'Manuel'),
+        scheduler: tr('activity.source.scheduler', 'Programmation'),
+        safety: tr('activity.source.safety', 'Sécurité'),
+        pid: tr('activity.source.pid', 'Régulation'),
+        boot: tr('activity.source.boot', 'Démarrage'),
+        system: tr('activity.source.system', 'Système')
+      };
+      return labels[String(source || '').toLowerCase()] || '';
+    }
+
+    function activityRoleLabel(role) {
+      const labels = {
+        filtration: tr('activity.role.filtration', 'Filtration'),
+        swg: tr('activity.role.swg', 'Électrolyseur'),
+        robot: tr('activity.role.robot', 'Robot'),
+        filling: tr('activity.role.filling', 'Remplissage'),
+        ph: tr('activity.role.ph', 'Pompe pH'),
+        disinfection: tr('activity.role.disinfection', 'Désinfection'),
+        heater: tr('activity.role.heater', 'Chauffage')
+      };
+      return labels[String(role || '').toLowerCase()] || '';
+    }
+
+    function activityStateLabel(state) {
+      const labels = {
+        requested_on: tr('activity.device.requestedOn', 'Mise en marche demandée'),
+        requested_off: tr('activity.device.requestedOff', 'Arrêt demandé'),
+        on: tr('activity.device.on', 'En marche'),
+        off: tr('activity.device.off', 'Arrêté')
+      };
+      return labels[String(state || '').toLowerCase()] || '';
     }
 
     function updateActivityRangeText() {
@@ -2792,18 +2891,36 @@
       const end = new Date(Date.now() - (activityWindowShiftHours * 3 * 3600000));
       const start = new Date(end.getTime() - (3 * 3600000));
       activityRangeText.textContent =
-        start.toLocaleDateString([], { day: 'numeric', month: 'short' }) + ' à ' +
-        start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' - ' +
-        end.toLocaleDateString([], { day: 'numeric', month: 'short' }) + ' à ' +
-        end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        start.toLocaleDateString(currentWebLocaleTag(), { day: 'numeric', month: 'short' }) + ' · ' +
+        start.toLocaleTimeString(currentWebLocaleTag(), { hour: '2-digit', minute: '2-digit' }) + ' — ' +
+        end.toLocaleDateString(currentWebLocaleTag(), { day: 'numeric', month: 'short' }) + ' · ' +
+        end.toLocaleTimeString(currentWebLocaleTag(), { hour: '2-digit', minute: '2-digit' });
+      if (activityNextBtn) activityNextBtn.disabled = activityWindowShiftHours === 0;
+    }
+
+    function updateActivitySummary(events) {
+      const list = Array.isArray(events) ? events : [];
+      if (activitySummaryTotal) activitySummaryTotal.textContent = String(list.length);
+      if (activitySummaryAlerts) activitySummaryAlerts.textContent = String(list.filter(activityIsAlert).length);
+      if (activitySummaryManual) activitySummaryManual.textContent = String(list.filter((ev) => ev.source_name === 'manual').length);
+      if (activitySummaryEquipment) activitySummaryEquipment.textContent = String(list.filter(activityIsEquipment).length);
+    }
+
+    function makeActivityBadge(text, className) {
+      const badge = document.createElement('span');
+      badge.className = 'activity-badge ' + String(className || '');
+      badge.textContent = text;
+      return badge;
     }
 
     function renderActivityLog(events, stats) {
       if (!activityLogList) return;
       activityLogList.innerHTML = '';
       updateActivityRangeText();
-      const filtered = (Array.isArray(events) ? events : [])
-        .filter(activityMatchesFilter)
+      const periodEvents = (Array.isArray(events) ? events : []).filter(activityIsInWindow);
+      updateActivitySummary(periodEvents);
+      const filtered = periodEvents
+        .filter(activityMatchesSelectedFilter)
         .sort((a, b) => {
           const ae = Number(a.epoch_s) || 0;
           const be = Number(b.epoch_s) || 0;
@@ -2813,62 +2930,114 @@
       if (!filtered.length) {
         const empty = document.createElement('div');
         empty.className = 'activity-empty';
-        empty.textContent = 'Aucune activité pour ce filtre.';
+        empty.innerHTML = '<span class="ui-msr" aria-hidden="true">event_busy</span><strong></strong><small></small>';
+        empty.querySelector('strong').textContent = tr('activity.empty.title', 'Aucune activité sur cette période');
+        empty.querySelector('small').textContent = tr('activity.empty.detail', 'Essayez un autre filtre ou consultez la période précédente.');
         activityLogList.appendChild(empty);
         if (activityLogStatus) {
-          if (stats) {
-            activityLogStatus.textContent =
-              '0/' + (Number(stats.entries) || 0) +
-              ' événement(s), persistés=' + (Number(stats.persisted) || 0);
-          } else {
-            activityLogStatus.textContent = 'Aucune activité.';
-          }
+          activityLogStatus.textContent = '0 ' + tr('activity.status.visible', 'événement affiché') +
+            ' · ' + periodEvents.length + ' ' + tr('activity.status.period', 'sur la période');
         }
         return;
       }
-      let currentDay = '';
+
+      const dayGroups = [];
       filtered.forEach((ev) => {
         const date = activityEventDate(ev);
         const day = formatActivityDay(date);
-        if (day !== currentDay) {
-          currentDay = day;
-          const dayNode = document.createElement('div');
-          dayNode.className = 'activity-day-title';
-          dayNode.textContent = day;
-          activityLogList.appendChild(dayNode);
+        let group = dayGroups[dayGroups.length - 1];
+        if (!group || group.day !== day) {
+          group = { day: day, events: [] };
+          dayGroups.push(group);
         }
-        const row = document.createElement('div');
-        row.className = 'activity-row activity-severity-' + String(ev.severity_name || 'info');
-        const icon = document.createElement('span');
-        icon.className = 'ui-msr activity-row-icon';
-        icon.setAttribute('aria-hidden', 'true');
-        icon.textContent = String(ev.icon || 'history');
-        const main = document.createElement('div');
-        main.className = 'activity-row-main';
-        const title = document.createElement('div');
-        title.className = 'activity-row-title';
-        const strong = document.createElement('strong');
-        strong.textContent = String(ev.title || 'Activité');
-        title.appendChild(strong);
-        const meta = document.createElement('div');
-        meta.className = 'activity-row-meta';
-        meta.textContent = formatActivityTime(date) + ' - ' + formatActivityRelative(date);
-        main.appendChild(title);
-        if (ev.detail) {
-          const detail = document.createElement('div');
-          detail.className = 'activity-row-detail';
-          detail.textContent = String(ev.detail);
-          main.appendChild(detail);
-        }
-        main.appendChild(meta);
-        row.appendChild(icon);
-        row.appendChild(main);
-        activityLogList.appendChild(row);
+        group.events.push(ev);
       });
-      if (activityLogStatus && stats) {
-        activityLogStatus.textContent =
-          filtered.length + '/' + (Number(stats.entries) || filtered.length) +
-          ' événement(s), persistés=' + (Number(stats.persisted) || 0);
+
+      dayGroups.forEach((group) => {
+        const daySection = document.createElement('section');
+        daySection.className = 'activity-day-group';
+        const dayHead = document.createElement('div');
+        dayHead.className = 'activity-day-title';
+        const dayLabel = document.createElement('strong');
+        dayLabel.textContent = group.day;
+        const dayCount = document.createElement('span');
+        dayCount.textContent = group.events.length + ' ' + tr('activity.day.events', 'événement(s)');
+        dayHead.appendChild(dayLabel);
+        dayHead.appendChild(dayCount);
+        daySection.appendChild(dayHead);
+        const rows = document.createElement('div');
+        rows.className = 'activity-day-rows';
+
+        group.events.forEach((ev) => {
+          const date = activityEventDate(ev);
+          const severity = activitySeverityMeta(ev);
+          const row = document.createElement('article');
+          row.className = 'activity-row activity-severity-' + severity.key;
+
+          const iconWrap = document.createElement('span');
+          iconWrap.className = 'activity-row-icon-wrap';
+          const icon = document.createElement('span');
+          icon.className = 'ui-msr activity-row-icon';
+          icon.setAttribute('aria-hidden', 'true');
+          icon.textContent = String(ev.icon || severity.icon || 'history');
+          iconWrap.appendChild(icon);
+
+          const main = document.createElement('div');
+          main.className = 'activity-row-main';
+          const head = document.createElement('div');
+          head.className = 'activity-row-head';
+          const title = document.createElement('strong');
+          title.className = 'activity-row-title';
+          title.textContent = String(ev.title || tr('activity.event.default', 'Activité'));
+          const badges = document.createElement('span');
+          badges.className = 'activity-row-badges';
+          badges.appendChild(makeActivityBadge(activityCategoryLabel(ev), 'is-category'));
+          badges.appendChild(makeActivityBadge(severity.label, 'is-' + severity.key));
+          head.appendChild(title);
+          head.appendChild(badges);
+          main.appendChild(head);
+
+          if (ev.detail) {
+            const detail = document.createElement('div');
+            detail.className = 'activity-row-detail';
+            detail.textContent = String(ev.detail);
+            main.appendChild(detail);
+          }
+
+          const footer = document.createElement('div');
+          footer.className = 'activity-row-footer';
+          const meta = document.createElement('span');
+          meta.className = 'activity-row-meta';
+          meta.innerHTML = '<span class="ui-msr" aria-hidden="true">schedule</span>';
+          meta.appendChild(document.createTextNode(formatActivityTime(date) + ' · ' + formatActivityRelative(date)));
+          footer.appendChild(meta);
+          const context = document.createElement('span');
+          context.className = 'activity-row-context';
+          const sourceLabel = activitySourceLabel(ev.source_name);
+          const roleLabel = activityRoleLabel(ev.role_name);
+          const stateLabel = activityStateLabel(ev.state_name);
+          [sourceLabel, roleLabel, stateLabel].filter(Boolean).forEach((label) => {
+            context.appendChild(makeActivityBadge(label, 'is-context'));
+          });
+          if (context.childNodes.length) footer.appendChild(context);
+          main.appendChild(footer);
+          row.appendChild(iconWrap);
+          row.appendChild(main);
+          rows.appendChild(row);
+        });
+        daySection.appendChild(rows);
+        activityLogList.appendChild(daySection);
+      });
+
+      if (activityLogStatus) {
+        let status = filtered.length + ' ' + tr('activity.status.visible', 'événement(s) affiché(s)') +
+          ' · ' + periodEvents.length + ' ' + tr('activity.status.period', 'sur la période');
+        const dropped = Number(stats && stats.dropped) || 0;
+        const persistDropped = Number(stats && stats.persist_dropped) || 0;
+        if (dropped + persistDropped > 0) {
+          status += ' · ' + (dropped + persistDropped) + ' ' + tr('activity.status.dropped', 'non conservé(s)');
+        }
+        activityLogStatus.textContent = status;
       }
     }
 
@@ -2889,7 +3058,9 @@
         offset = Number(page.next);
         if (!Number.isFinite(offset) || offset < 0 || events.length >= 768) break;
       }
-      renderActivityLog(events, stats);
+      activityEventsCache = events;
+      activityStatsCache = stats;
+      renderActivityLog(activityEventsCache, activityStatsCache);
     }
 
     async function purgeActivityLog() {
@@ -3000,22 +3171,20 @@
     if (activityPrevBtn) {
       activityPrevBtn.addEventListener('click', () => {
         activityWindowShiftHours += 1;
-        updateActivityRangeText();
-        refreshActivityLog(false).catch(() => {});
+        renderActivityLog(activityEventsCache, activityStatsCache);
       });
     }
     if (activityNextBtn) {
       activityNextBtn.addEventListener('click', () => {
         activityWindowShiftHours = Math.max(0, activityWindowShiftHours - 1);
-        updateActivityRangeText();
-        refreshActivityLog(false).catch(() => {});
+        renderActivityLog(activityEventsCache, activityStatsCache);
       });
     }
     activityFilterBtns.forEach((btn) => {
       btn.addEventListener('click', () => {
         activityFilter = String(btn.dataset.activityFilter || 'all');
         activityFilterBtns.forEach((el) => el.classList.toggle('is-active', el === btn));
-        refreshActivityLog(false).catch(() => {});
+        renderActivityLog(activityEventsCache, activityStatsCache);
       });
     });
     applyLogSourceUi();
@@ -6948,7 +7117,10 @@
         { key: 'php', label: tr('dashboard.equipment.phPump', 'Pompe pH'), icon: 'science' },
         { key: 'clp', label: tr('dashboard.equipment.chlorinePump', 'Pompe chlore'), icon: 'water_drop' },
         { key: 'swg', label: tr('dashboard.equipment.swg', 'Électrolyse'), icon: 'bolt' },
-        { key: 'rbt', label: tr('dashboard.equipment.robot', 'Robot'), icon: 'smart_toy' }
+        { key: 'rbt', label: tr('dashboard.equipment.robot', 'Robot'), icon: 'smart_toy' },
+        { key: 'fill', label: tr('dashboard.equipment.filling', 'Remplissage'), icon: 'faucet' },
+        { key: 'htr', label: tr('dashboard.equipment.heater', 'Chauffage'), icon: 'local_fire_department' },
+        { key: 'lgt', label: tr('dashboard.equipment.lights', 'Éclairage'), icon: 'lightbulb', equipmentKey: 'lights' }
       ];
       let equipmentOnCount = 0;
       let equipmentAvailableCount = 0;
@@ -6959,8 +7131,22 @@
           const on = available && pool[def.key] === true;
           if (available) equipmentAvailableCount += 1;
           if (on) equipmentOnCount += 1;
-          const card = document.createElement('article');
-          card.className = 'dashboard-equipment-card ' + (available ? (on ? 'is-on' : 'is-off') : 'is-unavailable');
+          const actionable = def.equipmentKey === 'lights';
+          const card = document.createElement(actionable ? 'button' : 'article');
+          if (actionable) {
+            card.type = 'button';
+            card.disabled = !available || !!poolEquipmentCommandBusy;
+            card.setAttribute('aria-label', on
+              ? tr('dashboard.lights.turnOff', 'Éteindre l’éclairage')
+              : tr('dashboard.lights.turnOn', 'Allumer l’éclairage'));
+            card.addEventListener('click', () => {
+              const equipmentDef = poolEquipmentDefs.find((entry) => entry.key === def.equipmentKey);
+              if (equipmentDef) commandPoolEquipment(equipmentDef, !on).catch(() => {});
+            });
+          }
+          card.className = 'dashboard-equipment-card '
+            + (actionable ? ' is-actionable ' : '')
+            + (available ? (on ? 'is-on' : 'is-off') : 'is-unavailable');
           const icon = document.createElement('span');
           icon.className = 'ui-msr';
           icon.setAttribute('aria-hidden', 'true');
@@ -6978,6 +7164,22 @@
       if (dashboardEquipmentCount) {
         dashboardEquipmentCount.textContent = equipmentAvailableCount ? equipmentOnCount + '/' + equipmentAvailableCount : '—';
         dashboardEquipmentCount.className = 'dashboard-count-badge' + (equipmentOnCount > 0 ? ' is-ok' : '');
+      }
+
+      const lightsAvailable = !!pool && typeof pool.lgt === 'boolean';
+      dashboardLightsOn = lightsAvailable ? pool.lgt === true : null;
+      if (dashboardLightsShortcut) {
+        dashboardLightsShortcut.disabled = !lightsAvailable || !!poolEquipmentCommandBusy;
+        dashboardLightsShortcut.classList.toggle('is-on', dashboardLightsOn === true);
+        dashboardLightsShortcut.classList.toggle('is-unavailable', !lightsAvailable);
+        dashboardLightsShortcut.setAttribute('aria-label', dashboardLightsOn === true
+          ? tr('dashboard.lights.turnOff', 'Éteindre l’éclairage')
+          : tr('dashboard.lights.turnOn', 'Allumer l’éclairage'));
+        dashboardLightsShortcut.title = !lightsAvailable
+          ? tr('dashboard.equipment.unavailable', 'Indisponible')
+          : (dashboardLightsOn === true
+            ? tr('dashboard.lights.turnOff', 'Éteindre l’éclairage')
+            : tr('dashboard.lights.turnOn', 'Allumer l’éclairage'));
       }
 
       const filtrationAvailable = !!pool && typeof pool.fil === 'boolean';
@@ -7101,6 +7303,191 @@
 
     function poolConfigBoolLabel(value, activeText, inactiveText) {
       return toBool(value) ? (activeText || tr('pool.state.active', 'Actif')) : (inactiveText || tr('pool.state.stopped', 'Arrêt'));
+    }
+
+    function poolEquipmentAutomaticMode(modules) {
+      const modes = modules && modules['poollogic/modes'];
+      if (!modes || typeof modes !== 'object') return false;
+      return toBool(modes.enabled) && toBool(modes.auto_mode);
+    }
+
+    function poolEquipmentSetStatus(message, tone) {
+      poolEquipmentStatusMessage = String(message || '').trim();
+      poolEquipmentStatusTone = String(tone || '').trim();
+    }
+
+    function poolEquipmentErrorText(err) {
+      const raw = String(err || '');
+      if (raw.includes('InterlockBlocked')) {
+        return tr('pool.control.error.interlock', 'Commande bloquée par une sécurité ou une condition de fonctionnement.');
+      }
+      if (raw.includes('MaxUptimeReached')) {
+        return tr('pool.control.error.maxUptime', 'Commande bloquée : durée maximale de fonctionnement atteinte.');
+      }
+      if (raw.includes('Disabled')) {
+        return tr('pool.control.error.disabled', 'Cet équipement est désactivé dans la configuration.');
+      }
+      if (raw.includes('NotReady')) {
+        return tr('pool.control.error.notReady', 'Équipement momentanément indisponible.');
+      }
+      return tr('pool.control.error.generic', 'Commande refusée.') + ' ' + raw;
+    }
+
+    function poolEquipmentBuildSwitch(def, on, disabled) {
+      const wrap = document.createElement('label');
+      wrap.className = 'md3-switch pool-equipment-switch';
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.checked = !!on;
+      input.disabled = !!disabled;
+      input.setAttribute('aria-label', tr(def.labelKey, def.label));
+      const track = document.createElement('span');
+      track.className = 'md3-track';
+      const thumb = document.createElement('span');
+      thumb.className = 'md3-thumb';
+      wrap.appendChild(input);
+      wrap.appendChild(track);
+      wrap.appendChild(thumb);
+      return { wrap, input };
+    }
+
+    async function commandPoolEquipment(def, desired) {
+      if (!def || poolEquipmentCommandBusy) return false;
+      poolEquipmentCommandBusy = def.key;
+      poolEquipmentSetStatus(
+        (desired ? tr('pool.control.starting', 'Mise en marche') : tr('pool.control.stopping', 'Arrêt'))
+          + ' · ' + tr(def.labelKey, def.label) + '…',
+        'pending'
+      );
+      if (getActivePageId() === 'page-pool') {
+        renderPoolEquipmentControl(poolConfigModulesCache, poolConfigLiveState);
+      }
+      try {
+        await fetchOkJson(
+          '/api/poollogic/equipment',
+          createFormPostOptions({ equipment: def.key, value: desired ? 'true' : 'false' }),
+          tr('pool.control.error.generic', 'Commande refusée.'),
+          fetchFlowRemoteQueued
+        );
+        await waitMs(350);
+        const poolResult = await fetchFlowStatusDomain('pool', true, 'equipment-command').catch(() => null);
+        if (poolResult && poolResult.pool && typeof poolResult.pool === 'object') {
+          poolConfigLiveState = { ...poolResult.pool };
+          if (typeof poolConfigLiveState.lgt === 'boolean') dashboardLightsOn = poolConfigLiveState.lgt;
+        }
+        poolEquipmentSetStatus(
+          tr('pool.control.applied', 'Commande appliquée') + ' · ' + tr(def.labelKey, def.label) + '.',
+          'ok'
+        );
+        return true;
+      } catch (err) {
+        poolEquipmentSetStatus(poolEquipmentErrorText(err), 'error');
+        return false;
+      } finally {
+        poolEquipmentCommandBusy = '';
+        if (getActivePageId() === 'page-pool') {
+          renderPoolEquipmentControl(poolConfigModulesCache, poolConfigLiveState);
+        }
+        if (getActivePageId() === 'page-pool-measures') {
+          refreshDashboardOverview(true).catch(() => {});
+        }
+      }
+    }
+
+    function renderPoolEquipmentControl(modules, liveState) {
+      if (!poolEquipmentControl) return;
+      const state = liveState && typeof liveState === 'object' ? liveState : {};
+      const automatic = poolEquipmentAutomaticMode(modules);
+      poolEquipmentControl.innerHTML = '';
+
+      const heading = document.createElement('div');
+      heading.className = 'pool-section-heading pool-equipment-heading';
+      const headingIcon = document.createElement('span');
+      headingIcon.className = 'ui-msr';
+      headingIcon.setAttribute('aria-hidden', 'true');
+      headingIcon.textContent = 'toggle_on';
+      const headingCopy = document.createElement('div');
+      const title = document.createElement('h2');
+      title.textContent = tr('pool.control.title', 'Contrôle des équipements');
+      const intro = document.createElement('p');
+      intro.textContent = automatic
+        ? tr('pool.control.autoNote', 'Mode automatique actif : les commandes automatisées sont verrouillées ici. L’éclairage reste directement accessible.')
+        : tr('pool.control.manualNote', 'Commandes directes avec retour de l’état réellement constaté. Les sécurités matérielles restent prioritaires.');
+      headingCopy.appendChild(title);
+      headingCopy.appendChild(intro);
+      heading.appendChild(headingIcon);
+      heading.appendChild(headingCopy);
+      poolEquipmentControl.appendChild(heading);
+
+      const grid = document.createElement('div');
+      grid.className = 'pool-equipment-grid';
+      poolEquipmentDefs.forEach((def) => {
+        const available = typeof state[def.stateKey] === 'boolean';
+        const on = available && state[def.stateKey] === true;
+        const blockedByAutomatic = automatic && def.automatic;
+        const pending = poolEquipmentCommandBusy === def.key;
+        const disabled = !available || blockedByAutomatic || !!poolEquipmentCommandBusy;
+        const card = document.createElement('article');
+        card.className = 'pool-equipment-card'
+          + (def.featured ? ' is-featured' : '')
+          + (available ? (on ? ' is-on' : ' is-off') : ' is-unavailable')
+          + (blockedByAutomatic ? ' is-automatic' : '')
+          + (pending ? ' is-pending' : '');
+
+        const top = document.createElement('div');
+        top.className = 'pool-equipment-card-top';
+        const icon = document.createElement('span');
+        icon.className = 'ui-msr pool-equipment-icon';
+        icon.setAttribute('aria-hidden', 'true');
+        icon.textContent = def.icon;
+        const stateLabel = document.createElement('span');
+        stateLabel.className = 'pool-equipment-state';
+        const isLights = def.key === 'lights';
+        stateLabel.textContent = pending
+          ? tr('pool.control.pending', 'Commande…')
+          : (!available
+            ? tr('dashboard.equipment.unavailable', 'Indisponible')
+            : (on
+              ? (isLights ? tr('pool.control.on', 'Allumé') : tr('pool.control.running', 'En marche'))
+              : (isLights ? tr('pool.control.off', 'Éteint') : tr('pool.control.stopped', 'À l’arrêt'))));
+        top.appendChild(icon);
+        top.appendChild(stateLabel);
+
+        const name = document.createElement('h3');
+        name.textContent = tr(def.labelKey, def.label);
+        const note = document.createElement('p');
+        note.textContent = blockedByAutomatic
+          ? tr('pool.control.automatic', 'Piloté automatiquement')
+          : tr(def.noteKey, def.note);
+        const footer = document.createElement('div');
+        footer.className = 'pool-equipment-card-footer';
+        const actionText = document.createElement('span');
+        actionText.textContent = on
+          ? (isLights ? tr('pool.control.action.stop', 'Éteindre') : tr('pool.control.action.stopEquipment', 'Arrêter'))
+          : (isLights ? tr('pool.control.action.start', 'Allumer') : tr('pool.control.action.startEquipment', 'Démarrer'));
+        const toggle = poolEquipmentBuildSwitch(def, on, disabled);
+        toggle.input.addEventListener('change', () => {
+          const desired = toggle.input.checked;
+          commandPoolEquipment(def, desired).then((ok) => {
+            if (!ok) toggle.input.checked = !desired;
+          });
+        });
+        footer.appendChild(actionText);
+        footer.appendChild(toggle.wrap);
+        card.appendChild(top);
+        card.appendChild(name);
+        card.appendChild(note);
+        card.appendChild(footer);
+        grid.appendChild(card);
+      });
+      poolEquipmentControl.appendChild(grid);
+
+      const status = document.createElement('div');
+      status.className = 'pool-equipment-feedback' + (poolEquipmentStatusTone ? ' is-' + poolEquipmentStatusTone : '');
+      status.textContent = poolEquipmentStatusMessage || (automatic
+        ? tr('pool.control.autoHint', 'Pour commander les autres équipements, passez en Manuel sécurisé ou Manuel / maintenance.')
+        : tr('pool.control.ready', 'Commandes prêtes.'));
+      poolEquipmentControl.appendChild(status);
     }
 
     function poolConfigFormatHour(value) {
@@ -8667,6 +9054,7 @@
       poolConfigModulesCache = source;
       poolConfigAlarmSlotsCache = Array.isArray(alarmSlots) ? alarmSlots : [];
       poolConfigRenderHero(source, alarmSlots);
+      renderPoolEquipmentControl(source, poolConfigLiveState);
       poolConfigRenderChemistry(source, poolConfigLiveState);
       poolConfigRenderDisinfection(source);
       poolConfigRenderAlarms(alarmSlots);
@@ -8674,6 +9062,14 @@
     }
 
     function poolConfigRenderSkeleton() {
+      if (poolEquipmentControl) {
+        poolEquipmentControl.innerHTML = '';
+        const heading = document.createElement('div');
+        heading.className = 'pool-section-heading pool-config-skeleton';
+        heading.appendChild(createSkeletonLine('', 34));
+        heading.appendChild(createSkeletonLine('', 62));
+        poolEquipmentControl.appendChild(heading);
+      }
       if (poolGeneralControl) {
         poolGeneralControl.innerHTML = '';
         for (let i = 0; i < 2; i += 1) {
@@ -8721,6 +9117,7 @@
     }
 
     function poolConfigRenderError(err) {
+      if (poolEquipmentControl) poolEquipmentControl.innerHTML = '';
       if (poolGeneralControl) poolGeneralControl.innerHTML = '';
       if (poolDisinfectionModes) poolDisinfectionModes.innerHTML = '';
       if (poolChemistryPanel) poolChemistryPanel.innerHTML = '';
@@ -8802,6 +9199,7 @@
         poolConfigLiveState.psi = Number(pressureEntry.value);
       }
       if (poolConfigLoadedOnce && getActivePageId() === 'page-pool') {
+        renderPoolEquipmentControl(poolConfigModulesCache, poolConfigLiveState);
         if (!poolChemistryHasPendingChanges) {
           poolConfigRenderChemistry(poolConfigModulesCache, poolConfigLiveState);
         }
@@ -12881,6 +13279,12 @@
         }
       });
       bindClickAction(poolConfigRefreshBtn, () => onPoolConfigPageShown(true));
+      bindClickAction(dashboardLightsShortcut, () => {
+        const def = poolEquipmentDefs.find((entry) => entry.key === 'lights');
+        if (def && typeof dashboardLightsOn === 'boolean') {
+          return commandPoolEquipment(def, !dashboardLightsOn);
+        }
+      });
       dashboardShortcutButtons.forEach((button) => {
         bindClickAction(button, () => {
           const pageId = String(button.dataset.dashboardPage || '').trim();

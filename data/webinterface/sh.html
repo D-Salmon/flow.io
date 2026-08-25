@@ -109,6 +109,7 @@
                 <span data-i18n="dashboard.loading">Chargement en cours...</span>
               </div>
               <div class="dashboard-shortcuts" aria-label="Accès rapides" data-i18n-aria-label="dashboard.shortcuts.aria">
+                <button id="dashboardLightsShortcut" type="button" class="dashboard-shortcut dashboard-lights-shortcut" aria-label="Commander l’éclairage" data-i18n-aria-label="dashboard.lights.command"><span class="ui-msr" aria-hidden="true">lightbulb</span><span data-i18n="dashboard.equipment.lights">Éclairage</span></button>
                 <button type="button" class="dashboard-shortcut" data-dashboard-page="page-pool"><span class="ui-msr" aria-hidden="true">tune</span><span data-i18n="menu.pool">Piscine</span></button>
                 <button type="button" class="dashboard-shortcut" data-dashboard-page="page-calibration"><span class="ui-msr" aria-hidden="true">science</span><span data-i18n="menu.calibration">Étalonnage</span></button>
                 <button type="button" class="dashboard-shortcut" data-dashboard-page="page-activity-log"><span class="ui-msr" aria-hidden="true">history</span><span data-i18n="menu.activity">Journal d’Activité</span></button>
@@ -207,6 +208,7 @@
               <div id="poolModeBadges" class="pool-mode-badges" aria-live="polite"></div>
             </div>
           </section>
+          <section id="poolEquipmentControl" class="pool-equipment-control" aria-live="polite"></section>
           <section id="poolGeneralControl" class="pool-config-grid pool-general-control" aria-live="polite"></section>
           <section id="poolAlarmCard" class="pool-alarm-card" hidden aria-live="polite"></section>
           <section id="poolChemistryPanel" class="pool-chemistry-panel" aria-live="polite"></section>
@@ -235,21 +237,49 @@
             <button id="activityPurgeBtn" class="btn-tonal btn-icon-only danger-action" type="button" aria-label="Purger le journal" title="Purger le journal"><span class="ui-msr" aria-hidden="true">delete</span></button>
           </div>
         </div>
-        <div class="activity-toolbar">
-          <div class="activity-range-card">
-            <span class="activity-range-label">Date de début - Date de fin</span>
-            <span id="activityRangeText" class="activity-range-value">Dernières activités</span>
+        <div class="activity-shell">
+          <section class="activity-overview">
+            <div class="activity-overview-copy">
+              <span class="activity-eyebrow" data-i18n="activity.eyebrow">Historique opérationnel</span>
+              <h2 data-i18n="activity.title">Ce qui s’est passé sur la piscine</h2>
+              <p data-i18n="activity.subtitle">Retrouvez les actions manuelles, les automatismes, les équipements et le cycle de vie des alarmes.</p>
+            </div>
+            <div class="activity-summary-grid" aria-label="Résumé de la période" data-i18n-aria-label="activity.summary.aria">
+              <div class="activity-summary-card is-total"><span class="ui-msr" aria-hidden="true">receipt_long</span><div><strong id="activitySummaryTotal">0</strong><small data-i18n="activity.summary.total">événements</small></div></div>
+              <div class="activity-summary-card is-alert"><span class="ui-msr" aria-hidden="true">notification_important</span><div><strong id="activitySummaryAlerts">0</strong><small data-i18n="activity.summary.alerts">alertes</small></div></div>
+              <div class="activity-summary-card is-manual"><span class="ui-msr" aria-hidden="true">touch_app</span><div><strong id="activitySummaryManual">0</strong><small data-i18n="activity.summary.manual">actions manuelles</small></div></div>
+              <div class="activity-summary-card is-equipment"><span class="ui-msr" aria-hidden="true">settings_input_component</span><div><strong id="activitySummaryEquipment">0</strong><small data-i18n="activity.summary.equipment">équipements</small></div></div>
+            </div>
+          </section>
+          <div class="activity-toolbar">
+            <div class="activity-range-card">
+              <span class="ui-msr activity-range-icon" aria-hidden="true">date_range</span>
+              <span class="activity-range-copy">
+                <span class="activity-range-label" data-i18n="activity.range.label">Période affichée · 3 heures</span>
+                <span id="activityRangeText" class="activity-range-value">Dernières activités</span>
+              </span>
+            </div>
+            <div class="activity-filter-wrap">
+              <span class="activity-filter-label" data-i18n="activity.filter.label">Afficher</span>
+              <div class="activity-filter-row" role="group" aria-label="Filtrer le journal" data-i18n-aria-label="activity.filter.aria">
+                <button class="activity-filter is-active" type="button" data-activity-filter="all" data-i18n="activity.filter.all">Tous</button>
+                <button class="activity-filter" type="button" data-activity-filter="equipment" data-i18n="activity.filter.equipment">Équipements</button>
+                <button class="activity-filter" type="button" data-activity-filter="automatic" data-i18n="activity.filter.automatic">Automatismes</button>
+                <button class="activity-filter" type="button" data-activity-filter="manual" data-i18n="activity.filter.manual">Manuel</button>
+                <button class="activity-filter" type="button" data-activity-filter="alerts" data-i18n="activity.filter.alerts">Alertes</button>
+                <button class="activity-filter" type="button" data-activity-filter="system" data-i18n="activity.filter.system">Système</button>
+              </div>
+            </div>
           </div>
-          <div class="activity-filter-row">
-            <button class="activity-filter is-active" type="button" data-activity-filter="all">Tous</button>
-            <button class="activity-filter" type="button" data-activity-filter="poollogic">PoolLogic</button>
-            <button class="activity-filter" type="button" data-activity-filter="manual">Manuel</button>
-            <button class="activity-filter" type="button" data-activity-filter="safety">Sécurité</button>
-            <button class="activity-filter" type="button" data-activity-filter="system">Système</button>
+          <div class="activity-list-head">
+            <div>
+              <strong data-i18n="activity.timeline.title">Chronologie</strong>
+              <span id="activityLogStatus" class="activity-status" aria-live="polite">Chargement du journal...</span>
+            </div>
+            <span class="activity-legend"><i aria-hidden="true"></i><span data-i18n="activity.legend">Les événements les plus récents apparaissent en premier</span></span>
           </div>
+          <div id="activityLogList" class="activity-list" aria-live="polite"></div>
         </div>
-        <div id="activityLogStatus" class="activity-status" aria-live="polite">Chargement du journal...</div>
-        <div id="activityLogList" class="activity-list" aria-live="polite"></div>
       </section>
 
       <section id="page-system" class="page">

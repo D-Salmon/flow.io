@@ -118,6 +118,7 @@ private:
     EventBus* eventBus_ = nullptr;
     const CommandService* cmdSvc_ = nullptr;
     const HAService* haSvc_ = nullptr;
+    const ActivityLogService* activityLogSvc_ = nullptr;
     bool haEntitiesRegistered_ = false;
 
     bool enabled_ = true;

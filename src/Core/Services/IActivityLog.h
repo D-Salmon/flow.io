@@ -11,6 +11,7 @@ enum class ActivityDomain : uint8_t {
     System = 0,
     PoolLogic = 1,
     PoolDevice = 2,
+    Alarm = 3,
 };
 
 enum class ActivitySource : uint8_t {
@@ -65,6 +66,9 @@ enum class ActivityReason : uint8_t {
 enum class ActivityCode : uint16_t {
     SystemBoot = 1,
     SystemConfigChanged = 2,
+    SystemAlarmRaised = 10,
+    SystemAlarmConditionNormalized = 11,
+    SystemAlarmCleared = 12,
     PoolLogicReady = 100,
     PoolLogicDisabled = 101,
     PoolLogicDeviceStartRequested = 120,

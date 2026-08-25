@@ -149,9 +149,55 @@ const char* AlarmModule::condStateStr_(AlarmCondState s)
 
 void AlarmModule::emitAlarmEvent_(EventId id, AlarmId alarmId) const
 {
-    if (!eventBus_) return;
-    const AlarmPayload payload{(uint16_t)alarmId};
-    (void)eventBus_->post(id, &payload, sizeof(payload), ModuleId::Alarm);
+    if (eventBus_) {
+        const AlarmPayload payload{(uint16_t)alarmId};
+        (void)eventBus_->post(id, &payload, sizeof(payload), ModuleId::Alarm);
+    }
+
+    if (!activityLogSvc_ || !activityLogSvc_->emit) return;
+    if (id != EventId::AlarmRaised && id != EventId::AlarmCleared &&
+        id != EventId::AlarmConditionChanged) return;
+
+    AlarmSlot snap{};
+    bool found = false;
+    portENTER_CRITICAL(&slotsMux_);
+    const int16_t idx = findSlotById_(alarmId);
+    if (idx >= 0) {
+        snap = slots_[(uint16_t)idx];
+        found = true;
+    }
+    portEXIT_CRITICAL(&slotsMux_);
+    if (!found) return;
+
+    ActivityEvent event{};
+    event.domain = (uint8_t)ActivityDomain::Alarm;
+    event.source = (uint8_t)ActivitySource::Safety;
+    event.reason = (uint8_t)ActivityReason::Safety;
+    event.targetSlot = (uint8_t)((idx >= 0 && idx < 0xFF) ? idx : ACTIVITY_TARGET_NONE);
+    snprintf(event.title, sizeof(event.title), "%s", snap.def.title);
+
+    if (id == EventId::AlarmRaised) {
+        event.code = (uint16_t)ActivityCode::SystemAlarmRaised;
+        event.severity = (snap.def.severity == AlarmSeverity::Warning)
+            ? (uint8_t)ActivitySeverity::Warning
+            : (uint8_t)ActivitySeverity::Alarm;
+        snprintf(event.detail, sizeof(event.detail), "Alarme déclenchée · %s", snap.def.code);
+        snprintf(event.icon, sizeof(event.icon), "notification_important");
+    } else if (id == EventId::AlarmCleared) {
+        event.code = (uint16_t)ActivityCode::SystemAlarmCleared;
+        event.severity = (uint8_t)ActivitySeverity::Success;
+        snprintf(event.detail, sizeof(event.detail), "Alarme terminée · %s", snap.def.code);
+        snprintf(event.icon, sizeof(event.icon), "task_alt");
+    } else {
+        // A latched alarm may be safe again while still awaiting acknowledgement.
+        if (snap.lastCond != AlarmCondState::False || !snap.active || !snap.def.latched) return;
+        event.code = (uint16_t)ActivityCode::SystemAlarmConditionNormalized;
+        event.severity = (uint8_t)ActivitySeverity::Warning;
+        snprintf(event.detail, sizeof(event.detail), "Condition revenue à la normale · acquittement requis · %s", snap.def.code);
+        snprintf(event.icon, sizeof(event.icon), "notification_paused");
+    }
+
+    (void)activityLogSvc_->emit(activityLogSvc_->ctx, &event);
 }
 
 void AlarmModule::noteAlarmNotified_(AlarmId id, uint32_t nowMs)
@@ -678,6 +724,7 @@ void AlarmModule::init(ConfigStore& cfg, ServiceRegistry& services)
     eventBus_ = eb ? eb->bus : nullptr;
     cmdSvc_ = services.get<CommandService>(ServiceId::Command);
     haSvc_ = services.get<HAService>(ServiceId::Ha);
+    activityLogSvc_ = services.get<ActivityLogService>(ServiceId::ActivityLog);
 
     if (!services.add(ServiceId::Alarm, &alarmSvc_)) {
         LOGE("service registration failed: %s", toString(ServiceId::Alarm));

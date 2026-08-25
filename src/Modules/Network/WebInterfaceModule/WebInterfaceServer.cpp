@@ -237,6 +237,7 @@ static const char* activityDomainName_(uint8_t domain)
         case ActivityDomain::System: return "system";
         case ActivityDomain::PoolLogic: return "poollogic";
         case ActivityDomain::PoolDevice: return "pooldevice";
+        case ActivityDomain::Alarm: return "alarm";
         default: return "unknown";
     }
 }
@@ -950,6 +951,9 @@ bool sendFlowStatusCompactResponse_(AsyncWebServerRequest* request, const FlowCf
             appendJsonFieldValue_(*response, "clp", poolIn["clp"]);
             appendJsonFieldValue_(*response, "swg", poolIn["swg"]);
             appendJsonFieldValue_(*response, "rbt", poolIn["rbt"]);
+            appendJsonFieldValue_(*response, "fill", poolIn["fill"]);
+            appendJsonFieldValue_(*response, "lgt", poolIn["lgt"]);
+            appendJsonFieldValue_(*response, "htr", poolIn["htr"]);
             response->print('}');
         }
     }
@@ -2205,6 +2209,9 @@ bool waveshareBuildStatusDomainJson_(FlowStatusDomain domain,
         setDevice("clp", PoolIds::DeviceChlorinePump);
         setDevice("swg", PoolIds::DeviceChlorineGenerator);
         setDevice("rbt", PoolIds::DeviceRobot);
+        setDevice("fill", PoolIds::DeviceFillPump);
+        setDevice("lgt", PoolIds::DeviceLights);
+        setDevice("htr", PoolIds::DeviceWaterHeater);
         return serializeJson(doc, out, outLen) > 0U;
     }
 
@@ -7581,6 +7588,82 @@ void WebInterfaceModule::startServer_()
             return;
         }
         request->send(202, "application/json", (reply[0] != '\0') ? reply : "{\"ok\":true,\"queued\":true}");
+    });
+
+    server_.on("/api/poollogic/equipment", HTTP_POST, [this](AsyncWebServerRequest* request) {
+        HttpLatencyScope latency(request, "/api/poollogic/equipment");
+        if (!request->hasParam("equipment", true) || !request->hasParam("value", true)) {
+            request->send(400,
+                          "application/json",
+                          "{\"ok\":false,\"err\":{\"code\":\"InvalidArg\",\"where\":\"poollogic.equipment\"}}");
+            return;
+        }
+
+        char equipment[24] = {0};
+        char valueText[8] = {0};
+        copyRequestParamValue_(request, "equipment", true, equipment, sizeof(equipment), "");
+        copyRequestParamValue_(request, "value", true, valueText, sizeof(valueText), "");
+        const bool value = strcmp(valueText, "true") == 0 || strcmp(valueText, "1") == 0 ||
+                           strcmp(valueText, "on") == 0;
+        const bool validValue = value || strcmp(valueText, "false") == 0 || strcmp(valueText, "0") == 0 ||
+                                strcmp(valueText, "off") == 0;
+        if (!validValue) {
+            request->send(400,
+                          "application/json",
+                          "{\"ok\":false,\"err\":{\"code\":\"InvalidArg\",\"where\":\"poollogic.equipment.value\"}}");
+            return;
+        }
+
+        const char* command = nullptr;
+        int16_t directSlot = -1;
+        if (strcmp(equipment, "filtration") == 0) command = "poollogic.filtration.write";
+        else if (strcmp(equipment, "ph") == 0) command = "poollogic.ph_pump.write";
+        else if (strcmp(equipment, "chlorine") == 0) command = "poollogic.dis_pump.write";
+        else if (strcmp(equipment, "electrolysis") == 0) command = "poollogic.chlorine_generator.write";
+        else if (strcmp(equipment, "robot") == 0) command = "poollogic.robot.write";
+        else if (strcmp(equipment, "filling") == 0) directSlot = PoolIds::DeviceFillPump;
+        else if (strcmp(equipment, "lights") == 0) command = "poollogic.lights.write";
+        else if (strcmp(equipment, "heater") == 0) command = "poollogic.heater.write";
+        else {
+            request->send(400,
+                          "application/json",
+                          "{\"ok\":false,\"err\":{\"code\":\"UnknownSlot\",\"where\":\"poollogic.equipment\"}}");
+            return;
+        }
+
+        if (!cmdSvc_ && services_) {
+            cmdSvc_ = services_->get<CommandService>(ServiceId::Command);
+        }
+        if (!cmdSvc_ || !cmdSvc_->execute) {
+            request->send(503,
+                          "application/json",
+                          "{\"ok\":false,\"err\":{\"code\":\"NotReady\",\"where\":\"poollogic.equipment\"}}");
+            return;
+        }
+
+        char args[64] = {0};
+        if (directSlot >= 0) {
+            snprintf(args,
+                     sizeof(args),
+                     "{\"slot\":%u,\"value\":%s}",
+                     (unsigned)directSlot,
+                     value ? "true" : "false");
+            command = "pooldevice.write";
+        } else {
+            snprintf(args, sizeof(args), "{\"value\":%s}", value ? "true" : "false");
+        }
+
+        char reply[220] = {0};
+        const bool ok = cmdSvc_->execute(cmdSvc_->ctx, command, args, nullptr, reply, sizeof(reply));
+        if (!ok) {
+            request->send(409,
+                          "application/json",
+                          (reply[0] != '\0')
+                              ? reply
+                              : "{\"ok\":false,\"err\":{\"code\":\"Failed\",\"where\":\"poollogic.equipment\"}}");
+            return;
+        }
+        request->send(200, "application/json", (reply[0] != '\0') ? reply : "{\"ok\":true}");
     });
 
     server_.on("/api/system/reboot", HTTP_POST, [this](AsyncWebServerRequest* request) {
