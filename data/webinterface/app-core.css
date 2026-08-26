@@ -777,6 +777,13 @@ body.web-icons-disabled .control-field-apply{font-size:15px;font-weight:800;lett
 .pool-daybar-fill{display:block;width:0;height:100%;border-radius:999px;background:var(--primary);transition:width 0.28s ease;}
 .pool-hero-side{position:relative;z-index:1;display:grid;grid-template-rows:auto 1fr;gap:18px;justify-items:end;align-self:stretch;min-width:260px;border-left:1px solid var(--border);padding-left:24px;}
 .pool-hero-refresh{justify-self:end;}
+.pool-operating-mode-control{display:grid;gap:8px;width:min(100%,390px);align-self:center;}
+.pool-operating-mode-control>label{color:var(--text);font-size:13px;font-weight:850;}
+.pool-operating-mode-actions{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;}
+.pool-operating-mode-status,.dashboard-mode-status{min-height:18px;color:var(--text-muted);font-size:12px;font-weight:700;line-height:1.35;}
+.pool-operating-mode-status.is-ok,.dashboard-mode-status.is-ok{color:var(--success);}
+.pool-operating-mode-status.is-error,.dashboard-mode-status.is-error{color:var(--danger);}
+.pool-operating-mode-status.is-pending,.dashboard-mode-status.is-pending{color:var(--primary);}
 .pool-mode-badges{display:flex;align-items:center;justify-content:flex-end;align-content:center;gap:10px;flex-wrap:wrap;min-width:220px;}
 .pool-mode-badge{display:inline-flex;align-items:center;gap:7px;min-height:38px;border-radius:999px;padding:0 14px;border:1px solid rgba(128,145,168,0.22);background:#FFFFFF;color:#5C7085;font-size:13px;font-weight:850;white-space:nowrap;}
 .pool-mode-badge-icon{font-size:18px;}
@@ -804,6 +811,11 @@ body.web-icons-disabled .control-field-apply{font-size:15px;font-weight:800;lett
 .pool-equipment-card h3{position:relative;z-index:1;margin:0;color:var(--text);font-size:16px;line-height:1.25;}
 .pool-equipment-card>p{position:relative;z-index:1;margin:0;color:var(--text-muted);font-size:12px;font-weight:650;line-height:1.45;}
 .pool-equipment-card-footer{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:12px;border-top:1px solid var(--border);color:var(--text);font-size:12px;font-weight:850;}
+.pool-equipment-option{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px dashed var(--border);}
+.pool-equipment-option>div{display:grid;gap:2px;min-width:0;}
+.pool-equipment-option strong{color:var(--text);font-size:12px;line-height:1.25;}
+.pool-equipment-option span{color:var(--text-muted);font-size:11px;line-height:1.3;}
+.pool-equipment-card.is-mode{border-color:rgba(60,125,210,.28);background:rgba(60,125,210,.045);}
 .pool-equipment-switch{transform:scale(1.08);transform-origin:center right;}
 .pool-equipment-feedback{min-height:38px;display:flex;align-items:center;padding:8px 12px;border-radius:10px;background:var(--surface-soft);color:var(--text-muted);font-size:12px;font-weight:750;}
 .pool-equipment-feedback.is-ok{background:var(--state-ok-bg);color:var(--state-ok-fg);}
@@ -988,6 +1000,8 @@ body.web-icons-disabled .control-field-apply{font-size:15px;font-weight:800;lett
   .pool-equipment-control{padding:15px;}
   .pool-equipment-grid{grid-template-columns:1fr;}
   .pool-equipment-card{min-height:160px;}
+  .pool-operating-mode-actions{grid-template-columns:1fr;}
+  .pool-operating-mode-actions .btn-primary{width:100%;}
 }
 .io-summary-shell{display:grid;gap:14px;}
 .io-summary-cards{grid-template-columns:repeat(4,minmax(0,1fr));margin-top:0;}
@@ -1292,6 +1306,10 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .dashboard-hero-icon{display:grid;place-items:center;width:68px;height:68px;border-radius:20px;background:linear-gradient(145deg,#087adf,#20b9c3);color:#fff;font-size:36px;box-shadow:0 12px 28px rgba(0,116,232,.22);}
 .dashboard-eyebrow,.dashboard-panel-kicker{margin-bottom:4px;color:var(--primary);font-size:12px;font-weight:850;letter-spacing:.08em;text-transform:uppercase;}
 .dashboard-hero-copy h2{margin:0;color:var(--text);font-size:27px;line-height:1.18;}
+.dashboard-mode-control{display:grid;gap:6px;width:min(100%,560px);margin-top:14px;}
+.dashboard-mode-control>label{color:var(--text);font-size:12px;font-weight:850;}
+.dashboard-mode-control-row{display:grid;grid-template-columns:minmax(190px,1fr) auto;gap:9px;align-items:center;}
+.dashboard-mode-control .pool-setting-control{min-height:42px;}
 .dashboard-hero-copy p{max-width:760px;margin:9px 0 0;color:var(--text-muted);font-size:15px;line-height:1.55;}
 .dashboard-connection-badges{display:flex;flex-wrap:wrap;gap:8px;margin-top:17px;}
 .dashboard-connection-badge{display:inline-flex;align-items:center;gap:7px;min-height:30px;padding:0 11px;border:1px solid var(--border);border-radius:999px;background:var(--surface);color:var(--text-muted);font-size:12px;font-weight:750;}
@@ -1388,6 +1406,8 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .dashboard-hero-main{grid-template-columns:48px minmax(0,1fr);gap:13px;}
   .dashboard-hero-icon{width:48px;height:48px;border-radius:15px;font-size:27px;}
   .dashboard-hero-copy h2{font-size:21px;}
+  .dashboard-mode-control-row{grid-template-columns:1fr;}
+  .dashboard-mode-control-row .btn-primary{width:100%;}
   .dashboard-shortcuts{grid-template-columns:1fr;}
   .dashboard-shortcut{grid-template-columns:26px minmax(0,1fr);justify-items:start;align-items:center;min-height:48px;text-align:left;}
   .dashboard-kpi-grid{grid-template-columns:1fr;}

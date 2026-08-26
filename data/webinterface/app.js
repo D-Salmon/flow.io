@@ -2008,6 +2008,9 @@
     const poolMeasuresStatus = document.getElementById('poolMeasuresStatus');
     const poolMeasuresGrid = document.getElementById('poolMeasuresGrid');
     const dashboardModeTitle = document.getElementById('dashboardModeTitle');
+    const dashboardOperatingMode = document.getElementById('dashboardOperatingMode');
+    const dashboardModeApply = document.getElementById('dashboardModeApply');
+    const dashboardModeStatus = document.getElementById('dashboardModeStatus');
     const dashboardSummary = document.getElementById('dashboardSummary');
     const dashboardConnectionBadges = document.getElementById('dashboardConnectionBadges');
     const dashboardOverallState = document.getElementById('dashboardOverallState');
@@ -2030,7 +2033,9 @@
     const poolFiltrationStart = document.getElementById('poolFiltrationStart');
     const poolFiltrationStop = document.getElementById('poolFiltrationStop');
     const poolFiltrationFill = document.getElementById('poolFiltrationFill');
-    const poolModeBadges = document.getElementById('poolModeBadges');
+    const poolOperatingMode = document.getElementById('poolOperatingMode');
+    const poolOperatingModeApply = document.getElementById('poolOperatingModeApply');
+    const poolOperatingModeStatus = document.getElementById('poolOperatingModeStatus');
     const poolEquipmentControl = document.getElementById('poolEquipmentControl');
     const poolGeneralControl = document.getElementById('poolGeneralControl');
     const poolChemistryPanel = document.getElementById('poolChemistryPanel');
@@ -2294,6 +2299,10 @@
     let poolEquipmentCommandBusy = '';
     let poolEquipmentStatusMessage = '';
     let poolEquipmentStatusTone = '';
+    let poolOperatingModeApplyBusy = false;
+    let poolOperatingModeCurrent = '';
+    let poolOperatingModeStatusMessage = '';
+    let poolOperatingModeStatusTone = '';
     let dashboardLightsOn = null;
     const poolEquipmentDefs = Object.freeze([
       Object.freeze({ key: 'filtration', stateKey: 'fil', labelKey: 'pool.control.filtration', label: 'Pompe de filtration', icon: 'water', noteKey: 'pool.control.filtration.note', note: 'Fait circuler et filtre l’eau du bassin.', automatic: true }),
@@ -2306,7 +2315,7 @@
       Object.freeze({ key: 'lights', stateKey: 'lgt', labelKey: 'pool.control.lights', label: 'Éclairage piscine', icon: 'lightbulb', noteKey: 'pool.control.lights.note', note: 'Allume ou éteint immédiatement l’éclairage.', automatic: false, featured: true })
     ]);
     const poolConfigModuleDefs = Object.freeze([
-      Object.freeze({ module: 'poollogic/modes', titleKey: 'pool.card.modes.title', title: 'Pilotage général', icon: 'tune', noteKey: 'pool.card.modes.note', note: 'Choisissez entre Manuel / maintenance, Manuel sécurisé et Automatique.' }),
+      Object.freeze({ module: 'poollogic/modes', hidden: true }),
       Object.freeze({ module: 'hmi/buzzer', titleKey: 'pool.card.alarmSound.title', title: 'Signal sonore', icon: 'notifications_active', noteKey: 'pool.card.alarmSound.note', note: 'Le son des alarmes peut être coupé sans masquer les alarmes affichées.' }),
       Object.freeze({ module: 'poollogic/filtration', titleKey: 'pool.card.filtration.title', title: 'Filtration', icon: 'waves', noteKey: 'pool.card.filtration.note', note: 'La plage de filtration combine contraintes horaires et température d’eau pour protéger le bassin.' }),
       Object.freeze({ module: 'poollogic/ph', titleKey: 'pool.card.ph.title', title: 'Régulation pH', icon: 'science', noteKey: 'pool.card.ph.note', note: 'Consigne, sens de dosage et fenêtre de régulation de la pompe pH.' }),
@@ -6963,8 +6972,94 @@
       };
     }
 
+    function poolOperatingModeValue(modes) {
+      const source = modes && typeof modes === 'object' ? modes : {};
+      if (!Object.prototype.hasOwnProperty.call(source, 'enabled')) return '';
+      if (!toBool(source.enabled)) return 'maintenance';
+      return toBool(source.auto_mode) ? 'automatic' : 'safe_manual';
+    }
+
+    function poolOperatingModePatch(value) {
+      if (value === 'maintenance') return { enabled: false, auto_mode: false };
+      if (value === 'safe_manual') return { enabled: true, auto_mode: false };
+      if (value === 'automatic') return { enabled: true, auto_mode: true };
+      return null;
+    }
+
+    function poolOperatingModeLabel(value) {
+      if (value === 'maintenance') return tr('pool.mode.maintenance', 'Manuel / maintenance');
+      if (value === 'safe_manual') return tr('pool.mode.safeManual', 'Manuel sécurisé');
+      if (value === 'automatic') return tr('pool.mode.automatic', 'Automatique');
+      return tr('pool.state.unknown', 'Inconnu');
+    }
+
+    function poolOperatingModeSyncControl(select, applyButton, status) {
+      if (!select || !applyButton) return;
+      const available = !!poolOperatingModeCurrent;
+      if (available && select.dataset.modeDirty !== 'true') select.value = poolOperatingModeCurrent;
+      select.disabled = !available || poolOperatingModeApplyBusy;
+      applyButton.disabled = !available || poolOperatingModeApplyBusy || select.value === poolOperatingModeCurrent;
+      if (status) {
+        status.className = 'pool-operating-mode-status' + (poolOperatingModeStatusTone ? ' is-' + poolOperatingModeStatusTone : '');
+        status.textContent = poolOperatingModeStatusMessage;
+      }
+    }
+
+    function poolOperatingModeSyncAll(modes) {
+      const nextMode = poolOperatingModeValue(modes);
+      if (nextMode) poolOperatingModeCurrent = nextMode;
+      poolOperatingModeSyncControl(dashboardOperatingMode, dashboardModeApply, dashboardModeStatus);
+      poolOperatingModeSyncControl(poolOperatingMode, poolOperatingModeApply, poolOperatingModeStatus);
+    }
+
+    function poolOperatingModeSetStatus(message, tone) {
+      poolOperatingModeStatusMessage = String(message || '');
+      poolOperatingModeStatusTone = String(tone || '');
+      poolOperatingModeSyncControl(dashboardOperatingMode, dashboardModeApply, dashboardModeStatus);
+      poolOperatingModeSyncControl(poolOperatingMode, poolOperatingModeApply, poolOperatingModeStatus);
+    }
+
+    async function applyPoolOperatingMode(value) {
+      const patchValues = poolOperatingModePatch(value);
+      if (!patchValues || poolOperatingModeApplyBusy || value === poolOperatingModeCurrent) return false;
+      poolOperatingModeApplyBusy = true;
+      poolOperatingModeSetStatus(tr('pool.mode.applying', 'Application du mode…'), 'pending');
+      try {
+        await fetchOkJson(
+          '/api/flowcfg/apply',
+          createFormPostOptions({ patch: JSON.stringify({ 'poollogic/modes': patchValues }) }),
+          tr('pool.mode.applyFailed', 'Changement de mode refusé'),
+          fetchFlowRemoteQueued
+        );
+        poolOperatingModeCurrent = value;
+        [dashboardOperatingMode, poolOperatingMode].forEach((select) => {
+          if (!select) return;
+          select.dataset.modeDirty = 'false';
+          select.value = value;
+        });
+        if (!poolConfigModulesCache['poollogic/modes']) poolConfigModulesCache['poollogic/modes'] = {};
+        Object.assign(poolConfigModulesCache['poollogic/modes'], patchValues);
+        poolOperatingModeSetStatus(
+          tr('pool.mode.applied', 'Mode appliqué : {mode}.').replace('{mode}', poolOperatingModeLabel(value)),
+          'ok'
+        );
+        poolConfigLoadedOnce = false;
+        if (getActivePageId() === 'page-pool') await loadPoolConfig(true);
+        else await refreshDashboardOverview(true);
+        return true;
+      } catch (err) {
+        poolOperatingModeSetStatus(tr('pool.mode.applyFailed', 'Changement de mode refusé') + ' : ' + String(err), 'error');
+        return false;
+      } finally {
+        poolOperatingModeApplyBusy = false;
+        poolOperatingModeSyncAll(poolConfigModulesCache['poollogic/modes'] || {});
+      }
+    }
+
     function renderDashboardOverviewSkeleton() {
       if (dashboardModeTitle) dashboardModeTitle.textContent = tr('dashboard.loading', 'Chargement en cours...');
+      if (dashboardOperatingMode) dashboardOperatingMode.disabled = true;
+      if (dashboardModeApply) dashboardModeApply.disabled = true;
       if (dashboardSummary) dashboardSummary.textContent = tr('dashboard.overview.loading', 'Lecture de l’état de la piscine et des équipements…');
       if (dashboardConnectionBadges) dashboardConnectionBadges.innerHTML = '';
       dashboardSetOverallState('loading', tr('dashboard.loading', 'Chargement en cours...'), 'progress_activity');
@@ -7077,6 +7172,8 @@
       const treatment = Object.prototype.hasOwnProperty.call(modes, 'disinfection_type')
         ? poolConfigDisinfectionLabel(modes.disinfection_type)
         : '';
+
+      poolOperatingModeSyncAll(modes);
 
       if (dashboardModeTitle) dashboardModeTitle.textContent = modeTitle;
       if (dashboardSummary) {
@@ -7242,7 +7339,7 @@
       if (alarmCount > 0) {
         dashboardSetOverallState('alert', alarmCount > 1 ? tr('dashboard.state.alarms', '{count} alarmes actives').replace('{count}', String(alarmCount)) : tr('dashboard.state.alarm', '1 alarme active'), 'warning');
       } else if (pool) {
-        dashboardSetOverallState('ok', tr('dashboard.state.normal', 'Fonctionnement normal'), 'check_circle');
+        dashboardSetOverallState('ok', tr('dashboard.state.normal', 'État disponible — aucune alarme active'), 'check_circle');
       } else {
         dashboardSetOverallState('unavailable', tr('dashboard.state.unavailable', 'État piscine indisponible'), 'cloud_off');
       }
@@ -7394,9 +7491,44 @@
       }
     }
 
+    async function applyPoolEquipmentModeSetting(key, desired, label) {
+      if (!key || poolEquipmentCommandBusy || poolConfigFieldApplyBusy) return false;
+      poolEquipmentCommandBusy = 'mode:' + key;
+      poolEquipmentSetStatus(tr('pool.control.settingPending', 'Application du réglage…'), 'pending');
+      renderPoolEquipmentControl(poolConfigModulesCache, poolConfigLiveState);
+      try {
+        const patch = { 'poollogic/modes': {} };
+        patch['poollogic/modes'][key] = !!desired;
+        await fetchOkJson(
+          '/api/flowcfg/apply',
+          createFormPostOptions({ patch: JSON.stringify(patch) }),
+          tr('pool.control.settingFailed', 'Modification du réglage refusée'),
+          fetchFlowRemoteQueued
+        );
+        if (!poolConfigModulesCache['poollogic/modes']) poolConfigModulesCache['poollogic/modes'] = {};
+        poolConfigModulesCache['poollogic/modes'][key] = !!desired;
+        poolEquipmentSetStatus(
+          tr('pool.control.settingApplied', 'Réglage appliqué : {label}.').replace('{label}', String(label || key)),
+          'ok'
+        );
+        poolConfigLoadedOnce = false;
+        await loadPoolConfig(true);
+        return true;
+      } catch (err) {
+        poolEquipmentSetStatus(tr('pool.control.settingFailed', 'Modification du réglage refusée') + ' : ' + String(err), 'error');
+        return false;
+      } finally {
+        poolEquipmentCommandBusy = '';
+        if (getActivePageId() === 'page-pool') renderPoolEquipmentControl(poolConfigModulesCache, poolConfigLiveState);
+      }
+    }
+
     function renderPoolEquipmentControl(modules, liveState) {
       if (!poolEquipmentControl) return;
       const state = liveState && typeof liveState === 'object' ? liveState : {};
+      const modes = modules && modules['poollogic/modes'] && typeof modules['poollogic/modes'] === 'object'
+        ? modules['poollogic/modes']
+        : {};
       const automatic = poolEquipmentAutomaticMode(modules);
       poolEquipmentControl.innerHTML = '';
 
@@ -7421,6 +7553,56 @@
 
       const grid = document.createElement('div');
       grid.className = 'pool-equipment-grid';
+
+      const winterAvailable = Object.prototype.hasOwnProperty.call(modes, 'winter_mode');
+      const winterOn = winterAvailable && toBool(modes.winter_mode);
+      const winterPending = poolEquipmentCommandBusy === 'mode:winter_mode';
+      const winterCard = document.createElement('article');
+      winterCard.className = 'pool-equipment-card is-mode'
+        + (winterAvailable ? (winterOn ? ' is-on' : ' is-off') : ' is-unavailable')
+        + (winterPending ? ' is-pending' : '');
+      const winterTop = document.createElement('div');
+      winterTop.className = 'pool-equipment-card-top';
+      const winterIcon = document.createElement('span');
+      winterIcon.className = 'ui-msr pool-equipment-icon';
+      winterIcon.setAttribute('aria-hidden', 'true');
+      winterIcon.textContent = 'ac_unit';
+      const winterState = document.createElement('span');
+      winterState.className = 'pool-equipment-state';
+      winterState.textContent = winterPending
+        ? tr('pool.control.pending', 'Commande…')
+        : (!winterAvailable
+          ? tr('dashboard.equipment.unavailable', 'Indisponible')
+          : (winterOn ? tr('pool.state.forced', 'Forcé') : tr('pool.state.normal', 'Normal')));
+      winterTop.appendChild(winterIcon);
+      winterTop.appendChild(winterState);
+      const winterName = document.createElement('h3');
+      winterName.textContent = tr('pool.control.winterMode', 'Mode hiver');
+      const winterNote = document.createElement('p');
+      winterNote.textContent = tr('pool.control.winterMode.note', 'Force le fonctionnement en mode hiver pour la protection anti-gel.');
+      const winterFooter = document.createElement('div');
+      winterFooter.className = 'pool-equipment-card-footer';
+      const winterAction = document.createElement('span');
+      winterAction.textContent = winterOn ? tr('pool.control.disable', 'Désactiver') : tr('pool.control.enable', 'Activer');
+      const winterToggle = poolEquipmentBuildSwitch(
+        { labelKey: 'pool.control.winterMode', label: 'Mode hiver' },
+        winterOn,
+        !winterAvailable || !!poolEquipmentCommandBusy || poolConfigFieldApplyBusy
+      );
+      winterToggle.input.addEventListener('change', () => {
+        const desired = winterToggle.input.checked;
+        applyPoolEquipmentModeSetting('winter_mode', desired, tr('pool.control.winterMode', 'Mode hiver')).then((ok) => {
+          if (!ok) winterToggle.input.checked = !desired;
+        });
+      });
+      winterFooter.appendChild(winterAction);
+      winterFooter.appendChild(winterToggle.wrap);
+      winterCard.appendChild(winterTop);
+      winterCard.appendChild(winterName);
+      winterCard.appendChild(winterNote);
+      winterCard.appendChild(winterFooter);
+      grid.appendChild(winterCard);
+
       poolEquipmentDefs.forEach((def) => {
         const available = typeof state[def.stateKey] === 'boolean';
         const on = available && state[def.stateKey] === true;
@@ -7477,6 +7659,36 @@
         card.appendChild(top);
         card.appendChild(name);
         card.appendChild(note);
+        if (def.key === 'robot') {
+          const robotAutoAvailable = Object.prototype.hasOwnProperty.call(modes, 'robot_auto_mode');
+          const robotAutoOn = robotAutoAvailable && toBool(modes.robot_auto_mode);
+          const robotAutoPending = poolEquipmentCommandBusy === 'mode:robot_auto_mode';
+          const robotAuto = document.createElement('div');
+          robotAuto.className = 'pool-equipment-option';
+          const robotAutoCopy = document.createElement('div');
+          const robotAutoLabel = document.createElement('strong');
+          robotAutoLabel.textContent = tr('pool.control.robotAutomatic', 'Robot automatique');
+          const robotAutoHint = document.createElement('span');
+          robotAutoHint.textContent = robotAutoPending
+            ? tr('pool.control.pending', 'Commande…')
+            : tr('pool.control.robotAutomatic.note', 'Autorise le lancement selon la programmation.');
+          robotAutoCopy.appendChild(robotAutoLabel);
+          robotAutoCopy.appendChild(robotAutoHint);
+          const robotAutoToggle = poolEquipmentBuildSwitch(
+            { labelKey: 'pool.control.robotAutomatic', label: 'Robot automatique' },
+            robotAutoOn,
+            !robotAutoAvailable || !!poolEquipmentCommandBusy || poolConfigFieldApplyBusy
+          );
+          robotAutoToggle.input.addEventListener('change', () => {
+            const desired = robotAutoToggle.input.checked;
+            applyPoolEquipmentModeSetting('robot_auto_mode', desired, tr('pool.control.robotAutomatic', 'Robot automatique')).then((ok) => {
+              if (!ok) robotAutoToggle.input.checked = !desired;
+            });
+          });
+          robotAuto.appendChild(robotAutoCopy);
+          robotAuto.appendChild(robotAutoToggle.wrap);
+          card.appendChild(robotAuto);
+        }
         card.appendChild(footer);
         grid.appendChild(card);
       });
@@ -8262,7 +8474,7 @@
         disabledNote.className = 'pool-setting-disabled-note';
         disabledNote.textContent = tr(
           'pool.robot.disabledHint',
-          'Activez « Robot automatique » dans Pilotage général pour modifier ces réglages.'
+          'Activez « Robot automatique » dans Contrôle des équipements pour modifier ces réglages.'
         );
         form.appendChild(disabledNote);
       }
@@ -8300,31 +8512,8 @@
     }
 
     function poolConfigRenderModeBadges(modules) {
-      if (!poolModeBadges) return;
-      poolModeBadges.innerHTML = '';
-      const modes = modules['poollogic/modes'] || {};
-      const poolLogicEnabled = toBool(modes.enabled);
-      const automatic = poolLogicEnabled && toBool(modes.auto_mode);
-      const operatingMode = !poolLogicEnabled
-        ? tr('pool.mode.maintenance', 'Manuel / maintenance')
-        : (automatic ? tr('pool.mode.automatic', 'Automatique') : tr('pool.mode.safeManual', 'Manuel sécurisé'));
-      const items = [
-        [tr('pool.badge.operatingMode', 'Mode'), operatingMode, poolLogicEnabled, automatic ? 'settings' : 'build'],
-        [tr('pool.badge.winter', 'Hiver'), poolConfigBoolLabel(modes.winter_mode, tr('pool.state.forced', 'Forcé'), tr('pool.state.normal', 'Normal')), toBool(modes.winter_mode), 'ac_unit']
-      ];
-      items.forEach((item) => {
-        const badge = document.createElement('span');
-        badge.className = 'pool-mode-badge' + (item[2] ? ' is-on' : ' is-off');
-        const icon = document.createElement('span');
-        icon.className = 'ui-msr pool-mode-badge-icon';
-        icon.setAttribute('aria-hidden', 'true');
-        icon.textContent = item[3];
-        const label = document.createElement('span');
-        label.textContent = item[0] + ' · ' + item[1];
-        badge.appendChild(icon);
-        badge.appendChild(label);
-        poolModeBadges.appendChild(badge);
-      });
+      const modes = modules && modules['poollogic/modes'] ? modules['poollogic/modes'] : {};
+      poolOperatingModeSyncAll(modes);
     }
 
     function poolConfigHeroSummary(modules, start, stop) {
@@ -9018,6 +9207,7 @@
         return (ai < 0 ? 999 : ai) - (bi < 0 ? 999 : bi);
       });
       orderedDefs.forEach((def) => {
+        if (def.hidden) return;
         const data = modules[def.module] || {};
         const fieldSpecs = poolEditableFieldSpecs[def.module] || [];
         if (!fieldSpecs.length) return;
@@ -9042,7 +9232,7 @@
         head.appendChild(copy);
         card.appendChild(head);
         card.appendChild(poolConfigBuildEditor(def.module, data, fieldSpecs));
-        const target = def.module === 'poollogic/modes' || def.module === 'hmi/buzzer'
+        const target = def.module === 'hmi/buzzer'
           ? poolGeneralControl
           : poolConfigGrid;
         target.appendChild(card);
@@ -9062,6 +9252,8 @@
     }
 
     function poolConfigRenderSkeleton() {
+      if (poolOperatingMode) poolOperatingMode.disabled = true;
+      if (poolOperatingModeApply) poolOperatingModeApply.disabled = true;
       if (poolEquipmentControl) {
         poolEquipmentControl.innerHTML = '';
         const heading = document.createElement('div');
@@ -9072,7 +9264,7 @@
       }
       if (poolGeneralControl) {
         poolGeneralControl.innerHTML = '';
-        for (let i = 0; i < 2; i += 1) {
+        for (let i = 0; i < 1; i += 1) {
           const card = document.createElement('article');
           card.className = 'pool-config-card pool-config-skeleton';
           card.appendChild(createSkeletonLine('', i === 0 ? 58 : 46));
@@ -13279,6 +13471,18 @@
         }
       });
       bindClickAction(poolConfigRefreshBtn, () => onPoolConfigPageShown(true));
+      const bindOperatingModeControl = (select, applyButton) => {
+        if (!select || !applyButton) return;
+        select.addEventListener('change', () => {
+          poolOperatingModeStatusMessage = '';
+          poolOperatingModeStatusTone = '';
+          select.dataset.modeDirty = select.value === poolOperatingModeCurrent ? 'false' : 'true';
+          poolOperatingModeSyncControl(select, applyButton, select === dashboardOperatingMode ? dashboardModeStatus : poolOperatingModeStatus);
+        });
+        bindClickAction(applyButton, () => applyPoolOperatingMode(select.value));
+      };
+      bindOperatingModeControl(dashboardOperatingMode, dashboardModeApply);
+      bindOperatingModeControl(poolOperatingMode, poolOperatingModeApply);
       bindClickAction(dashboardLightsShortcut, () => {
         const def = poolEquipmentDefs.find((entry) => entry.key === 'lights');
         if (def && typeof dashboardLightsOn === 'boolean') {
