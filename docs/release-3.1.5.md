@@ -3,7 +3,7 @@
 ## Objet de la version
 
 La version 3.1.5 améliore l’usage quotidien de la cible autonome Waveshare
-ESP32-S3-ETH-8DI-8RO N16R8. Elle rend les modes et les équipements principaux
+ESP32-S3-POE-ETH-8DI-8RO N16R8. Elle rend les modes et les équipements principaux
 accessibles depuis les vues opérationnelles, adapte la limite de fonctionnement
 de l’électrolyseur au mode choisi et fiabilise le démarrage à froid.
 

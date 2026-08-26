@@ -7,7 +7,7 @@
 
     <rect x="420" y="130" width="360" height="470" rx="18" fill="#1f5f78" stroke="#10384a" stroke-width="4"/>
     <text x="600" y="170" text-anchor="middle" font-family="sans-serif" font-size="24" font-weight="bold" fill="white">Waveshare</text>
-    <text x="600" y="198" text-anchor="middle" font-family="sans-serif" font-size="18" fill="white">ESP32-S3-ETH-8DI-8RO</text>
+    <text x="600" y="198" text-anchor="middle" font-family="sans-serif" font-size="17" fill="white">ESP32-S3-POE-ETH-8DI-8RO</text>
     <text x="600" y="230" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#d7f2ff">N16R8 • contrôleur Flow.io unique</text>
 
     <rect x="470" y="270" width="260" height="86" rx="10" fill="#e8f5e9" stroke="#2e7d32" stroke-width="3"/>
@@ -55,7 +55,7 @@
     <path d="M780 470 H860" stroke="#c62828" stroke-width="7" fill="none"/>
 
     <rect x="40" y="650" width="1120" height="88" rx="12" fill="#263238"/>
-    <text x="65" y="685" font-family="sans-serif" font-size="17" fill="white">Réseau : W5500 intégré • Ethernet prioritaire • Wi-Fi de secours</text>
+    <text x="65" y="685" font-family="sans-serif" font-size="17" fill="white">Réseau : W5500 intégré • Ethernet / PoE prioritaire • Wi-Fi de secours</text>
     <text x="65" y="714" font-family="sans-serif" font-size="17" fill="white">Nextion optionnel : RX GPIO44 / TX GPIO43 avec adaptation 5 V ↔ 3,3 V • Buzzer GPIO46</text>
   </g>
 </svg>

@@ -2,7 +2,7 @@
 
 Cette documentation concerne la cible autonome
 `Waveshare-ESP32-S3` : une seule carte Waveshare
-ESP32-S3-ETH-8DI-8RO N16R8 exécute la logique piscine, les capteurs, les
+ESP32-S3-POE-ETH-8DI-8RO N16R8 exécute la logique piscine, les capteurs, les
 relais, les sécurités, Ethernet, Wi-Fi, l’interface Web, MQTT, Home Assistant,
 la RTC et les interfaces locales.
 

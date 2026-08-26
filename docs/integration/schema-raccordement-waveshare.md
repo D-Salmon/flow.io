@@ -17,7 +17,7 @@ décrites ici sont celles de la version 3.1.5.
 
 ```mermaid
 flowchart LR
-    PWR["Alimentation protégée 7–36 VDC"] --> W["Waveshare ESP32-S3-ETH-8DI-8RO"]
+    PWR["Alimentation protégée 7–36 VDC ou PoE"] --> W["Waveshare ESP32-S3-POE-ETH-8DI-8RO"]
     LAN["Réseau local"] -->|RJ45| W
     W -->|"DI1…DI8"| DIN["Contacts et capteurs isolés"]
     W -->|"Relais 1…8"| K["Contacteurs des équipements"]

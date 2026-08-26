@@ -1,7 +1,7 @@
 # Flow.io — contrôleur de piscine sur Waveshare ESP32-S3
 
 Flow.io est un firmware de pilotage de piscine. La cible de référence du dépôt
-est actuellement la carte **Waveshare ESP32-S3-ETH-8DI-8RO N16R8**, utilisée de
+est actuellement la carte **Waveshare ESP32-S3-POE-ETH-8DI-8RO N16R8**, utilisée de
 façon autonome : un seul ESP32-S3 exécute les entrées/sorties, les automatismes,
 les sécurités, le réseau, l’interface Web, MQTT et l’intégration Home Assistant.
 
@@ -11,14 +11,14 @@ défaut dans `platformio.ini`.
 
 ## Vue de la cible Waveshare
 
-[![Carte Waveshare ESP32-S3-ETH-8DI-8RO](https://www.waveshare.com/media/catalog/product/cache/1/image/800x800/9df78eab33525d08d6e5fb8d27136e95/e/s/esp32-s3-eth-8di-8ro-4.jpg)](https://www.waveshare.com/esp32-s3-eth-8di-8ro.htm)
+[![Carte Waveshare ESP32-S3-POE-ETH-8DI-8RO](docs/pictures/waveshare-poe-3.1.5.png)](https://www.waveshare.com/esp32-s3-eth-8di-8ro.htm?sku=30838)
 
-*Carte ESP32-S3-ETH-8DI-8RO utilisée par Flow.io — image et fiche produit
-[Waveshare](https://www.waveshare.com/esp32-s3-eth-8di-8ro.htm).*
+*Carte ESP32-S3-POE-ETH-8DI-8RO utilisée par Flow.io —
+[fiche produit Waveshare](https://www.waveshare.com/esp32-s3-eth-8di-8ro.htm?sku=30838).*
 
 ### Raccordements utilisés par Flow.io
 
-![Vue fonctionnelle de la carte Waveshare ESP32-S3-ETH-8DI-8RO N16R8](docs/pictures/waveshare-3.1.5.png)
+![Vue fonctionnelle de la carte Waveshare ESP32-S3-POE-ETH-8DI-8RO N16R8](docs/pictures/waveshare-3.1.5.png)
 
 Cette vue résume les raccordements exploités par le firmware. Pour les tableaux
 d’affectation complets et les précautions électriques, consulter le

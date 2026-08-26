@@ -1,6 +1,6 @@
 # Mise en service Flow.io Waveshare 3.1.5
 
-Cette procédure concerne une seule carte Waveshare ESP32-S3-ETH-8DI-8RO.
+Cette procédure concerne une seule carte Waveshare ESP32-S3-POE-ETH-8DI-8RO.
 
 ## 1. Préparer le matériel
 
