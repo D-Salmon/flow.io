@@ -5,28 +5,32 @@ est actuellement la carte **Waveshare ESP32-S3-ETH-8DI-8RO N16R8**, utilisée de
 façon autonome : un seul ESP32-S3 exécute les entrées/sorties, les automatismes,
 les sécurités, le réseau, l’interface Web, MQTT et l’intégration Home Assistant.
 
-La version déclarée pour cette cible est **3.1.4**. L’environnement PlatformIO à
+La version déclarée pour cette cible est **3.1.5**. L’environnement PlatformIO à
 utiliser est `Waveshare-ESP32-S3`, également défini comme environnement par
 défaut dans `platformio.ini`.
 
 ## État actuel
 
-La 3.1.4 a été flashée sur la carte réelle. Le parcours de première connexion a
-été validé avec le point d'accès de secours, la récupération physique BOOT, la
-création de l'administrateur, la connexion au Wi-Fi domestique et
-l'enregistrement de la configuration MQTT. Les essais matériels précédents
-couvrent aussi l'accès Web par adresse IP et par `flowio.local`, la connexion
-MQTT TLS ainsi que le fonctionnement réseau en Ethernet et en Wi-Fi. Ils ne
-constituent pas encore une validation exhaustive de toutes les entrées, sorties
-et séquences de sécurité sur une installation complète.
+La 3.1.5 a été compilée, flashée et démarrée sur la carte réelle. Le contrôle de
+démarrage confirme la PSRAM de 8 Mo, la connexion Wi-Fi, MQTT TLS, le service
+mDNS `flowio.local` et le serveur Web. Les réglages persistants ont été conservés
+lors de la mise à jour. Le parcours de première connexion avait déjà été validé
+avec le point d'accès de secours, la récupération physique BOOT, la création de
+l'administrateur et la configuration du réseau et de MQTT.
+
+L’interface 3.1.5 permet désormais de changer le mode de fonctionnement depuis
+le tableau de bord et de commander directement les équipements disponibles dans
+la page Piscine. Les essais réalisés valident ce parcours sur la carte utilisée,
+mais ne constituent pas encore une validation exhaustive de toutes les entrées,
+sorties et séquences de sécurité sur une installation complète.
 
 Le dossier `binary` contient les deux images candidates issues de la même
 révision :
 
-- `binary/flowios3-3.1.4.bin` — `2 139 008` octets — SHA-256
-  `6ced5f516f5e79daf9cd230c0485a30b10367f46435227f1c5d989962367cf2d` ;
-- `binary/flowios3-spiffs-3.1.4.bin` — `8 257 536` octets — SHA-256
-  `eb1b29cf9b1d956cd46c8474beb2292bb6622e86b31dc42eb8ed9843e6e452be`.
+- `binary/flowios3-3.1.5.bin` — `2 145 984` octets — SHA-256
+  `85da9c1f590d2bdcf1503796798151b581a4163132e02e5e14d450cac83e188b` ;
+- `binary/flowios3-spiffs-3.1.5.bin` — `8 257 536` octets — SHA-256
+  `cd95cf672d0a920765c2151e9a962b9abb2d1938c1eeeefe9c421ed93fbc4907`.
 
 Ces images ne deviennent une livraison validée qu’après un flash complet et la
 campagne de contrôle décrite dans `RESTANT_A_FAIRE.md`.
@@ -81,6 +85,18 @@ Les fonctions actuellement implémentées comprennent :
 - robot automatique, remplissage, éclairage et commandes manuelles ;
 - dépendances entre appareils, limites de temps de marche, suivi des volumes
   injectés et niveaux théoriques des bidons.
+
+Le tableau de bord permet de changer le mode sans quitter sa vue d’ensemble.
+Dans `Piscine > Contrôle des équipements`, les commandes suivent l’ordre
+filtration, électrolyseur ou pompe à chlore, pompe pH, éclairage, mode hiver,
+robot, chauffage et remplissage. Un équipement désactivé ou non affecté n’est
+pas affiché.
+
+La limite quotidienne de l’électrolyseur dépend du mode : elle est neutralisée
+en manuel ou maintenance, tandis qu’en automatique elle ne peut pas être
+inférieure à la durée de filtration calculée augmentée de 60 minutes. Les
+dépendances et sécurités matérielles, notamment la filtration, restent
+prioritaires dans tous les modes.
 
 Tous les automatismes sont désactivés par défaut à la première mise en service.
 
@@ -140,7 +156,11 @@ Home Assistant ; le firmware n’envoie pas directement de SMS ou de courriel.
   firmware ;
 - réglages de l’onglet Piscine préparés localement dans chaque carte, avec
   indication des modifications en attente et choix explicite entre annulation
-  et enregistrement.
+  et enregistrement ;
+- tableau de bord avec changement de mode, page Piscine réorganisée et panneau
+  de commandes directes limité aux équipements réellement configurés ;
+- navigation latérale réordonnée, avec `Entrées/Sorties` placé après
+  `Configuration`.
 
 Lorsque MQTT était valide au démarrage précédent, le serveur Web en mode station
 peut attendre jusqu’à 30 secondes la connexion MQTT TLS afin de préserver assez
@@ -275,12 +295,13 @@ automatismes. Les validations encore nécessaires sont décrites dans
 
 Les profils `FlowIO`, `Supervisor`, `FlowConnectDisplay`, `Micronova` et les
 profils Wokwi restent présents dans le code. Ils ne font pas partie du périmètre
-de validation de la version Waveshare 3.1.4 et ne doivent pas être utilisés pour
+de validation de la version Waveshare 3.1.5 et ne doivent pas être utilisés pour
 déduire le câblage de la cible autonome actuelle.
 
 ## Références utiles
 
 - [État des améliorations restantes](RESTANT_A_FAIRE.md)
+- [Notes de version 3.1.5](docs/release-3.1.5.md)
 - [Audit technique du socle 3.1.3](AUDIT_2026-08-16.md)
 - [Raccordement Waveshare](docs/integration/schema-raccordement-waveshare.md)
 - [Première connexion](docs/integration/premiere-connexion.md)

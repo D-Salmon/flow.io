@@ -1,4 +1,4 @@
-# Documentation Flow.io Waveshare 3.1.4
+# Documentation Flow.io Waveshare 3.1.5
 
 Cette documentation concerne la cible autonome
 `Waveshare-ESP32-S3` : une seule carte Waveshare
@@ -7,6 +7,8 @@ relais, les sécurités, Ethernet, Wi-Fi, l’interface Web, MQTT, Home Assistan
 la RTC et les interfaces locales.
 
 Le document d’entrée principal du projet est le [README général](../README.md).
+Les changements propres à cette livraison sont détaillés dans les
+[notes de version 3.1.5](release-3.1.5.md).
 Les travaux encore ouverts sont regroupés dans
 [RESTANT_A_FAIRE.md](../RESTANT_A_FAIRE.md).
 
@@ -101,6 +103,14 @@ Les automatismes sont désactivés par défaut. La mise en service doit commence
 par les commandes manuelles, continuer en mode manuel sécurisé, puis activer les
 fonctions automatiques une par une.
 
+En 3.1.5, le mode de fonctionnement est aussi modifiable depuis le tableau de
+bord. La page Piscine regroupe les commandes directes dans `Contrôle des
+équipements` et masque les appareils désactivés ou non affectés. En mode manuel
+ou maintenance, la limite quotidienne de l’électrolyseur est neutralisée ; en
+automatique, sa limite effective couvre au minimum la filtration calculée plus
+60 minutes. La dépendance à la filtration et les sécurités matérielles restent
+prioritaires.
+
 ## Réseau, MQTT et Home Assistant
 
 - [WifiModule](modules/WifiModule.md) : connexion station et données réseau.
@@ -131,6 +141,11 @@ le firmware actuel.
 L’interface Web complète est stockée dans SPIFFS. Une page de récupération
 minimale reste disponible depuis le firmware lorsque SPIFFS est absent ou
 endommagé.
+
+La 3.1.5 réorganise le tableau de bord, la page Piscine et la navigation
+latérale. Le panneau `Contrôle des équipements` permet de commander directement
+la filtration, le traitement, l’éclairage, le robot, le chauffage et le
+remplissage lorsque ces appareils sont configurés.
 
 ## Sécurité et mises à jour
 
@@ -169,7 +184,7 @@ système.
 
 Les environnements `FlowIO`, `Supervisor`, `FlowConnectDisplay`, `Micronova` et
 les variantes Wokwi utilisent une partie du même socle logiciel. Ils ne font pas
-partie du périmètre de validation de la cible autonome Waveshare 3.1.4.
+partie du périmètre de validation de la cible autonome Waveshare 3.1.5.
 
 Les documents suivants concernent ces architectures distinctes :
 
@@ -187,3 +202,11 @@ du projet. Plusieurs fichiers secondaires, schémas ou exemples portent encore
 un ancien numéro dans leur nom. Leur contenu doit être vérifié contre le code et
 le raccordement courant avant usage. Leur mise à niveau est recensée dans
 [RESTANT_A_FAIRE.md](../RESTANT_A_FAIRE.md).
+
+## Livraison courante
+
+- [Notes de version 3.1.5](release-3.1.5.md)
+- Firmware : [`binary/flowios3-3.1.5.bin`](../binary/flowios3-3.1.5.bin)
+- Interface SPIFFS :
+  [`binary/flowios3-spiffs-3.1.5.bin`](../binary/flowios3-spiffs-3.1.5.bin)
+- Environnement PlatformIO : `Waveshare-ESP32-S3`
