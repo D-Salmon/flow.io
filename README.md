@@ -9,6 +9,21 @@ La version déclarée pour cette cible est **3.1.5**. L’environnement Platform
 utiliser est `Waveshare-ESP32-S3`, également défini comme environnement par
 défaut dans `platformio.ini`.
 
+## Vue de la cible Waveshare
+
+[![Carte Waveshare ESP32-S3-ETH-8DI-8RO](https://www.waveshare.com/media/catalog/product/cache/1/image/800x800/9df78eab33525d08d6e5fb8d27136e95/e/s/esp32-s3-eth-8di-8ro-4.jpg)](https://www.waveshare.com/esp32-s3-eth-8di-8ro.htm)
+
+*Carte ESP32-S3-ETH-8DI-8RO utilisée par Flow.io — image et fiche produit
+[Waveshare](https://www.waveshare.com/esp32-s3-eth-8di-8ro.htm).*
+
+### Raccordements utilisés par Flow.io
+
+![Vue fonctionnelle de la carte Waveshare ESP32-S3-ETH-8DI-8RO N16R8](docs/pictures/waveshare-3.1.5.png)
+
+Cette vue résume les raccordements exploités par le firmware. Pour les tableaux
+d’affectation complets et les précautions électriques, consulter le
+[schéma de raccordement Waveshare](docs/integration/schema-raccordement-waveshare.md).
+
 ## État actuel
 
 La 3.1.5 a été compilée, flashée et démarrée sur la carte réelle. Le contrôle de

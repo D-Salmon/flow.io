@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="780" viewBox="0 0 1200 780">
+  <g id="waveshare-overview">
+    <rect width="1200" height="780" fill="#f7f9fc"/>
+    <text x="40" y="52" font-family="sans-serif" font-size="30" font-weight="bold" fill="#17324d">Flow.io Waveshare 3.1.5 — raccordement autonome</text>
+    <text x="40" y="82" font-family="sans-serif" font-size="17" fill="#455a64">Un seul ESP32-S3 • Qwiic toujours actif • DS18B20 sélectionnables dans l’interface Web</text>
+
+    <rect x="420" y="130" width="360" height="470" rx="18" fill="#1f5f78" stroke="#10384a" stroke-width="4"/>
+    <text x="600" y="170" text-anchor="middle" font-family="sans-serif" font-size="24" font-weight="bold" fill="white">Waveshare</text>
+    <text x="600" y="198" text-anchor="middle" font-family="sans-serif" font-size="18" fill="white">ESP32-S3-ETH-8DI-8RO</text>
+    <text x="600" y="230" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#d7f2ff">N16R8 • contrôleur Flow.io unique</text>
+
+    <rect x="470" y="270" width="260" height="86" rx="10" fill="#e8f5e9" stroke="#2e7d32" stroke-width="3"/>
+    <text x="600" y="300" text-anchor="middle" font-family="sans-serif" font-size="18" font-weight="bold" fill="#1b5e20">Qwiic / I²C permanent</text>
+    <text x="600" y="328" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#1b5e20">SDA GPIO42 • SCL GPIO41</text>
+    <text x="600" y="348" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#1b5e20">RTC, ADS1115, capteurs</text>
+
+    <rect x="470" y="390" width="260" height="150" rx="10" fill="#fff8e1" stroke="#ef6c00" stroke-width="3"/>
+    <text x="600" y="421" text-anchor="middle" font-family="sans-serif" font-size="18" font-weight="bold" fill="#a63b00">Températures DS18B20</text>
+    <text x="600" y="451" text-anchor="middle" font-family="sans-serif" font-size="15" fill="#6d4c41">Choix Web + redémarrage</text>
+    <text x="600" y="482" text-anchor="middle" font-family="sans-serif" font-size="15" fill="#6d4c41">Qwiic : DS2484 0x18</text>
+    <text x="600" y="510" text-anchor="middle" font-family="sans-serif" font-size="15" fill="#6d4c41">GPIO : eau 20 • air 19</text>
+
+    <rect x="40" y="130" width="300" height="170" rx="14" fill="white" stroke="#2e7d32" stroke-width="3"/>
+    <text x="190" y="165" text-anchor="middle" font-family="sans-serif" font-size="21" font-weight="bold" fill="#1b5e20">Bus Qwiic</text>
+    <text x="70" y="200" font-family="sans-serif" font-size="16" fill="#263238">ADS1115 0x48 : ORP / pH</text>
+    <text x="70" y="228" font-family="sans-serif" font-size="16" fill="#263238">ADS1115 0x49 : pression</text>
+    <text x="70" y="256" font-family="sans-serif" font-size="16" fill="#263238">RTC + capteurs optionnels</text>
+    <text x="70" y="284" font-family="sans-serif" font-size="16" fill="#263238">DS2484 0x18 si mode Qwiic</text>
+    <path d="M340 220 H420" stroke="#2e7d32" stroke-width="7" fill="none"/>
+
+    <rect x="40" y="350" width="300" height="190" rx="14" fill="white" stroke="#ef6c00" stroke-width="3"/>
+    <text x="190" y="385" text-anchor="middle" font-family="sans-serif" font-size="21" font-weight="bold" fill="#a63b00">Mode GPIO direct</text>
+    <text x="70" y="424" font-family="sans-serif" font-size="17" fill="#263238">Eau DATA → GPIO20</text>
+    <text x="70" y="456" font-family="sans-serif" font-size="17" fill="#263238">Air DATA → GPIO19</text>
+    <text x="70" y="488" font-family="sans-serif" font-size="16" fill="#263238">Chaque ligne : 4,7 kΩ</text>
+    <text x="70" y="516" font-family="sans-serif" font-size="16" fill="#263238">entre DATA et 3,3 V</text>
+    <path d="M340 445 H420" stroke="#ef6c00" stroke-width="7" fill="none"/>
+
+    <rect x="860" y="130" width="300" height="190" rx="14" fill="white" stroke="#1565c0" stroke-width="3"/>
+    <text x="1010" y="165" text-anchor="middle" font-family="sans-serif" font-size="21" font-weight="bold" fill="#0d47a1">Entrées isolées</text>
+    <text x="890" y="201" font-family="sans-serif" font-size="16" fill="#263238">DI1 : niveau pH</text>
+    <text x="890" y="229" font-family="sans-serif" font-size="16" fill="#263238">DI2 : niveau désinfectant</text>
+    <text x="890" y="257" font-family="sans-serif" font-size="16" fill="#263238">DI3 : niveau piscine</text>
+    <text x="890" y="285" font-family="sans-serif" font-size="16" fill="#263238">DI4 : compteur d’eau</text>
+    <path d="M780 220 H860" stroke="#1565c0" stroke-width="7" fill="none"/>
+
+    <rect x="860" y="360" width="300" height="240" rx="14" fill="white" stroke="#c62828" stroke-width="3"/>
+    <text x="1010" y="395" text-anchor="middle" font-family="sans-serif" font-size="21" font-weight="bold" fill="#b71c1c">Relais vers contacteurs</text>
+    <text x="890" y="430" font-family="sans-serif" font-size="15" fill="#263238">1 Filtration • 2 pH</text>
+    <text x="890" y="458" font-family="sans-serif" font-size="15" fill="#263238">3 Désinfectant • 4 Robot</text>
+    <text x="890" y="486" font-family="sans-serif" font-size="15" fill="#263238">5 Remplissage • 6 Électrolyseur</text>
+    <text x="890" y="514" font-family="sans-serif" font-size="15" fill="#263238">7 Éclairage • 8 Chauffage</text>
+    <text x="890" y="555" font-family="sans-serif" font-size="14" font-weight="bold" fill="#b71c1c">Ne pas alimenter directement les pompes</text>
+    <path d="M780 470 H860" stroke="#c62828" stroke-width="7" fill="none"/>
+
+    <rect x="40" y="650" width="1120" height="88" rx="12" fill="#263238"/>
+    <text x="65" y="685" font-family="sans-serif" font-size="17" fill="white">Réseau : W5500 intégré • Ethernet prioritaire • Wi-Fi de secours</text>
+    <text x="65" y="714" font-family="sans-serif" font-size="17" fill="white">Nextion optionnel : RX GPIO44 / TX GPIO43 avec adaptation 5 V ↔ 3,3 V • Buzzer GPIO46</text>
+  </g>
+</svg>
