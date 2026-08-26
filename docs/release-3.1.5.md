@@ -27,6 +27,9 @@ de l’électrolyseur au mode choisi et fiabilise le démarrage à froid.
 Les commandes directes restent soumises aux dépendances de PoolDevice et aux
 sécurités matérielles. Une demande refusée renvoie la cause dans l’interface.
 
+Des [captures commentées du tableau de bord, de la page Piscine et de
+l’étalonnage](integration/interface-web-3.1.5.md) présentent cette organisation.
+
 ## Politique de fonctionnement de l’électrolyseur
 
 - En mode manuel ou maintenance, la limite quotidienne de fonctionnement de

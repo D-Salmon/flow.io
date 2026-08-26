@@ -306,6 +306,7 @@ déduire le câblage de la cible autonome actuelle.
 - [Raccordement Waveshare](docs/integration/schema-raccordement-waveshare.md)
 - [Première connexion](docs/integration/premiere-connexion.md)
 - [Mise en service](docs/integration/mise-en-service.md)
+- [Vues de l’interface Web 3.1.5](docs/integration/interface-web-3.1.5.md)
 - [Logique piscine](docs/modules/PoolLogicModule.md)
 - [Topics MQTT](docs/core/mqtt-topics.md)
 - [Durcissement de sécurité](docs/security-hardening.md)

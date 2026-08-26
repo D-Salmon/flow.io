@@ -131,6 +131,8 @@ le firmware actuel.
 
 ## Interface utilisateur et affichages
 
+- [Vues de l’interface Web 3.1.5](integration/interface-web-3.1.5.md) :
+  tableau de bord, page Piscine et assistant d’étalonnage illustrés.
 - [Interface Web modulaire](core/webinterface-assets-modular.md).
 - [Exposition des valeurs d’exécution](core/runtime-ui-exposure.md).
 - [HMIModule](modules/HMIModule.md) : écran Nextion et interactions locales.
