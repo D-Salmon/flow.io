@@ -278,7 +278,7 @@
     "dashboard.state.alarm": "1 active alarm",
     "dashboard.state.alarms": "{count} active alarms",
     "dashboard.state.unavailable": "Pool status unavailable",
-    "dashboard.equipment.kicker": "Control",
+    "dashboard.equipment.kicker": "Equipment",
     "dashboard.equipment.title": "Equipment status",
     "dashboard.equipment.filtration": "Filtration",
     "dashboard.equipment.phPump": "pH pump",

@@ -278,7 +278,7 @@
     "dashboard.state.alarm": "1 alarme active",
     "dashboard.state.alarms": "{count} alarmes actives",
     "dashboard.state.unavailable": "État piscine indisponible",
-    "dashboard.equipment.kicker": "Pilotage",
+    "dashboard.equipment.kicker": "Équipements",
     "dashboard.equipment.title": "État des équipements",
     "dashboard.equipment.filtration": "Filtration",
     "dashboard.equipment.phPump": "Pompe pH",
