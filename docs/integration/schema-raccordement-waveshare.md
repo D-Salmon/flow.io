@@ -1,10 +1,12 @@
-# Raccordement Flow.io Waveshare 3.1.2
+# Raccordement Flow.io Waveshare 3.1.5
 
 Ce document décrit le profil autonome `Waveshare-ESP32-S3`. Une seule carte
 ESP32-S3 est nécessaire.
 
-Le dessin éditable correspondant est disponible dans
+Le dessin éditable correspondant reste disponible dans
 [`docs/fritzing/FlowIO-Waveshare-3.1.2.fzz`](../fritzing/FlowIO-Waveshare-3.1.2.fzz).
+Le numéro du fichier indique sa révision graphique d’origine ; les affectations
+décrites ici sont celles de la version 3.1.5.
 
 > **Sécurité** — Couper toutes les alimentations avant intervention. Les relais
 > doivent piloter des contacteurs correctement protégés. Ne jamais appliquer la

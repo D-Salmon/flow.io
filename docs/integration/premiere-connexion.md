@@ -1,4 +1,4 @@
-# Première connexion à Flow.io Waveshare 3.1.4
+# Première connexion à Flow.io Waveshare 3.1.5
 
 Cette procédure décrit la première mise en service après un effacement complet
 ou sur une carte neuve. Elle permet de créer l'administrateur Web, de raccorder
@@ -38,7 +38,7 @@ Ce mot de passe est propre à la carte et conservé après redémarrage. S'il n'
 plus visible dans le terminal, laisser le moniteur ouvert et redémarrer la
 carte pour faire réapparaître la ligne.
 
-![Chemin de première connexion entre le Waveshare, le port série et le PC](../pictures/premiere-connexion-ap.svg)
+![Capture documentaire 3.1.5 : port série, point d'accès et page Rescue](../pictures/premiere-connexion-ap.png)
 
 ## 2. Ouvrir la page de secours
 
@@ -82,7 +82,7 @@ administrateur n'existe encore.
    sauvegarde le compte puis programme un redémarrage environ huit secondes
    plus tard.
 
-![Activation physique avec BOOT et création de l'administrateur](../pictures/premiere-connexion-admin.svg)
+![Capture documentaire 3.1.5 : récupération physique et création de l'administrateur](../pictures/premiere-connexion-admin.png)
 
 Le point d'accès `flow.io-XXXXXX` peut rester visible après ce redémarrage :
 c'est normal, car le Wi-Fi domestique n'est pas encore configuré.
@@ -122,7 +122,7 @@ Dans **Configuration réseau** :
 4. **Appliquer.** Cliquer sur **Appliquer réseau**. Le Waveshare enregistre les
    paramètres et tente immédiatement de rejoindre le réseau choisi.
 
-![Activation et application du Wi-Fi domestique](../pictures/premiere-connexion-reseau.svg)
+![Capture documentaire 3.1.5 : activation et application du Wi-Fi domestique](../pictures/premiere-connexion-reseau.png)
 
 Le message `Configuration réseau appliquée (reconnexion en cours)` apparaît.
 La coupure de l'interface et la déconnexion du point d'accès sont alors

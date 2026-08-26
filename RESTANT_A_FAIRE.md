@@ -1,258 +1,161 @@
-# Flow.io Waveshare — améliorations restantes
+# Flow.io Waveshare 3.1.5 — améliorations restantes
 
-Ce document décrit uniquement les travaux encore ouverts pour la cible autonome
-`Waveshare-ESP32-S3` en version candidate 3.1.4. Il ne sert pas de journal de versions et
-ne recense pas les travaux déjà terminés.
+Ce document présente uniquement les travaux encore ouverts pour la cible
+autonome `Waveshare-ESP32-S3`. L’historique de la livraison se trouve dans les
+[notes de version 3.1.5](docs/release-3.1.5.md).
 
-## Situation générale
+## État au 26 août 2026
 
-Le firmware fonctionne sur la carte réelle et les parcours essentiels réseau,
-Web et MQTT sont opérationnels. Le projet reste néanmoins au stade de version
-fonctionnelle validée sur banc : il manque une campagne matérielle exhaustive,
-une chaîne de livraison totalement reproductible et plusieurs protections
-nécessaires avant de qualifier une installation autonome sans surveillance.
+La branche `flow.io-waveshare-3.1.5` est publiée et définie comme branche par
+défaut du dépôt. Le firmware a été compilé, flashé et démarré sur la carte
+réelle. Wi-Fi, MQTT TLS, mDNS, serveur Web, authentification administrateur et
+commandes d’équipements ont été essayés sur cette carte.
 
-## Priorité 1 — qualifier et publier la livraison 3.1.4
+Les images courantes sont présentes dans `binary` et référencées par le
+manifeste :
 
-### Publier un jeu d’artefacts cohérent
+- `flowios3-3.1.5.bin` ;
+- `flowios3-spiffs-3.1.5.bin`.
 
-Le firmware `flowios3-3.1.4.bin` et l’image
-`flowios3-spiffs-3.1.4.bin` sont présents dans `binary` et enregistrés dans le
-manifeste. Ils ont été reconstruits localement depuis la même révision, mais la
-3.1.4 n’a pas encore été qualifiée sur une carte réelle.
+La version est utilisable sur banc, mais elle n’est pas encore qualifiée pour
+une installation autonome sans surveillance.
 
-À faire :
+## Priorité 1 — qualification du coffret réel
 
-- repartir d'une carte effacée et flasher le firmware puis SPIFFS 3.1.4 ;
-- valider la création initiale de l'administrateur, le mot de passe de point
-  d'accès propre à la carte et la fenêtre BOOT de cinq minutes ;
-- valider que les secrets Wi-Fi et MQTT ne sont jamais renvoyés par les API et
-  qu'un champ vide conserve bien le mot de passe existant ;
-- publier les deux fichiers, le manifeste et un fichier `SHA256SUMS` depuis un
-  commit propre ;
-- vérifier qu’un flash sur mémoire vierge démarre avec l’interface Web complète ;
-- publier un paquet unique clairement identifié pour l’installation initiale ;
-- faire échouer la CI si le manifeste versionné ne correspond pas aux artefacts
-  de la version déclarée.
+### Entrées, relais et états sûrs
 
-Critère de fin : une seule archive permet d’effacer, flasher et mettre en service
-une carte vierge sans rechercher un SPIFFS provenant d’une autre compilation.
-
-### Figer la chaîne de compilation
-
-L’environnement Waveshare utilise actuellement l’URL `stable` de pioarduino et
-plusieurs dépendances Git sans commit immuable.
-
-À faire :
-
-- remplacer la plateforme `stable` par une version ou une empreinte précise ;
-- figer les bibliothèques Git sur des tags ou commits testés ;
-- documenter les versions de PlatformIO, Python, esptool et du framework Arduino ;
-- vérifier qu’une compilation propre sur Windows et dans GitHub Actions produit
-  des artefacts fonctionnellement identiques ;
-- générer un SBOM et ajouter une licence explicite au projet.
-
-Critère de fin : la même révision peut être reconstruite ultérieurement sans
-dépendre du contenu changeant d’une branche ou d’une URL `stable`.
-
-## Priorité 1 — compléter la validation matérielle et fonctionnelle
-
-### Entrées, sorties et câblage réel
-
-À faire sur le coffret final :
-
-- tester séparément les 8 entrées numériques, leurs polarités et le compteur
-  d’impulsions ;
-- tester les 8 relais sans charge, puis avec les bobines des contacteurs ;
-- contrôler les retours auxiliaires des contacteurs de filtration et
-  d’électrolyseur ;
-- vérifier l’état sûr des sorties au démarrage, au redémarrage, après coupure
-  secteur et après défaut logiciel ;
-- confirmer les interlocks et les durées maximales de marche de chaque appareil ;
-- faire valider le schéma et les protections du coffret par un professionnel
+- tester séparément les huit entrées numériques et leurs polarités ;
+- tester les huit relais sans charge, puis avec les bobines des contacteurs ;
+- contrôler les retours auxiliaires de filtration et d’électrolyse ;
+- vérifier l’arrêt sûr au démarrage, au redémarrage, après coupure secteur et
+  après défaut logiciel ;
+- confirmer le câblage, les protections et les contacteurs avec un électricien
   qualifié.
 
-Critère de fin : chaque commande et chaque défaut réel possède un résultat
-attendu consigné et reproductible.
+Critère de fin : chaque entrée, sortie et défaut réel possède une procédure et
+un résultat reproductible.
 
 ### Capteurs et bus
 
-À faire :
+- valider les sondes eau et air avec le pont Qwiic DS2484 ;
+- valider les mêmes sondes en GPIO direct sur GPIO20 et GPIO19 ;
+- tester absence, court-circuit, valeur aberrante et reconnexion des sondes ;
+- confirmer la coexistence RTC, ADS1115 et capteurs I²C optionnels ;
+- ajouter une indication fiable de l’état de la pile RTC.
 
-- valider les deux DS18B20 en mode `Qwiic / DS2484`, avec affectation stable des
-  ROM eau et air ;
-- valider les deux DS18B20 en mode GPIO direct sur GPIO20 et GPIO19 ;
-- tester l’absence, le court-circuit, les valeurs aberrantes et la reconnexion
-  de chaque sonde ;
-- confirmer que le passage d’un mode DS18B20 à l’autre survit aux redémarrages ;
-- valider simultanément RTC, ADS1115 et capteurs I²C optionnels, y compris les
-  conflits d’adresses ;
-- ajouter une détection matérielle fiable de la présence ou de l’état de la
-  pile RTC, actuellement non disponible dans le code.
+Critère de fin : une mesure absente ou périmée ne peut pas provoquer
+l’activation dangereuse d’un équipement.
 
-Critère de fin : aucun défaut de capteur ne peut activer un équipement sur une
-mesure inconnue ou périmée.
+### Automatismes piscine
 
-### Automatismes et sécurités piscine
+Construire et exécuter une matrice couvrant :
 
-Construire une matrice de tests couvrant :
+- maintenance, manuel sécurisé et automatique ;
+- filtration calculée, passage à minuit, mode continu, hiver et antigel ;
+- régulation pH, chlore/brome, oxygène actif et bidons vides ;
+- électrolyseur en manuel sans limite quotidienne et en automatique avec une
+  limite au moins égale à la filtration calculée plus 60 minutes ;
+- perte de filtration, retours de contacteurs et limites des pompes doseuses ;
+- robot, remplissage, éclairage et chauffage ;
+- déclenchement, retour à la normale, acquittement et persistance des alarmes.
 
-- les trois modes : maintenance, manuel sécurisé et automatique ;
-- les limites de la courbe de filtration, le passage à minuit, les coupures
-  d’heure et le mode continu ;
-- l’antigel et le mode hiver ;
-- les pressions basse et haute, le délai de démarrage et la perte du capteur ;
-- les régulations pH et chlore/brome, les bidons vides, les limites journalières
-  et la perte de filtration ;
-- l’électrolyse en mode ORP et en mode continu, avec température trop basse ;
-- le protocole oxygène actif, ses fractionnements, les reprises après coupure et
-  les volumes restants ;
-- le robot, le remplissage, l’éclairage et le chauffage assisté ;
-- l’apparition, l’acquittement, la disparition et la persistance de chaque
-  alarme.
+Critère de fin : chaque scénario critique est testé avec ses préconditions,
+actions, résultats et journaux attendus.
 
-Critère de fin : chaque scénario critique est automatisé ou documenté avec ses
-préconditions, actions, résultats et journaux attendus.
+## Priorité 1 — endurance réseau et mémoire
 
-## Priorité 1 — fiabiliser le fonctionnement prolongé
+- réaliser un essai prolongé en Ethernet puis en Wi-Fi avec MQTT TLS, Web et
+  Home Assistant actifs ;
+- provoquer des coupures de câble, point d’accès, DNS, Internet et broker ;
+- vérifier les bascules Ethernet/Wi-Fi et les reconnexions MQTT ;
+- contrôler les deux démarrages Web : immédiat après un échec MQTT précédent,
+  ou différé au maximum de 30 secondes après une connexion antérieure valide ;
+- suivre la mémoire interne minimale, le plus grand bloc, la PSRAM, les files
+  MQTT et les redémarrages du watchdog ;
+- tester les coupures pendant une écriture de configuration.
 
-À faire :
+Critère de fin : aucun épuisement progressif, blocage ou défaut durable de
+reconnexion ne survient pendant la durée d’essai retenue.
 
-- mener un essai d’endurance avec Ethernet puis Wi-Fi, MQTT TLS, Web et tous les
-  producteurs Home Assistant actifs ;
-- provoquer des coupures répétées de câble, point d’accès, DNS, broker et
-  Internet ;
-- vérifier le retour automatique d’Ethernet vers Wi-Fi et inversement ;
-- valider les deux chemins de démarrage Web : libération immédiate lorsque MQTT
-  n’était pas valide, et attente maximale de 30 secondes lorsqu’il l’était ;
-- suivre le minimum de mémoire interne, le plus grand bloc disponible, la PSRAM,
-  les files MQTT et les redémarrages du watchdog ;
-- tester des coupures secteur pendant l’écriture de configuration et pendant les
-  changements d’état des automatismes.
+## Priorité 1 — livraison reproductible
 
-Critère de fin : aucun épuisement progressif de mémoire, blocage de tâche ou
-perte durable du Web/MQTT n’apparaît pendant l’essai retenu.
+- remplacer l’URL de plateforme `stable` par une version ou une empreinte
+  immuable ;
+- figer chaque dépendance Git sur un tag ou un commit testé ;
+- documenter les versions de PlatformIO, Python, esptool et Arduino ;
+- produire automatiquement `SHA256SUMS` et une archive d’installation contenant
+  firmware, SPIFFS, manifeste et procédure ;
+- faire vérifier par la CI la concordance version, taille et empreinte de tous
+  les artefacts publiés ;
+- générer un SBOM et ajouter une licence explicite au projet.
 
-## Priorité 2 — étendre les tests automatiques
+Critère de fin : la même révision peut être reconstruite et installée sans
+dépendre d’un contenu externe changeant.
 
-La CI teste actuellement le calcul de la fenêtre de filtration et la politique
-de sécurité Web. Cette couverture est trop faible pour l’ensemble du produit.
+## Priorité 2 — tests automatiques
 
-À ajouter :
+- tester les machines d’état de filtration, chauffage, oxygène actif, robot et
+  remplissage ;
+- tester les PID temporels et leurs limites ;
+- tester la politique de durée de l’électrolyseur selon le mode ;
+- tester alarmes, acquittements, journal d’activité et publications MQTT ;
+- tester le basculement réseau et la mémoire de validité MQTT au démarrage ;
+- contrôler Home Assistant Discovery et la longueur des topics ;
+- tester les migrations NVS et la conservation des secrets ;
+- ajouter des tests Web pour les commandes, les formulaires et CSRF ;
+- mettre en place un banc HIL pour les capteurs, entrées et relais.
 
-- tests unitaires des machines d’état de filtration, chauffage assisté,
-  oxygène actif, robot et remplissage ;
-- tests des PID temporels et de leurs limites ;
-- tests des alarmes, acquittements, persistances et publications MQTT ;
-- tests du basculement réseau et de la mémoire de validité MQTT au démarrage ;
-- tests de génération Home Assistant et contrôle de la longueur de chaque topic ;
-- tests de migration NVS et de compatibilité des configurations existantes ;
-- tests d’intégration Web sur les formulaires critiques et les réponses CSRF ;
-- banc HIL pour capteurs, entrées et relais ;
-- scénarios Wokwi ciblés lorsqu’ils apportent une simulation représentative ;
-- contrôle automatique des liens, versions et caractères mal encodés dans la
-  documentation et les traductions.
+Critère de fin : une modification d’un automatisme critique ne peut plus être
+fusionnée sans vérifier ses cas nominaux et ses principaux défauts.
 
-Critère de fin : les modifications des automatismes critiques ne peuvent plus
-être fusionnées sans tester leurs cas nominaux et leurs principaux défauts.
+## Priorité 2 — sécurité de production et mises à jour
 
-## Priorité 2 — achever le durcissement de production
+- créer et protéger hors dépôt la clé privée de signature OTA ;
+- intégrer la clé publique officielle à la construction de production ;
+- tester signatures valides, absentes, corrompues et transferts interrompus ;
+- définir une mise à jour signée pour SPIFFS et, si conservé, Nextion ;
+- ajouter une stratégie anti-retour vers une version vulnérable ;
+- évaluer Secure Boot v2, le chiffrement flash/NVS et la programmation eFuse ;
+- formaliser sauvegarde, restauration et récupération physique ;
+- documenter le cloisonnement réseau, les ACL MQTT et l’accès distant par VPN ou
+  Home Assistant sans exposer le serveur HTTP.
 
-### Mises à jour
+Critère de fin : clés, mises à jour, récupération et modèle de menace sont
+documentés et vérifiés sur le matériel de production.
 
-Le code exige une signature ECDSA P-256, mais la clé publique de production est
-volontairement vide dans le dépôt. Les mises à jour SPIFFS et Nextion distantes
-sont refusées dans le mode signé actuel, car elles ne peuvent pas encore être
-validées entièrement avant écriture.
+## Priorité 2 — Home Assistant et notifications
 
-À faire :
-
-- créer et protéger la clé privée de signature hors du dépôt ;
-- injecter la clé publique de production dans la construction officielle ;
-- automatiser signature, manifeste, empreintes et publication GitHub ;
-- tester les signatures valides, absentes, corrompues et les transferts
-  interrompus ;
-- ajouter un mécanisme sûr de mise à jour signée pour SPIFFS et, si conservé,
-  pour Nextion ;
-- définir une stratégie anti-retour vers une version vulnérable.
-
-### Plateforme ESP32-S3
-
-À faire avant une série :
-
-- évaluer puis activer Secure Boot v2 ;
-- évaluer le chiffrement de la flash et des données NVS ;
-- définir et documenter la programmation des eFuses ;
-- prévoir une procédure de secours compatible avec ces protections ;
-- vérifier la validation TLS des téléchargements OTA et limiter les serveurs
-  autorisés.
-
-### Réseau et accès distant
-
-À faire :
-
-- isoler la carte sur un réseau ou VLAN d’administration ;
-- ne publier aucun port HTTP vers Internet ;
-- utiliser un compte MQTT unique, désactiver l’accès anonyme et appliquer des
-  ACL minimales ;
-- décider si l’interface Web doit rester HTTP local ou recevoir une terminaison
-  HTTPS adaptée aux ressources de l’ESP32-S3 ;
-- tester la récupération physique BOOT et les limites d’authentification ;
-- ajouter une sauvegarde/restauration de configuration versionnée, avec une
-  politique explicite pour les secrets.
-
-Critère de fin : le modèle de menace, la gestion des clés, la récupération et la
-procédure d’installation sont documentés et testés.
-
-## Priorité 2 — finaliser Home Assistant et les notifications
-
-À faire :
-
-- vérifier après redémarrage du broker toutes les entités découvertes : mesures,
-  relais, modes, consignes, états et alarmes ;
-- contrôler l’absence de doublons après changement du nom d’appareil ou de
-  l’identifiant MQTT ;
-- fournir un exemple d’automatisation Home Assistant pour notification mobile,
-  courriel et, via un service externe, SMS ;
-- distinguer les notifications immédiates, les rappels d’alarme persistante et
-  les messages de retour à la normale ;
-- vérifier les tableaux de bord fournis avec les entités réellement générées par
-  la version courante.
+- contrôler toutes les entités après redémarrage du broker ;
+- vérifier l’absence de doublons après changement de nom ou d’identifiant MQTT ;
+- fournir des exemples d’automatisations pour notification mobile, courriel et
+  SMS via un service externe ;
+- distinguer déclenchement, rappel d’alarme persistante et retour à la normale ;
+- aligner les tableaux de bord fournis sur les entités réellement générées.
 
 Critère de fin : une alarme réelle déclenche une notification compréhensible,
-sans doublon, et le retour à la normale est correctement signalé.
+sans doublon, puis un message correct de retour à la normale.
 
-## Priorité 3 — remettre toute la documentation au même niveau
+## Priorité 3 — documentation et dossier technique
 
-Le présent README décrit la cible actuelle, mais plusieurs documents secondaires
-portent encore le numéro 3.1.2 ou renvoient vers des ressources absentes.
+- mettre à jour le dessin Fritzing, dont le fichier porte encore le numéro
+  3.1.2, après validation du câblage final ;
+- produire une procédure unique d’effacement, flash, configuration, validation
+  et retour arrière ;
+- documenter l’export des réglages et les données à conserver dans le dossier
+  du coffret ;
+- maintenir les captures d’interface sans SSID, mot de passe, adresse privée ni
+  autre donnée propre à l’installation ;
+- automatiser le contrôle des liens, versions et caractères mal encodés.
 
-À faire :
+## Conditions de qualification production
 
-- actualiser `docs/README.md`, la mise en service, le raccordement et le projet
-  Fritzing pour la 3.1.4 ;
-- supprimer ou corriger les liens vers `mqtt-hardening.md`, absent du dépôt ;
-- distinguer clairement les documents Waveshare actuels des profils FlowIO,
-  Supervisor, FlowConnectDisplay et Micronova ;
-- corriger les traductions mixtes français/anglais et les caractères mal encodés ;
-- produire une procédure unique d’effacement, flash, première configuration,
-  validation et retour arrière ;
-- documenter la sauvegarde des réglages et les paramètres à relever pour le
-  dossier technique du coffret.
+La cible pourra être qualifiée pour une installation autonome lorsque les
+conditions suivantes seront réunies :
 
-Critère de fin : un installateur peut suivre la documentation depuis une carte
-vierge sans devoir consulter les anciens profils ni reconstituer les étapes.
-
-## Conditions proposées pour qualifier une version de production
-
-La cible pourra être considérée comme prête pour une installation autonome sans
-surveillance lorsque les points suivants seront tous satisfaits :
-
-- artefacts firmware et SPIFFS reproductibles, signés et publiés ensemble ;
-- campagne fonctionnelle et de sécurité terminée sur le coffret réel ;
-- endurance réseau/MQTT/Web sans fuite mémoire ni blocage ;
-- protections électriques et états sûrs validés ;
-- couverture automatisée des automatismes critiques ;
-- clés de production, Secure Boot, chiffrement et procédure de récupération
-  décidés et documentés ;
-- documentation et schémas alignés avec la version livrée.
+- artefacts reproductibles et signés, publiés ensemble ;
+- campagne fonctionnelle et électrique terminée sur le coffret réel ;
+- endurance réseau, MQTT et Web sans fuite mémoire ni blocage ;
+- états sûrs et protections électriques validés ;
+- tests automatiques des automatismes critiques ;
+- stratégie de clés, Secure Boot, chiffrement et récupération décidée ;
+- documentation et schémas alignés avec le matériel livré.

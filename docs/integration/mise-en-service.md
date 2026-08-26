@@ -1,4 +1,4 @@
-# Mise en service Flow.io Waveshare 3.1.4
+# Mise en service Flow.io Waveshare 3.1.5
 
 Cette procédure concerne une seule carte Waveshare ESP32-S3-ETH-8DI-8RO.
 
@@ -68,5 +68,5 @@ pour les autres capteurs dans les deux modes.
 
 ## 7. Sauvegarder
 
-Après validation, exporter la configuration, noter la version 3.1.4 et
+Après validation, exporter la configuration, noter la version 3.1.5 et
 conserver les sommes SHA-256 des fichiers installés avec le dossier du coffret.

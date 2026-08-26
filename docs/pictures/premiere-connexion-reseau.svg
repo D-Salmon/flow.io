@@ -1,40 +1,62 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 520" role="img" aria-labelledby="title desc">
-  <title id="title">Connexion du Waveshare au Wi-Fi domestique</title>
-  <desc id="desc">Dans Configuration réseau, activer le Wi-Fi, choisir le SSID, saisir son mot de passe et appliquer, puis rejoindre le Waveshare sur son adresse du réseau domestique.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">Configuration réseau Flow.io 3.1.5</title>
+  <desc id="desc">Capture documentaire anonymisée de l’interface Web 3.1.5 montrant le commutateur Wi-Fi, le SSID, le scan, le mot de passe masqué et le bouton Appliquer réseau.</desc>
   <defs>
-    <marker id="arrow3" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#1473e6"/></marker>
-    <style>.title{font:700 28px Arial,sans-serif;fill:#08243f}.head{font:700 20px Arial,sans-serif;fill:#08243f}.text{font:16px Arial,sans-serif;fill:#29465f}.small{font:14px Arial,sans-serif;fill:#537087}.card{fill:white;stroke:#8cb6df;stroke-width:2}.field{fill:#f8fbff;stroke:#9db8d1;stroke-width:2}.arrow{stroke:#1473e6;stroke-width:4;fill:none;marker-end:url(#arrow3)}.blue{fill:#1473e6}</style>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="7" stdDeviation="12" flood-color="#17324f" flood-opacity=".13"/></filter>
+    <style>.ui{font-family:Arial,sans-serif}.brand{font-size:29px;font-weight:700;fill:#0a2742}.menu{font-size:17px;font-weight:700;fill:#435d78}.menuOn{font-size:17px;font-weight:700;fill:#0878f9}.h1{font-size:31px;font-weight:700;fill:#0a2742}.h2{font-size:20px;font-weight:700;fill:#0a2742}.body{font-size:16px;fill:#405b77}.small{font-size:14px;fill:#607a94}.field{fill:#fff;stroke:#b8cde2;stroke-width:1.5}.buttonText{font-size:16px;font-weight:700;fill:#0878f9}.status{font-size:14px;font-weight:700;fill:#173a5c}</style>
   </defs>
-  <rect width="1200" height="520" rx="24" fill="#eef6ff"/>
-  <text x="40" y="50" class="title">Configuration réseau : le commutateur Activer doit être bleu</text>
+  <rect width="1600" height="900" fill="#f3f7fb"/>
+  <rect width="260" height="900" fill="#fff" stroke="#d4e1ee"/>
+  <path d="M38 55 C58 33 78 77 102 49 C85 91 55 65 38 77 C52 57 68 63 86 49" fill="#22b7d7"/>
+  <text x="112" y="69" class="ui brand">flow.io</text>
+  <text x="38" y="150" class="ui menu">⌂  Tableau de bord</text>
+  <text x="38" y="211" class="ui menu">≋  Piscine</text>
+  <text x="38" y="272" class="ui menu">⚗  Étalonnage</text>
+  <text x="38" y="333" class="ui menu">↶  Journal d’Activité</text>
+  <text x="38" y="394" class="ui menu">⇩  Mises à Jour</text>
+  <rect x="16" y="423" width="228" height="50" rx="10" fill="#eaf3ff"/>
+  <text x="38" y="455" class="ui menuOn">⚙  Configuration</text>
+  <text x="38" y="516" class="ui menu">▦  Entrées/Sorties</text>
+  <text x="38" y="577" class="ui menu">ⓘ  Informations</text>
 
-  <rect x="40" y="85" width="730" height="380" rx="18" class="card"/>
-  <text x="70" y="130" class="head">Configuration réseau</text>
-  <text x="620" y="130" class="head">Activer</text>
-  <rect x="690" y="108" width="52" height="28" rx="14" fill="#79cdeb"/>
-  <circle cx="728" cy="122" r="12" fill="#1473e6"/>
-  <text x="70" y="175" class="small">SSID</text>
-  <rect x="70" y="188" width="300" height="52" rx="10" class="field"/>
-  <text x="90" y="220" class="text">Mon_WiFi_2G</text>
-  <text x="400" y="175" class="small">Réseaux détectés</text>
-  <rect x="400" y="188" width="330" height="52" rx="10" class="field"/>
-  <text x="420" y="220" class="text">Mon_WiFi_2G (sécurisé)</text>
-  <text x="70" y="280" class="small">Mot de passe du Wi-Fi domestique</text>
-  <rect x="70" y="293" width="660" height="52" rx="10" class="field"/>
-  <text x="90" y="326" style="font:22px Arial,sans-serif;fill:#29465f">••••••••••••••••</text>
-  <rect x="70" y="380" width="215" height="58" rx="12" class="blue"/>
-  <text x="92" y="416" style="font:700 18px Arial,sans-serif;fill:white">Appliquer réseau</text>
-  <text x="315" y="403" class="text">Reconnexion en cours…</text>
-  <text x="315" y="428" class="small">La page peut se couper : c'est normal.</text>
+  <text x="305" y="73" class="ui h1">Waveshare</text>
+  <g filter="url(#shadow)">
+    <rect x="505" y="28" width="205" height="64" rx="13" fill="#fff" stroke="#c5d7e8"/>
+    <text x="530" y="54" class="ui small">Réseau</text><circle cx="686" cy="51" r="7" fill="#3ac48c"/><text x="530" y="77" class="ui status">Connecté</text>
+    <rect x="726" y="28" width="225" height="64" rx="13" fill="#fff" stroke="#c5d7e8"/>
+    <text x="751" y="54" class="ui small">Appareil</text><circle cx="925" cy="51" r="7" fill="#3ac48c"/><text x="751" y="77" class="ui status">En ligne</text>
+    <rect x="967" y="28" width="300" height="64" rx="13" fill="#fff" stroke="#c5d7e8"/>
+    <text x="992" y="54" class="ui small">Sécurité</text><circle cx="1239" cy="51" r="7" fill="#3ac48c"/><text x="992" y="77" class="ui status">Administrateur connecté</text>
+  </g>
 
-  <path d="M770 275 L845 275" class="arrow"/>
-  <rect x="845" y="115" width="310" height="300" rx="18" class="card"/>
-  <path d="M900 205 Q1000 115 1100 205" fill="none" stroke="#1473e6" stroke-width="8"/>
-  <path d="M930 220 Q1000 160 1070 220" fill="none" stroke="#1473e6" stroke-width="8"/>
-  <path d="M965 238 Q1000 210 1035 238" fill="none" stroke="#1473e6" stroke-width="8"/>
-  <circle cx="1000" cy="255" r="9" fill="#1473e6"/>
-  <text x="925" y="305" class="head">Réseau domestique</text>
-  <text x="885" y="340" class="text">Le Waveshare reçoit une IP DHCP</text>
-  <text x="915" y="370" style="font:16px Consolas,monospace;fill:#075c58">192.168.x.xxx</text>
-  <text x="905" y="398" class="small">Le PC revient sur ce même réseau.</text>
+  <text x="305" y="154" class="ui h1">Configuration réseau</text>
+  <g filter="url(#shadow)">
+    <rect x="305" y="190" width="1240" height="575" rx="18" fill="#fff" stroke="#bdd2e6"/>
+    <text x="340" y="241" class="ui h2">Réseau</text>
+    <text x="1410" y="241" class="ui small">Activer</text>
+    <rect x="1480" y="220" width="45" height="24" rx="12" fill="#84d7eb"/><circle cx="1513" cy="232" r="11" fill="#25a8d1"/>
+
+    <text x="340" y="298" class="ui small">SSID</text>
+    <rect x="340" y="316" width="550" height="58" rx="10" class="field"/>
+    <text x="362" y="352" class="ui body">Votre_WiFi_2G</text>
+    <text x="920" y="298" class="ui small">Réseaux détectés</text>
+    <rect x="920" y="316" width="545" height="58" rx="10" class="field"/>
+    <text x="942" y="352" class="ui body">Votre_WiFi_2G (sécurisé)  −65 dBm</text>
+    <circle cx="1500" cy="345" r="22" fill="#fff" stroke="#87b8e8"/><text x="1492" y="353" class="ui" style="font-size:22px;fill:#0878f9">↻</text>
+
+    <text x="340" y="423" class="ui small">Mot de passe</text>
+    <rect x="340" y="441" width="1160" height="58" rx="10" class="field"/>
+    <text x="362" y="478" class="ui" style="font-size:22px;fill:#405b77">••••••••••••••••</text>
+    <rect x="1370" y="451" width="105" height="38" rx="8" fill="#fff" stroke="#78aee4"/>
+    <text x="1404" y="476" class="ui buttonText">Voir</text>
+
+    <rect x="340" y="544" width="230" height="56" rx="10" fill="#fff" stroke="#0878f9" stroke-width="1.5"/>
+    <text x="374" y="579" class="ui buttonText">↻  Appliquer réseau</text>
+    <rect x="340" y="628" width="1160" height="62" rx="10" fill="#f7fbff" stroke="#c7d9ea"/>
+    <text x="363" y="666" class="ui body">Configuration réseau appliquée (reconnexion en cours).</text>
+  </g>
+
+  <rect x="305" y="801" width="1240" height="60" rx="12" fill="#eaf3ff" stroke="#98bce2"/>
+  <circle cx="339" cy="831" r="18" fill="#0878f9"/><text x="333" y="838" class="ui" style="font-size:20px;font-weight:700;fill:#fff">!</text>
+  <text x="373" y="837" class="ui body">Le SSID et le mot de passe de cette illustration sont fictifs. Ne publiez jamais les secrets de votre installation.</text>
 </svg>
