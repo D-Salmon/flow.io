@@ -2306,13 +2306,13 @@
     let dashboardLightsOn = null;
     const poolEquipmentDefs = Object.freeze([
       Object.freeze({ key: 'filtration', stateKey: 'fil', labelKey: 'pool.control.filtration', label: 'Pompe de filtration', icon: 'water', noteKey: 'pool.control.filtration.note', note: 'Fait circuler et filtre l’eau du bassin.', automatic: true }),
-      Object.freeze({ key: 'ph', stateKey: 'php', labelKey: 'pool.control.ph', label: 'Pompe pH', icon: 'science', noteKey: 'pool.control.ph.note', note: 'Injecte le correcteur pH.', automatic: true }),
-      Object.freeze({ key: 'chlorine', stateKey: 'clp', labelKey: 'pool.control.chlorine', label: 'Pompe chlore', icon: 'water_drop', noteKey: 'pool.control.chlorine.note', note: 'Injecte le désinfectant liquide.', automatic: true }),
       Object.freeze({ key: 'electrolysis', stateKey: 'swg', labelKey: 'pool.control.electrolysis', label: 'Électrolyseur', icon: 'bolt', noteKey: 'pool.control.electrolysis.note', note: 'Produit le désinfectant au sel.', automatic: true }),
+      Object.freeze({ key: 'chlorine', stateKey: 'clp', labelKey: 'pool.control.chlorine', label: 'Pompe chlore', icon: 'water_drop', noteKey: 'pool.control.chlorine.note', note: 'Injecte le désinfectant liquide.', automatic: true }),
+      Object.freeze({ key: 'ph', stateKey: 'php', labelKey: 'pool.control.ph', label: 'Pompe pH', icon: 'science', noteKey: 'pool.control.ph.note', note: 'Injecte le correcteur pH.', automatic: true }),
+      Object.freeze({ key: 'lights', stateKey: 'lgt', labelKey: 'pool.control.lights', label: 'Éclairage piscine', icon: 'lightbulb', noteKey: 'pool.control.lights.note', note: 'Allume ou éteint immédiatement l’éclairage.', automatic: false, featured: true }),
       Object.freeze({ key: 'robot', stateKey: 'rbt', labelKey: 'pool.control.robot', label: 'Robot', icon: 'smart_toy', noteKey: 'pool.control.robot.note', note: 'Lance le cycle du robot de nettoyage.', automatic: true }),
-      Object.freeze({ key: 'filling', stateKey: 'fill', labelKey: 'pool.control.filling', label: 'Remplissage', icon: 'faucet', noteKey: 'pool.control.filling.note', note: 'Commande l’appoint d’eau du bassin.', automatic: true }),
       Object.freeze({ key: 'heater', stateKey: 'htr', labelKey: 'pool.control.heater', label: 'Chauffage', icon: 'local_fire_department', noteKey: 'pool.control.heater.note', note: 'Commande la pompe à chaleur.', automatic: true }),
-      Object.freeze({ key: 'lights', stateKey: 'lgt', labelKey: 'pool.control.lights', label: 'Éclairage piscine', icon: 'lightbulb', noteKey: 'pool.control.lights.note', note: 'Allume ou éteint immédiatement l’éclairage.', automatic: false, featured: true })
+      Object.freeze({ key: 'filling', stateKey: 'fill', labelKey: 'pool.control.filling', label: 'Remplissage', icon: 'faucet', noteKey: 'pool.control.filling.note', note: 'Commande l’appoint d’eau du bassin.', automatic: true })
     ]);
     const poolConfigModuleDefs = Object.freeze([
       Object.freeze({ module: 'poollogic/modes', hidden: true }),
@@ -7601,9 +7601,21 @@
       winterCard.appendChild(winterName);
       winterCard.appendChild(winterNote);
       winterCard.appendChild(winterFooter);
-      grid.appendChild(winterCard);
+      const disinfectionType = Number.parseInt(modes.disinfection_type, 10);
+      const hasDisinfectionType = Number.isFinite(disinfectionType);
+      const visibleEquipmentDefs = poolEquipmentDefs.filter((def) => {
+        if (typeof state[def.stateKey] !== 'boolean') return false;
+        if (def.key === 'electrolysis') return !hasDisinfectionType || disinfectionType === 1;
+        if (def.key === 'chlorine') return !hasDisinfectionType || disinfectionType === 0 || disinfectionType === 2;
+        return true;
+      });
 
-      poolEquipmentDefs.forEach((def) => {
+      let winterInserted = false;
+      visibleEquipmentDefs.forEach((def) => {
+        if (!winterInserted && (def.key === 'robot' || def.key === 'heater' || def.key === 'filling')) {
+          grid.appendChild(winterCard);
+          winterInserted = true;
+        }
         const available = typeof state[def.stateKey] === 'boolean';
         const on = available && state[def.stateKey] === true;
         const blockedByAutomatic = automatic && def.automatic;
@@ -7691,7 +7703,12 @@
         }
         card.appendChild(footer);
         grid.appendChild(card);
+        if (!winterInserted && def.key === 'lights') {
+          grid.appendChild(winterCard);
+          winterInserted = true;
+        }
       });
+      if (!winterInserted) grid.appendChild(winterCard);
       poolEquipmentControl.appendChild(grid);
 
       const status = document.createElement('div');

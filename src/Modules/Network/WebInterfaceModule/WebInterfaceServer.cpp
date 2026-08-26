@@ -2196,22 +2196,57 @@ bool waveshareBuildStatusDomainJson_(FlowStatusDomain domain,
         setFloat("ph", 1, 2U);
         setFloat("orp", 0, 0U);
 
+        uint8_t filtrationSlot = PoolIds::DeviceFiltrationPump;
+        uint8_t phPumpSlot = PoolIds::DevicePhPump;
+        uint8_t chlorinePumpSlot = PoolIds::DeviceChlorinePump;
+        uint8_t swgSlot = PoolIds::DeviceChlorineGenerator;
+        uint8_t robotSlot = PoolIds::DeviceRobot;
+        uint8_t fillingSlot = PoolIds::DeviceFillPump;
+        uint8_t heaterSlot = PoolIds::DeviceWaterHeater;
+        if (cfgStore) {
+            char devicesJson[384] = {0};
+            bool devicesTruncated = false;
+            if (cfgStore->toJsonModule("poollogic/devices", devicesJson, sizeof(devicesJson), &devicesTruncated, true) &&
+                !devicesTruncated) {
+                JsonDocument devicesDoc;
+                if (!deserializeJson(devicesDoc, devicesJson)) {
+                    const JsonObjectConst devices = devicesDoc.as<JsonObjectConst>();
+                    auto loadDeviceSlot = [&](const char* key, uint8_t& slot) {
+                        const JsonVariantConst value = devices[key];
+                        if (!value.is<uint16_t>()) return;
+                        const uint16_t candidate = value.as<uint16_t>();
+                        if (candidate < POOL_DEVICE_MAX) slot = (uint8_t)candidate;
+                    };
+                    loadDeviceSlot("filtr_slot", filtrationSlot);
+                    loadDeviceSlot("ph_pump_slot", phPumpSlot);
+                    loadDeviceSlot("dis_pump_slot", chlorinePumpSlot);
+                    loadDeviceSlot("swg_slot", swgSlot);
+                    loadDeviceSlot("robot_slot", robotSlot);
+                    loadDeviceSlot("fill_slot", fillingSlot);
+                    loadDeviceSlot("heater_slot", heaterSlot);
+                }
+            }
+        }
+
         auto setDevice = [&](const char* key, uint8_t slot) {
             PoolDeviceRuntimeStateEntry state{};
-            if (!dataStore || !poolDeviceRuntimeState(*dataStore, slot, state)) {
+            if (!dataStore ||
+                !poolDeviceRuntimeState(*dataStore, slot, state) ||
+                !state.enabled ||
+                state.blockReason == POOL_DEVICE_BLOCK_UNBOUND) {
                 pool[key] = nullptr;
                 return;
             }
             pool[key] = state.actualOn;
         };
-        setDevice("fil", PoolIds::DeviceFiltrationPump);
-        setDevice("php", PoolIds::DevicePhPump);
-        setDevice("clp", PoolIds::DeviceChlorinePump);
-        setDevice("swg", PoolIds::DeviceChlorineGenerator);
-        setDevice("rbt", PoolIds::DeviceRobot);
-        setDevice("fill", PoolIds::DeviceFillPump);
+        setDevice("fil", filtrationSlot);
+        setDevice("php", phPumpSlot);
+        setDevice("clp", chlorinePumpSlot);
+        setDevice("swg", swgSlot);
+        setDevice("rbt", robotSlot);
+        setDevice("fill", fillingSlot);
         setDevice("lgt", PoolIds::DeviceLights);
-        setDevice("htr", PoolIds::DeviceWaterHeater);
+        setDevice("htr", heaterSlot);
         return serializeJson(doc, out, outLen) > 0U;
     }
 
