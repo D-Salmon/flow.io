@@ -8,9 +8,11 @@
 #include "Domain/Pool/PoolDeviceSlots.h"
 #define LOG_MODULE_ID ((LogModuleId)LogModuleIdValue::PoolDeviceModule)
 #include "Core/ModuleLog.h"
+#include "Domain/Pool/PoolIds.h"
 #include "Modules/Network/TimeModule/TimeRuntime.h"
 #include "Modules/PoolDeviceModule/PoolDeviceRuntime.h"
 #include <Arduino.h>
+#include <ArduinoJson.h>
 #include <climits>
 #include <math.h>
 #include <stdlib.h>
@@ -122,7 +124,7 @@ PoolDeviceSvcStatus PoolDeviceModule::svcWriteDesiredImpl_(uint8_t slot, uint8_t
     }
 
     const bool requested = (on != 0U);
-    const bool maxUptimeReached = maxUptimeReached_(s);
+    const bool maxUptimeReached = maxUptimeReached_(slot, s);
     if (requested) {
         if (!s.def.enabled) {
             s.blockReason = POOL_DEVICE_BLOCK_DISABLED;
@@ -235,6 +237,61 @@ void PoolDeviceModule::requestPeriodReconcile_()
     portENTER_CRITICAL(&resetMux_);
     periodReconcilePending_ = true;
     portEXIT_CRITICAL(&resetMux_);
+}
+
+void PoolDeviceModule::requestMaxUptimePolicyRefresh_()
+{
+    portENTER_CRITICAL(&resetMux_);
+    maxUptimePolicyRefreshPending_ = true;
+    portEXIT_CRITICAL(&resetMux_);
+}
+
+bool PoolDeviceModule::refreshMaxUptimePolicy_()
+{
+    if (!cfgStore_) return false;
+
+    bool enabled = false;
+    bool automatic = false;
+    uint8_t swgSlot = PoolIds::DeviceChlorineGenerator;
+    uint16_t filtrationDurationMinute = 0U;
+
+    char json[256]{};
+    bool truncated = false;
+    if (!cfgStore_->toJsonModule("poollogic/modes", json, sizeof(json), &truncated) || truncated) return false;
+    JsonDocument modesDoc;
+    if (deserializeJson(modesDoc, json) || !modesDoc.is<JsonObjectConst>()) return false;
+    const JsonObjectConst modes = modesDoc.as<JsonObjectConst>();
+    enabled = modes["enabled"] | false;
+    automatic = modes["auto_mode"] | false;
+
+    memset(json, 0, sizeof(json));
+    truncated = false;
+    if (cfgStore_->toJsonModule("poollogic/devices", json, sizeof(json), &truncated) && !truncated) {
+        JsonDocument devicesDoc;
+        if (!deserializeJson(devicesDoc, json) && devicesDoc.is<JsonObjectConst>()) {
+            const uint16_t configuredSlot = devicesDoc.as<JsonObjectConst>()["swg_slot"] | (uint16_t)swgSlot;
+            if (configuredSlot < POOL_DEVICE_MAX) swgSlot = (uint8_t)configuredSlot;
+        }
+    }
+
+    memset(json, 0, sizeof(json));
+    truncated = false;
+    if (cfgStore_->toJsonModule("poollogic/filtration", json, sizeof(json), &truncated) && !truncated) {
+        JsonDocument filtrationDoc;
+        if (!deserializeJson(filtrationDoc, json) && filtrationDoc.is<JsonObjectConst>()) {
+            filtrationDurationMinute = filtrationDoc.as<JsonObjectConst>()["filtr_duration_minute"] | 0U;
+        }
+    }
+
+    poolAutomaticMode_ = enabled && automatic;
+    swgDeviceSlot_ = swgSlot;
+    filtrationDurationMinute_ = filtrationDurationMinute;
+    maxUptimePolicyReady_ = true;
+    LOGI("SWG uptime policy mode=%s slot=%u filtration=%u min margin=60 min",
+         poolAutomaticMode_ ? "auto" : "manual",
+         (unsigned)swgDeviceSlot_,
+         (unsigned)filtrationDurationMinute_);
+    return true;
 }
 
 bool PoolDeviceModule::currentPeriodKeys_(PeriodKeys& out) const
@@ -568,11 +625,14 @@ void PoolDeviceModule::tickDevices_(uint32_t nowMs, bool allowPersist)
 {
     uint8_t pending = 0;
     bool reconcilePending = false;
+    bool maxUptimePolicyRefreshPending = false;
     portENTER_CRITICAL(&resetMux_);
     pending = resetPendingMask_;
     resetPendingMask_ = 0;
     reconcilePending = periodReconcilePending_;
     periodReconcilePending_ = false;
+    maxUptimePolicyRefreshPending = maxUptimePolicyRefreshPending_;
+    maxUptimePolicyRefreshPending_ = false;
     portEXIT_CRITICAL(&resetMux_);
 
     if (pending & RESET_PENDING_DAY) resetDailyCounters_();
@@ -580,6 +640,9 @@ void PoolDeviceModule::tickDevices_(uint32_t nowMs, bool allowPersist)
     if (pending & RESET_PENDING_MONTH) resetMonthlyCounters_();
     if (reconcilePending && !reconcilePeriodCountersFromClock_()) {
         requestPeriodReconcile_();
+    }
+    if (maxUptimePolicyRefreshPending && !refreshMaxUptimePolicy_()) {
+        requestMaxUptimePolicyRefresh_();
     }
 
     for (uint8_t i = 0; i < POOL_DEVICE_MAX; ++i) {
@@ -617,7 +680,7 @@ void PoolDeviceModule::tickDevices_(uint32_t nowMs, bool allowPersist)
             stateChanged = true;
         }
 
-        const bool maxUptimeReached = maxUptimeReached_(s);
+        const bool maxUptimeReached = maxUptimeReached_(i, s);
         if (s.def.enabled && maxUptimeReached) {
             if (s.desiredOn) {
                 s.desiredOn = false;
@@ -670,7 +733,7 @@ void PoolDeviceModule::tickDevices_(uint32_t nowMs, bool allowPersist)
         } else if (!s.desiredOn && s.actualOn && writesEnabled_) {
             if (writeIo_(s.ioId, false)) {
                 s.actualOn = false;
-                s.blockReason = maxUptimeReached_(s) ? POOL_DEVICE_BLOCK_MAX_UPTIME : POOL_DEVICE_BLOCK_NONE;
+                s.blockReason = maxUptimeReached_(i, s) ? POOL_DEVICE_BLOCK_MAX_UPTIME : POOL_DEVICE_BLOCK_NONE;
             } else {
                 s.blockReason = POOL_DEVICE_BLOCK_IO_ERROR;
             }
@@ -826,10 +889,28 @@ void PoolDeviceModule::logStartInterlock_(uint8_t slotIdx, uint8_t reason) const
     }
 }
 
-bool PoolDeviceModule::maxUptimeReached_(const PoolDeviceSlot& slot)
+uint32_t PoolDeviceModule::effectiveMaxUptimeSec_(uint8_t slotIdx, const PoolDeviceSlot& slot) const
 {
-    if (slot.def.maxUptimeDaySec <= 0) return false;
-    const uint64_t limitMs = (uint64_t)(uint32_t)slot.def.maxUptimeDaySec * 1000ULL;
+    uint32_t configuredLimitSec = slot.def.maxUptimeDaySec > 0 ? (uint32_t)slot.def.maxUptimeDaySec : 0U;
+    if (!maxUptimePolicyReady_ || slotIdx != swgDeviceSlot_) return configuredLimitSec;
+
+    // Manual and maintenance modes deliberately leave SWG runtime under the
+    // operator's control. The filtration dependency remains enforced below.
+    if (!poolAutomaticMode_) return 0U;
+
+    // In automatic mode, never stop the SWG before the calculated filtration
+    // window can finish. Keep one hour of headroom for split/extended cycles.
+    static constexpr uint32_t kSwgFiltrationMarginMinute = 60U;
+    const uint32_t scheduleLimitSec =
+        ((uint32_t)filtrationDurationMinute_ + kSwgFiltrationMarginMinute) * 60U;
+    return configuredLimitSec > scheduleLimitSec ? configuredLimitSec : scheduleLimitSec;
+}
+
+bool PoolDeviceModule::maxUptimeReached_(uint8_t slotIdx, const PoolDeviceSlot& slot) const
+{
+    const uint32_t limitSec = effectiveMaxUptimeSec_(slotIdx, slot);
+    if (limitSec == 0U) return false;
+    const uint64_t limitMs = (uint64_t)limitSec * 1000ULL;
     return slot.runningMsDay >= limitMs;
 }
 

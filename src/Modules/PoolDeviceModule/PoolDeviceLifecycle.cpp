@@ -132,6 +132,9 @@ void PoolDeviceModule::onEvent_(const Event& e)
             p->localBranchId == kTimeCfgBranch) {
             requestPeriodReconcile_();
         }
+        if (p->moduleId == (uint8_t)ConfigModuleId::PoolLogic) {
+            requestMaxUptimePolicyRefresh_();
+        }
         return;
     }
 
@@ -559,6 +562,7 @@ void PoolDeviceModule::onConfigLoaded(ConfigStore&, ServiceRegistry& services)
         }
     }
     requestPeriodReconcile_();
+    requestMaxUptimePolicyRefresh_();
 }
 
 void PoolDeviceModule::loop()

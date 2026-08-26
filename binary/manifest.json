@@ -1,6 +1,6 @@
 {
   "schema": "flowio.firmware-manifest.v2",
-  "generated_at": "2026-08-26T13:36:56+02:00",
+  "generated_at": "2026-08-26T15:04:39+02:00",
   "release": "2026.08.26",
   "artifacts": {
     "nextion": [
@@ -118,13 +118,13 @@
         "title": "flowios3",
         "label": "flowios3",
         "version": "3.1.5",
-        "build_date": "2026-08-26T13:36:56+02:00",
+        "build_date": "2026-08-26T15:04:39+02:00",
         "target": "flowios3",
         "path": "flowios3-3.1.5.bin",
         "kind": "esp32-firmware",
         "route": "/fwupdate/waveshare",
-        "size": 2142864,
-        "sha256": "ce1dfaba777225382f1e66bb065ccb8e00b40c782f63507ba1e02c8b42d82a2e"
+        "size": 2145984,
+        "sha256": "85da9c1f590d2bdcf1503796798151b581a4163132e02e5e14d450cac83e188b"
       },
       {
         "title": "waveshare",

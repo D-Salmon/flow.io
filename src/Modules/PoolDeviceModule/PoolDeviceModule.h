@@ -156,6 +156,8 @@ private:
     void resetWeeklyCounters_();
     void resetMonthlyCounters_();
     void requestPeriodReconcile_();
+    void requestMaxUptimePolicyRefresh_();
+    bool refreshMaxUptimePolicy_();
     bool weekStartMondayFromConfig_() const;
     bool currentPeriodKeys_(PeriodKeys& out) const;
     bool reconcilePeriodCountersFromClock_();
@@ -163,7 +165,8 @@ private:
     bool persistMetrics_(uint8_t slotIdx, PoolDeviceSlot& slot, uint32_t nowMs);
     bool dependenciesSatisfied_(uint8_t slotIdx) const;
     void logStartInterlock_(uint8_t slotIdx, uint8_t reason) const;
-    static bool maxUptimeReached_(const PoolDeviceSlot& slot);
+    uint32_t effectiveMaxUptimeSec_(uint8_t slotIdx, const PoolDeviceSlot& slot) const;
+    bool maxUptimeReached_(uint8_t slotIdx, const PoolDeviceSlot& slot) const;
     bool readIoState_(const PoolDeviceSlot& slot, bool& onOut) const;
     bool writeIo_(IoId ioId, bool on);
     bool actuatorWritesEnabled() const { return writesEnabled_; }
@@ -216,6 +219,11 @@ private:
     mutable SemaphoreHandle_t stateMutex_ = nullptr;
     uint8_t resetPendingMask_ = 0;
     bool periodReconcilePending_ = true;
+    bool maxUptimePolicyRefreshPending_ = true;
+    bool maxUptimePolicyReady_ = false;
+    bool poolAutomaticMode_ = false;
+    uint8_t swgDeviceSlot_ = 0xFFU;
+    uint16_t filtrationDurationMinute_ = 0U;
 
     char (*runtimePersistBuf_)[RUNTIME_PERSIST_BUF_LEN] = nullptr;
     PoolDeviceSlot* slots_ = nullptr;
