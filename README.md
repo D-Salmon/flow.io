@@ -121,12 +121,17 @@ Le profil Waveshare affecte par défaut :
 
 | Ressource | Usage principal |
 |---|---|
-| Relais 1 à 8 | filtration, pH, désinfection, robot, remplissage, électrolyseur, éclairage, chauffage |
+| Relais 1 à 8 | filtration, pH, désinfection unique, robot, remplissage, libre, éclairage, chauffage |
 | DI1 à DI4 | niveau pH, niveau désinfectant, niveau piscine, compteur d’eau |
 | DI5 à DI8 | libres ou retours de contacteurs configurables |
 | ADS1115 `0x48` | ORP et pH |
 | ADS1115 `0x49` | pression et réserve analogique |
 | RTC PCF85063 | horloge locale et planification |
+
+Sur Waveshare, le relais 3 (`EXIO3`) est l’unique sortie de désinfection : il
+commande la pompe à chlore/oxygène actif **ou** l’électrolyseur selon le type de
+traitement choisi. Le relais 6 (`EXIO6`) est désormais libre ; les deux appareils
+ne peuvent donc pas être commandés simultanément par erreur.
 
 Le bus Qwiic/I²C utilise `GPIO42` pour SDA et `GPIO41` pour SCL. Il peut aussi
 accueillir les capteurs optionnels INA226, SHT40, BMP280 et BME680.

@@ -156,7 +156,10 @@ Conditions d’autorisation:
 - cuve chlore non vide
 - **et** `disinfection_type=0` (`Chlore/Brome`; la pompe ORP automatique est inhibée en mode électrolyse, oxygène actif ou désactivé)
 
-`disinfection_type=3` (`Désactivé`) coupe la désinfection automatique. Un démarrage manuel de la pompe chlore/O2 bascule aussi ce champ sur `Désactivé`, afin de laisser la main à l'utilisateur sans relance automatique de dosage.
+`disinfection_type=3` (`Désactivé`) coupe la désinfection. Un démarrage manuel
+conserve le type configuré mais désactive la régulation automatique concernée.
+Sur Waveshare, la pompe chlore/O2 et l’électrolyseur partagent le relais `EXIO3` :
+seule la commande correspondant au type sélectionné peut démarrer la sortie.
 
 ## 5.4 Électrolyseur
 

@@ -117,11 +117,13 @@ const char* PoolLogicModule::o2BlockReasonStr_(uint8_t reason)
 ActivityRole PoolLogicModule::activityRoleForDeviceSlot_(uint8_t deviceSlot) const
 {
     if (deviceSlot == filtrationDeviceSlot_) return ActivityRole::Filtration;
+    if (deviceSlot == orpPumpDeviceSlot_) {
+        return isDisinfectionType_(DisinfectionSwg) ? ActivityRole::Swg : ActivityRole::Disinfection;
+    }
     if (deviceSlot == swgDeviceSlot_) return ActivityRole::Swg;
     if (deviceSlot == robotDeviceSlot_) return ActivityRole::Robot;
     if (deviceSlot == fillingDeviceSlot_) return ActivityRole::Filling;
     if (deviceSlot == phPumpDeviceSlot_) return ActivityRole::Ph;
-    if (deviceSlot == orpPumpDeviceSlot_) return ActivityRole::Disinfection;
     if (deviceSlot == heaterDeviceSlot_) return ActivityRole::Heater;
     return ActivityRole::None;
 }
@@ -800,10 +802,14 @@ void PoolLogicModule::syncAllDeviceStates_(uint32_t nowMs)
     bool unusedStop = false;
     syncDeviceState_(filtrationDeviceSlot_, filtrationFsm_, nowMs, unusedStart, unusedStop);
     syncDeviceState_(robotDeviceSlot_, robotFsm_, nowMs, unusedStart, unusedStop);
-    syncDeviceState_(swgDeviceSlot_, swgFsm_, nowMs, unusedStart, unusedStop);
     syncDeviceState_(fillingDeviceSlot_, fillingFsm_, nowMs, unusedStart, unusedStop);
     syncDeviceState_(phPumpDeviceSlot_, phPumpFsm_, nowMs, unusedStart, unusedStop);
     syncDeviceState_(orpPumpDeviceSlot_, orpPumpFsm_, nowMs, unusedStart, unusedStop);
+    if (sharedDisinfectionDevice_()) {
+        swgFsm_ = orpPumpFsm_;
+    } else {
+        syncDeviceState_(swgDeviceSlot_, swgFsm_, nowMs, unusedStart, unusedStop);
+    }
     syncDeviceState_(heaterDeviceSlot_, heaterFsm_, nowMs, unusedStart, unusedStop);
 }
 
@@ -985,10 +991,14 @@ void PoolLogicModule::runControlLoop_(uint32_t nowMs)
 
     syncDeviceState_(filtrationDeviceSlot_, filtrationFsm_, nowMs, filtrationStarted, filtrationStopped);
     syncDeviceState_(robotDeviceSlot_, robotFsm_, nowMs, unusedStart, robotStopped);
-    syncDeviceState_(swgDeviceSlot_, swgFsm_, nowMs, unusedStart, unusedStop);
     syncDeviceState_(fillingDeviceSlot_, fillingFsm_, nowMs, unusedStart, unusedStop);
     syncDeviceState_(phPumpDeviceSlot_, phPumpFsm_, nowMs, unusedStart, unusedStop);
     syncDeviceState_(orpPumpDeviceSlot_, orpPumpFsm_, nowMs, unusedStart, unusedStop);
+    if (sharedDisinfectionDevice_()) {
+        swgFsm_ = orpPumpFsm_;
+    } else {
+        syncDeviceState_(swgDeviceSlot_, swgFsm_, nowMs, unusedStart, unusedStop);
+    }
     syncDeviceState_(heaterDeviceSlot_, heaterFsm_, nowMs, unusedStart, unusedStop);
 
     if (filtrationStarted) {
@@ -1270,12 +1280,13 @@ void PoolLogicModule::runControlLoop_(uint32_t nowMs)
         }
     }
 
-    bool swgDesired = swgFsm_.on;
+    const DeviceFsm& swgControlFsm = sharedDisinfectionDevice_() ? orpPumpFsm_ : swgFsm_;
+    bool swgDesired = swgControlFsm.on;
     if (autoMode_) {
         swgDesired = false;
         if (isDisinfectionType_(DisinfectionSwg) && filtrationFsm_.on) {
             if (swgControlMode_ == SwgControlOrp) {
-                if (swgFsm_.on) {
+                if (swgControlFsm.on) {
                     swgDesired = haveOrp && (orp <= orpSetpoint_);
                 } else {
                     const bool startReady =
@@ -1285,7 +1296,7 @@ void PoolLogicModule::runControlLoop_(uint32_t nowMs)
                     swgDesired = startReady && haveOrp && (orp <= (orpSetpoint_ * 0.9f));
                 }
             } else {
-                if (swgFsm_.on) {
+                if (swgControlFsm.on) {
                     swgDesired = true;
                 } else {
                     const bool startReady =
@@ -1508,13 +1519,30 @@ void PoolLogicModule::runControlLoop_(uint32_t nowMs)
     }
     applyDeviceControl_(filtrationDeviceSlot_, "Filtration Pump", filtrationFsm_, filtrationDesired, nowMs);
     applyDeviceControl_(phPumpDeviceSlot_, "pH Pump", phPumpFsm_, phPumpDesired, nowMs);
-    applyDeviceControl_(orpPumpDeviceSlot_,
-                        isDisinfectionType_(DisinfectionActiveOxygen) ? "O2 Pump" : "Chlorine Pump",
-                        orpPumpFsm_,
-                        orpPumpDesired,
-                        nowMs);
+    if (sharedDisinfectionDevice_()) {
+        bool disinfectionDesired = false;
+        const char* disinfectionLabel = "Disinfection";
+        if (isDisinfectionType_(DisinfectionSwg)) {
+            disinfectionDesired = swgDesired;
+            disinfectionLabel = "Electrolyzer";
+        } else if (isDisinfectionType_(DisinfectionChlorineBromine)) {
+            disinfectionDesired = orpPumpDesired;
+            disinfectionLabel = "Chlorine Pump";
+        } else if (isDisinfectionType_(DisinfectionActiveOxygen)) {
+            disinfectionDesired = orpPumpDesired;
+            disinfectionLabel = "O2 Pump";
+        }
+        applyDeviceControl_(orpPumpDeviceSlot_, disinfectionLabel, orpPumpFsm_, disinfectionDesired, nowMs);
+        swgFsm_ = orpPumpFsm_;
+    } else {
+        applyDeviceControl_(orpPumpDeviceSlot_,
+                            isDisinfectionType_(DisinfectionActiveOxygen) ? "O2 Pump" : "Chlorine Pump",
+                            orpPumpFsm_,
+                            orpPumpDesired,
+                            nowMs);
+        applyDeviceControl_(swgDeviceSlot_, "SWG Pump", swgFsm_, swgDesired, nowMs);
+    }
     applyDeviceControl_(robotDeviceSlot_, "Robot Pump", robotFsm_, robotDesired, nowMs);
-    applyDeviceControl_(swgDeviceSlot_, "SWG Pump", swgFsm_, swgDesired, nowMs);
     applyDeviceControl_(heaterDeviceSlot_, "Water Heater", heaterFsm_, heaterDesired, nowMs);
     applyDeviceControl_(fillingDeviceSlot_, "Filling Pump", fillingFsm_, fillingDesired, nowMs);
 }

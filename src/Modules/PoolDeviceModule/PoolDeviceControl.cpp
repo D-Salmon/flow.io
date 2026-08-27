@@ -252,7 +252,12 @@ bool PoolDeviceModule::refreshMaxUptimePolicy_()
 
     bool enabled = false;
     bool automatic = false;
+#if defined(FLOW_BOARD_WAVESHARE_ESP32_S3)
+    uint8_t swgSlot = PoolIds::DeviceChlorinePump;
+#else
     uint8_t swgSlot = PoolIds::DeviceChlorineGenerator;
+#endif
+    uint8_t disinfectionType = 0U;
     uint16_t filtrationDurationMinute = 0U;
 
     char json[256]{};
@@ -263,13 +268,20 @@ bool PoolDeviceModule::refreshMaxUptimePolicy_()
     const JsonObjectConst modes = modesDoc.as<JsonObjectConst>();
     enabled = modes["enabled"] | false;
     automatic = modes["auto_mode"] | false;
+    disinfectionType = modes["disinfection_type"] | 0U;
 
     memset(json, 0, sizeof(json));
     truncated = false;
     if (cfgStore_->toJsonModule("poollogic/devices", json, sizeof(json), &truncated) && !truncated) {
         JsonDocument devicesDoc;
         if (!deserializeJson(devicesDoc, json) && devicesDoc.is<JsonObjectConst>()) {
-            const uint16_t configuredSlot = devicesDoc.as<JsonObjectConst>()["swg_slot"] | (uint16_t)swgSlot;
+            const char* slotKey =
+#if defined(FLOW_BOARD_WAVESHARE_ESP32_S3)
+                "dis_pump_slot";
+#else
+                "swg_slot";
+#endif
+            const uint16_t configuredSlot = devicesDoc.as<JsonObjectConst>()[slotKey] | (uint16_t)swgSlot;
             if (configuredSlot < POOL_DEVICE_MAX) swgSlot = (uint8_t)configuredSlot;
         }
     }
@@ -284,10 +296,12 @@ bool PoolDeviceModule::refreshMaxUptimePolicy_()
     }
 
     poolAutomaticMode_ = enabled && automatic;
+    swgModeSelected_ = (disinfectionType == 1U);
     swgDeviceSlot_ = swgSlot;
     filtrationDurationMinute_ = filtrationDurationMinute;
     maxUptimePolicyReady_ = true;
-    LOGI("SWG uptime policy mode=%s slot=%u filtration=%u min margin=60 min",
+    LOGI("SWG uptime policy selected=%u mode=%s slot=%u filtration=%u min margin=60 min",
+         swgModeSelected_ ? 1U : 0U,
          poolAutomaticMode_ ? "auto" : "manual",
          (unsigned)swgDeviceSlot_,
          (unsigned)filtrationDurationMinute_);
@@ -892,7 +906,7 @@ void PoolDeviceModule::logStartInterlock_(uint8_t slotIdx, uint8_t reason) const
 uint32_t PoolDeviceModule::effectiveMaxUptimeSec_(uint8_t slotIdx, const PoolDeviceSlot& slot) const
 {
     uint32_t configuredLimitSec = slot.def.maxUptimeDaySec > 0 ? (uint32_t)slot.def.maxUptimeDaySec : 0U;
-    if (!maxUptimePolicyReady_ || slotIdx != swgDeviceSlot_) return configuredLimitSec;
+    if (!maxUptimePolicyReady_ || !swgModeSelected_ || slotIdx != swgDeviceSlot_) return configuredLimitSec;
 
     // Manual and maintenance modes deliberately leave SWG runtime under the
     // operator's control. The filtration dependency remains enforced below.

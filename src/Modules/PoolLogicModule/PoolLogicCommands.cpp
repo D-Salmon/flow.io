@@ -392,6 +392,55 @@ bool PoolLogicModule::cmdMqttControl_(const CommandRequest& req, char* reply, si
         return writeDeviceValue(where, slot, !current, forceManualAutoMode, clearDosingModeKey);
     };
 
+    auto disinfectionCommandAllowed = [&](bool swgCommand) -> bool {
+        if (swgCommand) return isDisinfectionType_(DisinfectionSwg);
+        return isDisinfectionType_(DisinfectionChlorineBromine) ||
+               isDisinfectionType_(DisinfectionActiveOxygen);
+    };
+
+    auto writeDisinfectionFromArgs = [&](const char* where,
+                                         bool swgCommand,
+                                         const char* clearDosingModeKey) -> bool {
+        JsonObjectConst args;
+        if (!parseCmdArgsObject_(req, args)) {
+            writeCmdError_(reply, replyLen, where, ErrorCode::MissingArgs);
+            return false;
+        }
+        if (args["value"].isUnbound()) {
+            writeCmdError_(reply, replyLen, where, ErrorCode::MissingValue);
+            return false;
+        }
+        bool requested = false;
+        if (!parseBoolValue_(args["value"], requested)) {
+            writeCmdError_(reply, replyLen, where, ErrorCode::MissingValue);
+            return false;
+        }
+        // An OFF command is always accepted so a stale output can be made safe.
+        if (requested && !disinfectionCommandAllowed(swgCommand)) {
+            writeCmdError_(reply, replyLen, where, ErrorCode::Disabled);
+            return false;
+        }
+        const uint8_t slot = swgCommand ? swgDeviceSlot_ : orpPumpDeviceSlot_;
+        return writeDeviceValue(where, slot, requested, false, clearDosingModeKey);
+    };
+
+    auto toggleDisinfectionValue = [&](const char* where,
+                                       bool swgCommand,
+                                       const char* clearDosingModeKey) -> bool {
+        const uint8_t slot = swgCommand ? swgDeviceSlot_ : orpPumpDeviceSlot_;
+        bool current = false;
+        if (!readDeviceActualOn_(slot, current)) {
+            writeCmdError_(reply, replyLen, where, ErrorCode::NotReady);
+            return false;
+        }
+        const bool requested = !current;
+        if (requested && !disinfectionCommandAllowed(swgCommand)) {
+            writeCmdError_(reply, replyLen, where, ErrorCode::Disabled);
+            return false;
+        }
+        return writeDeviceValue(where, slot, requested, false, clearDosingModeKey);
+    };
+
     auto queueRobotManualValue = [&](const char* where, bool requested) -> bool {
         if (!poolSvc_ || !poolSvc_->readActualOn) {
             writeCmdError_(reply, replyLen, where, ErrorCode::NotReady);
@@ -489,10 +538,14 @@ bool PoolLogicModule::cmdMqttControl_(const CommandRequest& req, char* reply, si
         return toggleDeviceValue("poollogic.ph_pump.toggle", phPumpDeviceSlot_, false, "ph_auto_mode");
     }
     if (strcmp(cmdName, "poollogic.orp_pump.write") == 0 || strcmp(cmdName, "poollogic.dis_pump.write") == 0) {
-        return writeDeviceFromArgs("poollogic.dis_pump.write", orpPumpDeviceSlot_, false, "disinfection_type");
+        return writeDisinfectionFromArgs("poollogic.dis_pump.write",
+                                         false,
+                                         sharedDisinfectionDevice_() ? "dis_auto_mode" : "disinfection_type");
     }
     if (strcmp(cmdName, "poollogic.orp_pump.toggle") == 0 || strcmp(cmdName, "poollogic.dis_pump.toggle") == 0) {
-        return toggleDeviceValue("poollogic.dis_pump.toggle", orpPumpDeviceSlot_, false, "disinfection_type");
+        return toggleDisinfectionValue("poollogic.dis_pump.toggle",
+                                       false,
+                                       sharedDisinfectionDevice_() ? "dis_auto_mode" : "disinfection_type");
     }
     if (strcmp(cmdName, "poollogic.light.write") == 0 || strcmp(cmdName, "poollogic.lights.write") == 0) {
         return writeDeviceFromArgs("poollogic.lights.write", PoolIds::DeviceLights, false, nullptr);
@@ -513,10 +566,10 @@ bool PoolLogicModule::cmdMqttControl_(const CommandRequest& req, char* reply, si
         return toggleDeviceValue("poollogic.heater.toggle", heaterDeviceSlot_, false, nullptr);
     }
     if (strcmp(cmdName, "poollogic.chlorine_generator.write") == 0 || strcmp(cmdName, "poollogic.swg.write") == 0) {
-        return writeDeviceFromArgs("poollogic.chlorine_generator.write", swgDeviceSlot_, false, nullptr);
+        return writeDisinfectionFromArgs("poollogic.chlorine_generator.write", true, nullptr);
     }
     if (strcmp(cmdName, "poollogic.chlorine_generator.toggle") == 0 || strcmp(cmdName, "poollogic.swg.toggle") == 0) {
-        return toggleDeviceValue("poollogic.chlorine_generator.toggle", swgDeviceSlot_, false, nullptr);
+        return toggleDisinfectionValue("poollogic.chlorine_generator.toggle", true, nullptr);
     }
 
     writeCmdError_(reply, replyLen, cmdName, ErrorCode::UnknownCmd);

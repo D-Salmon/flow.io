@@ -205,10 +205,10 @@ inline constexpr DigitalOutputRoleDefault kDigitalOutputRoleDefaults[] = {
     // {domainSlot, bindingPort, activeHigh, retainOnWarmReboot, momentary, pulseMs}
     {PoolIds::ActuatorFiltrationPump, PortExio1, true, true, false, 0U}, // Pompe filtration.
     {PoolIds::ActuatorPhPump, PortExio2, true, false, false, 0U}, // Pompe pH.
-    {PoolIds::ActuatorChlorinePump, PortExio3, true, false, false, 0U}, // Pompe chlore.
+    {PoolIds::ActuatorChlorinePump, PortExio3, true, false, false, 0U}, // Desinfection: pompe chlore/O2 ou electrolyseur selon le mode.
     {PoolIds::ActuatorRobot, PortExio4, true, false, false, 0U}, // Robot.
     {PoolIds::ActuatorFillPump, PortExio5, true, false, false, 0U}, // Pompe de remplissage.
-    {PoolIds::ActuatorChlorineGenerator, PortExio6, true, false, false, 0U}, // Electrolyseur.
+    {PoolIds::ActuatorChlorineGenerator, IO_PORT_INVALID, true, false, false, 0U}, // Sortie historique inutilisee: la desinfection partage EXIO3.
     {PoolIds::ActuatorLights, PortExio7, true, false, false, 0U}, // Eclairage.
     {PoolIds::ActuatorWaterHeater, PortExio8, true, false, false, 0U}, // Chauffage.
 };

@@ -41,6 +41,14 @@ l’étalonnage](integration/interface-web-3.1.5.md) présentent cette organisat
   quel que soit le mode.
 - La politique est recalculée lorsque la configuration PoolLogic change.
 
+## Relais unique de désinfection
+
+- Sur la cible Waveshare, `EXIO3` commande désormais la désinfection choisie :
+  pompe à chlore/oxygène actif ou électrolyseur.
+- `EXIO6`, auparavant réservé à l’électrolyseur, est libéré.
+- L’interface n’affiche et n’autorise que l’équipement correspondant au type de
+  désinfection configuré ; une commande de démarrage incompatible est refusée.
+
 ## Journal d’activité et alarmes
 
 Le journal d’activité reçoit désormais les événements de déclenchement, de

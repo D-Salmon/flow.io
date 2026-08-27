@@ -240,7 +240,11 @@ private:
 
     // Controlled pool devices
     uint8_t filtrationDeviceSlot_ = PoolIds::DeviceFiltrationPump;
+#if defined(FLOW_BOARD_WAVESHARE_ESP32_S3)
+    uint8_t swgDeviceSlot_ = PoolIds::DeviceChlorinePump;
+#else
     uint8_t swgDeviceSlot_ = PoolIds::DeviceChlorineGenerator;
+#endif
     uint8_t robotDeviceSlot_ = PoolIds::DeviceRobot;
     uint8_t fillingDeviceSlot_ = PoolIds::DeviceFillPump;
     uint8_t phPumpDeviceSlot_ = PoolIds::DevicePhPump;
@@ -485,6 +489,7 @@ private:
                                           bool feedbackActiveHigh) const;
     bool readDeviceActualOn_(uint8_t deviceSlot, bool& onOut) const;
     bool writeDeviceDesired_(uint8_t deviceSlot, bool on);
+    bool sharedDisinfectionDevice_() const { return swgDeviceSlot_ == orpPumpDeviceSlot_; }
     bool setPoolDeviceWritesEnabled_(bool enabled);
     void syncDeviceState_(uint8_t deviceSlot, DeviceFsm& fsm, uint32_t nowMs, bool& turnedOnOut, bool& turnedOffOut);
     void syncAllDeviceStates_(uint32_t nowMs);

@@ -430,6 +430,12 @@ la minute ; à 20 °C, la plage obtenue est 22:00–06:28.
 - `dis_pump_slot`
 - `heater_slot`
 
+Sur le profil Waveshare, `dis_pump_slot` est le slot unique de désinfection et
+`swg_slot` est automatiquement aligné sur celui-ci pour compatibilité avec les
+configurations existantes. Le type choisi (`disinfection_type`) détermine si ce
+slot représente une pompe à chlore/O2 ou un électrolyseur. Les autres profils
+peuvent conserver deux slots distincts.
+
 ## Commandes
 
 Enregistrées via `CommandService`:

@@ -2490,11 +2490,10 @@
       ]),
       'poollogic/devices': Object.freeze([
         Object.freeze({ key: 'filtr_slot', type: 'enum', label: 'Pompe de filtration', options: poolDeviceSlotOptions }),
-        Object.freeze({ key: 'swg_slot', type: 'enum', label: 'Électrolyseur', options: poolDeviceSlotOptions }),
         Object.freeze({ key: 'robot_slot', type: 'enum', label: 'Robot', options: poolDeviceSlotOptions }),
         Object.freeze({ key: 'fill_slot', type: 'enum', label: 'Pompe de remplissage', options: poolDeviceSlotOptions }),
         Object.freeze({ key: 'ph_pump_slot', type: 'enum', label: 'Pompe pH', options: poolDeviceSlotOptions }),
-        Object.freeze({ key: 'dis_pump_slot', type: 'enum', label: 'Pompe désinfectant', options: poolDeviceSlotOptions }),
+        Object.freeze({ key: 'dis_pump_slot', type: 'enum', label: 'Désinfection (relais unique)', options: poolDeviceSlotOptions }),
         Object.freeze({ key: 'heater_slot', type: 'enum', label: 'Chauffage', options: poolDeviceSlotOptions })
       ]),
       'hmi/buzzer': Object.freeze([
@@ -7219,11 +7218,18 @@
         { key: 'htr', label: tr('dashboard.equipment.heater', 'Chauffage'), icon: 'local_fire_department' },
         { key: 'lgt', label: tr('dashboard.equipment.lights', 'Éclairage'), icon: 'lightbulb', equipmentKey: 'lights' }
       ];
+      const disinfectionType = Number.parseInt(modes.disinfection_type, 10);
+      const hasDisinfectionType = Number.isFinite(disinfectionType);
+      const visibleEquipmentDefs = equipmentDefs.filter((def) => {
+        if (def.key === 'swg') return !hasDisinfectionType || disinfectionType === 1;
+        if (def.key === 'clp') return !hasDisinfectionType || disinfectionType === 0 || disinfectionType === 2;
+        return true;
+      });
       let equipmentOnCount = 0;
       let equipmentAvailableCount = 0;
       if (dashboardEquipmentGrid) {
         dashboardEquipmentGrid.innerHTML = '';
-        equipmentDefs.forEach((def) => {
+        visibleEquipmentDefs.forEach((def) => {
           const available = !!pool && typeof pool[def.key] === 'boolean';
           const on = available && pool[def.key] === true;
           if (available) equipmentAvailableCount += 1;

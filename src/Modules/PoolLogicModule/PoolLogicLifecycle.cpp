@@ -1361,7 +1361,7 @@ void PoolLogicModule::onEvent_(const Event& e)
             } else if (strcmp(p->nvsKey, NvsKeys::PoolLogic::DisinfectionType) == 0) {
                 if (disinfectionType_ > DisinfectionDisabled) disinfectionType_ = DisinfectionChlorineBromine;
                 (void)writeDeviceDesired_(orpPumpDeviceSlot_, false);
-                (void)writeDeviceDesired_(swgDeviceSlot_, false);
+                if (!sharedDisinfectionDevice_()) (void)writeDeviceDesired_(swgDeviceSlot_, false);
                 if (disinfectionType_ == DisinfectionChlorineBromine && !orpAutoMode_ && cfgStore_) {
                     (void)cfgStore_->set(orpAutoModeVar_, true);
                     orpAutoMode_ = true;
@@ -1477,31 +1477,42 @@ void PoolLogicModule::normalizeDeviceSlots_()
     };
 
     normalize(filtrationDeviceSlot_, PoolIds::DeviceFiltrationPump, filtrationDeviceVar_, "filtration");
-    normalize(swgDeviceSlot_, PoolIds::DeviceChlorineGenerator, swgDeviceVar_, "swg");
     normalize(robotDeviceSlot_, PoolIds::DeviceRobot, robotDeviceVar_, "robot");
     normalize(fillingDeviceSlot_, PoolIds::DeviceFillPump, fillingDeviceVar_, "filling");
     normalize(phPumpDeviceSlot_, PoolIds::DevicePhPump, phPumpDeviceVar_, "ph_pump");
     normalize(orpPumpDeviceSlot_, PoolIds::DeviceChlorinePump, orpPumpDeviceVar_, "dis_pump");
+#if defined(FLOW_BOARD_WAVESHARE_ESP32_S3)
+    if (swgDeviceSlot_ != orpPumpDeviceSlot_) {
+        LOGI("PoolLogic Waveshare shares disinfection slot: swg %u -> %u",
+             (unsigned)swgDeviceSlot_,
+             (unsigned)orpPumpDeviceSlot_);
+        swgDeviceSlot_ = orpPumpDeviceSlot_;
+        if (cfgStore_) (void)cfgStore_->set(swgDeviceVar_, swgDeviceSlot_);
+    }
+#else
+    normalize(swgDeviceSlot_, PoolIds::DeviceChlorineGenerator, swgDeviceVar_, "swg");
+#endif
     normalize(heaterDeviceSlot_, PoolIds::DeviceWaterHeater, heaterDeviceVar_, "heater");
 }
 
 void PoolLogicModule::logDeviceSlotConfig_() const
 {
-    LOGI("PoolLogic slots filtr=%u swg=%u robot=%u fill=%u ph=%u dis=%u heater=%u",
+    LOGI("PoolLogic slots filtr=%u swg=%u robot=%u fill=%u ph=%u dis=%u heater=%u shared_dis=%u",
          (unsigned)filtrationDeviceSlot_,
          (unsigned)swgDeviceSlot_,
          (unsigned)robotDeviceSlot_,
          (unsigned)fillingDeviceSlot_,
          (unsigned)phPumpDeviceSlot_,
          (unsigned)orpPumpDeviceSlot_,
-         (unsigned)heaterDeviceSlot_);
+         (unsigned)heaterDeviceSlot_,
+         sharedDisinfectionDevice_() ? 1U : 0U);
 
     logDeviceSlotBinding_("filtration", filtrationDeviceSlot_, 0);
-    logDeviceSlotBinding_("swg", swgDeviceSlot_, -1);
+    if (!sharedDisinfectionDevice_()) logDeviceSlotBinding_("swg", swgDeviceSlot_, -1);
     logDeviceSlotBinding_("robot", robotDeviceSlot_, -1);
     logDeviceSlotBinding_("filling", fillingDeviceSlot_, -1);
     logDeviceSlotBinding_("ph_pump", phPumpDeviceSlot_, 1);
-    logDeviceSlotBinding_("dis_pump", orpPumpDeviceSlot_, 1);
+    logDeviceSlotBinding_(sharedDisinfectionDevice_() ? "disinfection" : "dis_pump", orpPumpDeviceSlot_, 1);
     logDeviceSlotBinding_("heater", heaterDeviceSlot_, -1);
 }
 

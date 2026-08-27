@@ -222,6 +222,7 @@ private:
     bool maxUptimePolicyRefreshPending_ = true;
     bool maxUptimePolicyReady_ = false;
     bool poolAutomaticMode_ = false;
+    bool swgModeSelected_ = false;
     uint8_t swgDeviceSlot_ = 0xFFU;
     uint16_t filtrationDurationMinute_ = 0U;
 

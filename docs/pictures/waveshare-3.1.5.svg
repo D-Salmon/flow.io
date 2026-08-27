@@ -48,8 +48,8 @@
     <rect x="860" y="360" width="300" height="240" rx="14" fill="white" stroke="#c62828" stroke-width="3"/>
     <text x="1010" y="395" text-anchor="middle" font-family="sans-serif" font-size="21" font-weight="bold" fill="#b71c1c">Relais vers contacteurs</text>
     <text x="890" y="430" font-family="sans-serif" font-size="15" fill="#263238">1 Filtration • 2 pH</text>
-    <text x="890" y="458" font-family="sans-serif" font-size="15" fill="#263238">3 Désinfectant • 4 Robot</text>
-    <text x="890" y="486" font-family="sans-serif" font-size="15" fill="#263238">5 Remplissage • 6 Électrolyseur</text>
+    <text x="890" y="458" font-family="sans-serif" font-size="15" fill="#263238">3 Désinfection unique • 4 Robot</text>
+    <text x="890" y="486" font-family="sans-serif" font-size="15" fill="#263238">5 Remplissage • 6 Libre</text>
     <text x="890" y="514" font-family="sans-serif" font-size="15" fill="#263238">7 Éclairage • 8 Chauffage</text>
     <text x="890" y="555" font-family="sans-serif" font-size="14" font-weight="bold" fill="#b71c1c">Ne pas alimenter directement les pompes</text>
     <path d="M780 470 H860" stroke="#c62828" stroke-width="7" fill="none"/>

@@ -1691,13 +1691,15 @@ bool waveshareLoadPoolModeFlags_(ConfigStore* cfgStore,
                                 bool& autoMode,
                                 bool& winterMode,
                                 bool& phAutoMode,
-                                bool& orpAutoMode)
+                                bool& orpAutoMode,
+                                uint8_t* disinfectionTypeOut = nullptr)
 {
     hasMode = false;
     autoMode = false;
     winterMode = false;
     phAutoMode = false;
     orpAutoMode = false;
+    if (disinfectionTypeOut) *disinfectionTypeOut = 0U;
     if (!cfgStore) return false;
 
     char moduleJson[320] = {0};
@@ -1714,6 +1716,7 @@ bool waveshareLoadPoolModeFlags_(ConfigStore* cfgStore,
     hasMode = true;
     autoMode = root["auto_mode"] | false;
     winterMode = root["winter_mode"] | false;
+    if (disinfectionTypeOut) *disinfectionTypeOut = root["disinfection_type"] | 0U;
 
     memset(moduleJson, 0, sizeof(moduleJson));
     truncated = false;
@@ -2174,7 +2177,14 @@ bool waveshareBuildStatusDomainJson_(FlowStatusDomain domain,
         bool winterMode = false;
         bool phAutoMode = false;
         bool orpAutoMode = false;
-        (void)waveshareLoadPoolModeFlags_(cfgStore, hasMode, autoMode, winterMode, phAutoMode, orpAutoMode);
+        uint8_t disinfectionType = 0U;
+        (void)waveshareLoadPoolModeFlags_(cfgStore,
+                                          hasMode,
+                                          autoMode,
+                                          winterMode,
+                                          phAutoMode,
+                                          orpAutoMode,
+                                          &disinfectionType);
         pool["has"] = hasMode;
         pool["auto"] = autoMode;
         pool["wint"] = winterMode;
@@ -2227,6 +2237,9 @@ bool waveshareBuildStatusDomainJson_(FlowStatusDomain domain,
                 }
             }
         }
+        // Waveshare exposes one physical disinfection relay. Keep the legacy
+        // SWG slot key readable, but report the state of the canonical slot.
+        swgSlot = chlorinePumpSlot;
 
         auto setDevice = [&](const char* key, uint8_t slot) {
             PoolDeviceRuntimeStateEntry state{};
@@ -2241,8 +2254,16 @@ bool waveshareBuildStatusDomainJson_(FlowStatusDomain domain,
         };
         setDevice("fil", filtrationSlot);
         setDevice("php", phPumpSlot);
-        setDevice("clp", chlorinePumpSlot);
-        setDevice("swg", swgSlot);
+        if (disinfectionType == 1U) {
+            pool["clp"] = nullptr;
+            setDevice("swg", swgSlot);
+        } else if (disinfectionType == 0U || disinfectionType == 2U) {
+            setDevice("clp", chlorinePumpSlot);
+            pool["swg"] = nullptr;
+        } else {
+            pool["clp"] = nullptr;
+            pool["swg"] = nullptr;
+        }
         setDevice("rbt", robotSlot);
         setDevice("fill", fillingSlot);
         setDevice("lgt", PoolIds::DeviceLights);
