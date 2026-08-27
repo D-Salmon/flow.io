@@ -19,6 +19,7 @@ constexpr uint8_t kLedcResolutionBits = 8U;
 constexpr uint32_t kLedcInitialFrequencyHz = 2400U;
 constexpr uint8_t kDefaultDutyPercent = 32U;
 constexpr uint32_t kAlarmRepeatMs = 8000U;
+constexpr uint32_t kConfigAckDebounceMs = 350U;
 
 constexpr HmiBuzzer::SequenceStep kConfigSuccessSequence[] = {
     {2400U, 40U, kDefaultDutyPercent, 5U, 10U, true},
@@ -90,6 +91,10 @@ bool HmiBuzzer::begin(uint8_t pin, bool activeHigh)
 void HmiBuzzer::play(BuzzerPattern pattern)
 {
     if (!attached_) return;
+    // Repeated events must not restart an audible sequence already in progress.
+    // A configuration patch can emit several ConfigChanged events and used to
+    // stretch the short acknowledgement into a multi-second tone.
+    if (sequence_ && pattern == currentPattern_) return;
     if (sequence_ && priority_(pattern) < priority_(currentPattern_)) return;
 
     uint8_t len = 0U;
@@ -295,11 +300,13 @@ void HMIBuzzerModule::loop()
 {
     if (!hardwareAvailable_ || !cfgData_.enable) {
         pendingPatterns_.store(0U, std::memory_order_relaxed);
+        lastConfigChangedMs_.store(0U, std::memory_order_relaxed);
         buzzer_.stop();
         return;
     }
 
     const uint32_t nowMs = millis();
+    tickConfigAcknowledgement_(nowMs);
     tickAlarmReminder_(nowMs);
     playPending_(nowMs);
     buzzer_.tick(nowMs);
@@ -317,7 +324,9 @@ void HMIBuzzerModule::onEvent_(const Event& e)
 
     if (e.id == EventId::ConfigChanged) {
         if (!e.payload || e.len < sizeof(ConfigChangedPayload)) return;
-        requestPattern_(BuzzerPattern::ConfigSuccess);
+        uint32_t changedAtMs = millis();
+        if (changedAtMs == 0U) changedAtMs = 1U;
+        lastConfigChangedMs_.store(changedAtMs, std::memory_order_release);
         return;
     }
 
@@ -371,6 +380,19 @@ void HMIBuzzerModule::playPending_(uint32_t nowMs)
         buzzer_.play(BuzzerPattern::DeviceOn);
     } else if (mask & (1UL << (uint8_t)BuzzerPattern::DeviceOff)) {
         buzzer_.play(BuzzerPattern::DeviceOff);
+    }
+}
+
+void HMIBuzzerModule::tickConfigAcknowledgement_(uint32_t nowMs)
+{
+    uint32_t changedAtMs = lastConfigChangedMs_.load(std::memory_order_acquire);
+    if (changedAtMs == 0U || (uint32_t)(nowMs - changedAtMs) < kConfigAckDebounceMs) return;
+
+    if (lastConfigChangedMs_.compare_exchange_strong(changedAtMs,
+                                                      0U,
+                                                      std::memory_order_acq_rel,
+                                                      std::memory_order_acquire)) {
+        requestPattern_(BuzzerPattern::ConfigSuccess);
     }
 }
 

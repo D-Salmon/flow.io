@@ -106,6 +106,7 @@ private:
     bool hardwareAvailable_ = false;
     HmiBuzzer buzzer_{};
     std::atomic<uint32_t> pendingPatterns_{0U};
+    std::atomic<uint32_t> lastConfigChangedMs_{0U};
     EventBus* eventBus_ = nullptr;
     const DataStoreService* dsSvc_ = nullptr;
     const AlarmService* alarmSvc_ = nullptr;
@@ -118,6 +119,7 @@ private:
     void configureHardware_();
     void requestPattern_(BuzzerPattern pattern);
     void playPending_(uint32_t nowMs);
+    void tickConfigAcknowledgement_(uint32_t nowMs);
     void handlePoolDeviceStateChanged_(const DataChangedPayload& payload);
     void handleAlarmRaised_();
     void tickAlarmReminder_(uint32_t nowMs);

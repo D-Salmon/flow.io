@@ -7379,6 +7379,76 @@ void WebInterfaceModule::startServer_()
 #endif
     });
 
+    server_.on("/api/pool/config", HTTP_GET, [this](AsyncWebServerRequest* request) {
+        HttpLatencyScope latency(request,
+                                 "/api/pool/config",
+                                 kHttpLatencyFlowCfgInfoMs,
+                                 kHttpLatencyFlowCfgWarnMs);
+#if defined(FLOW_PROFILE_WAVESHARE)
+        if (!cfgStore_) {
+            request->send(503, "application/json",
+                          "{\"ok\":false,\"err\":{\"code\":\"NotReady\",\"where\":\"pool.config\"}}");
+            return;
+        }
+
+        // The pool page previously fetched these modules through one HTTP
+        // request per module. Serialising them into one response removes the
+        // network and authentication overhead while retaining the same JSON
+        // representation produced by ConfigStore.
+        static constexpr const char* kPoolModules[] = {
+            "poollogic/modes",
+            "hmi/buzzer",
+            "poollogic/filtration",
+            "poollogic/ph",
+            "poollogic/heater",
+            "poollogic/refill",
+            "poollogic/safety",
+            "poollogic/regulation",
+            "poollogic/robot",
+            "poollogic/sensors",
+            "poollogic/devices",
+            "poollogic/chlorine",
+            "poollogic/swg",
+            "poollogic/o2"
+        };
+
+        WebHeapCharBuffer moduleJson(Limits::Mqtt::Buffers::StateCfg);
+        if (!moduleJson) {
+            sendTinyBusyJson_(request, "web_scratch_alloc");
+            return;
+        }
+
+        AsyncResponseStream* response = request->beginResponseStream("application/json");
+        addNoCacheHeaders_(response);
+        response->print("{\"ok\":true,\"modules\":{");
+        bool anyTruncated = false;
+        for (size_t i = 0U; i < (sizeof(kPoolModules) / sizeof(kPoolModules[0])); ++i) {
+            if (i > 0U) response->print(',');
+            printJsonEscaped_(*response, kPoolModules[i]);
+            response->print(':');
+
+            moduleJson.data[0] = '\0';
+            bool truncated = false;
+            if (cfgStore_->toJsonModule(kPoolModules[i],
+                                        moduleJson.data,
+                                        moduleJson.capacity,
+                                        &truncated)) {
+                response->print(moduleJson.data);
+            } else {
+                response->print("{}");
+            }
+            anyTruncated = anyTruncated || truncated;
+        }
+        response->print("},\"truncated\":");
+        response->print(anyTruncated ? "true" : "false");
+        response->print('}');
+        request->send(response);
+#else
+        request->send(404, "application/json",
+                      "{\"ok\":false,\"err\":{\"code\":\"NotSupported\",\"where\":\"pool.config\"}}");
+#endif
+    });
+
     server_.on("/api/flowcfg/apply", HTTP_POST, [this](AsyncWebServerRequest* request) {
         HttpLatencyScope latency(request,
                                  "/api/flowcfg/apply",

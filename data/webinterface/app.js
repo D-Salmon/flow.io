@@ -2295,6 +2295,8 @@
     let poolConfigModulesCache = {};
     let poolConfigAlarmSlotsCache = [];
     let poolConfigLiveState = {};
+    let poolConfigDocsReady = false;
+    let poolConfigDocsPromise = null;
     let poolChemistryHasPendingChanges = false;
     let poolEquipmentCommandBusy = '';
     let poolEquipmentStatusMessage = '';
@@ -7208,18 +7210,24 @@
         });
       }
 
+      const disinfectionType = Number.parseInt(modes.disinfection_type, 10);
+      const hasDisinfectionType = Number.isFinite(disinfectionType);
       const equipmentDefs = [
         { key: 'fil', label: tr('dashboard.equipment.filtration', 'Filtration'), icon: 'waves' },
         { key: 'php', label: tr('dashboard.equipment.phPump', 'Pompe pH'), icon: 'science' },
-        { key: 'clp', label: tr('dashboard.equipment.chlorinePump', 'Pompe chlore'), icon: 'water_drop' },
+        {
+          key: 'clp',
+          label: disinfectionType === 2
+            ? tr('dashboard.equipment.activeOxygenPump', 'Pompe oxygène actif')
+            : tr('dashboard.equipment.chlorinePump', 'Pompe chlore'),
+          icon: disinfectionType === 2 ? 'bubble_chart' : 'water_drop'
+        },
         { key: 'swg', label: tr('dashboard.equipment.swg', 'Électrolyse'), icon: 'bolt' },
         { key: 'rbt', label: tr('dashboard.equipment.robot', 'Robot'), icon: 'smart_toy' },
         { key: 'fill', label: tr('dashboard.equipment.filling', 'Remplissage'), icon: 'faucet' },
         { key: 'htr', label: tr('dashboard.equipment.heater', 'Chauffage'), icon: 'local_fire_department' },
         { key: 'lgt', label: tr('dashboard.equipment.lights', 'Éclairage'), icon: 'lightbulb', equipmentKey: 'lights' }
       ];
-      const disinfectionType = Number.parseInt(modes.disinfection_type, 10);
-      const hasDisinfectionType = Number.isFinite(disinfectionType);
       const visibleEquipmentDefs = equipmentDefs.filter((def) => {
         if (def.key === 'swg') return !hasDisinfectionType || disinfectionType === 1;
         if (def.key === 'clp') return !hasDisinfectionType || disinfectionType === 0 || disinfectionType === 2;
@@ -7609,12 +7617,24 @@
       winterCard.appendChild(winterFooter);
       const disinfectionType = Number.parseInt(modes.disinfection_type, 10);
       const hasDisinfectionType = Number.isFinite(disinfectionType);
-      const visibleEquipmentDefs = poolEquipmentDefs.filter((def) => {
-        if (typeof state[def.stateKey] !== 'boolean') return false;
-        if (def.key === 'electrolysis') return !hasDisinfectionType || disinfectionType === 1;
-        if (def.key === 'chlorine') return !hasDisinfectionType || disinfectionType === 0 || disinfectionType === 2;
-        return true;
-      });
+      const visibleEquipmentDefs = poolEquipmentDefs
+        .filter((def) => {
+          if (typeof state[def.stateKey] !== 'boolean') return false;
+          if (def.key === 'electrolysis') return !hasDisinfectionType || disinfectionType === 1;
+          if (def.key === 'chlorine') return !hasDisinfectionType || disinfectionType === 0 || disinfectionType === 2;
+          return true;
+        })
+        .map((def) => {
+          if (def.key !== 'chlorine' || disinfectionType !== 2) return def;
+          return {
+            ...def,
+            labelKey: 'pool.control.activeOxygen',
+            label: 'Pompe oxygène actif',
+            icon: 'bubble_chart',
+            noteKey: 'pool.control.activeOxygen.note',
+            note: 'Injecte l’oxygène actif dans le bassin.'
+          };
+        });
 
       let winterInserted = false;
       visibleEquipmentDefs.forEach((def) => {
@@ -8525,6 +8545,34 @@
       };
     }
 
+    async function poolConfigFetchAllModules() {
+      if (isWaveshareProfile()) {
+        try {
+          const payload = await fetchOkJson(
+            '/api/pool/config',
+            { cache: 'no-store' },
+            tr('pool.error.configRead', 'lecture de la configuration piscine impossible'),
+            fetchFlowCfgEndpoint
+          );
+          const modules = payload && payload.modules && typeof payload.modules === 'object'
+            ? payload.modules
+            : null;
+          if (modules && modules['poollogic/modes']) return modules;
+        } catch (err) {
+          // Compatibility with a controller that still runs an older firmware:
+          // fall back to the historical module-by-module API below.
+        }
+      }
+
+      const modules = {};
+      const allDefs = poolConfigModuleDefs.concat(poolDisinfectionModeDefs);
+      for (const def of allDefs) {
+        const payload = await poolConfigFetchModule(def.module);
+        modules[payload.module] = payload.data;
+      }
+      return modules;
+    }
+
     async function poolConfigEnsureDocs() {
       const modules = poolConfigModuleDefs.map((def) => def.module)
         .concat(poolDisinfectionModeDefs.map((def) => def.module));
@@ -8532,6 +8580,27 @@
       for (const moduleName of modules) {
         await ensureCfgDocsForModule(moduleName).catch(() => {});
       }
+    }
+
+    function poolConfigWarmDocsInBackground() {
+      if (poolConfigDocsReady || poolConfigDocsPromise) return;
+      poolConfigDocsPromise = poolConfigEnsureDocs()
+        .then(() => {
+          poolConfigDocsReady = true;
+          const dirtyEditor = !!(poolConfigGrid && poolConfigGrid.querySelector('.pool-settings-form.is-dirty'));
+          if (poolConfigLoadedOnce
+              && getActivePageId() === 'page-pool'
+              && !poolConfigFieldApplyBusy
+              && !poolConfigModeApplyBusy
+              && !poolChemistryHasPendingChanges
+              && !dirtyEditor) {
+            poolConfigRender(poolConfigModulesCache, poolConfigAlarmSlotsCache);
+          }
+        })
+        .catch(() => {})
+        .finally(() => {
+          poolConfigDocsPromise = null;
+        });
     }
 
     function poolConfigRenderModeBadges(modules) {
@@ -8640,8 +8709,29 @@
           tr('pool.disinfection.changeFailed', 'Changement de traitement refusé'),
           fetchFlowRemoteQueued
         );
-        poolConfigLoadedOnce = false;
-        await loadPoolConfig(true);
+        // The configuration endpoint has accepted the new mode. Reflect it at
+        // once so the treatment selector, summary and available equipment do
+        // not keep displaying the previous mode while every pool module is
+        // read back from the controller.
+        const currentModules = poolConfigModulesCache && typeof poolConfigModulesCache === 'object'
+          ? poolConfigModulesCache
+          : {};
+        const currentModes = currentModules['poollogic/modes'] || {};
+        poolConfigModulesCache = {
+          ...currentModules,
+          'poollogic/modes': {
+            ...currentModes,
+            disinfection_type: def.typeValue
+          }
+        };
+        poolConfigRender(poolConfigModulesCache, poolConfigAlarmSlotsCache);
+
+        // Confirm the value from the firmware without replacing the page with
+        // a loading skeleton. ConfigChanged consumers are given a short turn
+        // to apply the mode before the read-back.
+        await waitMs(250);
+        await loadPoolConfig(false);
+        await refreshPoolConfigLive(true);
       } catch (err) {
         if (poolConfigSummary) {
           poolConfigSummary.textContent =
@@ -9366,21 +9456,19 @@
 
     async function loadPoolConfig(forceRefresh) {
       const reqSeq = ++poolConfigReqSeq;
-      if (!poolConfigLoadedOnce || forceRefresh) poolConfigRenderSkeleton();
+      // Keep already rendered values visible during a refresh. Only the first
+      // visit needs a skeleton.
+      if (!poolConfigLoadedOnce) poolConfigRenderSkeleton();
       if (poolConfigRefreshBtn) poolConfigRefreshBtn.disabled = true;
       try {
-        await poolConfigEnsureDocs().catch(() => {});
-        const modules = {};
-        const allDefs = poolConfigModuleDefs.concat(poolDisinfectionModeDefs);
-        for (const def of allDefs) {
-          const payload = await poolConfigFetchModule(def.module);
-          if (reqSeq !== poolConfigReqSeq) return;
-          modules[payload.module] = payload.data;
-        }
-        const alarmSlots = await fetchPoolAlarmSlots().catch(() => []);
+        const [modules, alarmSlots] = await Promise.all([
+          poolConfigFetchAllModules(),
+          fetchPoolAlarmSlots().catch(() => [])
+        ]);
         if (reqSeq !== poolConfigReqSeq) return;
         poolConfigRender(modules, alarmSlots);
         poolConfigLoadedOnce = true;
+        poolConfigWarmDocsInBackground();
       } catch (err) {
         if (reqSeq !== poolConfigReqSeq) return;
         poolConfigRenderError(err);

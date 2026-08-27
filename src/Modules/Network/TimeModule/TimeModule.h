@@ -10,6 +10,7 @@
 #include "Core/Services/Services.h"
 #include <time.h>
 #include <WiFi.h>
+#include <esp_timer.h>
 #include <freertos/FreeRTOS.h>
 
 #ifndef FLOW_RTC_PCF85063
@@ -215,6 +216,7 @@ private:
     bool serializeSchedule_(char* out, size_t outLen) const;
     bool persistSchedule_();
     time_t nowEpoch_() const;
+    void anchorEpoch_(uint64_t epochSec);
     static void sanitizeLabel_(char* label);
     void applySystemSlots_(SchedulerSlotRuntime* slots, size_t count) const;
     bool isSystemSlot_(uint8_t slot) const;
@@ -265,6 +267,16 @@ private:
     bool nextionRtcWritePending_ = false;
     char manualTimeApplied_[sizeof(TimeConfig::manualTime)] = {0};
     uint32_t lastManualTimeAttemptMs_ = 0;
+
+    // Keep normal runtime reads away from newlib's process-wide boot-time
+    // mutex.  That mutex was observed corrupted during a configuration change,
+    // causing a PANIC in time().  The authoritative epoch is anchored whenever
+    // an RTC/manual/NTP source is accepted, then advanced with esp_timer's
+    // monotonic 64-bit clock.
+    mutable portMUX_TYPE epochMux_ = portMUX_INITIALIZER_UNLOCKED;
+    uint64_t epochAnchorSec_ = 0ULL;
+    int64_t epochAnchorUs_ = 0LL;
+    bool epochAnchorValid_ = false;
 
 #if FLOW_RTC_PCF85063
     bool internalRtcInitDone_ = false;

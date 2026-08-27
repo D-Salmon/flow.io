@@ -675,6 +675,7 @@ bool TimeModule::setRtcEpoch_(uint64_t epochSec, TimeSource source, TimeQuality 
     if (settimeofday(&tv, nullptr) != 0) {
         return false;
     }
+    anchorEpoch_(epochSec);
 
     _retryCount = 0;
     _retryDelayMs = 2000;
@@ -1430,7 +1431,11 @@ void TimeModule::loop() {
             formatLocalTime_(buf, sizeof(buf));
             LOGI("Synced ok: %s", buf);
 
-            const uint64_t ntpEpoch = (uint64_t)nowEpoch_();
+            // getLocalTime() already returned the synchronized local calendar.
+            // Convert that snapshot directly instead of immediately taking
+            // newlib's global boot-time mutex through time().
+            const time_t ntpNow = mktime(&timeinfo);
+            const uint64_t ntpEpoch = (ntpNow > 0) ? (uint64_t)ntpNow : 0ULL;
             if (!setRtcEpoch_(ntpEpoch, TimeSource::Ntp, TimeQuality::NtpSynced, "ntp")) {
                 LOGW("NTP time rejected epoch=%llu", (unsigned long long)ntpEpoch);
                 recordSource_(TimeSource::Ntp, true, false, 0ULL, millis());
@@ -1908,9 +1913,37 @@ time_t TimeModule::nowEpoch_() const
     if (startEpoch <= 0) return FASTCLK_START_EPOCH_FALLBACK;
     return startEpoch + (time_t)secIntoMonth;
 #else
-    time_t now;
-    time(&now);
-    return now;
+    uint64_t anchorSec = 0ULL;
+    int64_t anchorUs = 0LL;
+    bool valid = false;
+
+    portENTER_CRITICAL(&epochMux_);
+    anchorSec = epochAnchorSec_;
+    anchorUs = epochAnchorUs_;
+    valid = epochAnchorValid_;
+    portEXIT_CRITICAL(&epochMux_);
+
+    if (!valid) return (time_t)0;
+
+    const int64_t nowUs = esp_timer_get_time();
+    const uint64_t elapsedSec = (nowUs > anchorUs)
+        ? (uint64_t)(nowUs - anchorUs) / 1000000ULL
+        : 0ULL;
+    return (time_t)(anchorSec + elapsedSec);
+#endif
+}
+
+void TimeModule::anchorEpoch_(uint64_t epochSec)
+{
+#ifndef TIME_TEST_FAST_CLOCK
+    const int64_t nowUs = esp_timer_get_time();
+    portENTER_CRITICAL(&epochMux_);
+    epochAnchorSec_ = epochSec;
+    epochAnchorUs_ = nowUs;
+    epochAnchorValid_ = isTimePlausible_(epochSec);
+    portEXIT_CRITICAL(&epochMux_);
+#else
+    (void)epochSec;
 #endif
 }
 
