@@ -15,6 +15,10 @@
 
 namespace {
 constexpr uint16_t kMinutesPerDay = 24U * 60U;
+// A missing probe must not leave an incoherent or obsolete schedule behind.
+// 12 °C maps to PoolLogic's minimum filtration policy: 2 hours in the
+// off-peak window, from 22:00 to 00:00.
+constexpr float kMissingWaterTemperatureFallbackC = 12.0f;
 }
 
 void PoolLogicModule::ensureDailySlot_()
@@ -166,18 +170,22 @@ bool PoolLogicModule::recalcAndApplyFiltrationWindow_(uint16_t* startMinuteOut,
     if (ioSvc_ && ioSvc_->readAnalog) {
         hasWaterTemp = loadAnalogSensor_(waterTempIoId_, waterTemp);
     }
+    const bool usingTemperatureFallback = !hasWaterTemp;
+    const float calculationTemp = usingTemperatureFallback
+        ? kMissingWaterTemperatureFallbackC
+        : waterTemp;
     if (!ioSvc_ || !ioSvc_->readAnalog) {
-        LOGW("No IOServiceV2 available for water temperature; keeping previous filtration window");
+        LOGW("No IOServiceV2 available for water temperature; applying minimum filtration fallback");
     } else if (!hasWaterTemp) {
-        LOGW("Water temperature unavailable on ioId=%u; keeping previous filtration window",
+        LOGW("Water temperature unavailable on ioId=%u; applying minimum filtration fallback",
              (unsigned)waterTempIoId_);
     }
 
     uint16_t startMinute = 0U;
     uint16_t stopMinute = 0U;
     uint16_t durationMinutes = 0U;
-    if (!computeFiltrationWindow_(waterTemp, startMinute, stopMinute, durationMinutes)) {
-        LOGW("Filtration window unchanged: water temperature is invalid");
+    if (!computeFiltrationWindow_(calculationTemp, startMinute, stopMinute, durationMinutes)) {
+        LOGW("Filtration window calculation failed");
         return false;
     }
 
@@ -212,23 +220,35 @@ bool PoolLogicModule::recalcAndApplyFiltrationWindow_(uint16_t* startMinuteOut,
     if (stopMinuteOut) *stopMinuteOut = stopMinute;
     if (durationMinutesOut) *durationMinutesOut = durationMinutes;
 
-    LOGI("Filtration duration=%umin water=%.2fC start=%02u:%02u stop=%02u:%02u",
+    LOGI("Filtration duration=%umin water=%.2fC fallback=%u start=%02u:%02u stop=%02u:%02u",
          (unsigned)durationMinutes,
-         (double)waterTemp,
+         (double)calculationTemp,
+         usingTemperatureFallback ? 1U : 0U,
          (unsigned)(startMinute / 60U),
          (unsigned)(startMinute % 60U),
          (unsigned)(stopMinute / 60U),
          (unsigned)(stopMinute % 60U));
     char detail[128] = {0};
-    snprintf(detail,
-             sizeof(detail),
-             "Température eau %.2f °C, durée %u min, plage %02u:%02u-%02u:%02u.",
-             (double)waterTemp,
-             (unsigned)durationMinutes,
-             (unsigned)(startMinute / 60U),
-             (unsigned)(startMinute % 60U),
-             (unsigned)(stopMinute / 60U),
-             (unsigned)(stopMinute % 60U));
+    if (usingTemperatureFallback) {
+        snprintf(detail,
+                 sizeof(detail),
+                 "Sonde indisponible : durée minimale %u min, plage %02u:%02u-%02u:%02u.",
+                 (unsigned)durationMinutes,
+                 (unsigned)(startMinute / 60U),
+                 (unsigned)(startMinute % 60U),
+                 (unsigned)(stopMinute / 60U),
+                 (unsigned)(stopMinute % 60U));
+    } else {
+        snprintf(detail,
+                 sizeof(detail),
+                 "Température eau %.2f °C, durée %u min, plage %02u:%02u-%02u:%02u.",
+                 (double)waterTemp,
+                 (unsigned)durationMinutes,
+                 (unsigned)(startMinute / 60U),
+                 (unsigned)(startMinute % 60U),
+                 (unsigned)(stopMinute / 60U),
+                 (unsigned)(stopMinute % 60U));
+    }
     emitActivity_(ActivityCode::PoolLogicFiltrationWindowCalculated,
                   ActivitySource::Scheduler,
                   ActivitySeverity::Info,

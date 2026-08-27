@@ -2437,9 +2437,9 @@
         Object.freeze({ key: 'min_filter_run_min', type: 'number', label: 'Filtration minimale avant injection', min: 0, max: 255, step: 1, unit: 'min' })
       ]),
       'poollogic/filtration': Object.freeze([
-        Object.freeze({ key: 'filtr_start_minute', type: 'time', label: 'Début de filtration' }),
-        Object.freeze({ key: 'filtr_stop_minute', type: 'time', label: 'Fin de filtration' }),
-        Object.freeze({ key: 'filtr_duration_minute', type: 'number', label: 'Durée de filtration calculée', min: 0, max: 1440, step: 1, unit: 'min' })
+        Object.freeze({ key: 'filtr_start_minute', type: 'time', label: 'Début prévu' }),
+        Object.freeze({ key: 'filtr_stop_minute', type: 'time', label: 'Fin prévue' }),
+        Object.freeze({ key: 'filtr_duration_minute', type: 'number', label: 'Durée prévue', min: 0, max: 1440, step: 1, unit: 'min' })
       ]),
       'poollogic/refill': Object.freeze([
         Object.freeze({ key: 'fill_enabled', type: 'bool', label: 'Maintien du niveau du bassin' }),
@@ -7257,6 +7257,7 @@
           }
           card.className = 'dashboard-equipment-card '
             + (actionable ? ' is-actionable ' : '')
+            + (def.key === 'lgt' ? ' is-lighting ' : '')
             + (available ? (on ? 'is-on' : 'is-off') : 'is-unavailable');
           const icon = document.createElement('span');
           icon.className = 'ui-msr';
@@ -7647,9 +7648,11 @@
         const blockedByAutomatic = automatic && def.automatic;
         const pending = poolEquipmentCommandBusy === def.key;
         const disabled = !available || blockedByAutomatic || !!poolEquipmentCommandBusy;
+        const isLights = def.key === 'lights';
         const card = document.createElement('article');
         card.className = 'pool-equipment-card'
           + (def.featured ? ' is-featured' : '')
+          + (isLights ? ' is-lighting' : '')
           + (available ? (on ? ' is-on' : ' is-off') : ' is-unavailable')
           + (blockedByAutomatic ? ' is-automatic' : '')
           + (pending ? ' is-pending' : '');
@@ -7662,7 +7665,6 @@
         icon.textContent = def.icon;
         const stateLabel = document.createElement('span');
         stateLabel.className = 'pool-equipment-state';
-        const isLights = def.key === 'lights';
         stateLabel.textContent = pending
           ? tr('pool.control.pending', 'Commande…')
           : (!available
@@ -7749,6 +7751,17 @@
       const n = Number(value);
       if (!Number.isFinite(n)) return String(value ?? '-');
       return String(Math.max(0, Math.min(23, Math.trunc(n)))).padStart(2, '0') + ':00';
+    }
+
+    function poolConfigFormatDurationMinutes(value) {
+      const minutes = Number(value);
+      if (!Number.isFinite(minutes) || minutes < 0) return '—';
+      const rounded = Math.round(minutes);
+      const hours = Math.floor(rounded / 60);
+      const remainder = rounded % 60;
+      if (!hours) return remainder + ' min';
+      if (!remainder) return hours + ' h';
+      return hours + ' h ' + String(remainder).padStart(2, '0') + ' min';
     }
 
     function poolConfigHourToMinutes(value) {
@@ -8116,7 +8129,7 @@
         return option ? option.value : input.value;
       }
       if (spec.type === 'time') {
-        const match = /^(\d{2}):(\d{2})$/.exec(String(input.value || ''));
+        const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(String(input.value || '').trim());
         if (!match) throw new Error('Heure invalide');
         return (Number(match[1]) * 60) + Number(match[2]);
       }
@@ -8391,9 +8404,18 @@
           });
           control.value = String(data[spec.key]);
         } else if (spec.type === 'time') {
-          control.type = 'time';
+          // Do not use the browser's native time control here: its rendering
+          // follows the operating-system locale and may expose an AM/PM UI.
+          // PoolLogic schedules must always be displayed as French 24-hour
+          // values, independently of the browser running the interface.
+          control.type = 'text';
           control.value = String(poolConfigEditorDisplayValue(spec, data[spec.key]));
-          control.step = '60';
+          control.inputMode = 'numeric';
+          control.maxLength = 5;
+          control.placeholder = 'HH:mm';
+          control.pattern = '(?:[01]\\d|2[0-3]):[0-5]\\d';
+          control.title = 'Saisissez une heure au format 24 heures HH:mm (par exemple 08:30).';
+          control.setAttribute('aria-label', (spec.label || 'Heure') + ' au format 24 heures HH:mm');
           control.required = true;
         } else {
           control.type = 'number';
@@ -9280,20 +9302,79 @@
       const schedule = dashboardSchedule(data);
       const start = schedule ? schedule.start : '—';
       const stop = schedule ? schedule.stop : '—';
-      const times = document.createElement('div');
-      times.className = 'pool-filtration-times';
-      const startEl = document.createElement('b');
-      startEl.textContent = start;
-      const arrow = document.createElement('span');
-      arrow.className = 'ui-msr pool-filtration-arrow';
-      arrow.setAttribute('aria-hidden', 'true');
-      arrow.textContent = 'arrow_forward';
-      const stopEl = document.createElement('b');
-      stopEl.textContent = stop;
-      times.appendChild(startEl);
-      times.appendChild(arrow);
-      times.appendChild(stopEl);
-      card.appendChild(times);
+      const durationMinutes = Number(data && data.filtr_duration_minute);
+      const duration = poolConfigFormatDurationMinutes(durationMinutes);
+      let scheduledMinutes = null;
+      if (schedule) {
+        scheduledMinutes = ((schedule.stopValue - schedule.startValue) + 1440) % 1440;
+        if (Math.round(durationMinutes) === 1440 && scheduledMinutes === 0) scheduledMinutes = 1440;
+      }
+      const coherent = schedule
+        && Number.isFinite(durationMinutes)
+        && Math.round(durationMinutes) === scheduledMinutes;
+      const waterTemperature = Number(poolConfigLiveState && poolConfigLiveState.wat);
+      const waterTemperatureAvailable = Number.isFinite(waterTemperature);
+
+      const values = document.createElement('div');
+      values.className = 'pool-filtration-values';
+      [
+        { label: tr('pool.filtration.start', 'Début prévu'), value: start },
+        { label: tr('pool.filtration.stop', 'Fin prévue'), value: stop },
+        { label: tr('pool.filtration.duration', 'Durée prévue'), value: duration }
+      ].forEach((entry) => {
+        const item = document.createElement('div');
+        item.className = 'pool-filtration-value';
+        const label = document.createElement('span');
+        label.textContent = entry.label;
+        const value = document.createElement('strong');
+        value.textContent = entry.value;
+        item.appendChild(label);
+        item.appendChild(value);
+        values.appendChild(item);
+      });
+      card.appendChild(values);
+
+      const explanation = document.createElement('p');
+      explanation.className = 'pool-filtration-explanation' + (coherent && waterTemperatureAvailable ? '' : ' is-warning');
+      explanation.textContent = !waterTemperatureAvailable
+        ? tr('pool.filtration.temperatureUnavailable', 'Sonde de température indisponible : Flow.io applique le programme minimal de sécurité, de 22:00 à 00:00 (2 h).')
+        : (coherent
+          ? tr('pool.filtration.calculatedHelp', 'Ces horaires sont calculés automatiquement à partir de la température de l’eau.')
+          : tr('pool.filtration.inconsistent', 'Le créneau affiché ne correspond pas à la durée prévue. Relancez le calcul.'));
+      card.appendChild(explanation);
+
+      const actions = document.createElement('div');
+      actions.className = 'pool-filtration-actions';
+      const status = document.createElement('span');
+      status.className = 'pool-settings-status';
+      status.setAttribute('role', 'status');
+      status.setAttribute('aria-live', 'polite');
+      const recalculate = document.createElement('button');
+      recalculate.type = 'button';
+      recalculate.className = 'btn-tonal';
+      recalculate.textContent = tr('pool.filtration.recalculate', 'Recalculer');
+      recalculate.addEventListener('click', async () => {
+        recalculate.disabled = true;
+        status.className = 'pool-settings-status is-pending';
+        status.textContent = tr('pool.filtration.recalculating', 'Recalcul en cours…');
+        try {
+          await fetchOkJson(
+            '/api/poollogic/filtration/recalculate',
+            { method: 'POST' },
+            tr('pool.filtration.recalculateFailed', 'Recalcul impossible'),
+            fetch
+          );
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          await loadPoolConfig(true);
+        } catch (err) {
+          status.className = 'pool-settings-status is-error';
+          status.textContent = tr('pool.filtration.recalculateFailed', 'Recalcul impossible') + ' : ' + String(err);
+          recalculate.disabled = false;
+        }
+      });
+      actions.appendChild(status);
+      actions.appendChild(recalculate);
+      card.appendChild(actions);
       return card;
     }
 
@@ -9322,6 +9403,10 @@
       orderedDefs.forEach((def) => {
         if (def.hidden) return;
         const data = modules[def.module] || {};
+        if (def.module === 'poollogic/filtration') {
+          poolConfigGrid.appendChild(poolConfigRenderFiltrationCard(def, data));
+          return;
+        }
         const fieldSpecs = poolEditableFieldSpecs[def.module] || [];
         if (!fieldSpecs.length) return;
         const card = document.createElement('article');

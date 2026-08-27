@@ -800,6 +800,8 @@ body.web-icons-disabled .control-field-apply{font-size:15px;font-weight:800;lett
 .pool-equipment-card.is-featured::after{background:rgba(240,138,0,.13);}
 .pool-equipment-card.is-featured .pool-equipment-icon{color:#d07800;}
 .pool-equipment-card.is-featured.is-on{background:rgba(255,184,46,.14);box-shadow:0 0 0 3px rgba(240,138,0,.08);}
+.pool-equipment-card.is-lighting.is-off .pool-equipment-icon{background:var(--primary-soft);color:var(--primary);text-shadow:none;}
+.pool-equipment-card.is-lighting.is-on .pool-equipment-icon{background:rgba(244,194,13,.18);color:#f4c20d;text-shadow:0 0 10px rgba(244,194,13,.42);}
 .pool-equipment-card.is-automatic{opacity:.72;}
 .pool-equipment-card.is-unavailable{opacity:.56;}
 .pool-equipment-card.is-pending{cursor:progress;box-shadow:0 0 0 3px rgba(0,116,232,.09);}
@@ -951,6 +953,13 @@ body.web-icons-disabled .control-field-apply{font-size:15px;font-weight:800;lett
 .pool-filtration-times{display:flex;align-items:center;gap:14px;padding-left:54px;color:var(--text);}
 .pool-filtration-times b{font-size:26px;line-height:1;font-weight:850;letter-spacing:0;}
 .pool-filtration-arrow{display:inline-flex;font-size:24px;color:var(--primary);}
+.pool-filtration-values{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;}
+.pool-filtration-value{display:grid;gap:6px;padding:14px;border:1px solid var(--border);border-radius:12px;background:var(--surface-soft);}
+.pool-filtration-value span{color:var(--text-muted);font-size:12px;font-weight:750;}
+.pool-filtration-value strong{color:var(--text);font-size:22px;line-height:1.15;}
+.pool-filtration-explanation{margin:0;padding:11px 13px;border-radius:10px;background:var(--primary-soft);color:var(--text-muted);font-size:12px;font-weight:700;line-height:1.45;}
+.pool-filtration-explanation.is-warning{background:rgba(240,138,0,.12);color:#9a5500;}
+.pool-filtration-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:12px;border-top:1px solid var(--border);}
 .pool-config-skeleton{gap:10px;}
 .pool-config-skeleton .skeleton-line{height:12px;}
 .pool-config-skeleton .skeleton-line:first-child{width:68%;height:16px;}
@@ -997,6 +1006,7 @@ body.web-icons-disabled .control-field-apply{font-size:15px;font-weight:800;lett
   .pool-field-value{text-align:left;}
   .pool-field-value.has-active-dot{justify-content:flex-start;}
   .pool-filtration-times{padding-left:48px;}
+  .pool-filtration-values{grid-template-columns:1fr;}
   .pool-equipment-control{padding:15px;}
   .pool-equipment-grid{grid-template-columns:1fr;}
   .pool-equipment-card{min-height:160px;}
@@ -1330,7 +1340,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .dashboard-lights-shortcut{border-color:rgba(240,138,0,.32);background:rgba(240,138,0,.08);}
 .dashboard-lights-shortcut .ui-msr{color:#c76f00;}
 .dashboard-lights-shortcut.is-on{border-color:rgba(240,138,0,.62);background:rgba(255,184,46,.2);color:#9a5500;box-shadow:0 0 0 3px rgba(240,138,0,.08);}
-.dashboard-lights-shortcut.is-on .ui-msr{color:#e08100;font-variation-settings:'FILL' 1,'wght' 600,'GRAD' 0,'opsz' 24;}
+.dashboard-lights-shortcut.is-on .ui-msr{color:#f4c20d;text-shadow:0 0 9px rgba(244,194,13,.4);font-variation-settings:'FILL' 1,'wght' 600,'GRAD' 0,'opsz' 24;}
 .dashboard-lights-shortcut:disabled{cursor:not-allowed;opacity:.58;transform:none;}
 .dashboard-kpi-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;}
 .dashboard-kpi-card{position:relative;overflow:hidden;display:grid;grid-template-columns:48px minmax(0,1fr);gap:13px;align-items:center;min-height:94px;padding:16px;border:1px solid var(--border);border-radius:14px;background:var(--surface);box-shadow:0 8px 22px rgba(7,26,53,.055);}
@@ -1363,6 +1373,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .dashboard-equipment-card span:last-child{font-size:11px;font-weight:800;color:var(--state-muted-fg);}
 .dashboard-equipment-card.is-on{border-color:rgba(22,164,93,.28);background:var(--state-ok-bg);}
 .dashboard-equipment-card.is-on .ui-msr,.dashboard-equipment-card.is-on span:last-child{color:var(--state-ok-fg);}
+.dashboard-equipment-card.is-lighting.is-on .ui-msr{color:#f4c20d;text-shadow:0 0 9px rgba(244,194,13,.4);font-variation-settings:'FILL' 1,'wght' 600,'GRAD' 0,'opsz' 24;}
 .dashboard-equipment-card.is-off .ui-msr{color:var(--text-muted);}
 .dashboard-equipment-card.is-unavailable{opacity:.64;}
 .dashboard-filtration-panel{display:flex;flex-direction:column;}

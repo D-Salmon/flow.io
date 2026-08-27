@@ -174,17 +174,20 @@ bool PoolLogicModule::cmdFiltrationWrite_(const CommandRequest& req, char* reply
 
 bool PoolLogicModule::cmdFiltrationRecalc_(const CommandRequest&, char* reply, size_t replyLen)
 {
-    if (!enabled_) {
-        writeCmdError_(reply, replyLen, "poollogic.filtration.recalc", ErrorCode::Disabled);
+    uint16_t startMinute = 0U;
+    uint16_t stopMinute = 0U;
+    uint16_t durationMinutes = 0U;
+    if (!recalcAndApplyFiltrationWindow_(&startMinute, &stopMinute, &durationMinutes)) {
+        writeCmdError_(reply, replyLen, "poollogic.filtration.recalc", ErrorCode::Failed);
         return false;
     }
 
-    // Match scheduler-trigger behavior: queue the recalc and let loop() own execution.
-    portENTER_CRITICAL(&pendingMux_);
-    pendingDailyRecalc_ = true;
-    portEXIT_CRITICAL(&pendingMux_);
-
-    snprintf(reply, replyLen, "{\"ok\":true,\"queued\":true}");
+    snprintf(reply,
+             replyLen,
+             "{\"ok\":true,\"start_minute\":%u,\"stop_minute\":%u,\"duration_minute\":%u}",
+             (unsigned)startMinute,
+             (unsigned)stopMinute,
+             (unsigned)durationMinutes);
     return true;
 }
 
