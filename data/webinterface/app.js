@@ -1245,8 +1245,8 @@
       const reachable = deviceReachabilityReachable && !unreachable;
       if (headerDeviceStatus) {
         headerDeviceStatus.textContent = unreachable
-          ? tr('header.device.unreachable', 'Non joignable')
-          : (reachable ? tr('header.device.reachable', 'Joignable') : tr('header.device.pending', 'Vérification...'));
+          ? tr('header.device.unreachable', 'Hors ligne')
+          : (reachable ? tr('header.device.reachable', 'En ligne') : tr('header.device.pending', 'Vérification...'));
       }
       if (headerReachabilityDot) {
         headerReachabilityDot.classList.toggle('is-reachable', reachable);
@@ -7163,6 +7163,8 @@
         : {};
       const modes = payload.modes || {};
       const filtration = payload.filtration || {};
+      const sensors = payload.sensors || {};
+      const electrolysisFeedbackMonitored = Number(sensors.swg_fb_io_id) !== 65535;
       const poolLogicEnabled = Object.prototype.hasOwnProperty.call(modes, 'enabled') ? toBool(modes.enabled) : !!(pool && pool.has);
       const automatic = poolLogicEnabled && (Object.prototype.hasOwnProperty.call(modes, 'auto_mode') ? toBool(modes.auto_mode) : !!(pool && pool.auto));
       const winter = poolLogicEnabled && (Object.prototype.hasOwnProperty.call(modes, 'winter_mode') ? toBool(modes.winter_mode) : !!(pool && pool.wint));
@@ -7266,7 +7268,12 @@
           const label = document.createElement('strong');
           label.textContent = def.label;
           const state = document.createElement('span');
-          state.textContent = !available ? tr('dashboard.equipment.unavailable', 'Indisponible') : (on ? tr('dashboard.equipment.on', 'En marche') : tr('dashboard.equipment.off', 'À l’arrêt'));
+          const commandOnly = def.key === 'swg' && !electrolysisFeedbackMonitored;
+          state.textContent = !available
+            ? tr('dashboard.equipment.unavailable', 'Indisponible')
+            : (on
+              ? (commandOnly ? tr('dashboard.equipment.commanded', 'Commandé') : tr('dashboard.equipment.on', 'En marche'))
+              : tr('dashboard.equipment.off', 'À l’arrêt'));
           card.appendChild(icon);
           card.appendChild(label);
           card.appendChild(state);
@@ -7371,7 +7378,8 @@
         safe(fetchFlowStatusDomain('alarm', !!forceRefresh, 'dashboard')),
         safe(fetchPoolDashboardSlots()),
         safe(poolConfigFetchModule('poollogic/modes')),
-        safe(poolConfigFetchModule('poollogic/filtration'))
+        safe(poolConfigFetchModule('poollogic/filtration')),
+        safe(poolConfigFetchModule('poollogic/sensors'))
       ]);
       if (reqSeq !== dashboardOverviewReqSeq) return;
       const payload = {
@@ -7381,7 +7389,8 @@
         alarmDomain: results[3],
         slotPayload: results[4] || {},
         modes: results[5] && results[5].data ? results[5].data : {},
-        filtration: results[6] && results[6].data ? results[6].data : {}
+        filtration: results[6] && results[6].data ? results[6].data : {},
+        sensors: results[7] && results[7].data ? results[7].data : {}
       };
       dashboardOverviewLoadedOnce = true;
       renderDashboardOverview(payload);
@@ -7544,6 +7553,10 @@
       const modes = modules && modules['poollogic/modes'] && typeof modules['poollogic/modes'] === 'object'
         ? modules['poollogic/modes']
         : {};
+      const sensors = modules && modules['poollogic/sensors'] && typeof modules['poollogic/sensors'] === 'object'
+        ? modules['poollogic/sensors']
+        : {};
+      const electrolysisFeedbackMonitored = Number(sensors.swg_fb_io_id) !== 65535;
       const automatic = poolEquipmentAutomaticMode(modules);
       poolEquipmentControl.innerHTML = '';
 
@@ -7649,6 +7662,7 @@
         const pending = poolEquipmentCommandBusy === def.key;
         const disabled = !available || blockedByAutomatic || !!poolEquipmentCommandBusy;
         const isLights = def.key === 'lights';
+        const commandOnly = def.key === 'electrolysis' && !electrolysisFeedbackMonitored;
         const card = document.createElement('article');
         card.className = 'pool-equipment-card'
           + (def.featured ? ' is-featured' : '')
@@ -7670,7 +7684,9 @@
           : (!available
             ? tr('dashboard.equipment.unavailable', 'Indisponible')
             : (on
-              ? (isLights ? tr('pool.control.on', 'Allumé') : tr('pool.control.running', 'En marche'))
+              ? (isLights
+                ? tr('pool.control.on', 'Allumé')
+                : (commandOnly ? tr('pool.control.commanded', 'Commandé') : tr('pool.control.running', 'En marche')))
               : (isLights ? tr('pool.control.off', 'Éteint') : tr('pool.control.stopped', 'À l’arrêt'))));
         top.appendChild(icon);
         top.appendChild(stateLabel);
@@ -7678,9 +7694,11 @@
         const name = document.createElement('h3');
         name.textContent = tr(def.labelKey, def.label);
         const note = document.createElement('p');
-        note.textContent = blockedByAutomatic
-          ? tr('pool.control.automatic', 'Piloté automatiquement')
-          : tr(def.noteKey, def.note);
+        note.textContent = commandOnly
+          ? tr('pool.control.commandOnlyNote', 'Ordre envoyé au relais ; aucun retour matériel n’est configuré.')
+          : (blockedByAutomatic
+            ? tr('pool.control.automatic', 'Piloté automatiquement')
+            : tr(def.noteKey, def.note));
         const footer = document.createElement('div');
         footer.className = 'pool-equipment-card-footer';
         const actionText = document.createElement('span');
@@ -8290,9 +8308,8 @@
           mode.className = 'pool-setting-control';
           mode.name = spec.activeHighKey;
           [
-            { value: 'disabled', label: 'Désactivé / non câblé' },
-            { value: 'closed', label: 'Actif si fermé' },
-            { value: 'open', label: 'Actif si ouvert' }
+            { value: 'closed', label: 'Normalement ouvert (NO) — fermé en marche' },
+            { value: 'open', label: 'Normalement fermé (NF) — ouvert en marche' }
           ].forEach((entry) => {
             const option = document.createElement('option');
             option.value = entry.value;
@@ -8303,7 +8320,7 @@
           const configuredIoId = Number(data[spec.key]);
           const feedbackEnabled = configuredIoId !== 65535;
           let lastActiveHigh = toBool(data[spec.activeHighKey]);
-          mode.value = feedbackEnabled ? (lastActiveHigh ? 'closed' : 'open') : 'disabled';
+          mode.value = lastActiveHigh ? 'closed' : 'open';
           modeRow.appendChild(modeLabel);
           modeRow.appendChild(mode);
           const modeDoc = poolConfigDoc(moduleName, spec.activeHighKey);
@@ -8313,8 +8330,6 @@
             help.textContent = modeDoc.help.trim();
             modeRow.appendChild(help);
           }
-          field.appendChild(modeRow);
-
           const inputRow = document.createElement('div');
           inputRow.className = 'pool-feedback-row';
           const inputId = 'pool-setting-' + runtimeMeasureCssSlug(moduleName + '-' + spec.key) + '-' + index;
@@ -8327,8 +8342,8 @@
           input.className = 'pool-setting-control';
           input.name = spec.key;
           const placeholder = document.createElement('option');
-          placeholder.value = '';
-          placeholder.textContent = 'Choisir une entrée…';
+          placeholder.value = '65535';
+          placeholder.textContent = 'Désactivé / non câblé';
           input.appendChild(placeholder);
           (spec.options || []).forEach((entry) => {
             const option = document.createElement('option');
@@ -8336,7 +8351,7 @@
             option.textContent = entry.label;
             input.appendChild(option);
           });
-          if (feedbackEnabled) input.value = String(data[spec.key]);
+          input.value = feedbackEnabled ? String(data[spec.key]) : '65535';
           inputRow.appendChild(inputLabel);
           inputRow.appendChild(input);
           const inputDoc = poolConfigDoc(moduleName, spec.key);
@@ -8347,14 +8362,15 @@
             inputRow.appendChild(help);
           }
           field.appendChild(inputRow);
+          field.appendChild(modeRow);
 
           const syncFeedback = () => {
-            const enabled = mode.value !== 'disabled';
+            const enabled = Number(input.value) !== 65535;
             if (enabled) lastActiveHigh = mode.value === 'closed';
-            inputRow.hidden = !enabled;
-            input.disabled = !enabled;
-            input.required = enabled;
+            modeRow.hidden = !enabled;
+            mode.disabled = !enabled;
           };
+          input.addEventListener('change', syncFeedback);
           mode.addEventListener('change', syncFeedback);
           syncFeedback();
 
@@ -8362,12 +8378,12 @@
           entries.push({
             spec: { key: spec.key, label: spec.label },
             input,
-            read: () => mode.value === 'disabled' ? 65535 : Number(input.value)
+            read: () => Number(input.value)
           });
           entries.push({
             spec: { key: spec.activeHighKey, label: spec.label },
             input: mode,
-            read: () => mode.value === 'disabled' ? lastActiveHigh : mode.value === 'closed'
+            read: () => Number(input.value) === 65535 ? lastActiveHigh : mode.value === 'closed'
           });
           return;
         }
@@ -11378,7 +11394,29 @@
       return out;
     }
 
+    function poolLogicFeedbackConfigFieldKind(moduleName, key) {
+      const cleanModule = nettoyerNomFlowCfg(moduleName).toLowerCase();
+      const cleanKey = String(key || '').trim().toLowerCase();
+      if (cleanModule !== 'poollogic/sensors') return '';
+      if (cleanKey === 'filtr_fb_io_id' || cleanKey === 'swg_fb_io_id') return 'input';
+      if (cleanKey === 'filtr_fb_active_high' || cleanKey === 'swg_fb_active_high') return 'polarity';
+      return '';
+    }
+
     function configEnumOptionsForField(source, moduleName, key, doc) {
+      const feedbackFieldKind = poolLogicFeedbackConfigFieldKind(moduleName, key);
+      if (feedbackFieldKind === 'input') {
+        return [
+          { value: 65535, label: tr('config.feedback.disabled', 'Désactivé / non câblé') },
+          ...poolDigitalIoOptions
+        ];
+      }
+      if (feedbackFieldKind === 'polarity') {
+        return [
+          { value: true, label: tr('config.feedback.normallyOpen', 'Normalement ouvert (NO) — fermé en marche') },
+          { value: false, label: tr('config.feedback.normallyClosed', 'Normalement fermé (NF) — ouvert en marche') }
+        ];
+      }
       const options = (doc && Array.isArray(doc._enumOptions)) ? doc._enumOptions : null;
       if (!options) return null;
       if (isWaveshareProfile() && isPoolLogicDeviceSlotField(moduleName, key, doc)) {
@@ -12020,9 +12058,25 @@
         'pass',
         'topicDeviceId'
       ];
-      const preferredFieldOrder = nettoyerNomFlowCfg(moduleName) === 'mqtt'
+      const poolSensorFieldOrder = [
+        'ph_io_id',
+        'dis_io_id',
+        'psi_io_id',
+        'wat_temp_io_id',
+        'air_temp_io_id',
+        'pool_lvl_io_id',
+        'ph_lvl_io_id',
+        'chl_lvl_io_id',
+        'filtr_fb_io_id',
+        'filtr_fb_active_high',
+        'swg_fb_io_id',
+        'swg_fb_active_high',
+        'psi_monitoring'
+      ];
+      const cleanModuleName = nettoyerNomFlowCfg(moduleName).toLowerCase();
+      const preferredFieldOrder = cleanModuleName === 'mqtt'
         ? mqttFieldOrder
-        : null;
+        : (cleanModuleName === 'poollogic/sensors' ? poolSensorFieldOrder : null);
       const keys = Object.keys(data).sort((left, right) => {
         if (!preferredFieldOrder) return left.localeCompare(right);
         const leftIndex = preferredFieldOrder.indexOf(left);
@@ -12315,6 +12369,24 @@
         }
       }
 
+      if (nettoyerNomFlowCfg(moduleName).toLowerCase() === 'poollogic/sensors' && visibilityEntries.length > 0) {
+        ['filtr', 'swg'].forEach((prefix) => {
+          const inputEntry = visibilityEntries.find((entry) => entry.key === prefix + '_fb_io_id');
+          const polarityEntry = visibilityEntries.find((entry) => entry.key === prefix + '_fb_active_high');
+          if (!inputEntry || !inputEntry.inputEl || !polarityEntry || !polarityEntry.inputEl) return;
+          const applyFeedbackVisibility = () => {
+            const disabled = Number(readConfigFieldValue(inputEntry.inputEl)) === 65535;
+            polarityEntry.row.hidden = disabled;
+            polarityEntry.inputEl.dataset.runtimeHidden = disabled ? '1' : '0';
+            polarityEntry.inputEl.disabled = disabled;
+            if (controlsPrimaryPane && !perFieldApply) updatePrimaryCfgApplyState();
+          };
+          inputEntry.inputEl.addEventListener('input', applyFeedbackVisibility);
+          inputEntry.inputEl.addEventListener('change', applyFeedbackVisibility);
+          applyFeedbackVisibility();
+        });
+      }
+
       if (controlsPrimaryPane && !perFieldApply) {
         updatePrimaryCfgApplyState();
       }
@@ -12462,7 +12534,7 @@
         if (!patch[targetModule]) patch[targetModule] = {};
         const modulePatch = patch[targetModule];
         if (kind === 'bool') {
-          modulePatch[key] = !!el.checked;
+          modulePatch[key] = readConfigFieldValueStrict(el);
           return;
         }
         if (kind === 'int') {
