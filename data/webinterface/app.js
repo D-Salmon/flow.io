@@ -1788,6 +1788,58 @@
       return new Promise((resolve) => setTimeout(resolve, ms));
     }
 
+    async function ensureNetworkPage() {
+      if (networkPage) return networkPage;
+      if (networkPageLoadPromise) return networkPageLoadPromise;
+      networkPageLoadPromise = (async () => {
+        if (!window.FlowWebCore
+          || typeof window.FlowWebCore.loadScriptOnce !== 'function'
+          || typeof window.FlowWebCore.loadCssOnce !== 'function') {
+          throw new Error('chargeur de page réseau indisponible');
+        }
+        await Promise.all([
+          window.FlowWebCore.loadCssOnce(
+            assetUrl('/webinterface/network.css'),
+            { retries: 3, timeoutMs: 8000 }
+          ),
+          window.FlowWebCore.loadScriptOnce(
+            assetUrl('/webinterface/network.js'),
+            { retries: 3, timeoutMs: 9000 }
+          )
+        ]);
+        const factory = window.FlowWebPages && window.FlowWebPages.network
+          ? window.FlowWebPages.network.create
+          : null;
+        if (typeof factory !== 'function') {
+          throw new Error('module de page réseau indisponible');
+        }
+        networkPage = factory({
+          tr,
+          fetchOkJson,
+          createFormPostOptions,
+          fetchFlowStatusDomain,
+          normalizeNetworkType,
+          getActivePageId,
+          bindClickAction,
+          updatePasswordVisibility: mettreAJourEtatVisibiliteMotDePasse,
+          togglePasswordVisibility: basculerVisibiliteMotDePasse
+        });
+        return networkPage;
+      })().finally(() => {
+        networkPageLoadPromise = null;
+      });
+      return networkPageLoadPromise;
+    }
+
+    async function onNetworkPageShown() {
+      const page = await ensureNetworkPage();
+      if (getActivePageId() !== 'page-wifi' || document.hidden) {
+        page.hide();
+        return;
+      }
+      await page.show();
+    }
+
     function isPageActive(pageId) {
       const el = document.getElementById(pageId);
       return !!(el && el.classList.contains('active'));
@@ -1871,9 +1923,9 @@
         schedulePageTask(pageId,
                          pageToken,
                          deferredHeavyMs > 0 ? (deferredHeavyMs + 180) : 0,
-                         () => onWifiPageShown());
-      } else {
-        stopNetworkConnectionStatusTimer();
+                         () => onNetworkPageShown());
+      } else if (networkPage) {
+        networkPage.hide();
       }
       if (pageId === 'page-control') {
         schedulePageTask(pageId,
@@ -1978,36 +2030,6 @@
     const upgradeEta = document.getElementById('upgradeEta');
     const upStatusChip = document.getElementById('upStatusChip');
 
-    const wifiEnabled = document.getElementById('wifiEnabled');
-    const wifiSsid = document.getElementById('wifiSsid');
-    const wifiSsidList = document.getElementById('wifiSsidList');
-    const wifiPass = document.getElementById('wifiPass');
-    const toggleWifiPassBtn = document.getElementById('toggleWifiPass');
-    const scanWifiBtn = document.getElementById('scanWifi');
-    const applyWifiCfgBtn = document.getElementById('applyWifiCfg');
-    const wifiConfigStatus = document.getElementById('wifiConfigStatus');
-    const wifiConfigFields = document.getElementById('wifiConfigFields');
-    const ethernetEnabled = document.getElementById('ethernetEnabled');
-    const ethernetDhcp = document.getElementById('ethernetDhcp');
-    const ethernetStaticFields = document.getElementById('ethernetStaticFields');
-    const ethernetIp = document.getElementById('ethernetIp');
-    const ethernetSubnet = document.getElementById('ethernetSubnet');
-    const ethernetGateway = document.getElementById('ethernetGateway');
-    const ethernetDns1 = document.getElementById('ethernetDns1');
-    const ethernetDns2 = document.getElementById('ethernetDns2');
-    const ethernetConnectionState = document.getElementById('ethernetConnectionState');
-    const wifiConnectionState = document.getElementById('wifiConnectionState');
-    const mqttEnabled = document.getElementById('mqttEnabled');
-    const mqttConfigFields = document.getElementById('mqttConfigFields');
-    const mqttConnectionState = document.getElementById('mqttConnectionState');
-    const mqttDeviceName = document.getElementById('mqttDeviceName');
-    const mqttBaseTopic = document.getElementById('mqttBaseTopic');
-    const mqttHost = document.getElementById('mqttHost');
-    const mqttPort = document.getElementById('mqttPort');
-    const mqttUser = document.getElementById('mqttUser');
-    const mqttPass = document.getElementById('mqttPass');
-    const toggleMqttPassBtn = document.getElementById('toggleMqttPass');
-    const mqttTopicDeviceId = document.getElementById('mqttTopicDeviceId');
     const rebootDeviceTargetSelect = document.getElementById('rebootDeviceTarget');
     const rebootDeviceActionBtn = document.getElementById('rebootDeviceAction');
     const kioskShutdownAction = document.getElementById('kioskShutdownAction');
@@ -2135,9 +2157,8 @@
     let flowCfgFlowOnlyFailureStreak = 0;
     let flowCfgLocalApplyBusyDepth = 0;
     let flowCfgApplyBtnSavedText = '';
-    let wifiConfigLoadedOnce = false;
-    let mqttPasswordConfigured = false;
-    let networkConnectionStatusTimer = null;
+    let networkPage = null;
+    let networkPageLoadPromise = null;
     let flowCfgLoadedOnce = false;
     let calibrationLoadedOnce = false;
     let calibrationContext = null;
@@ -2174,7 +2195,6 @@
       14: 'COMP07',
       15: 'COMP08'
     });
-    let wifiScanAutoRequested = false;
     let flowStatusReqSeq = 0;
     let ioSummaryReqSeq = 0;
     let ioSummaryLoadedOnce = false;
@@ -2599,8 +2619,6 @@
       if (getActivePageId() !== 'page-io-summary' || document.hidden) return;
       return refreshIoSummary(false);
     }, 10000);
-    const wifiScanPoller = createTimeoutRunner(() => refreshWifiScanStatus(false));
-
     function activeLogSourceMeta() {
       return logSourceMeta[logSource] || logSourceMeta.supervisor;
     }
@@ -4362,21 +4380,6 @@
         });
         setUpgradeMessage('Échec de la mise à jour : ' + err);
       }
-    }
-
-    async function onWifiPageShown() {
-      if (!wifiConfigLoadedOnce) {
-        wifiConfigLoadedOnce = true;
-        await Promise.all([loadWifiConfig(), loadMqttConfig()]);
-      }
-      if (!wifiScanAutoRequested) {
-        wifiScanAutoRequested = true;
-        await refreshWifiScanStatus(true);
-      } else {
-        await refreshWifiScanStatus(false);
-      }
-      await refreshNetworkConnectionStates(true);
-      scheduleNetworkConnectionStatusRefresh();
     }
 
     async function onControlPageShown() {
@@ -10235,322 +10238,6 @@
       }
     }
 
-    function stopWifiScanPolling() {
-      wifiScanPoller.stop();
-    }
-
-    function scheduleWifiScanPolling() {
-      wifiScanPoller.schedule(1200);
-    }
-
-    function renderWifiScanList(data) {
-      const networks = (data && Array.isArray(data.networks)) ? data.networks : [];
-      const currentSsid = (wifiSsid.value || '').trim();
-      const prevSelected = wifiSsidList.value || '';
-      const maxWifiOptionLabelLen = 56;
-
-      wifiSsidList.innerHTML = '';
-      const manualOpt = document.createElement('option');
-      manualOpt.value = '';
-      manualOpt.textContent = 'Saisie manuelle';
-      wifiSsidList.appendChild(manualOpt);
-
-      for (const net of networks) {
-        if (!net || typeof net.ssid !== 'string' || net.ssid.length === 0) continue;
-        if (net.hidden) continue;
-        const opt = document.createElement('option');
-        const secureSuffix = net.secure ? ' (securise)' : ' (ouvert)';
-        const rssiSuffix = Number.isFinite(net.rssi) ? (' ' + net.rssi + ' dBm') : '';
-        const fullLabel = net.ssid + secureSuffix + rssiSuffix;
-        opt.value = net.ssid;
-        opt.textContent = fullLabel.length > maxWifiOptionLabelLen
-            ? (fullLabel.slice(0, maxWifiOptionLabelLen - 1) + '…')
-            : fullLabel;
-        wifiSsidList.appendChild(opt);
-      }
-
-      const values = Array.from(wifiSsidList.options).map((o) => o.value);
-      if (currentSsid && values.includes(currentSsid)) {
-        wifiSsidList.value = currentSsid;
-      } else if (prevSelected && values.includes(prevSelected)) {
-        wifiSsidList.value = prevSelected;
-      } else {
-        wifiSsidList.value = '';
-      }
-    }
-
-    function updateWifiScanStatusText(data, reqError) {
-      if (reqError) {
-        wifiConfigStatus.textContent = 'Scan réseau indisponible: ' + reqError;
-        return;
-      }
-      if (!data || data.ok !== true) {
-        wifiConfigStatus.textContent = 'Scan réseau : réponse invalide.';
-        return;
-      }
-
-      const running = !!data.running;
-      const requested = !!data.requested;
-      const count = Number.isFinite(data.count) ? data.count : 0;
-      const totalFound = Number.isFinite(data.total_found) ? data.total_found : count;
-      if (running || requested) {
-        wifiConfigStatus.textContent = 'Scan réseau en cours...';
-        return;
-      }
-      if (count > 0) {
-        wifiConfigStatus.textContent = 'Scan réseau terminé : ' + count + ' réseaux affichés (' + totalFound + ' détectés).';
-        return;
-      }
-      wifiConfigStatus.textContent = 'Aucun réseau visible détecté.';
-    }
-
-    function toBool(v) {
-      if (typeof v === 'boolean') return v;
-      if (typeof v === 'number') return v !== 0;
-      if (typeof v === 'string') {
-        const s = v.trim().toLowerCase();
-        return s === '1' || s === 'true' || s === 'on' || s === 'yes';
-      }
-      return false;
-    }
-
-    function validIpv4(value, required) {
-      const text = String(value || '').trim();
-      if (!text) return !required;
-      const parts = text.split('.');
-      if (parts.length !== 4) return false;
-      if (!parts.every((part) => /^\d{1,3}$/.test(part) && Number(part) >= 0 && Number(part) <= 255)) return false;
-      return !required || text !== '0.0.0.0';
-    }
-
-    function syncEthernetConfigUi() {
-      if (!ethernetEnabled || !ethernetDhcp || !ethernetStaticFields) return;
-      const enabled = ethernetEnabled.checked;
-      const staticMode = !ethernetDhcp.checked;
-      ethernetDhcp.disabled = !enabled;
-      ethernetStaticFields.hidden = !enabled || !staticMode;
-      [ethernetIp, ethernetSubnet, ethernetGateway, ethernetDns1, ethernetDns2].forEach((input) => {
-        if (input) input.disabled = !enabled || !staticMode;
-      });
-    }
-
-    function syncWifiConfigUi() {
-      if (!wifiEnabled) return;
-      const enabled = wifiEnabled.checked;
-      [wifiSsid, wifiSsidList, wifiPass, toggleWifiPassBtn, scanWifiBtn].forEach((control) => {
-        if (control) control.disabled = !enabled;
-      });
-      if (wifiConfigFields) wifiConfigFields.classList.toggle('is-disabled', !enabled);
-    }
-
-    function syncMqttConfigUi() {
-      if (!mqttEnabled) return;
-      const enabled = mqttEnabled.checked;
-      [mqttDeviceName, mqttBaseTopic, mqttHost, mqttPort, mqttUser, mqttPass, toggleMqttPassBtn, mqttTopicDeviceId]
-        .forEach((control) => {
-          if (control) control.disabled = !enabled;
-        });
-      if (mqttConfigFields) mqttConfigFields.classList.toggle('is-disabled', !enabled);
-    }
-
-    function setNetworkConnectionState(node, state) {
-      if (!node) return;
-      const normalized = ['connected', 'disconnected', 'unavailable'].includes(state) ? state : 'unavailable';
-      node.classList.remove('is-connected', 'is-disconnected', 'is-unknown');
-      node.classList.add(normalized === 'connected' ? 'is-connected' : (normalized === 'disconnected' ? 'is-disconnected' : 'is-unknown'));
-      const textNode = node.querySelector('span:last-child');
-      if (!textNode) return;
-      if (normalized === 'connected') {
-        textNode.textContent = tr('network.state.connected', 'Connecté');
-      } else if (normalized === 'disconnected') {
-        textNode.textContent = tr('network.state.disconnected', 'Déconnecté');
-      } else {
-        textNode.textContent = tr('network.state.unavailable', 'Indisponible');
-      }
-    }
-
-    function stopNetworkConnectionStatusTimer() {
-      if (networkConnectionStatusTimer !== null) {
-        clearTimeout(networkConnectionStatusTimer);
-        networkConnectionStatusTimer = null;
-      }
-    }
-
-    function scheduleNetworkConnectionStatusRefresh() {
-      stopNetworkConnectionStatusTimer();
-      if (getActivePageId() !== 'page-wifi') return;
-      networkConnectionStatusTimer = setTimeout(async () => {
-        networkConnectionStatusTimer = null;
-        await refreshNetworkConnectionStates(true);
-        scheduleNetworkConnectionStatusRefresh();
-      }, 5000);
-    }
-
-    async function refreshNetworkConnectionStates(forceRefresh) {
-      const results = await Promise.all([
-        fetchFlowStatusDomain('wifi', !!forceRefresh, 'network-config').catch(() => null),
-        fetchFlowStatusDomain('mqtt', !!forceRefresh, 'network-config').catch(() => null)
-      ]);
-      const wifiDomain = results[0];
-      const mqttDomain = results[1];
-      const network = wifiDomain && wifiDomain.ok === true && wifiDomain.wifi && typeof wifiDomain.wifi === 'object'
-        ? wifiDomain.wifi
-        : null;
-      const networkReady = !!(network && network.rdy);
-      const networkType = network ? normalizeNetworkType(network.typ) : '';
-      setNetworkConnectionState(
-        ethernetConnectionState,
-        network ? (networkReady && networkType === 'ethernet' ? 'connected' : 'disconnected') : 'unavailable'
-      );
-      setNetworkConnectionState(
-        wifiConnectionState,
-        network ? (networkReady && networkType === 'wifi' ? 'connected' : 'disconnected') : 'unavailable'
-      );
-      const mqtt = mqttDomain && mqttDomain.ok === true && mqttDomain.mqtt && typeof mqttDomain.mqtt === 'object'
-        ? mqttDomain.mqtt
-        : null;
-      setNetworkConnectionState(mqttConnectionState, mqtt ? (mqtt.rdy ? 'connected' : 'disconnected') : 'unavailable');
-    }
-
-    async function requestWifiScan(force) {
-      return fetchOkJson('/api/wifi/scan', createFormPostOptions({
-        force: force ? '1' : '0'
-      }), 'échec démarrage scan');
-    }
-
-    async function refreshWifiScanStatus(triggerScan) {
-      try {
-        if (triggerScan) {
-          await requestWifiScan(true);
-        }
-        const data = await fetchOkJson('/api/wifi/scan', { cache: 'no-store' }, 'échec lecture état');
-
-        renderWifiScanList(data);
-        updateWifiScanStatusText(data, null);
-
-        if (data.running || data.requested) {
-          scheduleWifiScanPolling();
-        } else {
-          stopWifiScanPolling();
-        }
-      } catch (err) {
-        stopWifiScanPolling();
-        updateWifiScanStatusText(null, err);
-      }
-    }
-
-    async function loadWifiConfig() {
-      try {
-        const data = await fetchOkJson('/api/wifi/config', { cache: 'no-store' }, 'chargement réseau indisponible');
-        wifiEnabled.checked = toBool(data.enabled);
-        wifiSsid.value = data.ssid || '';
-        wifiPass.value = '';
-        wifiPass.placeholder = data.password_configured
-          ? tr('wifi.password.keep', 'Conserver le mot de passe enregistré')
-          : tr('wifi.password.enter', 'Saisir le mot de passe réseau');
-        const ethernet = data && data.ethernet && typeof data.ethernet === 'object' ? data.ethernet : {};
-        ethernetEnabled.checked = ethernet.enabled === undefined ? true : toBool(ethernet.enabled);
-        ethernetDhcp.checked = ethernet.dhcp === undefined || toBool(ethernet.dhcp);
-        ethernetIp.value = ethernet.ip || '';
-        ethernetSubnet.value = ethernet.subnet || '255.255.255.0';
-        ethernetGateway.value = ethernet.gateway || '';
-        ethernetDns1.value = ethernet.dns1 || '';
-        ethernetDns2.value = ethernet.dns2 || '';
-        syncEthernetConfigUi();
-        syncWifiConfigUi();
-        wifiConfigStatus.textContent = 'Configuration réseau chargée.';
-      } catch (err) {
-        wifiConfigStatus.textContent = 'Chargement réseau échoué: ' + err;
-      }
-    }
-
-    async function loadMqttConfig() {
-      try {
-        const data = await fetchOkJson('/api/mqtt/config', { cache: 'no-store' }, 'chargement MQTT indisponible');
-        mqttEnabled.checked = toBool(data.enabled);
-        mqttHost.value = data.host || '';
-        mqttPort.value = data.port || 8883;
-        mqttUser.value = data.user || '';
-        mqttBaseTopic.value = data.baseTopic || 'flowio';
-        mqttTopicDeviceId.value = data.topicDeviceId || '';
-        mqttDeviceName.value = data.deviceName || '';
-        mqttPasswordConfigured = toBool(data.password_configured);
-        mqttPass.value = '';
-        mqttPass.placeholder = mqttPasswordConfigured
-          ? tr('mqtt.password.keep', 'Conserver le mot de passe enregistré')
-          : tr('mqtt.password.placeholder', 'Mot de passe MQTT');
-        syncMqttConfigUi();
-      } catch (err) {
-        wifiConfigStatus.textContent = tr('mqtt.loadFailed', 'Chargement MQTT échoué') + ': ' + err;
-      }
-    }
-
-    async function saveWifiConfig() {
-      const staticMode = ethernetEnabled.checked && !ethernetDhcp.checked;
-      if (staticMode &&
-          (!validIpv4(ethernetIp.value, true) ||
-           !validIpv4(ethernetSubnet.value, true) ||
-           !validIpv4(ethernetGateway.value, true) ||
-           !validIpv4(ethernetDns1.value, false) ||
-           !validIpv4(ethernetDns2.value, false))) {
-        throw new Error(tr('ethernet.static.invalid', 'Vérifiez l’adresse IP, le masque, la passerelle et les DNS.'));
-      }
-      await fetchOkJson('/api/wifi/config', createFormPostOptions({
-        enabled: wifiEnabled.checked ? '1' : '0',
-        ssid: wifiSsid.value.trim(),
-        pass: wifiPass.value,
-        eth_enabled: ethernetEnabled.checked ? '1' : '0',
-        eth_dhcp: ethernetDhcp.checked ? '1' : '0',
-        eth_ip: ethernetIp.value.trim(),
-        eth_subnet: ethernetSubnet.value.trim(),
-        eth_gateway: ethernetGateway.value.trim(),
-        eth_dns1: ethernetDns1.value.trim(),
-        eth_dns2: ethernetDns2.value.trim()
-      }), 'échec application');
-    }
-
-    async function saveMqttConfig() {
-      const enabled = mqttEnabled.checked;
-      const host = mqttHost.value.trim();
-      const port = Number.parseInt(mqttPort.value, 10);
-      const user = mqttUser.value.trim();
-      if (enabled && !host) {
-        throw new Error(tr('mqtt.host.required', 'Le broker MQTT est obligatoire.'));
-      }
-      if (enabled && (!Number.isInteger(port) || port < 1 || port > 65535)) {
-        throw new Error(tr('mqtt.port.invalid', 'Le port MQTT doit être compris entre 1 et 65535.'));
-      }
-      if (enabled && !user) {
-        throw new Error(tr('mqtt.user.required', 'L’utilisateur MQTT est obligatoire.'));
-      }
-      if (enabled && !mqttPasswordConfigured && !mqttPass.value) {
-        throw new Error(tr('mqtt.password.required', 'Le mot de passe MQTT est obligatoire.'));
-      }
-      await fetchOkJson('/api/mqtt/config', createFormPostOptions({
-        enabled: enabled ? '1' : '0',
-        host: host,
-        port: Number.isInteger(port) ? String(port) : '8883',
-        user: user,
-        pass: mqttPass.value,
-        baseTopic: mqttBaseTopic.value.trim() || 'flowio',
-        topicDeviceId: mqttTopicDeviceId.value.trim(),
-        deviceName: mqttDeviceName.value.trim()
-      }), 'échec application MQTT');
-      if (mqttPass.value) mqttPasswordConfigured = true;
-      mqttPass.value = '';
-      mqttPass.placeholder = mqttPasswordConfigured
-        ? tr('mqtt.password.keep', 'Conserver le mot de passe enregistré')
-        : tr('mqtt.password.placeholder', 'Mot de passe MQTT');
-    }
-
-    async function saveNetworkConfig() {
-      wifiConfigStatus.textContent = tr('network.saving', 'Enregistrement des réglages réseau...');
-      await saveMqttConfig();
-      await saveWifiConfig();
-      wifiConfigStatus.textContent = tr('network.applied', 'Configuration réseau et MQTT appliquée (reconnexion en cours).');
-      setTimeout(() => refreshNetworkConnectionStates(true).catch(() => {}), 1800);
-    }
-
     function nettoyerNomFlowCfg(moduleName) {
       return String(moduleName || '').trim().replace(/^\/+|\/+$/g, '');
     }
@@ -14041,62 +13728,6 @@
       calibrationSetStatus(tr('calibration.ready', 'Étalonnage prêt.'));
     }
 
-    function initWifiBindings() {
-      if (toggleWifiPassBtn && wifiPass) {
-        mettreAJourEtatVisibiliteMotDePasse(
-          wifiPass,
-          toggleWifiPassBtn,
-          tr('wifi.password.show', 'Afficher le mot de passe réseau'),
-          tr('wifi.password.hide', 'Masquer le mot de passe réseau')
-        );
-        toggleWifiPassBtn.addEventListener('click', () => {
-          basculerVisibiliteMotDePasse(
-            wifiPass,
-            toggleWifiPassBtn,
-            tr('wifi.password.show', 'Afficher le mot de passe réseau'),
-            tr('wifi.password.hide', 'Masquer le mot de passe réseau')
-          );
-        });
-      }
-      if (toggleMqttPassBtn && mqttPass) {
-        mettreAJourEtatVisibiliteMotDePasse(
-          mqttPass,
-          toggleMqttPassBtn,
-          tr('mqtt.password.show', 'Afficher le mot de passe MQTT'),
-          tr('mqtt.password.hide', 'Masquer le mot de passe MQTT')
-        );
-        toggleMqttPassBtn.addEventListener('click', () => {
-          basculerVisibiliteMotDePasse(
-            mqttPass,
-            toggleMqttPassBtn,
-            tr('mqtt.password.show', 'Afficher le mot de passe MQTT'),
-            tr('mqtt.password.hide', 'Masquer le mot de passe MQTT')
-          );
-        });
-      }
-      wifiSsidList.addEventListener('change', () => {
-        const picked = (wifiSsidList.value || '').trim();
-        if (picked.length > 0) {
-          wifiSsid.value = picked;
-        }
-      });
-      if (wifiEnabled) wifiEnabled.addEventListener('change', syncWifiConfigUi);
-      if (ethernetEnabled) ethernetEnabled.addEventListener('change', syncEthernetConfigUi);
-      if (ethernetDhcp) ethernetDhcp.addEventListener('change', syncEthernetConfigUi);
-      if (mqttEnabled) mqttEnabled.addEventListener('change', syncMqttConfigUi);
-      syncWifiConfigUi();
-      syncEthernetConfigUi();
-      syncMqttConfigUi();
-      bindClickAction(scanWifiBtn, () => refreshWifiScanStatus(true));
-      bindClickAction(applyWifiCfgBtn, async () => {
-        try {
-          await saveNetworkConfig();
-        } catch (err) {
-          wifiConfigStatus.textContent = tr('system.action.wifiApplyFailed', 'Application réseau échouée') + ': ' + err;
-        }
-      });
-    }
-
     function initSystemBindings() {
       let rpiKioskSession = false;
       try {
@@ -14214,6 +13845,11 @@
           startIoSummaryTimer();
           refreshIoSummary(false).catch(() => {});
         }
+        if (document.hidden || activePageId !== 'page-wifi') {
+          if (networkPage) networkPage.hide();
+        } else {
+          onNetworkPageShown().catch(() => {});
+        }
         if (document.hidden || !logsOverlayOpen) {
           closeLogSocket();
           if (!logsOverlayOpen) setWsStatusText(tr('terminal.inactive', 'inactif'));
@@ -14241,7 +13877,6 @@
     initStatusBindings();
     initInfoBindings();
     initCalibrationBindings();
-    initWifiBindings();
     initSystemBindings();
     initConfigBindings();
     initGlobalUiBindings();

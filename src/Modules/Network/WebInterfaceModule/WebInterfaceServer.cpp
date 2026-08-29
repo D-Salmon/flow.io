@@ -1093,8 +1093,10 @@ const char* webAssetVersion_()
     uint32_t hash = 2166136261UL;
     hash = webAssetFingerprintFile_(hash, "/webinterface/app-core.js.gz");
     hash = webAssetFingerprintFile_(hash, "/webinterface/app-core.css.gz");
+    hash = webAssetFingerprintFile_(hash, "/webinterface/network.css.gz");
     hash = webAssetFingerprintFile_(hash, "/webinterface/sh.html.gz");
     hash = webAssetFingerprintFile_(hash, "/webinterface/app.js.gz");
+    hash = webAssetFingerprintFile_(hash, "/webinterface/network.js.gz");
     hash = webAssetFingerprintFile_(hash, "/wc/i.j.gz");
     snprintf(version, sizeof(version), "%s-%08lx", FirmwareVersion::BuildRef, (unsigned long)hash);
     return version;
@@ -5365,7 +5367,9 @@ void WebInterfaceModule::startServer_()
         spiffsAssetExists("/webinterface/index.html") &&
         spiffsAssetExists("/webinterface/app-core.js") &&
         spiffsAssetExists("/webinterface/app.js") &&
-        spiffsAssetExists("/webinterface/app-core.css");
+        spiffsAssetExists("/webinterface/network.js") &&
+        spiffsAssetExists("/webinterface/app-core.css") &&
+        spiffsAssetExists("/webinterface/network.css");
 
     const bool provisioningUiAssetsReady =
         spiffsAssetExists("/webinterface/prov.html") &&
@@ -5453,6 +5457,39 @@ void WebInterfaceModule::startServer_()
         AsyncWebServerResponse* response =
             beginSpiffsAssetResponse(
                 request, "/webinterface/app.js", "application/javascript", true, nullptr, &forensicMeta, &heapRejected, &buildBusy);
+        if (!response) {
+            if (heapRejected || buildBusy) {
+                sendTinyBusyJson_(request, heapRejected ? "low_memory" : "asset_build_busy");
+                return;
+            }
+            request->send(404, "text/plain", "Not found");
+            return;
+        }
+        sendPreparedAssetResponse(request, response, &forensicMeta);
+    });
+    server_.on("/webinterface/network.css", HTTP_GET, [this, beginSpiffsAssetResponse, sendPreparedAssetResponse](AsyncWebServerRequest* request) {
+        SpiffsAssetForensicMeta forensicMeta{};
+        bool heapRejected = false;
+        bool buildBusy = false;
+        AsyncWebServerResponse* response =
+            beginSpiffsAssetResponse(request, "/webinterface/network.css", "text/css", true, nullptr, &forensicMeta, &heapRejected, &buildBusy);
+        if (!response) {
+            if (heapRejected || buildBusy) {
+                sendTinyBusyJson_(request, heapRejected ? "low_memory" : "asset_build_busy");
+                return;
+            }
+            request->send(404, "text/plain", "Not found");
+            return;
+        }
+        sendPreparedAssetResponse(request, response, &forensicMeta);
+    });
+    server_.on("/webinterface/network.js", HTTP_GET, [this, beginSpiffsAssetResponse, sendPreparedAssetResponse](AsyncWebServerRequest* request) {
+        SpiffsAssetForensicMeta forensicMeta{};
+        bool heapRejected = false;
+        bool buildBusy = false;
+        AsyncWebServerResponse* response =
+            beginSpiffsAssetResponse(
+                request, "/webinterface/network.js", "application/javascript", true, nullptr, &forensicMeta, &heapRejected, &buildBusy);
         if (!response) {
             if (heapRejected || buildBusy) {
                 sendTinyBusyJson_(request, heapRejected ? "low_memory" : "asset_build_busy");
