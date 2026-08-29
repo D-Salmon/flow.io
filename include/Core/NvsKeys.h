@@ -21,6 +21,12 @@ constexpr char Pass[] = "wifi_pass"; // WiFi module persisted key for field `wif
 
 namespace Ethernet {
 constexpr char Enabled[] = "eth_en"; // Ethernet module persisted key for field `eth_en`.
+constexpr char Dhcp[] = "eth_dhcp"; // Ethernet addressing mode: DHCP when true, static IPv4 when false.
+constexpr char Ip[] = "eth_ip"; // Ethernet static IPv4 address.
+constexpr char Subnet[] = "eth_mask"; // Ethernet static IPv4 subnet mask.
+constexpr char Gateway[] = "eth_gw"; // Ethernet static IPv4 gateway.
+constexpr char Dns1[] = "eth_dns1"; // Ethernet primary DNS server.
+constexpr char Dns2[] = "eth_dns2"; // Ethernet secondary DNS server.
 }  // namespace Ethernet
 
 namespace Mqtt {

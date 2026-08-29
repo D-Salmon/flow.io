@@ -72,6 +72,12 @@ void EthernetModule::init(ConfigStore& cfg, ServiceRegistry& services)
     constexpr uint8_t kCfgModuleId = (uint8_t)ConfigModuleId::Ethernet;
     constexpr uint8_t kCfgBranchId = 1U;
     cfg.registerVar(enabledVar_, kCfgModuleId, kCfgBranchId);
+    cfg.registerVar(dhcpVar_, kCfgModuleId, kCfgBranchId);
+    cfg.registerVar(ipVar_, kCfgModuleId, kCfgBranchId);
+    cfg.registerVar(subnetVar_, kCfgModuleId, kCfgBranchId);
+    cfg.registerVar(gatewayVar_, kCfgModuleId, kCfgBranchId);
+    cfg.registerVar(dns1Var_, kCfgModuleId, kCfgBranchId);
+    cfg.registerVar(dns2Var_, kCfgModuleId, kCfgBranchId);
 
     cfgStore_ = &cfg;
     services_ = &services;
@@ -111,7 +117,7 @@ void EthernetModule::onConfigLoaded(ConfigStore&, ServiceRegistry& services)
             }
         }
         setState_(EthernetState::Starting);
-        LOGI("[NET] Starting Ethernet (W5500 DHCP via ETH.begin)");
+        LOGI("[NET] Starting Ethernet (W5500 mode=%s)", cfgData_.dhcp ? "DHCP" : "static");
     } else {
         cleanupDriver_();
         resetRuntimeState_();
@@ -129,6 +135,11 @@ void EthernetModule::loop()
     if (deviceNameDirty_) {
         deviceNameDirty_ = false;
         loadSystemDeviceName_();
+    }
+
+    if (configDirty_ && (int32_t)(millis() - configRestartAtMs_) >= 0) {
+        configDirty_ = false;
+        restartFromConfig_();
     }
 
     if (cfgData_.enabled || driverStarted_) {
@@ -261,9 +272,18 @@ void EthernetModule::onEvent_(const Event& e)
     if (!e.payload || e.len < sizeof(ConfigChangedPayload)) return;
 
     const ConfigChangedPayload* p = static_cast<const ConfigChangedPayload*>(e.payload);
-    if (p->moduleId != (uint8_t)ConfigModuleId::System) return;
-    if (strcmp(p->nvsKey, NvsKeys::System::DeviceName) != 0) return;
-    deviceNameDirty_ = true;
+    if (p->moduleId == (uint8_t)ConfigModuleId::System) {
+        if (strcmp(p->nvsKey, NvsKeys::System::DeviceName) == 0) {
+            deviceNameDirty_ = true;
+        }
+        return;
+    }
+    if (p->moduleId == (uint8_t)ConfigModuleId::Ethernet) {
+        // A network form updates several fields in succession. Delay and coalesce
+        // the notifications so the W5500 is restarted only once.
+        configDirty_ = true;
+        configRestartAtMs_ = millis() + 500U;
+    }
 }
 
 void EthernetModule::setState_(EthernetState next)
@@ -331,12 +351,85 @@ bool EthernetModule::installDriver_()
     }
 
     driverStarted_ = true;
+    if (!applyIpConfig_()) {
+        noteStartFailure_(cfgData_.dhcp ? "ETH.config.dhcp" : "ETH.config.static", (int)ESP_ERR_INVALID_ARG);
+        cleanupDriver_();
+        return false;
+    }
     consecutiveStartFailures_ = 0U;
     lastStartFailureStage_ = "none";
     lastStartFailureErr_ = ESP_OK;
 
-    LOGI("Ethernet driver started freq_mhz=%u", (unsigned)spiFreqMhz_);
+    LOGI("Ethernet driver started freq_mhz=%u mode=%s",
+         (unsigned)spiFreqMhz_,
+         cfgData_.dhcp ? "DHCP" : "static");
     return true;
+}
+
+bool EthernetModule::parseIp_(const char* text, IPAddress& out, bool required) const
+{
+    out = IPAddress();
+    if (isBlank_(text, 16U)) return !required;
+    return out.fromString(text);
+}
+
+bool EthernetModule::applyIpConfig_()
+{
+    if (cfgData_.dhcp) {
+        const IPAddress zero;
+        if (!ETH.config(zero, zero, zero, zero, zero)) {
+            LOGE("Failed to enable DHCP on Ethernet");
+            return false;
+        }
+        LOGI("Ethernet IPv4 configuration: DHCP");
+        return true;
+    }
+
+    IPAddress localIp;
+    IPAddress subnet;
+    IPAddress gateway;
+    IPAddress dns1;
+    IPAddress dns2;
+    if (!parseIp_(cfgData_.ip, localIp, true) ||
+        !parseIp_(cfgData_.subnet, subnet, true) ||
+        !parseIp_(cfgData_.gateway, gateway, true) ||
+        !parseIp_(cfgData_.dns1, dns1, false) ||
+        !parseIp_(cfgData_.dns2, dns2, false)) {
+        LOGE("Invalid Ethernet static IPv4 configuration ip=%s subnet=%s gateway=%s dns1=%s dns2=%s",
+             cfgData_.ip,
+             cfgData_.subnet,
+             cfgData_.gateway,
+             cfgData_.dns1,
+             cfgData_.dns2);
+        return false;
+    }
+    if ((uint32_t)dns1 == 0U) dns1 = gateway;
+
+    if (!ETH.config(localIp, gateway, subnet, dns1, dns2)) {
+        LOGE("Failed to apply Ethernet static IPv4 configuration");
+        return false;
+    }
+    LOGI("Ethernet IPv4 configuration: static ip=%s subnet=%s gateway=%s dns1=%s dns2=%s",
+         cfgData_.ip,
+         cfgData_.subnet,
+         cfgData_.gateway,
+         cfgData_.dns1[0] ? cfgData_.dns1 : cfgData_.gateway,
+         cfgData_.dns2[0] ? cfgData_.dns2 : "0.0.0.0");
+    return true;
+}
+
+void EthernetModule::restartFromConfig_()
+{
+    LOGI("Applying updated Ethernet configuration enabled=%d mode=%s",
+         (int)cfgData_.enabled,
+         cfgData_.dhcp ? "DHCP" : "static");
+    cleanupDriver_();
+    resetRuntimeState_();
+#if ENABLE_ETHERNET
+    setState_(cfgData_.enabled ? EthernetState::Starting : EthernetState::Disabled);
+#else
+    setState_(EthernetState::Disabled);
+#endif
 }
 
 void EthernetModule::resetPhyHardware_()

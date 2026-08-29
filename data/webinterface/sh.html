@@ -21,6 +21,7 @@
         <button class="menu-item" data-page="page-activity-log"><span class="ico icon-activity" aria-hidden="true"></span><span class="label" data-i18n="menu.activity">Journal d’Activité</span></button>
         <button class="menu-item" data-page="page-system"><span class="ico icon-system" aria-hidden="true"></span><span class="label" data-i18n="menu.updates">Mises à Jour</span></button>
         <button class="menu-item" data-page="page-control"><span class="ico icon-flowcfg" aria-hidden="true"></span><span class="label" data-i18n="menu.config">Configuration</span></button>
+        <button class="menu-item" data-page="page-wifi"><span class="ico icon-network" aria-hidden="true"></span><span class="label" data-i18n="menu.network">Réseau</span></button>
         <button class="menu-item" data-page="page-io-summary"><span class="ico icon-io" aria-hidden="true"></span><span class="label" data-i18n="menu.io">Entrées/Sorties</span></button>
         <button class="menu-item" data-page="page-info"><span class="ico icon-info" aria-hidden="true"></span><span class="label" data-i18n="menu.info">Informations</span></button>
       </nav>
@@ -354,11 +355,62 @@
         <div class="topbar">
           <h1 class="ui-heading-inline"><span id="networkConfigIcon" class="ui-msr" aria-hidden="true">wifi</span><span data-i18n="wifi.title">Configuration réseau</span></h1>
         </div>
-        <div class="card">
-          <div class="config-section">
-            <div class="config-section-head wifi-section-head">
-              <h2 class="ui-heading-inline"><span class="ui-msr ui-msr-sm" aria-hidden="true">router</span><span data-i18n="wifi.section">Réseau</span></h2>
-              <div class="wifi-section-toggle">
+        <div class="network-config-grid">
+          <div class="card network-config-card">
+            <div class="config-section-head network-section-head">
+              <h2 class="ui-heading-inline"><span class="ui-msr ui-msr-sm" aria-hidden="true">lan</span><span data-i18n="ethernet.section">Ethernet</span></h2>
+              <div class="network-section-toggle">
+                <span data-i18n="ethernet.enable">Activer</span>
+                <label class="md3-switch">
+                  <input id="ethernetEnabled" type="checkbox" checked />
+                  <span class="md3-track"></span>
+                  <span class="md3-thumb"></span>
+                </label>
+              </div>
+            </div>
+            <div class="network-connection-state" aria-live="polite">
+              <span data-i18n="network.state.label">État</span>
+              <strong id="ethernetConnectionState" class="is-unknown"><span class="network-state-dot" aria-hidden="true"></span><span data-i18n="network.state.checking">Vérification...</span></strong>
+            </div>
+            <div class="network-option-row">
+              <div>
+                <strong data-i18n="ethernet.dhcp.label">Configuration automatique (DHCP)</strong>
+                <small data-i18n="ethernet.dhcp.help">Désactivez DHCP pour renseigner une adresse IP fixe.</small>
+              </div>
+              <label class="md3-switch">
+                <input id="ethernetDhcp" type="checkbox" checked />
+                <span class="md3-track"></span>
+                <span class="md3-thumb"></span>
+              </label>
+            </div>
+            <div id="ethernetStaticFields" class="form-grid ethernet-static-fields" hidden>
+              <div class="field">
+                <label for="ethernetIp" data-i18n="ethernet.ip.label">Adresse IP</label>
+                <input id="ethernetIp" inputmode="decimal" autocomplete="off" placeholder="192.168.1.50" />
+              </div>
+              <div class="field">
+                <label for="ethernetSubnet" data-i18n="ethernet.subnet.label">Masque de sous-réseau</label>
+                <input id="ethernetSubnet" inputmode="decimal" autocomplete="off" placeholder="255.255.255.0" />
+              </div>
+              <div class="field">
+                <label for="ethernetGateway" data-i18n="ethernet.gateway.label">Passerelle</label>
+                <input id="ethernetGateway" inputmode="decimal" autocomplete="off" placeholder="192.168.1.1" />
+              </div>
+              <div class="field">
+                <label for="ethernetDns1" data-i18n="ethernet.dns1.label">DNS principal</label>
+                <input id="ethernetDns1" inputmode="decimal" autocomplete="off" placeholder="Passerelle par défaut" data-i18n-placeholder="ethernet.dns1.placeholder" />
+              </div>
+              <div class="field full">
+                <label for="ethernetDns2" data-i18n="ethernet.dns2.label">DNS secondaire</label>
+                <input id="ethernetDns2" inputmode="decimal" autocomplete="off" placeholder="Facultatif" data-i18n-placeholder="ethernet.dns2.placeholder" />
+              </div>
+            </div>
+          </div>
+
+          <div class="card network-config-card">
+            <div class="config-section-head network-section-head">
+              <h2 class="ui-heading-inline"><span class="ui-msr ui-msr-sm" aria-hidden="true">wifi</span><span data-i18n="wifi.section">Wi-Fi</span></h2>
+              <div class="network-section-toggle">
                 <span data-i18n="wifi.enable">Activer</span>
                 <label class="md3-switch">
                   <input id="wifiEnabled" type="checkbox" checked />
@@ -367,11 +419,11 @@
                 </label>
               </div>
             </div>
-            <div class="form-grid">
-              <div class="field">
-                <label for="wifiSsid" data-i18n="wifi.ssid.label">SSID</label>
-                <input id="wifiSsid" placeholder="Nom du réseau" data-i18n-placeholder="wifi.ssid.placeholder" />
-              </div>
+            <div class="network-connection-state" aria-live="polite">
+              <span data-i18n="network.state.label">État</span>
+              <strong id="wifiConnectionState" class="is-unknown"><span class="network-state-dot" aria-hidden="true"></span><span data-i18n="network.state.checking">Vérification...</span></strong>
+            </div>
+            <div id="wifiConfigFields" class="form-grid">
               <div class="field">
                 <label for="wifiSsidList" data-i18n="wifi.networksDetected">Réseaux détectés</label>
                 <div class="field-inline-select-action">
@@ -381,6 +433,10 @@
                   <button id="scanWifi" class="btn-tonal btn-icon-only btn-refresh-icon field-inline-refresh" aria-label="Scanner les réseaux" title="Scanner les réseaux" data-i18n-aria-label="wifi.scanNetworks" data-i18n-title="wifi.scanNetworks"><span class="refresh-icon-glyph" aria-hidden="true"></span></button>
                 </div>
               </div>
+              <div class="field">
+                <label for="wifiSsid" data-i18n="wifi.ssid.label">SSID</label>
+                <input id="wifiSsid" placeholder="Nom du réseau" data-i18n-placeholder="wifi.ssid.placeholder" />
+              </div>
               <div class="field full">
                 <label for="wifiPass" data-i18n="wifi.password.label">Mot de passe</label>
                 <div class="password-wrap">
@@ -389,11 +445,65 @@
                 </div>
               </div>
             </div>
-            <div class="btn-row">
-              <button id="applyWifiCfg" class="btn-primary"><span id="applyNetworkIcon" class="ui-msr btn-msr" aria-hidden="true">wifi_protected_setup</span><span data-i18n="wifi.apply">Appliquer réseau</span></button>
-            </div>
-            <div id="wifiConfigStatus" class="config-status" data-i18n="wifi.ready">Configuration réseau prête.</div>
           </div>
+
+          <div class="card network-config-card network-config-card-wide">
+            <div class="config-section-head network-section-head">
+              <h2 class="ui-heading-inline"><span class="ui-msr ui-msr-sm" aria-hidden="true">hub</span><span data-i18n="mqtt.section">MQTT</span></h2>
+              <div class="network-section-toggle">
+                <span data-i18n="mqtt.enable">Activer</span>
+                <label class="md3-switch">
+                  <input id="mqttEnabled" type="checkbox" />
+                  <span class="md3-track"></span>
+                  <span class="md3-thumb"></span>
+                </label>
+              </div>
+            </div>
+            <div class="network-connection-state" aria-live="polite">
+              <span data-i18n="network.state.label">État</span>
+              <strong id="mqttConnectionState" class="is-unknown"><span class="network-state-dot" aria-hidden="true"></span><span data-i18n="network.state.checking">Vérification...</span></strong>
+            </div>
+            <div id="mqttConfigFields" class="form-grid">
+              <div class="field">
+                <label for="mqttDeviceName" data-i18n="mqtt.deviceName.label">Nom d'appareil MQTT</label>
+                <input id="mqttDeviceName" autocomplete="off" />
+                <small data-i18n="mqtt.deviceName.help">Nom utilisé par Home Assistant Discovery.</small>
+              </div>
+              <div class="field">
+                <label for="mqttBaseTopic" data-i18n="mqtt.baseTopic.label">Topic de base</label>
+                <input id="mqttBaseTopic" autocomplete="off" placeholder="flowio" />
+                <small data-i18n="mqtt.baseTopic.help">Préfixe des topics de publication et de commande.</small>
+              </div>
+              <div class="field">
+                <label for="mqttHost" data-i18n="mqtt.host.label">Broker MQTT</label>
+                <input id="mqttHost" autocomplete="off" placeholder="mqtt.exemple.fr" />
+              </div>
+              <div class="field">
+                <label for="mqttPort" data-i18n="mqtt.port.label">Port MQTT</label>
+                <input id="mqttPort" type="number" inputmode="numeric" min="1" max="65535" placeholder="8883" />
+              </div>
+              <div class="field">
+                <label for="mqttUser" data-i18n="mqtt.user.label">Utilisateur MQTT</label>
+                <input id="mqttUser" autocomplete="username" />
+              </div>
+              <div class="field">
+                <label for="mqttPass" data-i18n="mqtt.password.label">Mot de passe MQTT</label>
+                <div class="password-wrap">
+                  <input id="mqttPass" type="password" autocomplete="off" placeholder="Mot de passe MQTT" data-i18n-placeholder="mqtt.password.placeholder" />
+                  <button id="toggleMqttPass" class="password-toggle" type="button" aria-label="Afficher le mot de passe MQTT" aria-pressed="false" data-i18n="wifi.password.showShort" data-i18n-aria-label="mqtt.password.show">Voir</button>
+                </div>
+              </div>
+              <div class="field full">
+                <label for="mqttTopicDeviceId" data-i18n="mqtt.topicDeviceId.label">ID device MQTT topic</label>
+                <input id="mqttTopicDeviceId" autocomplete="off" />
+                <small data-i18n="mqtt.topicDeviceId.help">Segment &lt;deviceId&gt; des topics MQTT. Laissez vide pour utiliser automatiquement la MAC.</small>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="network-config-actions">
+          <div id="wifiConfigStatus" class="config-status" data-i18n="wifi.ready">Configuration réseau prête.</div>
+          <button id="applyWifiCfg" class="btn-primary"><span id="applyNetworkIcon" class="ui-msr btn-msr" aria-hidden="true">wifi_protected_setup</span><span data-i18n="wifi.apply">Appliquer réseau</span></button>
         </div>
       </section>
 

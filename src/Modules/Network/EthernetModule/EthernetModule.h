@@ -1,7 +1,7 @@
 #pragma once
 /**
  * @file EthernetModule.h
- * @brief W5500 Ethernet connectivity module (DHCP).
+ * @brief W5500 Ethernet connectivity module (DHCP or static IPv4).
  */
 
 #include "Core/Module.h"
@@ -35,6 +35,12 @@ struct EthernetConfig {
 #else
     bool enabled = false;
 #endif
+    bool dhcp = true;
+    char ip[16] = "";
+    char subnet[16] = "255.255.255.0";
+    char gateway[16] = "";
+    char dns1[16] = "";
+    char dns2[16] = "";
 };
 
 class EthernetModule : public Module {
@@ -82,6 +88,8 @@ private:
     char deviceName_[33] = "flowio";
     char mdnsApplied_[sizeof(deviceName_)] = {0};
     volatile bool deviceNameDirty_ = false;
+    volatile bool configDirty_ = false;
+    uint32_t configRestartAtMs_ = 0U;
     uint8_t spiFreqMhz_ = 8;
     network_event_handle_t networkEventHandle_ = 0;
     uint32_t startAttempts_ = 0U;
@@ -105,6 +113,30 @@ private:
         NVS_KEY(NvsKeys::Ethernet::Enabled), "enabled", "ethernet",
         ConfigType::Bool, &cfgData_.enabled, ConfigPersistence::Persistent, 0
     };
+    ConfigVariable<bool,0> dhcpVar_{
+        NVS_KEY(NvsKeys::Ethernet::Dhcp), "dhcp", "ethernet",
+        ConfigType::Bool, &cfgData_.dhcp, ConfigPersistence::Persistent, 0
+    };
+    ConfigVariable<char,0> ipVar_{
+        NVS_KEY(NvsKeys::Ethernet::Ip), "ip", "ethernet",
+        ConfigType::CharArray, cfgData_.ip, ConfigPersistence::Persistent, sizeof(cfgData_.ip)
+    };
+    ConfigVariable<char,0> subnetVar_{
+        NVS_KEY(NvsKeys::Ethernet::Subnet), "subnet", "ethernet",
+        ConfigType::CharArray, cfgData_.subnet, ConfigPersistence::Persistent, sizeof(cfgData_.subnet)
+    };
+    ConfigVariable<char,0> gatewayVar_{
+        NVS_KEY(NvsKeys::Ethernet::Gateway), "gateway", "ethernet",
+        ConfigType::CharArray, cfgData_.gateway, ConfigPersistence::Persistent, sizeof(cfgData_.gateway)
+    };
+    ConfigVariable<char,0> dns1Var_{
+        NVS_KEY(NvsKeys::Ethernet::Dns1), "dns1", "ethernet",
+        ConfigType::CharArray, cfgData_.dns1, ConfigPersistence::Persistent, sizeof(cfgData_.dns1)
+    };
+    ConfigVariable<char,0> dns2Var_{
+        NVS_KEY(NvsKeys::Ethernet::Dns2), "dns2", "ethernet",
+        ConfigType::CharArray, cfgData_.dns2, ConfigPersistence::Persistent, sizeof(cfgData_.dns2)
+    };
 
     static void onNetworkEventStatic_(arduino_event_t* event);
     void onNetworkEvent_(arduino_event_t* event);
@@ -116,6 +148,9 @@ private:
     void resetPhyHardware_();
     bool ensureDriverStarted_();
     bool installDriver_();
+    bool applyIpConfig_();
+    bool parseIp_(const char* text, IPAddress& out, bool required) const;
+    void restartFromConfig_();
     void cleanupDriver_();
     void noteStartFailure_(const char* stage, int err);
     void logEthLinkInfo_() const;

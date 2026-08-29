@@ -40,8 +40,8 @@ def _merge_meta(base_meta: dict, overlay_meta: dict) -> dict:
     out = merge_dict(out, overlay_meta or {})
 
     # Merge list-like metadata used by the tree helper without duplicating entries.
-    for list_key in ("cfg_tree_aliases", "cfg_tree_virtual_branches"):
-        merged_list: List[dict] = []
+    for list_key in ("cfg_tree_aliases", "cfg_tree_virtual_branches", "cfg_tree_hidden_paths"):
+        merged_list: List[object] = []
         seen = set()
         for source in (base_meta or {}, overlay_meta or {}):
             values = source.get(list_key)

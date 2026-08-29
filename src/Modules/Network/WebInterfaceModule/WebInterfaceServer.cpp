@@ -114,6 +114,14 @@ static bool parseBoolParam_(const char* in, bool fallback)
     return fallback;
 }
 
+static bool validIpv4Param_(const char* text, bool required)
+{
+    if (!text || text[0] == '\0') return !required;
+    IPAddress parsed;
+    if (!parsed.fromString(text)) return false;
+    return !required || (uint32_t)parsed != 0U;
+}
+
 static bool copyRequestParamValue_(AsyncWebServerRequest* request,
                                    const char* name,
                                    bool post,
@@ -6306,21 +6314,42 @@ void WebInterfaceModule::startServer_()
         const char* pass = root["pass"] | "";
         const bool passwordConfigured = pass && pass[0] != '\0';
 
-        char ssidSafe[96] = {0};
-        snprintf(ssidSafe, sizeof(ssidSafe), "%s", ssid ? ssid : "");
-        sanitizeJsonString_(ssidSafe);
-
-        char out[360] = {0};
-        const int n = snprintf(out,
-                               sizeof(out),
-                               "{\"ok\":true,\"enabled\":%s,\"ssid\":\"%s\","
-                               "\"password_configured\":%s}",
-                               enabled ? "true" : "false",
-                               ssidSafe,
-                               passwordConfigured ? "true" : "false");
-        if (n <= 0 || (size_t)n >= sizeof(out)) {
+        char ethernetJson[512] = {0};
+        if (!cfgStore_->toJsonModule("ethernet", ethernetJson, sizeof(ethernetJson), nullptr, false)) {
             request->send(500, "application/json",
-                          "{\"ok\":false,\"err\":{\"code\":\"Failed\",\"where\":\"wifi.config.get\"}}");
+                          "{\"ok\":false,\"err\":{\"code\":\"Failed\",\"where\":\"ethernet.config.get\"}}");
+            return;
+        }
+
+        JsonDocument ethernetDoc;
+        const DeserializationError ethernetErr = deserializeJson(ethernetDoc, ethernetJson);
+        if (ethernetErr || !ethernetDoc.is<JsonObjectConst>()) {
+            request->send(500, "application/json",
+                          "{\"ok\":false,\"err\":{\"code\":\"InvalidData\",\"where\":\"ethernet.config.get\"}}");
+            return;
+        }
+        JsonObjectConst ethernetRoot = ethernetDoc.as<JsonObjectConst>();
+
+        JsonDocument responseDoc;
+        JsonObject response = responseDoc.to<JsonObject>();
+        response["ok"] = true;
+        response["enabled"] = enabled;
+        response["ssid"] = ssid ? ssid : "";
+        response["password_configured"] = passwordConfigured;
+        JsonObject ethernet = response["ethernet"].to<JsonObject>();
+        ethernet["enabled"] = ethernetRoot["enabled"] | true;
+        ethernet["dhcp"] = ethernetRoot["dhcp"] | true;
+        ethernet["ip"] = ethernetRoot["ip"] | "";
+        ethernet["subnet"] = ethernetRoot["subnet"] | "255.255.255.0";
+        ethernet["gateway"] = ethernetRoot["gateway"] | "";
+        ethernet["dns1"] = ethernetRoot["dns1"] | "";
+        ethernet["dns2"] = ethernetRoot["dns2"] | "";
+
+        String out;
+        out.reserve(640U);
+        if (serializeJson(responseDoc, out) == 0U) {
+            request->send(500, "application/json",
+                          "{\"ok\":false,\"err\":{\"code\":\"Failed\",\"where\":\"network.config.get\"}}");
             return;
         }
         request->send(200, "application/json", out);
@@ -6467,6 +6496,40 @@ void WebInterfaceModule::startServer_()
         copyRequestParamValue_(request, "clearPass", true, clearPassStr, sizeof(clearPassStr), "0");
         const bool clearPass = parseBoolParam_(clearPassStr, false);
 
+        const bool hasEthernetConfig = request->hasParam("eth_enabled", true) ||
+                                       request->hasParam("eth_dhcp", true) ||
+                                       request->hasParam("eth_ip", true) ||
+                                       request->hasParam("eth_subnet", true) ||
+                                       request->hasParam("eth_gateway", true) ||
+                                       request->hasParam("eth_dns1", true) ||
+                                       request->hasParam("eth_dns2", true);
+        char ethEnabledStr[8] = {0};
+        char ethDhcpStr[8] = {0};
+        char ethIp[16] = {0};
+        char ethSubnet[16] = {0};
+        char ethGateway[16] = {0};
+        char ethDns1[16] = {0};
+        char ethDns2[16] = {0};
+        copyRequestParamValue_(request, "eth_enabled", true, ethEnabledStr, sizeof(ethEnabledStr), "1");
+        copyRequestParamValue_(request, "eth_dhcp", true, ethDhcpStr, sizeof(ethDhcpStr), "1");
+        copyRequestParamValue_(request, "eth_ip", true, ethIp, sizeof(ethIp), "");
+        copyRequestParamValue_(request, "eth_subnet", true, ethSubnet, sizeof(ethSubnet), "255.255.255.0");
+        copyRequestParamValue_(request, "eth_gateway", true, ethGateway, sizeof(ethGateway), "");
+        copyRequestParamValue_(request, "eth_dns1", true, ethDns1, sizeof(ethDns1), "");
+        copyRequestParamValue_(request, "eth_dns2", true, ethDns2, sizeof(ethDns2), "");
+        const bool ethEnabled = parseBoolParam_(ethEnabledStr, true);
+        const bool ethDhcp = parseBoolParam_(ethDhcpStr, true);
+        if (hasEthernetConfig && ethEnabled && !ethDhcp &&
+            (!validIpv4Param_(ethIp, true) ||
+             !validIpv4Param_(ethSubnet, true) ||
+             !validIpv4Param_(ethGateway, true) ||
+             !validIpv4Param_(ethDns1, false) ||
+             !validIpv4Param_(ethDns2, false))) {
+            request->send(400, "application/json",
+                          "{\"ok\":false,\"err\":{\"code\":\"InvalidArgument\",\"where\":\"ethernet.static_ipv4\"}}");
+            return;
+        }
+
         char previousWifiJson[320] = {0};
         if (!clearPass && pass[0] == '\0' &&
             cfgStore_->toJsonModule("wifi", previousWifiJson, sizeof(previousWifiJson), nullptr, false)) {
@@ -6487,8 +6550,18 @@ void WebInterfaceModule::startServer_()
         wifi["enabled"] = enabled;
         wifi["ssid"] = ssid;
         wifi["pass"] = effectivePass;
+        if (hasEthernetConfig) {
+            JsonObject ethernet = root["ethernet"].to<JsonObject>();
+            ethernet["enabled"] = ethEnabled;
+            ethernet["dhcp"] = ethDhcp;
+            ethernet["ip"] = ethIp;
+            ethernet["subnet"] = ethSubnet;
+            ethernet["gateway"] = ethGateway;
+            ethernet["dns1"] = ethDns1;
+            ethernet["dns2"] = ethDns2;
+        }
 
-        char patchJson[320] = {0};
+        char patchJson[768] = {0};
         if (serializeJson(patch, patchJson, sizeof(patchJson)) == 0) {
             request->send(500, "application/json",
                           "{\"ok\":false,\"err\":{\"code\":\"Failed\",\"where\":\"wifi.config.set\"}}");
@@ -6500,7 +6573,7 @@ void WebInterfaceModule::startServer_()
                           "{\"ok\":false,\"err\":{\"code\":\"Failed\",\"where\":\"wifi.config.set\"}}");
             return;
         }
-        emitConfigPatchActivity_("WiFi", patchJson);
+        emitConfigPatchActivity_("Réseau", patchJson);
 
         if (!netAccessSvc_ && services_) {
             netAccessSvc_ = services_->get<NetworkAccessService>(ServiceId::NetworkAccess);

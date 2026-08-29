@@ -44,6 +44,7 @@ body.menu-icons-remote .menu-btn-msr,body.menu-icons-remote .ui-msr{display:inli
 .icon-system,.icon-info{-webkit-mask-image:var(--menu-icon-system-url);mask-image:var(--menu-icon-system-url);}
 .icon-calibration{-webkit-mask-image:var(--menu-icon-calibration-url);mask-image:var(--menu-icon-calibration-url);}
 .icon-flowcfg{-webkit-mask-image:var(--menu-icon-flowcfg-url);mask-image:var(--menu-icon-flowcfg-url);}
+.icon-network{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='M12 18.5 15.5 22 12 22 8.5 18.5A5 5 0 0 1 12 17a5 5 0 0 1 3.5 1.5ZM3.5 10a12 12 0 0 1 17 0l-2.1 2.1a9 9 0 0 0-12.8 0L3.5 10Zm4.2 4.2a6 6 0 0 1 8.6 0l-2.1 2.1a3 3 0 0 0-4.4 0l-2.1-2.1ZM0 5.8a17 17 0 0 1 24 0l-2.1 2.1a14 14 0 0 0-19.8 0L0 5.8Z'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='M12 18.5 15.5 22 12 22 8.5 18.5A5 5 0 0 1 12 17a5 5 0 0 1 3.5 1.5ZM3.5 10a12 12 0 0 1 17 0l-2.1 2.1a9 9 0 0 0-12.8 0L3.5 10Zm4.2 4.2a6 6 0 0 1 8.6 0l-2.1 2.1a3 3 0 0 0-4.4 0l-2.1-2.1ZM0 5.8a17 17 0 0 1 24 0l-2.1 2.1a14 14 0 0 0-19.8 0L0 5.8Z'/%3E%3C/svg%3E");}
 body.menu-icons-remote:not(.web-icons-disabled) .menu-item .ico{background:transparent;background-color:transparent;-webkit-mask-image:none;mask-image:none;font-family:"Material Symbols Rounded";font-size:21px;font-weight:normal;font-style:normal;line-height:1;letter-spacing:0;text-transform:none;white-space:nowrap;direction:ltr;font-feature-settings:"liga";font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 24;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;}
 body.web-icons-disabled .menu-item .ico,body.menu-icons-letter-fallback .menu-item .ico{width:32px;height:32px;flex:0 0 32px;border-radius:50%;background:var(--menu-inactive-fg);color:#FFFFFF;font-size:18px;font-weight:800;line-height:1;-webkit-mask-image:none;mask-image:none;}
 body.web-icons-disabled .menu-item:hover .ico,body.web-icons-disabled .menu-item.active .ico,body.menu-icons-letter-fallback .menu-item:hover .ico,body.menu-icons-letter-fallback .menu-item.active .ico{background:var(--menu-active-fg);color:#FFFFFF;}
@@ -384,8 +385,31 @@ body.web-icons-disabled .status-flag-check.is-true{font-size:13px;}
 .btn-tonal.updates-cancel-btn:hover,.btn-tonal.updates-cancel-btn:active{background:#FFF4F2;color:#B42318;border-color:#E87870;}
 .field-switch{display:flex;align-items:center;min-height:42px;}
 .config-section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;}
-.wifi-section-head{min-height:34px;}
-.wifi-section-toggle{display:inline-flex;align-items:center;justify-content:flex-end;gap:10px;color:var(--panel-frame-text);font-size:12px;font-weight:600;white-space:nowrap;}
+.network-config-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start;}
+.network-config-card{min-width:0;}
+.network-config-card-wide{grid-column:1/-1;}
+.network-section-head{min-height:34px;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--border);}
+.network-section-toggle{display:inline-flex;align-items:center;justify-content:flex-end;gap:10px;color:var(--panel-frame-text);font-size:12px;font-weight:600;white-space:nowrap;}
+.network-connection-state{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:-4px 0 14px;padding:9px 11px;border:1px solid var(--border);border-radius:var(--radius);background:var(--panel-shell-bg);color:var(--text-muted);font-size:12px;}
+.network-connection-state strong{display:inline-flex;align-items:center;gap:7px;color:var(--text-muted);font-size:12px;white-space:nowrap;}
+.network-state-dot{width:8px;height:8px;border-radius:50%;background:#A8B5C2;box-shadow:0 0 0 2px rgba(168,181,194,.16);}
+.network-connection-state strong.is-connected{color:#167A47;}
+.network-connection-state strong.is-connected .network-state-dot{background:#20B768;box-shadow:0 0 0 2px rgba(32,183,104,.15);}
+.network-connection-state strong.is-disconnected{color:#A33A4B;}
+.network-connection-state strong.is-disconnected .network-state-dot{background:#D14C66;box-shadow:0 0 0 2px rgba(209,76,102,.14);}
+.network-connection-state strong.is-disabled{color:var(--text-muted);}
+.network-option-row{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:14px;padding:12px 0;}
+.network-option-row>div{display:grid;gap:4px;min-width:0;}
+.network-option-row strong{color:var(--text);font-size:13px;line-height:1.3;}
+.network-option-row small{color:var(--text-muted);font-size:12px;line-height:1.4;}
+.network-config-actions{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;margin-top:16px;}
+.network-config-actions .config-status{margin-top:0;}
+.network-config-actions .btn-primary{min-width:190px;}
+#wifiConfigFields,#mqttConfigFields{transition:opacity .18s ease;}
+#wifiConfigFields.is-disabled,#mqttConfigFields.is-disabled{opacity:.56;}
+.ethernet-static-fields{margin-top:12px;}
+.ethernet-static-fields[hidden]{display:none;}
+.field small{display:block;margin-top:6px;color:var(--text-muted);font-size:12px;line-height:1.4;}
 .password-wrap input{width:100%;padding-right:88px;}
 .password-toggle{position:absolute;right:7px;top:50%;transform:translateY(-50%);min-width:62px;height:30px;min-height:30px;border:1px solid #6FB7FF;border-radius:var(--radius);padding:0 10px;background:#FFFFFF;color:var(--primary);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-size:11px;font-weight:800;line-height:1;white-space:nowrap;}
 .password-toggle,.password-toggle[aria-pressed="true"]{background:#FFFFFF;color:var(--primary);border-color:#6FB7FF;}
@@ -663,7 +687,7 @@ body.web-icons-disabled .control-field-apply{font-size:15px;font-weight:800;lett
   .reboot-selector-card{order:1;max-width:none;}
   .system-card-firmware,.system-actions-redesign .upgrade-journey{order:2;}
   .system-card-actions .upgrade-journey{order:3;max-width:none;}
-  .status-grid,.control-layout,.calibration-grid,.calibration-summary-grid,.form-grid{grid-template-columns:1fr;}
+  .status-grid,.control-layout,.calibration-grid,.calibration-summary-grid,.form-grid,.network-config-grid{grid-template-columns:1fr;}
   .info-card-stack{grid-template-columns:1fr;}
   .info-actions-card{position:static;}
   .info-system-table .info-row{grid-template-columns:1fr;gap:4px;min-height:0;padding:8px 16px;}
@@ -697,7 +721,9 @@ body.web-icons-disabled .control-field-apply{font-size:15px;font-weight:800;lett
   .topbar > .topbar-actions{margin-left:auto;justify-content:flex-end;}
   .field-inline-action{flex-direction:column;align-items:stretch;}
   .config-section-head{align-items:flex-start;flex-wrap:wrap;}
-  .wifi-section-toggle{width:100%;justify-content:space-between;}
+  .network-section-toggle{width:100%;justify-content:space-between;}
+  .network-config-actions{grid-template-columns:1fr;}
+  .network-config-actions .btn-primary{width:100%;}
   .field-inline-select-action{width:100%;grid-template-columns:minmax(0,1fr) auto;}
   .field-upgrade-row{align-items:center;}
   .upgrade-config-row,.updates-summary-grid,.upgrade-cards,.updates-info-panel{grid-template-columns:minmax(0,1fr);}

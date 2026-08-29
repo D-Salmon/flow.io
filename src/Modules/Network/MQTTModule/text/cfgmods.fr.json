@@ -4,9 +4,5 @@
     "locale": "fr",
     "version": 1
   },
-  "docs": {
-    "network/mqtt": {
-      "label_t": "cfgmods.network.mqtt.label"
-    }
-  }
+  "docs": {}
 }
