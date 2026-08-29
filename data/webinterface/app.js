@@ -1840,6 +1840,49 @@
       await page.show();
     }
 
+    async function ensureActivityPage() {
+      if (activityPage) return activityPage;
+      if (activityPageLoadPromise) return activityPageLoadPromise;
+      activityPageLoadPromise = (async () => {
+        if (!window.FlowWebCore
+          || typeof window.FlowWebCore.loadScriptOnce !== 'function'
+          || typeof window.FlowWebCore.loadCssOnce !== 'function') {
+          throw new Error("chargeur du journal d'activité indisponible");
+        }
+        await Promise.all([
+          window.FlowWebCore.loadCssOnce(
+            assetUrl('/webinterface/activity.css'),
+            { retries: 3, timeoutMs: 8000 }
+          ),
+          window.FlowWebCore.loadScriptOnce(
+            assetUrl('/webinterface/activity.js'),
+            { retries: 3, timeoutMs: 9000 }
+          )
+        ]);
+        const factory = window.FlowWebPages && window.FlowWebPages.activity
+          ? window.FlowWebPages.activity.create
+          : null;
+        if (typeof factory !== 'function') {
+          throw new Error("module du journal d'activité indisponible");
+        }
+        activityPage = factory({
+          tr,
+          currentWebLocaleTag,
+          fetchWithBusyRetry
+        });
+        return activityPage;
+      })().finally(() => {
+        activityPageLoadPromise = null;
+      });
+      return activityPageLoadPromise;
+    }
+
+    async function onActivityPageShown(showBusy) {
+      const page = await ensureActivityPage();
+      if (getActivePageId() !== 'page-activity-log' || document.hidden) return;
+      await page.show(!!showBusy);
+    }
+
     function isPageActive(pageId) {
       const el = document.getElementById(pageId);
       return !!(el && el.classList.contains('active'));
@@ -1882,7 +1925,7 @@
       syncMobileTopbarTitle(pageId);
       if (!logsOverlayOpen) setWsStatusText(tr('terminal.inactive', 'inactif'));
       if (pageId === 'page-activity-log') {
-        schedulePageTask(pageId, pageToken, deferredHeavyMs, () => refreshActivityLog(false));
+        schedulePageTask(pageId, pageToken, deferredHeavyMs, () => onActivityPageShown(false));
       }
       if (pageId === 'page-pool-measures') {
         schedulePageTask(pageId, pageToken, deferredHeavyMs, () => onPoolMeasuresPageShown());
@@ -1999,24 +2042,8 @@
     const logsOverlay = document.getElementById('logsOverlay');
     const openLogsOverlayBtn = document.getElementById('openLogsOverlay');
     const closeLogsOverlayBtn = document.getElementById('closeLogsOverlay');
-    const activityLogList = document.getElementById('activityLogList');
-    const activityLogStatus = document.getElementById('activityLogStatus');
-    const activityRefreshBtn = document.getElementById('activityRefreshBtn');
-    const activityPurgeBtn = document.getElementById('activityPurgeBtn');
-    const activityPrevBtn = document.getElementById('activityPrevBtn');
-    const activityNextBtn = document.getElementById('activityNextBtn');
-    const activityRangeText = document.getElementById('activityRangeText');
-    const activitySummaryTotal = document.getElementById('activitySummaryTotal');
-    const activitySummaryAlerts = document.getElementById('activitySummaryAlerts');
-    const activitySummaryManual = document.getElementById('activitySummaryManual');
-    const activitySummaryEquipment = document.getElementById('activitySummaryEquipment');
-    const activityFilterBtns = Array.from(document.querySelectorAll('[data-activity-filter]'));
     let autoScrollEnabled = true;
     let logsOverlayOpen = false;
-    let activityFilter = 'all';
-    let activityWindowShiftHours = 0;
-    let activityEventsCache = [];
-    let activityStatsCache = null;
 
     const checkUpdatesBtn = document.getElementById('checkUpdates');
     const cancelUpgradeUiBtn = document.getElementById('cancelUpgradeUi');
@@ -2159,6 +2186,8 @@
     let flowCfgApplyBtnSavedText = '';
     let networkPage = null;
     let networkPageLoadPromise = null;
+    let activityPage = null;
+    let activityPageLoadPromise = null;
     let flowCfgLoadedOnce = false;
     let calibrationLoadedOnce = false;
     let calibrationContext = null;
@@ -2819,327 +2848,6 @@
       setWsStatusText(tr('terminal.inactive', 'inactif'));
     }
 
-    function activityEventDate(ev) {
-      const epoch = Number(ev && ev.epoch_s) || 0;
-      if (epoch > 0) return new Date(epoch * 1000);
-      return null;
-    }
-
-    function formatActivityTime(date) {
-      if (!date) return '--:--:--';
-      return date.toLocaleTimeString(currentWebLocaleTag(), { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    }
-
-    function formatActivityDay(date) {
-      if (!date) return tr('activity.date.unknown', 'Date inconnue');
-      return date.toLocaleDateString(currentWebLocaleTag(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-    }
-
-    function formatActivityRelative(date) {
-      if (!date) return tr('activity.time.unsynced', 'heure non synchronisée');
-      const diffSec = Math.max(0, Math.round((Date.now() - date.getTime()) / 1000));
-      if (diffSec < 60) return diffSec <= 3
-        ? tr('activity.time.now', 'Maintenant')
-        : tr('activity.time.secondsAgo', 'Il y a') + ' ' + diffSec + ' s';
-      const diffMin = Math.round(diffSec / 60);
-      if (diffMin < 60) return tr('activity.time.ago', 'Il y a') + ' ' + diffMin + ' min';
-      const diffHour = Math.round(diffMin / 60);
-      if (diffHour < 24) return tr('activity.time.ago', 'Il y a') + ' ' + diffHour + ' h';
-      const diffDay = Math.round(diffHour / 24);
-      return tr('activity.time.ago', 'Il y a') + ' ' + diffDay + ' j';
-    }
-
-    function activityIsInWindow(ev) {
-      const date = activityEventDate(ev);
-      if (date) {
-        const end = Date.now() - (activityWindowShiftHours * 3 * 3600000);
-        const start = end - (3 * 3600000);
-        const ts = date.getTime();
-        return ts >= start && ts <= end;
-      }
-      return activityWindowShiftHours === 0;
-    }
-
-    function activityIsAlert(ev) {
-      const severity = String(ev && ev.severity_name || '').toLowerCase();
-      return String(ev && ev.domain_name || '').toLowerCase() === 'alarm' ||
-        String(ev && ev.source_name || '').toLowerCase() === 'safety' ||
-        severity === 'warning' || severity === 'alarm';
-    }
-
-    function activityIsEquipment(ev) {
-      const role = String(ev && ev.role_name || '').toLowerCase();
-      return role !== '' && role !== 'none' && role !== 'unknown' ||
-        String(ev && ev.domain_name || '').toLowerCase() === 'pooldevice';
-    }
-
-    function activityMatchesSelectedFilter(ev) {
-      if (activityFilter === 'all') return true;
-      if (activityFilter === 'equipment') return activityIsEquipment(ev);
-      if (activityFilter === 'automatic') {
-        const source = String(ev && ev.source_name || '').toLowerCase();
-        return source === 'auto' || source === 'scheduler' || source === 'pid';
-      }
-      if (activityFilter === 'manual') return ev.source_name === 'manual';
-      if (activityFilter === 'alerts') return activityIsAlert(ev);
-      if (activityFilter === 'system') return ev.domain_name === 'system';
-      return true;
-    }
-
-    function activitySeverityMeta(ev) {
-      const code = Number(ev && ev.code) || 0;
-      if (code === 10) return { key: 'alarm', label: tr('activity.state.raised', 'Alarme déclenchée'), icon: 'notification_important' };
-      if (code === 11) return { key: 'warning', label: tr('activity.state.acknowledge', 'À acquitter'), icon: 'notification_paused' };
-      if (code === 12) return { key: 'resolved', label: tr('activity.state.resolved', 'Retour à la normale'), icon: 'task_alt' };
-      const severity = String(ev && ev.severity_name || 'info').toLowerCase();
-      if (severity === 'alarm') return { key: 'alarm', label: tr('activity.severity.alarm', 'Alarme'), icon: 'error' };
-      if (severity === 'warning') return { key: 'warning', label: tr('activity.severity.warning', 'Attention'), icon: 'warning' };
-      if (severity === 'success') return { key: 'success', label: tr('activity.severity.success', 'Réussi'), icon: 'check_circle' };
-      return { key: 'info', label: tr('activity.severity.info', 'Information'), icon: 'info' };
-    }
-
-    function activityCategoryLabel(ev) {
-      const domain = String(ev && ev.domain_name || '').toLowerCase();
-      if (domain === 'alarm') return tr('activity.category.alert', 'Alerte');
-      if (activityIsEquipment(ev)) return tr('activity.category.equipment', 'Équipement');
-      if (domain === 'poollogic') return tr('activity.category.automation', 'Automatisme');
-      return tr('activity.category.system', 'Système');
-    }
-
-    function activitySourceLabel(source) {
-      const labels = {
-        auto: tr('activity.source.auto', 'Automatique'),
-        manual: tr('activity.source.manual', 'Manuel'),
-        scheduler: tr('activity.source.scheduler', 'Programmation'),
-        safety: tr('activity.source.safety', 'Sécurité'),
-        pid: tr('activity.source.pid', 'Régulation'),
-        boot: tr('activity.source.boot', 'Démarrage'),
-        system: tr('activity.source.system', 'Système')
-      };
-      return labels[String(source || '').toLowerCase()] || '';
-    }
-
-    function activityRoleLabel(role) {
-      const labels = {
-        filtration: tr('activity.role.filtration', 'Filtration'),
-        swg: tr('activity.role.swg', 'Électrolyseur'),
-        robot: tr('activity.role.robot', 'Robot'),
-        filling: tr('activity.role.filling', 'Remplissage'),
-        ph: tr('activity.role.ph', 'Pompe pH'),
-        disinfection: tr('activity.role.disinfection', 'Désinfection'),
-        heater: tr('activity.role.heater', 'Chauffage')
-      };
-      return labels[String(role || '').toLowerCase()] || '';
-    }
-
-    function activityStateLabel(state) {
-      const labels = {
-        requested_on: tr('activity.device.requestedOn', 'Mise en marche demandée'),
-        requested_off: tr('activity.device.requestedOff', 'Arrêt demandé'),
-        on: tr('activity.device.on', 'En marche'),
-        off: tr('activity.device.off', 'Arrêté')
-      };
-      return labels[String(state || '').toLowerCase()] || '';
-    }
-
-    function updateActivityRangeText() {
-      if (!activityRangeText) return;
-      const end = new Date(Date.now() - (activityWindowShiftHours * 3 * 3600000));
-      const start = new Date(end.getTime() - (3 * 3600000));
-      activityRangeText.textContent =
-        start.toLocaleDateString(currentWebLocaleTag(), { day: 'numeric', month: 'short' }) + ' · ' +
-        start.toLocaleTimeString(currentWebLocaleTag(), { hour: '2-digit', minute: '2-digit' }) + ' — ' +
-        end.toLocaleDateString(currentWebLocaleTag(), { day: 'numeric', month: 'short' }) + ' · ' +
-        end.toLocaleTimeString(currentWebLocaleTag(), { hour: '2-digit', minute: '2-digit' });
-      if (activityNextBtn) activityNextBtn.disabled = activityWindowShiftHours === 0;
-    }
-
-    function updateActivitySummary(events) {
-      const list = Array.isArray(events) ? events : [];
-      if (activitySummaryTotal) activitySummaryTotal.textContent = String(list.length);
-      if (activitySummaryAlerts) activitySummaryAlerts.textContent = String(list.filter(activityIsAlert).length);
-      if (activitySummaryManual) activitySummaryManual.textContent = String(list.filter((ev) => ev.source_name === 'manual').length);
-      if (activitySummaryEquipment) activitySummaryEquipment.textContent = String(list.filter(activityIsEquipment).length);
-    }
-
-    function makeActivityBadge(text, className) {
-      const badge = document.createElement('span');
-      badge.className = 'activity-badge ' + String(className || '');
-      badge.textContent = text;
-      return badge;
-    }
-
-    function renderActivityLog(events, stats) {
-      if (!activityLogList) return;
-      activityLogList.innerHTML = '';
-      updateActivityRangeText();
-      const periodEvents = (Array.isArray(events) ? events : []).filter(activityIsInWindow);
-      updateActivitySummary(periodEvents);
-      const filtered = periodEvents
-        .filter(activityMatchesSelectedFilter)
-        .sort((a, b) => {
-          const ae = Number(a.epoch_s) || 0;
-          const be = Number(b.epoch_s) || 0;
-          if (ae !== be) return be - ae;
-          return (Number(b.seq) || 0) - (Number(a.seq) || 0);
-        });
-      if (!filtered.length) {
-        const empty = document.createElement('div');
-        empty.className = 'activity-empty';
-        empty.innerHTML = '<span class="ui-msr" aria-hidden="true">event_busy</span><strong></strong><small></small>';
-        empty.querySelector('strong').textContent = tr('activity.empty.title', 'Aucune activité sur cette période');
-        empty.querySelector('small').textContent = tr('activity.empty.detail', 'Essayez un autre filtre ou consultez la période précédente.');
-        activityLogList.appendChild(empty);
-        if (activityLogStatus) {
-          activityLogStatus.textContent = '0 ' + tr('activity.status.visible', 'événement affiché') +
-            ' · ' + periodEvents.length + ' ' + tr('activity.status.period', 'sur la période');
-        }
-        return;
-      }
-
-      const dayGroups = [];
-      filtered.forEach((ev) => {
-        const date = activityEventDate(ev);
-        const day = formatActivityDay(date);
-        let group = dayGroups[dayGroups.length - 1];
-        if (!group || group.day !== day) {
-          group = { day: day, events: [] };
-          dayGroups.push(group);
-        }
-        group.events.push(ev);
-      });
-
-      dayGroups.forEach((group) => {
-        const daySection = document.createElement('section');
-        daySection.className = 'activity-day-group';
-        const dayHead = document.createElement('div');
-        dayHead.className = 'activity-day-title';
-        const dayLabel = document.createElement('strong');
-        dayLabel.textContent = group.day;
-        const dayCount = document.createElement('span');
-        dayCount.textContent = group.events.length + ' ' + tr('activity.day.events', 'événement(s)');
-        dayHead.appendChild(dayLabel);
-        dayHead.appendChild(dayCount);
-        daySection.appendChild(dayHead);
-        const rows = document.createElement('div');
-        rows.className = 'activity-day-rows';
-
-        group.events.forEach((ev) => {
-          const date = activityEventDate(ev);
-          const severity = activitySeverityMeta(ev);
-          const row = document.createElement('article');
-          row.className = 'activity-row activity-severity-' + severity.key;
-
-          const iconWrap = document.createElement('span');
-          iconWrap.className = 'activity-row-icon-wrap';
-          const icon = document.createElement('span');
-          icon.className = 'ui-msr activity-row-icon';
-          icon.setAttribute('aria-hidden', 'true');
-          icon.textContent = String(ev.icon || severity.icon || 'history');
-          iconWrap.appendChild(icon);
-
-          const main = document.createElement('div');
-          main.className = 'activity-row-main';
-          const head = document.createElement('div');
-          head.className = 'activity-row-head';
-          const title = document.createElement('strong');
-          title.className = 'activity-row-title';
-          title.textContent = String(ev.title || tr('activity.event.default', 'Activité'));
-          const badges = document.createElement('span');
-          badges.className = 'activity-row-badges';
-          badges.appendChild(makeActivityBadge(activityCategoryLabel(ev), 'is-category'));
-          badges.appendChild(makeActivityBadge(severity.label, 'is-' + severity.key));
-          head.appendChild(title);
-          head.appendChild(badges);
-          main.appendChild(head);
-
-          if (ev.detail) {
-            const detail = document.createElement('div');
-            detail.className = 'activity-row-detail';
-            detail.textContent = String(ev.detail);
-            main.appendChild(detail);
-          }
-
-          const footer = document.createElement('div');
-          footer.className = 'activity-row-footer';
-          const meta = document.createElement('span');
-          meta.className = 'activity-row-meta';
-          meta.innerHTML = '<span class="ui-msr" aria-hidden="true">schedule</span>';
-          meta.appendChild(document.createTextNode(formatActivityTime(date) + ' · ' + formatActivityRelative(date)));
-          footer.appendChild(meta);
-          const context = document.createElement('span');
-          context.className = 'activity-row-context';
-          const sourceLabel = activitySourceLabel(ev.source_name);
-          const roleLabel = activityRoleLabel(ev.role_name);
-          const stateLabel = activityStateLabel(ev.state_name);
-          [sourceLabel, roleLabel, stateLabel].filter(Boolean).forEach((label) => {
-            context.appendChild(makeActivityBadge(label, 'is-context'));
-          });
-          if (context.childNodes.length) footer.appendChild(context);
-          main.appendChild(footer);
-          row.appendChild(iconWrap);
-          row.appendChild(main);
-          rows.appendChild(row);
-        });
-        daySection.appendChild(rows);
-        activityLogList.appendChild(daySection);
-      });
-
-      if (activityLogStatus) {
-        let status = filtered.length + ' ' + tr('activity.status.visible', 'événement(s) affiché(s)') +
-          ' · ' + periodEvents.length + ' ' + tr('activity.status.period', 'sur la période');
-        const dropped = Number(stats && stats.dropped) || 0;
-        const persistDropped = Number(stats && stats.persist_dropped) || 0;
-        if (dropped + persistDropped > 0) {
-          status += ' · ' + (dropped + persistDropped) + ' ' + tr('activity.status.dropped', 'non conservé(s)');
-        }
-        activityLogStatus.textContent = status;
-      }
-    }
-
-    async function refreshActivityLog(showBusy) {
-      if (!activityLogList) return;
-      if (showBusy && activityLogStatus) activityLogStatus.textContent = 'Chargement du journal...';
-      const limit = 128;
-      let offset = 0;
-      const events = [];
-      let stats = null;
-      while (true) {
-        const response = await fetch('/api/activity/logs?offset=' + encodeURIComponent(offset) + '&limit=' + limit, { cache: 'no-store' });
-        if (!response.ok) throw new Error('HTTP ' + response.status);
-        const page = await response.json();
-        stats = page;
-        if (Array.isArray(page.events)) events.push(...page.events);
-        if (page.complete || page.next == null || Number(page.count) === 0) break;
-        offset = Number(page.next);
-        if (!Number.isFinite(offset) || offset < 0 || events.length >= 768) break;
-      }
-      activityEventsCache = events;
-      activityStatsCache = stats;
-      renderActivityLog(activityEventsCache, activityStatsCache);
-    }
-
-    async function purgeActivityLog() {
-      if (!confirm('Confirmer la purge du Journal d’Activité ? Cette action efface l’historique en mémoire et dans le SPIFFS.')) {
-        return;
-      }
-      if (activityPurgeBtn) activityPurgeBtn.disabled = true;
-      if (activityLogStatus) activityLogStatus.textContent = 'Purge du journal...';
-      try {
-        const response = await fetchWithBusyRetry('/api/activity/purge', { method: 'POST', cache: 'no-store' });
-        if (!response.ok) throw new Error('HTTP ' + response.status);
-        const payload = await response.json().catch(() => ({}));
-        if (payload && payload.ok === false) throw new Error('Purge refusée');
-        activityWindowShiftHours = 0;
-        await refreshActivityLog(false);
-        if (activityLogStatus) activityLogStatus.textContent = 'Journal purgé.';
-      } catch (err) {
-        if (activityLogStatus) activityLogStatus.textContent = 'Purge impossible: ' + (err && err.message ? err.message : String(err));
-      } finally {
-        if (activityPurgeBtn) activityPurgeBtn.disabled = false;
-      }
-    }
-
     function setLogSource(source) {
       let normalized = String(source || '').trim().toLowerCase();
       if (webLocalRuntime && normalized === 'flowio') {
@@ -3211,37 +2919,6 @@
     }
     document.addEventListener('keydown', (ev) => {
       if (ev.key === 'Escape' && logsOverlayOpen) closeLogsOverlay();
-    });
-    if (activityRefreshBtn) {
-      activityRefreshBtn.addEventListener('click', () => refreshActivityLog(true).catch((err) => {
-        if (activityLogStatus) activityLogStatus.textContent = 'Journal indisponible: ' + (err && err.message ? err.message : String(err));
-      }));
-    }
-    if (activityPurgeBtn) {
-      activityPurgeBtn.addEventListener('click', () => {
-        purgeActivityLog().catch((err) => {
-          if (activityLogStatus) activityLogStatus.textContent = 'Purge impossible: ' + (err && err.message ? err.message : String(err));
-        });
-      });
-    }
-    if (activityPrevBtn) {
-      activityPrevBtn.addEventListener('click', () => {
-        activityWindowShiftHours += 1;
-        renderActivityLog(activityEventsCache, activityStatsCache);
-      });
-    }
-    if (activityNextBtn) {
-      activityNextBtn.addEventListener('click', () => {
-        activityWindowShiftHours = Math.max(0, activityWindowShiftHours - 1);
-        renderActivityLog(activityEventsCache, activityStatsCache);
-      });
-    }
-    activityFilterBtns.forEach((btn) => {
-      btn.addEventListener('click', () => {
-        activityFilter = String(btn.dataset.activityFilter || 'all');
-        activityFilterBtns.forEach((el) => el.classList.toggle('is-active', el === btn));
-        renderActivityLog(activityEventsCache, activityStatsCache);
-      });
     });
     applyLogSourceUi();
     refreshAutoscrollUi();
@@ -13857,7 +13534,7 @@
           connectLogSocket();
         }
         if (!document.hidden && activePageId === 'page-activity-log') {
-          refreshActivityLog(false).catch(() => {});
+          onActivityPageShown(false).catch(() => {});
         }
         if (document.hidden || activePageId !== 'page-info') {
           stopInfoPolling();
