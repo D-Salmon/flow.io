@@ -20,6 +20,7 @@
 #include <esp_heap_caps.h>
 #include <esp_system.h>
 #include <string.h>
+#include <stdlib.h>
 
 namespace {
 static void copyText_(char* out, size_t outLen, const char* in)
@@ -78,6 +79,12 @@ bool ActivityLogModule::serviceClear_(void* ctx)
     return self->clear_();
 }
 
+uint32_t ActivityLogModule::serviceRemove_(void* ctx, const char* ids)
+{
+    auto* self = static_cast<ActivityLogModule*>(ctx);
+    return self ? self->requestDelete_(ids, false) : 0;
+}
+
 void ActivityLogModule::init(ConfigStore&, ServiceRegistry& services)
 {
     services_ = &services;
@@ -100,11 +107,13 @@ void ActivityLogModule::init(ConfigStore&, ServiceRegistry& services)
     }
 
     persistQueue_ = xQueueCreate(kPersistQueueLen, sizeof(ActivityEvent));
+    emitMutex_ = xSemaphoreCreateMutex();
 
     service_.emit = &ActivityLogModule::serviceEmit_;
     service_.getStats = &ActivityLogModule::serviceGetStats_;
     service_.readPage = &ActivityLogModule::serviceReadPage_;
     service_.clear = &ActivityLogModule::serviceClear_;
+    service_.remove = &ActivityLogModule::serviceRemove_;
     service_.ctx = this;
 
     if (!services.add(ServiceId::ActivityLog, &service_)) {
@@ -135,6 +144,7 @@ void ActivityLogModule::init(ConfigStore&, ServiceRegistry& services)
 
 void ActivityLogModule::loop()
 {
+    processDelete_();
     emitBootEventIfReady_();
 
     ActivityEvent event{};
@@ -161,11 +171,13 @@ void ActivityLogModule::normalizeEvent_(ActivityEvent& event)
 {
     if (event.ts_ms == 0U) event.ts_ms = millis();
     if (event.epoch_s == 0U) event.epoch_s = epochNow_();
+    portENTER_CRITICAL(&mux_);
     if (event.seq == 0U) {
         event.seq = nextSeq_++;
     } else if (event.seq >= nextSeq_) {
         nextSeq_ = event.seq + 1U;
     }
+    portEXIT_CRITICAL(&mux_);
     event.title[sizeof(event.title) - 1U] = '\0';
     event.detail[sizeof(event.detail) - 1U] = '\0';
     event.icon[sizeof(event.icon) - 1U] = '\0';
@@ -176,7 +188,8 @@ void ActivityLogModule::normalizeEvent_(ActivityEvent& event)
 
 bool ActivityLogModule::emit_(const ActivityEvent& in)
 {
-    if (!entries_ || capacity_ == 0U) return false;
+    if (!entries_ || capacity_ == 0U || !emitMutex_) return false;
+    if (xSemaphoreTake(emitMutex_, pdMS_TO_TICKS(20)) != pdTRUE) return false;
 
     ActivityEvent event = in;
     normalizeEvent_(event);
@@ -187,31 +200,99 @@ bool ActivityLogModule::emit_(const ActivityEvent& in)
             ++persistDropCount_;
         }
     }
+    xSemaphoreGive(emitMutex_);
     return true;
 }
 
 bool ActivityLogModule::clear_()
 {
-    if (persistQueue_) {
-        xQueueReset(persistQueue_);
-    }
+    return requestDelete_(nullptr, true) != 0;
+}
 
+uint32_t ActivityLogModule::requestDelete_(const char* ids, bool all)
+{
+    if (!spiffsReady_ || !persistQueue_ || !emitMutex_) return 0;
+    auto* job = static_cast<DeleteRequest*>(heap_caps_calloc(1, sizeof(DeleteRequest), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
+    if (!job) return 0;
+    job->all = all;
+    if (!all) {
+        const char* p = ids;
+        while (p && *p && job->count < kCapacity) {
+            if (*p < '0' || *p > '9') break;
+            char* end = nullptr;
+            const unsigned long long value = strtoull(p, &end, 10);
+            if (value == 0 || value > UINT32_MAX || (*end && *end != ',')) break;
+            job->ids[job->count++] = static_cast<uint32_t>(value);
+            p = *end ? end + 1 : end;
+            if (*end && !*p) { p = nullptr; break; }
+        }
+        if (!p || *p || job->count == 0) { heap_caps_free(job); return 0; }
+    }
+    if (xSemaphoreTake(emitMutex_, pdMS_TO_TICKS(20)) != pdTRUE) { heap_caps_free(job); return 0; }
     portENTER_CRITICAL(&mux_);
-    head_ = 0;
-    count_ = 0;
-    droppedCount_ = 0;
-    persistedCount_ = 0;
-    persistDropCount_ = 0;
-    nextSeq_ = 1;
-    portEXIT_CRITICAL(&mux_);
-
-    bool ok = true;
-    if (spiffsReady_) {
-        if (SPIFFS.exists(kLogPath) && !SPIFFS.remove(kLogPath)) ok = false;
-        if (SPIFFS.exists(kRotatedLogPath) && !SPIFFS.remove(kRotatedLogPath)) ok = false;
+    bool busy = deleteState_ == 1;
+    if (!all) {
+        for (uint16_t i = 0; i < job->count; ++i) {
+            if (job->ids[i] >= nextSeq_) busy = true;
+        }
     }
-    LOGI("Activity log cleared ok=%u spiffs=%u", ok ? 1U : 0U, spiffsReady_ ? 1U : 0U);
-    return ok;
+    uint32_t id = 0;
+    if (!busy) {
+        if (all) { job->ids[0] = nextSeq_ - 1; job->count = 1; }
+        id = ++deleteId_;
+        deleteState_ = 1;
+        pendingDelete_ = job;
+    }
+    portEXIT_CRITICAL(&mux_);
+    xSemaphoreGive(emitMutex_);
+    if (busy) heap_caps_free(job);
+    return id;
+}
+
+void ActivityLogModule::removeRing_(uint32_t seq, bool all)
+{
+    portENTER_CRITICAL(&mux_);
+    uint16_t kept = 0;
+    for (uint16_t i = 0; i < count_; ++i) {
+        const uint16_t from = (head_ + i) % capacity_;
+        const bool erase = all ? entries_[from].seq <= seq : entries_[from].seq == seq;
+        if (!erase) {
+            const uint16_t to = (head_ + kept++) % capacity_;
+            if (to != from) entries_[to] = entries_[from];
+        }
+    }
+    count_ = kept;
+    portEXIT_CRITICAL(&mux_);
+}
+
+void ActivityLogModule::processDelete_()
+{
+    portENTER_CRITICAL(&mux_);
+    DeleteRequest* job = pendingDelete_;
+    pendingDelete_ = nullptr;
+    portEXIT_CRITICAL(&mux_);
+    if (!job) return;
+    // Only this task writes SPIFFS. Flush pre-request events before tombstones.
+    const UBaseType_t queued = uxQueueMessagesWaiting(persistQueue_);
+    ActivityEvent event{};
+    bool ok = true;
+    for (UBaseType_t i = 0; i < queued; ++i) {
+        if (xQueueReceive(persistQueue_, &event, 0) == pdTRUE && !persist_(event)) ++persistDropCount_;
+        vTaskDelay(1);
+    }
+    for (uint16_t i = 0; i < job->count; ++i) {
+        event = {};
+        event.seq = job->ids[i];
+        event.code = UINT16_MAX; // Internal tombstone; never displayed as an event.
+        event.state = job->all ? 1 : 0;
+        if (!persist_(event)) { ok = false; break; }
+        removeRing_(event.seq, job->all);
+        vTaskDelay(1);
+    }
+    heap_caps_free(job);
+    portENTER_CRITICAL(&mux_);
+    deleteState_ = ok ? 2 : 3;
+    portEXIT_CRITICAL(&mux_);
 }
 
 void ActivityLogModule::appendRing_(const ActivityEvent& event)
@@ -243,6 +324,8 @@ void ActivityLogModule::getStats_(ActivityLogStats& out) const
     out.seqNext = nextSeq_;
     out.psram = inPsram_;
     out.spiffs = spiffsReady_;
+    out.deleteId = deleteId_;
+    out.deleteState = deleteState_;
     portEXIT_CRITICAL(&mux_);
 }
 
@@ -266,6 +349,7 @@ uint16_t ActivityLogModule::readPage_(uint16_t offset,
         ActivityEvent event{};
         portENTER_CRITICAL(&mux_);
         const uint16_t logicalIndex = (uint16_t)(offset + i);
+        if (logicalIndex >= count_) { portEXIT_CRITICAL(&mux_); break; }
         const uint16_t idx = (uint16_t)((head_ + logicalIndex) % capacity_);
         event = entries_[idx];
         portEXIT_CRITICAL(&mux_);
@@ -281,6 +365,11 @@ uint16_t ActivityLogModule::readPage_(uint16_t offset,
 bool ActivityLogModule::formatLine_(const ActivityEvent& event, char* out, size_t outLen) const
 {
     if (!out || outLen == 0U) return false;
+    if (event.code == UINT16_MAX) {
+        const int n = snprintf(out, outLen, "{\"seq\":%lu,\"code\":65535,\"state\":%u}",
+                               (unsigned long)event.seq, (unsigned)event.state);
+        return n > 0 && static_cast<size_t>(n) < outLen;
+    }
     out[0] = '\0';
     JsonDocument doc;
     doc["seq"] = event.seq;
@@ -322,6 +411,7 @@ bool ActivityLogModule::parseLine_(const char* line, ActivityEvent& out) const
     copyText_(out.title, sizeof(out.title), doc["title"] | "");
     copyText_(out.detail, sizeof(out.detail), doc["detail"] | "");
     copyText_(out.icon, sizeof(out.icon), doc["icon"] | "history");
+    if (out.code == UINT16_MAX) return out.state <= 1;
     if (out.seq == 0U || out.title[0] == '\0') return false;
     return true;
 }
@@ -339,6 +429,11 @@ void ActivityLogModule::replayFile_(const char* path)
         if (n == 0U) continue;
         ActivityEvent event{};
         if (parseLine_(line, event)) {
+            if (event.code == UINT16_MAX) {
+                if (event.seq >= nextSeq_) nextSeq_ = event.seq + 1;
+                removeRing_(event.seq, event.state == 1);
+                continue;
+            }
             normalizeEvent_(event);
             appendRing_(event);
         }
@@ -369,9 +464,12 @@ bool ActivityLogModule::persist_(const ActivityEvent& event)
     if (!formatLine_(event, line, sizeof(line))) return false;
 
     const size_t len = strlen(line);
-    rotateIfNeeded_(len);
+    // Deletion records must not themselves evict surviving history through rotation.
+    if (event.code != UINT16_MAX) rotateIfNeeded_(len);
     File file = SPIFFS.open(kLogPath, FILE_APPEND);
     if (!file) return false;
+    // Separate any incomplete line left by a previous failed write/reset.
+    if (event.code == UINT16_MAX && file.print('\n') != 1U) { file.close(); return false; }
     const size_t wrote = file.print(line);
     const size_t wroteNl = file.print('\n');
     file.close();

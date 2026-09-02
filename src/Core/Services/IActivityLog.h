@@ -117,6 +117,8 @@ struct ActivityLogStats {
     uint32_t seqNext = 0;
     bool psram = false;
     bool spiffs = false;
+    uint32_t deleteId = 0;
+    uint8_t deleteState = 0; // 0 idle, 1 pending, 2 complete, 3 failed (possibly partial)
 };
 
 using ActivityLogReplayWriter = bool (*)(void* writerCtx,
@@ -133,5 +135,6 @@ struct ActivityLogService {
                          ActivityLogReplayWriter writer,
                          void* writerCtx);
     bool (*clear)(void* ctx);
+    uint32_t (*remove)(void* ctx, const char* ids);
     void* ctx;
 };

@@ -11,6 +11,20 @@
       const statusEl = document.getElementById('activityLogStatus');
       const refreshBtn = document.getElementById('activityRefreshBtn');
       const purgeBtn = document.getElementById('activityPurgeBtn');
+      const deleteBtn = document.getElementById('activityDeleteBtn');
+      const selectVisibleBtn = document.getElementById('activitySelectVisibleBtn');
+      const selected = new Set();
+      let mutationBusy = false;
+      let visible = true;
+
+      function updateSelection() {
+        if (deleteBtn) {
+          deleteBtn.textContent = 'Supprimer la sélection (' + selected.size + ')';
+          deleteBtn.disabled = mutationBusy || !selected.size;
+        }
+        if (purgeBtn) purgeBtn.disabled = mutationBusy;
+        if (selectVisibleBtn) selectVisibleBtn.disabled = mutationBusy;
+      }
       const prevBtn = document.getElementById('activityPrevBtn');
       const nextBtn = document.getElementById('activityNextBtn');
       const rangeEl = document.getElementById('activityRangeText');
@@ -26,9 +40,14 @@
       let activeJob = null;
 
       function hide() {
+        visible = false;
+        cancelLoad();
+      }
+
+      function cancelLoad() {
         if (activeJob) activeJob.controller.abort();
         activeJob = null;
-        if (refreshBtn) refreshBtn.disabled = false;
+        if (refreshBtn) refreshBtn.disabled = mutationBusy;
       }
 
       function eventDate(event) {
@@ -207,6 +226,21 @@
         head.appendChild(title);
         head.appendChild(badges);
         main.appendChild(head);
+        const choice = document.createElement('label');
+        choice.className = 'activity-select';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = selected.has(Number(event.seq));
+        checkbox.disabled = mutationBusy;
+        checkbox.setAttribute('aria-label', 'Sélectionner : ' + String(event.title || 'événement'));
+        checkbox.addEventListener('change', () => {
+          if (checkbox.checked) selected.add(Number(event.seq));
+          else selected.delete(Number(event.seq));
+          updateSelection();
+        });
+        choice.appendChild(checkbox);
+        choice.appendChild(document.createTextNode('Sélectionner'));
+        main.appendChild(choice);
 
         if (event.detail) {
           const detail = document.createElement('div');
@@ -296,16 +330,18 @@
       }
 
       function refresh(showBusy) {
+        if (mutationBusy || !visible) return Promise.resolve();
         if (!listEl) return Promise.resolve();
         if (activeJob) return activeJob.promise;
-        const job = { controller: new AbortController(), timedOut: false };
+        const job = { controller: new AbortController(), timedOut: false, showBusy: showBusy !== false };
         activeJob = job;
         if (refreshBtn) refreshBtn.disabled = true;
-        if (statusEl) statusEl.textContent = 'Chargement du journal...';
+        if (job.showBusy && statusEl) statusEl.textContent = 'Chargement du journal...';
         job.promise = load(job).catch((error) => {
           if (activeJob !== job) return;
           if (statusEl) statusEl.textContent = 'Journal indisponible : ' + (job.timedOut
             ? 'le contrôleur ne répond pas dans le délai prévu.' : error.message);
+          return false;
         }).finally(() => {
           if (activeJob !== job) return;
           activeJob = null;
@@ -346,52 +382,111 @@
           offset = next;
           if (events.length >= 768) break;
           if (pageNumber === 47) throw new Error('chargement incomplet, veuillez actualiser.');
-          if (statusEl) statusEl.textContent = 'Chargement du journal : ' + events.length + ' événement(s)...';
+          if (job.showBusy && statusEl) statusEl.textContent = 'Chargement du journal : ' + events.length + ' événement(s)...';
         }
         eventsCache = events;
         statsCache = stats;
+        const existing = new Set(events.map(event => Number(event.seq)));
+        selected.forEach(id => { if (!existing.has(id)) selected.delete(id); });
+        updateSelection();
         render(eventsCache, statsCache);
+        return true;
       }
 
-      async function purge() {
-        if (!confirm('Confirmer la purge du Journal d’Activité ? Cette action efface l’historique en mémoire et dans le SPIFFS.')) return;
-        if (purgeBtn) purgeBtn.disabled = true;
-        if (statusEl) statusEl.textContent = 'Purge du journal...';
+      async function deleteEvents(all) {
+        if (mutationBusy || (!all && !selected.size)) return;
+        const ids = Array.from(selected);
+        const question = all
+          ? 'Vider TOUT le journal, y compris les événements masqués par les filtres et les anciennes périodes ? Cette suppression est définitive. Les nouveaux événements continueront à être enregistrés.'
+          : 'Supprimer définitivement les ' + ids.length + ' événement(s) sélectionné(s) ?';
+        if (!confirm(question)) return;
+        cancelLoad();
+        mutationBusy = true;
+        updateSelection();
+        render(eventsCache, statsCache);
+        if (refreshBtn) refreshBtn.disabled = true;
+        if (statusEl) statusEl.textContent = 'Suppression en cours...';
+        let message;
+        let confirmed = false;
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 90000);
         try {
-          const response = await fetchWithBusyRetry('/api/activity/purge', { method: 'POST', cache: 'no-store' });
+          const response = await fetchWithBusyRetry(all ? '/api/activity/purge' : '/api/activity/delete', {
+            method: 'POST', cache: 'no-store', signal: controller.signal,
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: all ? '' : 'ids=' + encodeURIComponent(ids.join(','))
+          }, fetch); // Keep CSRF protection, but never automatically retry a destructive POST.
           if (!response.ok) throw new Error('HTTP ' + response.status);
-          const payload = await response.json().catch(() => ({}));
-          if (payload && payload.ok === false) throw new Error('Purge refusée');
-          windowShiftHours = 0;
-          await refresh(false);
-          if (statusEl) statusEl.textContent = 'Journal purgé.';
+          const payload = await response.json();
+          if (!payload.ok || !payload.delete_id) throw new Error('Confirmation absente : firmware compatible requis.');
+          while (true) {
+            if (controller.signal.aborted) throw new Error('Délai dépassé ; actualisez pour vérifier le résultat.');
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            const progress = await fetch('/api/activity/status', { cache: 'no-store', signal: controller.signal });
+            if (!progress.ok) throw new Error('HTTP ' + progress.status);
+            const state = await progress.json();
+            if (state.delete_id !== payload.delete_id) throw new Error('Opération interrompue ou remplacée ; actualisez le journal.');
+            if (state.delete_state === 3) throw new Error('Écriture impossible ; la suppression peut être partielle.');
+            if (state.delete_state === 2) break;
+          }
+          selected.clear();
+          confirmed = true;
+          // Update the existing view as soon as persistence is confirmed. Do not
+          // keep deleted rows while waiting for a complete network reload.
+          const removed = new Set(ids);
+          eventsCache = all ? [] : eventsCache.filter(event => !removed.has(Number(event.seq)));
+          render(eventsCache, statsCache);
+          message = all ? 'Journal vidé. Les nouveaux événements restent enregistrés.' : 'Sélection supprimée.';
         } catch (error) {
-          if (statusEl) statusEl.textContent = 'Purge impossible: ' + (error && error.message ? error.message : String(error));
+          message = 'Suppression non confirmée : ' + (controller.signal.aborted
+            ? 'délai dépassé ; actualisez pour vérifier le résultat.' : error.message);
         } finally {
-          if (purgeBtn) purgeBtn.disabled = false;
+          clearTimeout(timeout);
+          mutationBusy = false;
+          updateSelection();
+          if (refreshBtn) refreshBtn.disabled = false;
+        }
+        if (statusEl) statusEl.textContent = message;
+        const refreshed = await refresh(false);
+        if (statusEl && visible) {
+          if (refreshed === false) {
+            statusEl.textContent = message + ' Actualisation automatique impossible ; réessayez avec le bouton Actualiser.';
+          } else if (refreshed === true) {
+            statusEl.textContent = (confirmed ? message : 'Attention : ' + message) + ' ' + statusEl.textContent;
+          }
         }
       }
 
       if (refreshBtn) refreshBtn.addEventListener('click', () => refresh(true).catch((error) => {
         if (statusEl) statusEl.textContent = 'Journal indisponible: ' + (error && error.message ? error.message : String(error));
       }));
-      if (purgeBtn) purgeBtn.addEventListener('click', () => purge());
+      if (purgeBtn) purgeBtn.addEventListener('click', () => deleteEvents(true));
+      if (deleteBtn) deleteBtn.addEventListener('click', () => deleteEvents(false));
+      if (selectVisibleBtn) selectVisibleBtn.addEventListener('click', () => {
+        selected.clear();
+        eventsCache.filter(isInWindow).filter(matchesFilter).forEach(event => selected.add(Number(event.seq)));
+        updateSelection();
+        render(eventsCache, statsCache);
+      });
       if (prevBtn) prevBtn.addEventListener('click', () => {
         windowShiftHours += 1;
+        selected.clear(); updateSelection();
         render(eventsCache, statsCache);
       });
       if (nextBtn) nextBtn.addEventListener('click', () => {
         windowShiftHours = Math.max(0, windowShiftHours - 1);
+        selected.clear(); updateSelection();
         render(eventsCache, statsCache);
       });
       filterBtns.forEach((button) => button.addEventListener('click', () => {
         filter = String(button.dataset.activityFilter || 'all');
+        selected.clear(); updateSelection();
         filterBtns.forEach((item) => item.classList.toggle('is-active', item === button));
         render(eventsCache, statsCache);
       }));
 
       return {
-        show: refresh,
+        show: function (busy) { visible = true; return refresh(busy); },
         hide: hide,
         refresh: refresh
       };

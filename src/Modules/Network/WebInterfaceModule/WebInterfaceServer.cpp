@@ -1043,20 +1043,29 @@ uint32_t webAssetFingerprintFile_(uint32_t hash, const char* path)
     hash *= 16777619UL;
 
     uint8_t buffer[128];
+    size_t bytesSinceYield = 0U;
     while (file.available()) {
         const size_t got = file.read(buffer, sizeof(buffer));
         for (size_t i = 0; i < got; ++i) {
             hash ^= (uint32_t)buffer[i];
             hash *= 16777619UL;
         }
+        bytesSinceYield += got;
+        if (bytesSinceYield >= 4096U) {
+            // Fingerprinting runs during server start, never in async_tcp.  Yield
+            // regularly so a large SPIFFS image cannot starve the loop task.
+            delay(1);
+            bytesSinceYield = 0U;
+        }
     }
     return hash;
 }
 
-const char* webAssetVersion_()
+char gWebAssetVersion[64] = {0};
+
+void initializeWebAssetVersion_()
 {
-    static char version[64] = {0};
-    if (version[0] != '\0') return version;
+    if (gWebAssetVersion[0] != '\0') return;
 
     uint32_t hash = 2166136261UL;
     hash = webAssetFingerprintFile_(hash, "/webinterface/app-core.js.gz");
@@ -1077,8 +1086,19 @@ const char* webAssetVersion_()
     hash = webAssetFingerprintFile_(hash, "/webinterface/pool.js.gz");
     hash = webAssetFingerprintFile_(hash, "/webinterface/config.js.gz");
     hash = webAssetFingerprintFile_(hash, "/wc/i.j.gz");
-    snprintf(version, sizeof(version), "%s-%08lx", FirmwareVersion::BuildRef, (unsigned long)hash);
-    return version;
+    snprintf(gWebAssetVersion,
+             sizeof(gWebAssetVersion),
+             "%s-%08lx",
+             FirmwareVersion::BuildRef,
+             (unsigned long)hash);
+}
+
+const char* webAssetVersion_()
+{
+    // HTTP callbacks run on async_tcp and must never open or scan SPIFFS.  The
+    // cache is populated synchronously before server_.begin().  Keep a safe
+    // fallback for deployments where SPIFFS could not be mounted.
+    return gWebAssetVersion[0] != '\0' ? gWebAssetVersion : FirmwareVersion::BuildRef;
 }
 
 bool isMutatingRequest_(AsyncWebServerRequest* request)
@@ -4565,7 +4585,8 @@ void WebInterfaceModule::sendActivityLogHttpResponse_(AsyncWebServerRequest* req
         return;
     }
     addNoCacheHeaders_(response);
-    response->printf("{\"available\":%s,\"capacity\":%u,\"entries\":%u,\"dropped\":%lu,\"persisted\":%lu,\"persist_dropped\":%lu,\"psram\":%s,\"spiffs\":%s",
+    response->printf("{\"delete_id\":%lu,\"delete_state\":%u,", (unsigned long)stats.deleteId, (unsigned)stats.deleteState);
+    response->printf("\"available\":%s,\"capacity\":%u,\"entries\":%u,\"dropped\":%lu,\"persisted\":%lu,\"persist_dropped\":%lu,\"psram\":%s,\"spiffs\":%s",
                      available ? "true" : "false",
                      (unsigned)stats.capacity,
                      (unsigned)stats.count,
@@ -4879,6 +4900,8 @@ void WebInterfaceModule::startServer_()
         LOGW("SPIFFS mount failed; web assets unavailable");
     } else {
         LOGI("SPIFFS mounted for web assets");
+        initializeWebAssetVersion_();
+        LOGI("Web asset version cached: %s", webAssetVersion_());
     }
 
     auto beginSpiffsAssetResponse =
@@ -5538,21 +5561,41 @@ void WebInterfaceModule::startServer_()
         HttpLatencyScope latency(request, "/api/activity/logs");
         sendActivityLogHttpResponse_(request, false);
     });
-    server_.on("/api/activity/purge", HTTP_POST, [this](AsyncWebServerRequest* request) {
-        HttpLatencyScope latency(request, "/api/activity/purge");
+    auto deleteActivity = [this](AsyncWebServerRequest* request) {
+        HttpLatencyScope latency(request, "/api/activity/delete");
         noteHttpActivity_();
+        if (!webRequestAuthorized_(request)) {
+            request->send(403, "application/json", "{\"ok\":false,\"error\":\"Administrateur requis\"}");
+            return;
+        }
         if (!activityLog_ && services_) {
             activityLog_ = services_->get<ActivityLogService>(ServiceId::ActivityLog);
         }
-        if (!activityLog_ || !activityLog_->clear) {
+        if (!activityLog_ || !activityLog_->clear || !activityLog_->remove) {
             request->send(503, "application/json", "{\"ok\":false,\"err\":{\"code\":\"NotReady\",\"where\":\"activity.clear\"}}");
             return;
         }
-        const bool ok = activityLog_->clear(activityLog_->ctx);
-        request->send(ok ? 200 : 500,
-                      "application/json",
-                      ok ? "{\"ok\":true}" : "{\"ok\":false,\"err\":{\"code\":\"Failed\",\"where\":\"activity.clear\"}}");
-    });
+        uint32_t id = 0;
+        if (request->url() == "/api/activity/purge") {
+            if (activityLog_->clear(activityLog_->ctx)) {
+                ActivityLogStats stats{};
+                activityLog_->getStats(activityLog_->ctx, &stats);
+                id = stats.deleteId;
+            }
+        } else if (request->hasParam("ids", true)) {
+            const String& ids = request->getParam("ids", true)->value();
+            if (ids.length() <= 8448) id = activityLog_->remove(activityLog_->ctx, ids.c_str());
+        }
+        if (!id) {
+            request->send(409, "application/json", "{\"ok\":false,\"error\":\"Suppression refusee : journal occupe, indisponible ou selection invalide\"}");
+            return;
+        }
+        char reply[64];
+        snprintf(reply, sizeof(reply), "{\"ok\":true,\"delete_id\":%lu}", (unsigned long)id);
+        request->send(202, "application/json", reply);
+    };
+    server_.on("/api/activity/purge", HTTP_POST, deleteActivity);
+    server_.on("/api/activity/delete", HTTP_POST, deleteActivity);
     server_.on("/api/cfgdoc/index", HTTP_GET, [this, beginSpiffsAssetResponse, sendPreparedAssetResponse](AsyncWebServerRequest* request) {
         HttpLatencyScope latency(request, "/api/cfgdoc/index");
         SpiffsAssetForensicMeta forensicMeta{};

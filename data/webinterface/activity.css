@@ -1,4 +1,7 @@
 .activity-shell{display:grid;gap:16px;}
+.activity-selection-tools{display:flex;flex-wrap:wrap;gap:10px;}
+.activity-select{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);cursor:pointer;}
+.activity-select input{width:18px;height:18px;accent-color:var(--primary);}
 .activity-overview{position:relative;overflow:hidden;display:grid;grid-template-columns:minmax(0,1.2fr) minmax(430px,.9fr);gap:24px;align-items:center;padding:24px;border:1px solid var(--border);border-radius:16px;background:radial-gradient(circle at 92% 8%,rgba(43,183,198,.15),transparent 34%),linear-gradient(135deg,var(--surface) 0%,var(--surface-soft) 100%);box-shadow:var(--shadow);}
 .activity-overview::after{content:"";position:absolute;right:-48px;bottom:-92px;width:210px;height:210px;border:28px solid rgba(43,183,198,.07);border-radius:50%;pointer-events:none;}
 .activity-overview-copy{position:relative;z-index:1;}

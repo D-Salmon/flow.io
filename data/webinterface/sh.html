@@ -259,7 +259,7 @@
             <button id="activityPrevBtn" class="btn-tonal btn-icon-only" type="button" aria-label="Période précédente" title="Période précédente"><span class="ui-msr" aria-hidden="true">chevron_left</span></button>
             <button id="activityNextBtn" class="btn-tonal btn-icon-only" type="button" aria-label="Période suivante" title="Période suivante"><span class="ui-msr" aria-hidden="true">chevron_right</span></button>
             <button id="activityRefreshBtn" class="btn-tonal btn-icon-only" type="button" aria-label="Rafraîchir le journal" title="Rafraîchir le journal"><span class="ui-msr" aria-hidden="true">refresh</span></button>
-            <button id="activityPurgeBtn" class="btn-tonal btn-icon-only danger-action" type="button" aria-label="Purger le journal" title="Purger le journal"><span class="ui-msr" aria-hidden="true">delete</span></button>
+            <button id="activityPurgeBtn" class="btn-tonal danger-action" type="button">Vider tout le journal</button>
           </div>
         </div>
         <div class="activity-shell">
@@ -302,6 +302,10 @@
               <span id="activityLogStatus" class="activity-status" aria-live="polite">Chargement du journal...</span>
             </div>
             <span class="activity-legend"><i aria-hidden="true"></i><span data-i18n="activity.legend">Les événements les plus récents apparaissent en premier</span></span>
+          </div>
+          <div class="activity-selection-tools">
+            <button id="activitySelectVisibleBtn" class="btn-tonal" type="button">Sélectionner les événements affichés</button>
+            <button id="activityDeleteBtn" class="btn-tonal danger-action" type="button" disabled>Supprimer la sélection (0)</button>
           </div>
           <div id="activityLogList" class="activity-list" aria-live="polite"></div>
         </div>

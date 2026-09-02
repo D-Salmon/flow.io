@@ -4,6 +4,7 @@
  */
 #include "SystemMonitorModule.h"
 #include "Core/BufferUsageTracker.h"
+#include "Core/HeartbeatAge.h"
 #include "Core/ModuleManager.h"   ///< required for iteration
 #include "Core/Services/ILogger.h"
 #include <Arduino.h>
@@ -868,20 +869,19 @@ void SystemMonitorModule::pollWebWatchdog_(uint32_t now)
         (cfgData_.webWatchdogStaleMs > (int32_t)kWebWatchdogMinStaleMs)
             ? (uint32_t)cfgData_.webWatchdogStaleMs
             : kWebWatchdogMinStaleMs;
-    const uint32_t loopAgeMs = (health.lastLoopMs > 0U) ? (uint32_t)(now - health.lastLoopMs) : UINT32_MAX;
+    // Sample after copying health: another core can advance its heartbeat while
+    // the monitor is collecting services. The loop's entry timestamp is stale.
+    const uint32_t healthNow = millis();
+    const uint32_t loopAgeMs = HeartbeatAge::elapsed(healthNow, health.lastLoopMs);
     const bool loopStale = (health.lastLoopMs == 0U) || (loopAgeMs > staleMs);
 
     const uint16_t activeClients = (uint16_t)(health.wsSerialClients + health.wsLogClients);
-    uint32_t lastClientActivityMs = health.lastWsActivityMs;
-    if (health.lastHttpActivityMs > lastClientActivityMs) {
-        lastClientActivityMs = health.lastHttpActivityMs;
-    }
     const uint32_t clientIdleMs =
         (activeClients == 0U)
             ? 0U
-            : ((lastClientActivityMs > 0U) ? (uint32_t)(now - lastClientActivityMs) : UINT32_MAX);
+            : HeartbeatAge::mostRecentAge(healthNow, health.lastWsActivityMs, health.lastHttpActivityMs);
     const bool clientsStale =
-        (activeClients > 0U) && ((lastClientActivityMs == 0U) || (clientIdleMs > (staleMs * kWebWatchdogClientIdleFactor)));
+        (activeClients > 0U) && (clientIdleMs > (staleMs * kWebWatchdogClientIdleFactor));
 
     // A connected but idle WS/HTTP client is normal (dashboard open, no user action).
     // Reboot escalation must only happen when the web loop itself stops progressing.

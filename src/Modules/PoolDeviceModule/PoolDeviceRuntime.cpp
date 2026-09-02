@@ -309,15 +309,25 @@ RuntimeRouteClass PoolDeviceModule::runtimeSnapshotClass(uint8_t idx) const
 
 bool PoolDeviceModule::runtimeSnapshotAffectsKey(uint8_t idx, DataKey key) const
 {
+    const bool stateKey = key >= DATAKEY_POOL_DEVICE_STATE_BASE &&
+        key < (DataKey)(DATAKEY_POOL_DEVICE_STATE_BASE + POOL_DEVICE_MAX);
+    const bool metricsKey = key >= DATAKEY_POOL_DEVICE_METRICS_BASE &&
+        key < (DataKey)(DATAKEY_POOL_DEVICE_METRICS_BASE + POOL_DEVICE_MAX);
+    if (!stateKey && !metricsKey) return false;
+
+    // Runs on EventBus, once per route: never accumulate state-lock timeouts
+    // here. If busy, conservatively enqueue the route; the MQTT worker builds
+    // its snapshot later. Returning false would silently lose an update.
+    if (!lockState_(0)) return true;
     uint8_t slotIdx = 0xFF;
     bool metrics = false;
-    if (!snapshotRouteFromIndex_(idx, slotIdx, metrics)) return false;
-    if (!slotRuntimePublishable_(slotIdx)) return false;
-
+    // These helpers use the same recursive mutex, already owned by this task.
+    const bool valid = snapshotRouteFromIndex_(idx, slotIdx, metrics) && slotRuntimePublishable_(slotIdx);
     const DataKey expected = metrics
         ? (DataKey)(DATAKEY_POOL_DEVICE_METRICS_BASE + slotIdx)
         : (DataKey)(DATAKEY_POOL_DEVICE_STATE_BASE + slotIdx);
-    return key == expected;
+    unlockState_();
+    return valid && key == expected;
 }
 
 bool PoolDeviceModule::buildRuntimeSnapshot(uint8_t idx, char* out, size_t len, uint32_t& maxTsOut) const
