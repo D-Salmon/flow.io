@@ -1,63 +1,8 @@
 #pragma once
 
-#if (defined(FLOW_PROFILE_FLOWIO) && defined(FLOW_PROFILE_SUPERVISOR)) || \
-    (defined(FLOW_PROFILE_FLOWIO) && defined(FLOW_PROFILE_WAVESHARE)) || \
-    (defined(FLOW_PROFILE_FLOWIO) && defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY)) || \
-    (defined(FLOW_PROFILE_FLOWIO) && defined(FLOW_PROFILE_MICRONOVA)) || \
-    (defined(FLOW_PROFILE_WAVESHARE) && defined(FLOW_PROFILE_SUPERVISOR)) || \
-    (defined(FLOW_PROFILE_WAVESHARE) && defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY)) || \
-    (defined(FLOW_PROFILE_WAVESHARE) && defined(FLOW_PROFILE_MICRONOVA)) || \
-    (defined(FLOW_PROFILE_SUPERVISOR) && defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY)) || \
-    (defined(FLOW_PROFILE_SUPERVISOR) && defined(FLOW_PROFILE_MICRONOVA)) || \
-    (defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY) && defined(FLOW_PROFILE_MICRONOVA))
-#error "Only one firmware profile can be compiled at a time."
+#if !defined(FLOW_PROFILE_WAVESHARE)
+#error "This branch supports only the Waveshare firmware profile."
 #endif
 
-#if !defined(FLOW_PROFILE_FLOWIO) && !defined(FLOW_PROFILE_WAVESHARE) && !defined(FLOW_PROFILE_SUPERVISOR) && !defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY) && !defined(FLOW_PROFILE_MICRONOVA)
-#error "A firmware profile macro must be defined."
-#endif
-
-#if defined(FLOW_PROFILE_FLOWIO)
-#define FLOW_BUILD_IS_FLOWIO 1
-#define FLOW_BUILD_IS_WAVESHARE 0
-#define FLOW_BUILD_IS_SUPERVISOR 0
-#define FLOW_BUILD_IS_FLOW_CONNECT_DISPLAY 0
-#define FLOW_BUILD_IS_MICRONOVA 0
-#define FLOW_BUILD_PROFILE_NAME "FlowIO"
-#endif
-
-#if defined(FLOW_PROFILE_WAVESHARE)
-#define FLOW_BUILD_IS_FLOWIO 0
 #define FLOW_BUILD_IS_WAVESHARE 1
-#define FLOW_BUILD_IS_SUPERVISOR 0
-#define FLOW_BUILD_IS_FLOW_CONNECT_DISPLAY 0
-#define FLOW_BUILD_IS_MICRONOVA 0
 #define FLOW_BUILD_PROFILE_NAME "Waveshare"
-#endif
-
-#if defined(FLOW_PROFILE_SUPERVISOR)
-#define FLOW_BUILD_IS_FLOWIO 0
-#define FLOW_BUILD_IS_WAVESHARE 0
-#define FLOW_BUILD_IS_SUPERVISOR 1
-#define FLOW_BUILD_IS_FLOW_CONNECT_DISPLAY 0
-#define FLOW_BUILD_IS_MICRONOVA 0
-#define FLOW_BUILD_PROFILE_NAME "Supervisor"
-#endif
-
-#if defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY)
-#define FLOW_BUILD_IS_FLOWIO 0
-#define FLOW_BUILD_IS_WAVESHARE 0
-#define FLOW_BUILD_IS_SUPERVISOR 0
-#define FLOW_BUILD_IS_FLOW_CONNECT_DISPLAY 1
-#define FLOW_BUILD_IS_MICRONOVA 0
-#define FLOW_BUILD_PROFILE_NAME "FlowConnectDisplay"
-#endif
-
-#if defined(FLOW_PROFILE_MICRONOVA)
-#define FLOW_BUILD_IS_FLOWIO 0
-#define FLOW_BUILD_IS_WAVESHARE 0
-#define FLOW_BUILD_IS_SUPERVISOR 0
-#define FLOW_BUILD_IS_FLOW_CONNECT_DISPLAY 0
-#define FLOW_BUILD_IS_MICRONOVA 1
-#define FLOW_BUILD_PROFILE_NAME "Micronova"
-#endif

@@ -182,13 +182,13 @@ données, commandes, alarmes, Ethernet, Wi-Fi, portail, Web, mise à jour, temps
 MQTT, Home Assistant, E/S, logique piscine, appareils, HMI, TFT et surveillance
 système.
 
-## Autres profils présents dans le dépôt
+## Anciens profils retirés en 3.2.0
 
 Les environnements `FlowIO`, `Supervisor`, `FlowConnectDisplay`, `Micronova` et
-les variantes Wokwi utilisent une partie du même socle logiciel. Ils ne font pas
-partie du périmètre de validation de la cible autonome Waveshare 3.1.5.
+les variantes Wokwi ont été retirés de cette branche. Seul `Waveshare-ESP32-S3`
+est compilable. Les sources exclusives de ces anciens profils ont été supprimées.
 
-Les documents suivants concernent ces architectures distinctes :
+Les documents suivants sont conservés uniquement comme archives de ces architectures :
 
 - [Protocole Flow/Supervisor I²C](core/flow-supervisor-i2c-protocol.md) ;
 - [Affichage distant](remote-display-udp.md) ;

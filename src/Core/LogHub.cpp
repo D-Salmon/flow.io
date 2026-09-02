@@ -15,33 +15,6 @@
 namespace {
 static bool shouldExposeConfigLevel_(LogModuleId moduleId)
 {
-#if defined(FLOW_PROFILE_SUPERVISOR)
-    switch ((LogModuleIdValue)moduleId) {
-        case LogModuleIdValue::LogHub:
-        case LogModuleIdValue::LogDispatcher:
-        case LogModuleIdValue::EventBusModule:
-        case LogModuleIdValue::ConfigStoreModule:
-        case LogModuleIdValue::CommandModule:
-        case LogModuleIdValue::WifiModule:
-        case LogModuleIdValue::WifiProvisioningModule:
-        case LogModuleIdValue::TimeModule:
-        case LogModuleIdValue::I2cCfgClientModule:
-        case LogModuleIdValue::WebInterfaceModule:
-        case LogModuleIdValue::FirmwareUpdateModule:
-        case LogModuleIdValue::SystemModule:
-        case LogModuleIdValue::SystemMonitorModule:
-        case LogModuleIdValue::HMIModule:
-        case LogModuleIdValue::CoreI2cLink:
-        case LogModuleIdValue::CoreModuleManager:
-        case LogModuleIdValue::CoreConfigStore:
-        case LogModuleIdValue::CoreEventBus:
-        case LogModuleIdValue::LogSinkSerial:
-        case LogModuleIdValue::LogSinkAlarm:
-            return true;
-        default:
-            return false;
-    }
-#else
     switch ((LogModuleIdValue)moduleId) {
         case LogModuleIdValue::LogHub:
         case LogModuleIdValue::LogDispatcher:
@@ -67,7 +40,6 @@ static bool shouldExposeConfigLevel_(LogModuleId moduleId)
         default:
             return false;
     }
-#endif
 }
 }  // namespace
 
@@ -114,17 +86,12 @@ bool LogHub::registerConfigVar_(ModuleRegistration& slot)
     slot.minLevelVar.persistence = ConfigPersistence::Persistent;
     slot.minLevelVar.size = 0;
 
-#if !defined(FLOW_PROFILE_MICRONOVA)
     if (slot.id == (LogModuleId)LogModuleIdValue::MQTTModule) {
         slot.minLevelRaw = (int32_t)clampLevel_(FLOW_WIRDEF_LOG_MQTT_LVL);
     }
-#endif
 
     cfg_->registerVar(slot.minLevelVar, cfgModuleId_, cfgLocalBranchId_);
     cfg_->loadPersistentVar(slot.minLevelVar);
-#if defined(FLOW_PROFILE_MICRONOVA)
-    slot.minLevelRaw = (int32_t)LogLevel::Debug;
-#endif
     slot.cfgRegistered = true;
     return true;
 }
@@ -141,7 +108,6 @@ void LogHub::init(int queueLen) {
     qStorage_ = nullptr;
     qStorageInPsram_ = false;
 
-#if defined(FLOW_PROFILE_WAVESHARE)
     const size_t storageBytes = (size_t)queueLen_ * sizeof(LogEntry);
     qStorage_ = static_cast<uint8_t*>(
         heap_caps_malloc(storageBytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)
@@ -154,7 +120,6 @@ void LogHub::init(int queueLen) {
             qStorage_ = nullptr;
         }
     }
-#endif
     if (!q) {
         q = xQueueCreate(queueLen_, sizeof(LogEntry));
     }
@@ -228,11 +193,7 @@ bool LogHub::registerModule(LogModuleId moduleId, const char* moduleName)
         if (moduleCount_ >= MAX_REGISTERED_MODULES) return false;
         slot = &modules_[moduleCount_++];
         slot->id = moduleId;
-#if defined(FLOW_PROFILE_MICRONOVA)
-        slot->minLevelRaw = (int32_t)LogLevel::Debug;
-#else
         slot->minLevelRaw = (int32_t)kDefaultMinLevel;
-#endif
     }
 
     strncpy(slot->name, moduleName, sizeof(slot->name) - 1);
@@ -264,12 +225,7 @@ bool LogHub::setModuleMinLevel(LogModuleId moduleId, LogLevel level)
 {
     ModuleRegistration* slot = findModule_(moduleId);
     if (!slot) return false;
-#if defined(FLOW_PROFILE_MICRONOVA)
-    (void)level;
-    slot->minLevelRaw = (int32_t)LogLevel::Debug;
-#else
     slot->minLevelRaw = (int32_t)level;
-#endif
     return true;
 }
 

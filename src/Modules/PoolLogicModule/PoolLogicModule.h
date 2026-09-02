@@ -47,11 +47,7 @@ public:
     void loop() override;
     uint16_t taskStackSize() const override { return 4096; }
     uint32_t startDelayMs() const override {
-#if defined(FLOW_PROFILE_WAVESHARE)
         return 8000U;
-#else
-        return Limits::Boot::PoolLogicStartDelayMs;
-#endif
     }
     uint8_t runtimeSnapshotCount() const override;
     const char* runtimeSnapshotSuffix(uint8_t idx) const override;

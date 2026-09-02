@@ -167,6 +167,29 @@ def verify_profile_and_safety_defaults() -> None:
         fail("legacy ArduinoJson document type remains in source")
 
 
+def verify_waveshare_only() -> None:
+    environments = re.findall(r'^\[env:([^]]+)\]', read('platformio.ini'), re.MULTILINE)
+    if environments != ['Waveshare-ESP32-S3']:
+        fail(f'unexpected build environments: {environments}')
+    removed = (
+        'src/Profiles/FlowIO', 'src/Profiles/Supervisor',
+        'src/Profiles/FlowConnectDisplay', 'src/Profiles/Micronova',
+        'src/Modules/FlowConnectDisplay', 'src/Modules/Micronova',
+        'src/Modules/SupervisorHMIModule',
+        'src/Modules/Network/I2CCfgClientModule',
+        'src/Modules/Network/I2CCfgServerModule',
+        'src/Modules/Network/HmiUdpServerModule',
+    )
+    for directory in removed:
+        if any(path.is_file() for path in (ROOT / directory).rglob('*')):
+            fail(f'removed profile/module reintroduced: {directory}')
+    obsolete = re.compile(r'\bFLOW_(?:PROFILE|BUILD_IS)_(?:FLOWIO|SUPERVISOR|FLOW_CONNECT_DISPLAY|MICRONOVA)\b')
+    for root in (ROOT / 'src', ROOT / 'include'):
+        for path in root.rglob('*'):
+            if path.suffix in {'.h', '.hpp', '.cpp', '.c'} and obsolete.search(path.read_text(encoding='utf-8')):
+                fail(f'obsolete profile conditional: {path.relative_to(ROOT)}')
+
+
 def verify_declared_limits() -> None:
     status = read("docs/release-3.1.3.md")
     required = (
@@ -180,6 +203,7 @@ def verify_declared_limits() -> None:
 
 
 def main() -> int:
+    verify_waveshare_only()
     verify_manifest()
     verify_gzip_assets()
     verify_profile_and_safety_defaults()

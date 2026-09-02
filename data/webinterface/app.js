@@ -1515,9 +1515,16 @@
     }
 
     async function onActivityPageShown(showBusy) {
-      const page = await ensureActivityPage();
-      if (getActivePageId() !== 'page-activity-log' || document.hidden) return;
-      await page.show(!!showBusy);
+      try {
+        const page = await ensureActivityPage();
+        if (getActivePageId() !== 'page-activity-log' || document.hidden) return;
+        await page.show(!!showBusy);
+      } catch (error) {
+        const status = document.getElementById('activityLogStatus');
+        if (status && getActivePageId() === 'page-activity-log' && !document.hidden) {
+          status.textContent = 'Journal indisponible : ' + error.message;
+        }
+      }
     }
 
     async function ensureIoSummaryPage() {
@@ -1895,6 +1902,7 @@
       const deferredHeavyMs = Math.max(0, Number(opts.deferHeavyMs) || 0);
       const pageToken = ++pageLoadToken;
       currentPageId = pageId;
+      if (pageId !== 'page-activity-log' && activityPage) activityPage.hide();
       if (pageId !== 'page-info' && infoPage) infoPage.hide();
       pages.forEach((el) => el.classList.toggle('active', el.id === pageId));
       menuItems.forEach((el) => el.classList.toggle('active', el.dataset.page === pageId));
@@ -3413,6 +3421,8 @@
         if (logsPage) logsPage.visibilityChanged();
         if (!document.hidden && activePageId === 'page-activity-log') {
           onActivityPageShown(false).catch(() => {});
+        } else if (activityPage) {
+          activityPage.hide();
         }
         if (document.hidden || activePageId !== 'page-info') {
           if (infoPage) infoPage.hide();

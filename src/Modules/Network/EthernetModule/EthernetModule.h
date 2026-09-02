@@ -28,13 +28,9 @@ enum class EthernetState : uint8_t {
 };
 
 struct EthernetConfig {
-#if defined(FLOW_PROFILE_WAVESHARE)
     // The Waveshare hardware has an onboard W5500. Enable it on first boot
     // when no persisted `eth_en` preference exists.
     bool enabled = true;
-#else
-    bool enabled = false;
-#endif
     bool dhcp = true;
     char ip[16] = "";
     char subnet[16] = "255.255.255.0";

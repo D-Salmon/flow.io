@@ -293,14 +293,6 @@ void SystemMonitorModule::logHeapStats() {
 }
 
 void SystemMonitorModule::logTaskStacks() {
-#if defined(FLOW_PROFILE_MICRONOVA)
-    static bool warned = false;
-    if (!warned) {
-        warned = true;
-        LOGW("Stack task monitoring disabled on Micronova profile (stability guard)");
-    }
-    return;
-#endif
 
     if (!moduleManager) {
         LOGD("ModuleManager not set, task stats disabled");
@@ -326,13 +318,9 @@ void SystemMonitorModule::logTaskStacks() {
         return;
     }
     if (liveTaskCount > 0U) {
-#if defined(FLOW_PROFILE_WAVESHARE)
         liveTasks = static_cast<TaskStatus_t*>(
             heap_caps_malloc(liveTaskCount * sizeof(TaskStatus_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)
         );
-#else
-        liveTasks = static_cast<TaskStatus_t*>(pvPortMalloc(liveTaskCount * sizeof(TaskStatus_t)));
-#endif
     }
     if (!liveTasks) {
         LOGW("Stack snapshot unavailable (tasks=%u)", (unsigned)liveTaskCount);
@@ -340,11 +328,7 @@ void SystemMonitorModule::logTaskStacks() {
     }
     liveTaskCount = uxTaskGetSystemState(liveTasks, liveTaskCount, nullptr);
     if (liveTaskCount == 0U) {
-#if defined(FLOW_PROFILE_WAVESHARE)
         heap_caps_free(liveTasks);
-#else
-        vPortFree(liveTasks);
-#endif
         LOGD("Stack none");
         return;
     }
@@ -456,11 +440,7 @@ void SystemMonitorModule::logTaskStacks() {
             LOGD("Stack pruned ended tasks=%u", (unsigned)removedEndedTasks);
         }
 #if defined(configUSE_TRACE_FACILITY) && (configUSE_TRACE_FACILITY == 1)
-#if defined(FLOW_PROFILE_WAVESHARE)
         heap_caps_free(liveTasks);
-#else
-        vPortFree(liveTasks);
-#endif
 #endif
         return;
     }
@@ -475,11 +455,7 @@ void SystemMonitorModule::logTaskStacks() {
         LOGD("Stack pruned ended tasks=%u", (unsigned)removedEndedTasks);
     }
 #if defined(configUSE_TRACE_FACILITY) && (configUSE_TRACE_FACILITY == 1)
-#if defined(FLOW_PROFILE_WAVESHARE)
     heap_caps_free(liveTasks);
-#else
-    vPortFree(liveTasks);
-#endif
 #endif
 }
 

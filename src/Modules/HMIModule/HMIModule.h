@@ -14,10 +14,8 @@
 #include "Modules/HMIModule/ConfigMenuModel.h"
 #include "Modules/HMIModule/Drivers/HmiDriverTypes.h"
 #include "Modules/HMIModule/Drivers/NextionDriver.h"
-#include "Modules/HMIModule/Drivers/RemoteHmiUdpDriver.h"
 #include "Modules/HMIModule/Drivers/TfaVeniceRf433Sink.h"
 #include "Modules/HMIModule/Drivers/Ws2812StatusLedDriver.h"
-#include "Modules/Network/HmiUdpServerModule/HmiUdpServerModule.h"
 
 struct BoardSpec;
 
@@ -32,23 +30,9 @@ public:
     uint16_t taskStackSize() const override { return 6144; }
     uint8_t taskCount() const override { return 1; }
     const ModuleTaskSpec* taskSpecs() const override { return singleLoopTaskSpec(); }
-    uint32_t startDelayMs() const override {
-#if FLOW_BUILD_IS_WAVESHARE
-        return 0U;
-#else
-        return 5000U;
-#endif
-    }
+    uint32_t startDelayMs() const override { return 0U; }
 
-    uint8_t dependencyCount() const override {
-#if FLOW_BUILD_IS_WAVESHARE
-        // The standalone Waveshare profile uses its local HMI and does not
-        // instantiate the optional remote UDP HMI server.
-        return 9;
-#else
-        return 10;
-#endif
-    }
+    uint8_t dependencyCount() const override { return 9; }
     ModuleId dependency(uint8_t i) const override {
         if (i == 0) return ModuleId::LogHub;
         if (i == 1) return ModuleId::ConfigStore;
@@ -59,33 +43,18 @@ public:
         if (i == 6) return ModuleId::Command;
         if (i == 7) return ModuleId::Time;
         if (i == 8) return ModuleId::Wifi;
-#if !FLOW_BUILD_IS_WAVESHARE
-        if (i == 9) return ModuleId::HmiUdpServer;
-#endif
         return ModuleId::Unknown;
     }
 
     void init(ConfigStore& cfg, ServiceRegistry& services) override;
     void onConfigLoaded(ConfigStore& cfg, ServiceRegistry& services) override;
     void loop() override;
-    void setRemoteUdpServer(HmiUdpServerModule* server);
 
 private:
     struct ConfigData {
         bool ledsEnabled = true;
-        bool waveshareLedEnabled =
-#if FLOW_BUILD_IS_WAVESHARE
-            true;
-#else
-            false;
-#endif
+        bool waveshareLedEnabled = true;
         bool nextionEnabled = true;
-        bool remoteUdpEnabled =
-#ifdef FLOW_HMI_REMOTE_UDP
-            (FLOW_HMI_REMOTE_UDP != 0);
-#else
-            false;
-#endif
         bool veniceEnabled = false;
         int32_t veniceTxGpio = -1;
     } cfgData_{};
@@ -101,10 +70,6 @@ private:
     ConfigVariable<bool,0> nextionEnabledVar_{
         NVS_KEY(NvsKeys::Hmi::NextionEnabled), "enabled", "hmi/nextion",
         ConfigType::Bool, &cfgData_.nextionEnabled, ConfigPersistence::Persistent, 0
-    };
-    ConfigVariable<bool,0> remoteUdpEnabledVar_{
-        NVS_KEY(NvsKeys::Hmi::FlowConnectUdpEnabled), "enabled", "hmi/nextion_udp",
-        ConfigType::Bool, &cfgData_.remoteUdpEnabled, ConfigPersistence::Persistent, 0
     };
     ConfigVariable<bool,0> veniceEnabledVar_{
         NVS_KEY(NvsKeys::Hmi::VeniceEnabled), "enabled", "hmi/venice",
@@ -130,8 +95,6 @@ private:
 
     ConfigMenuModel menu_;
     NextionDriver nextion_;
-    RemoteHmiUdpDriver remoteUdp_;
-    HmiUdpServerModule* remoteUdpServer_ = nullptr;
     TfaVeniceRf433Sink venice_;
     Ws2812StatusLedDriver ws2812StatusLed_;
     IHmiDriver* driver_ = nullptr;
@@ -161,11 +124,7 @@ private:
     bool ws2812AutoWifiAlarmActiveLast_ = false;
     bool ws2812AutoWifiAlarmRedPhaseLast_ = false;
     bool mqttEnabled_ =
-#if FLOW_BUILD_IS_WAVESHARE
         false;
-#else
-        true;
-#endif
     uint32_t homePublishMask_ = 0U;
     portMUX_TYPE homePublishMux_ = portMUX_INITIALIZER_UNLOCKED;
     IoId phIoId_ = ioIdFromSlot(analogInputSlot(1));

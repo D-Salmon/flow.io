@@ -26,11 +26,7 @@ public:
     BaseType_t taskCore() const override { return 0; }
     uint16_t taskStackSize() const override { return 2560; }
     UBaseType_t taskStackCaps() const override {
-#if defined(FLOW_PROFILE_WAVESHARE)
         return MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT;
-#else
-        return Module::taskStackCaps();
-#endif
     }
     uint8_t taskCount() const override { return 1; }
     const ModuleTaskSpec* taskSpecs() const override { return singleLoopTaskSpec(); }
@@ -47,22 +43,13 @@ public:
     void init(ConfigStore& cfg, ServiceRegistry& services) override;
     void onConfigLoaded(ConfigStore&, ServiceRegistry& services) override;
     bool canStart(ConfigStore&, ServiceRegistry& services) override {
-#if defined(FLOW_PROFILE_WAVESHARE)
         const NetworkAccessService* net = services.get<NetworkAccessService>(ServiceId::NetworkAccess);
         return net && net->mode && net->mode(net->ctx) == NetworkAccessMode::Station;
-#else
-        (void)services;
-        return true;
-#endif
     }
     void onStart(ConfigStore&, ServiceRegistry&) override { setStartupReady(true); }
     void loop() override;
     uint32_t startDelayMs() const override {
-#if defined(FLOW_PROFILE_WAVESHARE)
         return 7000U;
-#else
-        return Limits::Boot::HaStartDelayMs;
-#endif
     }
     void setStartupReady(bool ready);
     void setBranding(const char* objectPrefix,

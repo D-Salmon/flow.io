@@ -38,63 +38,32 @@ public:
     const char* taskName() const override { return "webinterface"; }
     BaseType_t taskCore() const override { return 0; }
     uint16_t taskStackSize() const override {
-#if defined(FLOW_PROFILE_WAVESHARE)
         return 4096;
-#else
-        return 4096;
-#endif
     }
     uint8_t taskCount() const override { return 1; }
     const ModuleTaskSpec* taskSpecs() const override { return singleLoopTaskSpec(); }
 
     uint8_t dependencyCount() const override {
-#if defined(FLOW_PROFILE_WAVESHARE)
         // Keep AP provisioning web startup independent from heavy app modules.
         return 2;
-#elif defined(FLOW_PROFILE_MICRONOVA)
-        return 7;
-#else
-        return 8;
-#endif
     }
     ModuleId dependency(uint8_t i) const override {
         if (i == 0) return ModuleId::LogHub;
         if (i == 1) return ModuleId::Wifi;
-#if defined(FLOW_PROFILE_WAVESHARE)
         return ModuleId::Unknown;
-#else
-        if (i == 2) return ModuleId::EventBus;
-        if (i == 3) return ModuleId::DataStore;
-        if (i == 4) return ModuleId::Command;
-        if (i == 5) return ModuleId::Hmi;
-        if (i == 6) return ModuleId::Alarm;
-#if !defined(FLOW_PROFILE_MICRONOVA) && !defined(FLOW_PROFILE_WAVESHARE)
-        if (i == 7) return ModuleId::I2cCfgClient;
-#endif
-        return ModuleId::Unknown;
-#endif
     }
 
     void init(ConfigStore& cfg, ServiceRegistry& services) override;
     void onConfigLoaded(ConfigStore& cfg, ServiceRegistry& services) override;
     bool canStart(ConfigStore&, ServiceRegistry& services) override {
-#if defined(FLOW_PROFILE_WAVESHARE)
         const NetworkAccessService* net = services.get<NetworkAccessService>(ServiceId::NetworkAccess);
         if (!net || !net->mode) return false;
         const NetworkAccessMode mode = net->mode(net->ctx);
         return mode == NetworkAccessMode::Station || mode == NetworkAccessMode::AccessPoint;
-#else
-        (void)services;
-        return true;
-#endif
     }
     void onStart(ConfigStore& cfg, ServiceRegistry& services) override;
     uint32_t startDelayMs() const override {
-#if defined(FLOW_PROFILE_WAVESHARE)
         return Limits::Boot::WebInterfaceStartDelayMs;
-#else
-        return Limits::Boot::WebInterfaceStartDelayMs;
-#endif
     }
     void loop() override;
     void setProvisioningOnly(bool enabled) { provisioningOnly_ = enabled; }
@@ -259,20 +228,10 @@ private:
     bool webStartLedPrevAutoMode_ = true;
     bool webStartLedPrevAutoModeValid_ = false;
 
-#if defined(FLOW_PROFILE_MICRONOVA)
-    static constexpr UBaseType_t kLocalLogQueueLen = 6;
-    static constexpr size_t kRuntimeValuesBodyMax = 512U;
-    static constexpr size_t kRuntimeValuesJsonDocCapacity = 768U;
-#elif defined(FLOW_PROFILE_WAVESHARE)
     static constexpr UBaseType_t kLocalLogQueueLen = 128;
     static_assert(kLocalLogQueueLen == 128, "flow.io wslog queue must keep 128 lines");
     static constexpr size_t kRuntimeValuesBodyMax = 4096U;
     static constexpr size_t kRuntimeValuesJsonDocCapacity = 4096U;
-#else
-    static constexpr UBaseType_t kLocalLogQueueLen = 12;
-    static constexpr size_t kRuntimeValuesBodyMax = 2048U;
-    static constexpr size_t kRuntimeValuesJsonDocCapacity = 2048U;
-#endif
     QueueHandle_t localLogQueue_ = nullptr;
     StaticQueue_t* localLogQueueControl_ = nullptr;
     uint8_t* localLogQueueStorage_ = nullptr;

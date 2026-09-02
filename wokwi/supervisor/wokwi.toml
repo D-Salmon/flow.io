@@ -1,9 +1,0 @@
-[wokwi]
-version = 1
-firmware = '.pio/build/SupervisorWokwi/firmware.bin'
-elf = '.pio/build/SupervisorWokwi/firmware.elf'
-chips = ["wokwi/st7789.chip.json"]
-
-[[chip]]
-name = "st7789"
-binary = "wokwi/st7789.chip.wasm"

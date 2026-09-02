@@ -19,11 +19,7 @@
 struct WifiConfig {
     bool enabled = true;
     // IEEE 802.11 SSID supports up to 32 bytes (+ '\0').
-#if defined(FLOW_PROFILE_MICRONOVA) || defined(FLOW_PROFILE_WAVESHARE)
     char ssid[33] = "";
-#else
-    char ssid[33] = FLOW_WIRDEF_WIFI_SSID;
-#endif
     // WPA/WPA2 supports 8..63 chars passphrase or 64-char hex PSK (+ '\0').
     char pass[65] = FLOW_WIRDEF_WIFI_PASS;
 };
@@ -47,13 +43,7 @@ public:
     const ModuleTaskSpec* taskSpecs() const override { return singleLoopTaskSpec(); }
     /** @brief Give extra headroom to WiFi stack/callback activity. */
     uint16_t taskStackSize() const override {
-#if defined(FLOW_PROFILE_SUPERVISOR) || defined(FLOW_PROFILE_MICRONOVA)
-        return 4096;
-#elif defined(FLOW_PROFILE_WAVESHARE)
         return 3584;
-#else
-        return 2816;
-#endif
     }
 
     /** @brief Depends on log hub, datastore and event bus. */
@@ -81,11 +71,7 @@ private:
     };
 
     static constexpr uint8_t kScanMaxResults = Limits::Wifi::MaxScanResults;
-#if defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY)
-    static constexpr bool kScanIncludeHidden = false;
-#else
     static constexpr bool kScanIncludeHidden = true;
-#endif
     static constexpr uint32_t kScanThrottleMs = Limits::Wifi::Timing::ScanThrottleMs;
     static constexpr uint32_t kScanPrimaryDwellMs = 360U;
     static constexpr uint32_t kScanRetryDwellMs = 500U;

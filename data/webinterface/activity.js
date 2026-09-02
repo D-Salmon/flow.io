@@ -23,6 +23,13 @@
       let windowShiftHours = 0;
       let eventsCache = [];
       let statsCache = null;
+      let activeJob = null;
+
+      function hide() {
+        if (activeJob) activeJob.controller.abort();
+        activeJob = null;
+        if (refreshBtn) refreshBtn.disabled = false;
+      }
 
       function eventDate(event) {
         const epoch = Number(event && event.epoch_s) || 0;
@@ -288,21 +295,58 @@
         }
       }
 
-      async function refresh(showBusy) {
-        if (!listEl) return;
-        if (showBusy && statusEl) statusEl.textContent = 'Chargement du journal...';
+      function refresh(showBusy) {
+        if (!listEl) return Promise.resolve();
+        if (activeJob) return activeJob.promise;
+        const job = { controller: new AbortController(), timedOut: false };
+        activeJob = job;
+        if (refreshBtn) refreshBtn.disabled = true;
+        if (statusEl) statusEl.textContent = 'Chargement du journal...';
+        job.promise = load(job).catch((error) => {
+          if (activeJob !== job) return;
+          if (statusEl) statusEl.textContent = 'Journal indisponible : ' + (job.timedOut
+            ? 'le contrôleur ne répond pas dans le délai prévu.' : error.message);
+        }).finally(() => {
+          if (activeJob !== job) return;
+          activeJob = null;
+          if (refreshBtn) refreshBtn.disabled = false;
+        });
+        return job.promise;
+      }
+
+      async function load(job) {
         const events = [];
         let stats = null;
         let offset = 0;
-        while (true) {
-          const response = await fetch('/api/activity/logs?offset=' + encodeURIComponent(offset) + '&limit=128', { cache: 'no-store' });
-          if (!response.ok) throw new Error('HTTP ' + response.status);
-          const page = await response.json();
+        for (let pageNumber = 0; pageNumber < 48; pageNumber += 1) {
+          const timeout = setTimeout(() => { job.timedOut = true; job.controller.abort(); }, 15000);
+          let page;
+          try {
+            const response = await fetch('/api/activity/logs?offset=' + encodeURIComponent(offset) + '&limit=16', {
+              cache: 'no-store', signal: job.controller.signal
+            });
+            if (!response.ok) throw new Error(response.status === 401 || response.status === 403
+              ? 'connexion administrateur requise.' : 'HTTP ' + response.status);
+            page = await response.json();
+          } finally {
+            clearTimeout(timeout);
+          }
+          if (activeJob !== job) return;
+          if (page.ok === false || page.available === false || !Array.isArray(page.events)) {
+            throw new Error('service du journal indisponible.');
+          }
           stats = page;
-          if (Array.isArray(page.events)) events.push(...page.events);
+          events.push(...page.events);
+          eventsCache = events.slice();
+          statsCache = stats;
+          render(eventsCache, statsCache);
           if (page.complete || page.next == null || Number(page.count) === 0) break;
-          offset = Number(page.next);
-          if (!Number.isFinite(offset) || offset < 0 || events.length >= 768) break;
+          const next = Number(page.next);
+          if (!Number.isInteger(next) || next <= offset) throw new Error('pagination invalide.');
+          offset = next;
+          if (events.length >= 768) break;
+          if (pageNumber === 47) throw new Error('chargement incomplet, veuillez actualiser.');
+          if (statusEl) statusEl.textContent = 'Chargement du journal : ' + events.length + ' événement(s)...';
         }
         eventsCache = events;
         statsCache = stats;
@@ -348,6 +392,7 @@
 
       return {
         show: refresh,
+        hide: hide,
         refresh: refresh
       };
     }

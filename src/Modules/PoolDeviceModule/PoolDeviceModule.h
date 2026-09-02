@@ -67,11 +67,7 @@ public:
     void loop() override;
     uint16_t taskStackSize() const override { return 4096; }
     uint32_t startDelayMs() const override {
-#if defined(FLOW_PROFILE_WAVESHARE)
         return 5000U;
-#else
-        return 0U;
-#endif
     }
 
     bool defineDevice(const PoolDeviceDefinition& def);

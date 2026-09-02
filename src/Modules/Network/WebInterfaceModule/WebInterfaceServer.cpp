@@ -4,6 +4,8 @@
  */
 
 #include "WebInterfaceModule.h"
+#include "ActivityLogResponse.h"
+#include <new>
 
 #include "Board/BoardSpec.h"
 #include "App/BuildFlags.h"
@@ -17,14 +19,6 @@
 #include "Core/SystemLimits.h"
 #include "Core/SystemStats.h"
 #include "Modules/Network/WebInterfaceModule/WebSecurityHeaders.h"
-#if !defined(FLOW_PROFILE_MICRONOVA) && !defined(FLOW_PROFILE_WAVESHARE)
-#include "Modules/Network/I2CCfgClientModule/I2CCfgClientRuntime.h"
-#endif
-#if defined(FLOW_PROFILE_MICRONOVA)
-#include "Modules/Micronova/MicronovaBoilerModule/MicronovaBoilerModuleDataModel.h"
-#include "Modules/Network/MQTTModule/MQTTRuntime.h"
-#endif
-#if defined(FLOW_PROFILE_WAVESHARE)
 #include "Domain/Pool/PoolIds.h"
 #include "Domain/Pool/PoolDomain.h"
 #include "Core/Services/IPoolDevice.h"
@@ -32,7 +26,6 @@
 #include "Modules/PoolDeviceModule/PoolDeviceRuntime.h"
 #include "Modules/Network/MQTTModule/MQTTRuntime.h"
 #include "Profiles/Waveshare/WaveshareIoLayout.h"
-#endif
 
 #define LOG_MODULE_ID ((LogModuleId)LogModuleIdValue::WebInterfaceModule)
 #include "Core/ModuleLog.h"
@@ -182,14 +175,12 @@ constexpr uint32_t kHeapGuardAssetFreeBytesMajor = 15360U;
 constexpr uint32_t kHeapGuardAssetLargestBytesLight = 4096U;
 constexpr uint32_t kHeapGuardAssetLargestBytesMinor = 6144U;
 constexpr uint32_t kHeapGuardAssetLargestBytesMajor = 8192U;
-#if defined(FLOW_PROFILE_WAVESHARE)
 constexpr uint32_t kHeapGuardAssetInternalFreeBytesLight = 6144U;
 constexpr uint32_t kHeapGuardAssetInternalFreeBytesMinor = 8192U;
 constexpr uint32_t kHeapGuardAssetInternalFreeBytesMajor = 10240U;
 constexpr uint32_t kHeapGuardAssetInternalLargestBytesLight = 3072U;
 constexpr uint32_t kHeapGuardAssetInternalLargestBytesMinor = 4096U;
 constexpr uint32_t kHeapGuardAssetInternalLargestBytesMajor = 6144U;
-#endif
 constexpr uint8_t kAssetBuildConcurrentLimit = 2U;
 void (*gHttpActivityHook)(void*) = nullptr;
 void* gHttpActivityHookCtx = nullptr;
@@ -202,11 +193,9 @@ struct WebHeapCharBuffer {
         : capacity(requestedCapacity)
     {
         if (capacity == 0U) return;
-#if defined(FLOW_PROFILE_WAVESHARE)
         data = static_cast<char*>(
             heap_caps_calloc(1, capacity, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)
         );
-#endif
         if (!data) {
             data = static_cast<char*>(heap_caps_calloc(1, capacity, MALLOC_CAP_8BIT));
         }
@@ -234,7 +223,7 @@ struct BootLogJsonPageCtx {
 };
 
 struct ActivityLogJsonPageCtx {
-    AsyncResponseStream* response = nullptr;
+    Print* response = nullptr;
     bool first = true;
     uint16_t count = 0;
 };
@@ -689,19 +678,11 @@ bool shouldRejectAssetByFreeHeap_(const char* assetPath,
                                   uint32_t* freeBytesOut = nullptr,
                                   uint32_t* largestBytesOut = nullptr)
 {
-#if defined(FLOW_PROFILE_WAVESHARE)
     const uint32_t freeInternal = (uint32_t)heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     const uint32_t largestInternal =
         (uint32_t)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     if (freeBytesOut) *freeBytesOut = freeInternal;
     if (largestBytesOut) *largestBytesOut = largestInternal;
-#else
-    const uint32_t freeBytes = (uint32_t)heap_caps_get_free_size(MALLOC_CAP_8BIT);
-    const uint32_t largestBytes = (uint32_t)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
-    if (freeBytesOut) *freeBytesOut = freeBytes;
-    if (largestBytesOut) *largestBytesOut = largestBytes;
-#endif
-#if defined(FLOW_PROFILE_WAVESHARE)
     const uint32_t minInternalFreeBytes = isLightWebAssetPath_(assetPath)
         ? kHeapGuardAssetInternalFreeBytesLight
         : isMinorWebAssetPath_(assetPath)
@@ -713,19 +694,6 @@ bool shouldRejectAssetByFreeHeap_(const char* assetPath,
         ? kHeapGuardAssetInternalLargestBytesMinor
         : kHeapGuardAssetInternalLargestBytesMajor;
     return freeInternal < minInternalFreeBytes || largestInternal < minInternalLargestBytes;
-#else
-    const uint32_t minFreeBytes = isLightWebAssetPath_(assetPath)
-        ? kHeapGuardAssetFreeBytesLight
-        : isMinorWebAssetPath_(assetPath)
-        ? kHeapGuardAssetFreeBytesMinor
-        : kHeapGuardAssetFreeBytesMajor;
-    const uint32_t minLargestBytes = isLightWebAssetPath_(assetPath)
-        ? kHeapGuardAssetLargestBytesLight
-        : isMinorWebAssetPath_(assetPath)
-        ? kHeapGuardAssetLargestBytesMinor
-        : kHeapGuardAssetLargestBytesMajor;
-    return freeBytes < minFreeBytes || largestBytes < minLargestBytes;
-#endif
 }
 
 void buildProvisioningApSsid_(char* out, size_t outLen)
@@ -1447,119 +1415,6 @@ bool appendRuntimeUiJsonValuesToStream_(Print& out, const uint8_t* payload, size
 
 constexpr size_t kMaxRuntimeHttpIds = 48U;
 
-#if !defined(FLOW_PROFILE_MICRONOVA)
-void printRuntimeValuePrefix_(Print& out, bool& firstValue, RuntimeUiId id, const char* key, const char* type, const char* unit)
-{
-    if (!firstValue) out.print(',');
-    firstValue = false;
-    out.print("{\"id\":");
-    out.print((unsigned)id);
-    out.print(",\"key\":");
-    printJsonEscaped_(out, key);
-    out.print(",\"type\":");
-    printJsonEscaped_(out, type);
-    if (unit && unit[0] != '\0') {
-        out.print(",\"unit\":");
-        printJsonEscaped_(out, unit);
-    }
-}
-
-void printRuntimeBool_(Print& out, bool& firstValue, RuntimeUiId id, const char* key, bool value)
-{
-    printRuntimeValuePrefix_(out, firstValue, id, key, "bool", nullptr);
-    out.print(",\"value\":");
-    out.print(value ? "true" : "false");
-    out.print('}');
-}
-
-void printRuntimeI32_(Print& out, bool& firstValue, RuntimeUiId id, const char* key, int32_t value, const char* unit = nullptr)
-{
-    printRuntimeValuePrefix_(out, firstValue, id, key, "int32", unit);
-    out.print(",\"value\":");
-    out.print((int32_t)value);
-    out.print('}');
-}
-
-void printRuntimeU32_(Print& out, bool& firstValue, RuntimeUiId id, const char* key, uint32_t value, const char* unit = nullptr)
-{
-    printRuntimeValuePrefix_(out, firstValue, id, key, "uint32", unit);
-    out.print(",\"value\":");
-    out.print((unsigned long)value);
-    out.print('}');
-}
-
-void printRuntimeF32_(Print& out, bool& firstValue, RuntimeUiId id, const char* key, float value, const char* unit = nullptr)
-{
-    printRuntimeValuePrefix_(out, firstValue, id, key, "float", unit);
-    out.print(",\"value\":");
-    out.print(value, 3);
-    out.print('}');
-}
-
-void printRuntimeString_(Print& out, bool& firstValue, RuntimeUiId id, const char* key, const char* value)
-{
-    printRuntimeValuePrefix_(out, firstValue, id, key, "string", nullptr);
-    out.print(",\"value\":");
-    printJsonEscaped_(out, value ? value : "");
-    out.print('}');
-}
-
-void printRuntimeUnavailable_(Print& out, bool& firstValue, RuntimeUiId id, const char* key, const char* type)
-{
-    printRuntimeValuePrefix_(out, firstValue, id, key, type, nullptr);
-    out.print(",\"status\":\"unavailable\"}");
-}
-#endif
-
-#if defined(FLOW_PROFILE_MICRONOVA)
-constexpr RuntimeUiId kMicronovaRuntimeIdOnline = makeRuntimeUiId(ModuleId::MicronovaBoiler, 1);
-constexpr RuntimeUiId kMicronovaRuntimeIdStateCode = makeRuntimeUiId(ModuleId::MicronovaBoiler, 2);
-constexpr RuntimeUiId kMicronovaRuntimeIdStateText = makeRuntimeUiId(ModuleId::MicronovaBoiler, 3);
-constexpr RuntimeUiId kMicronovaRuntimeIdPowerState = makeRuntimeUiId(ModuleId::MicronovaBoiler, 4);
-constexpr RuntimeUiId kMicronovaRuntimeIdPowerLevel = makeRuntimeUiId(ModuleId::MicronovaBoiler, 5);
-constexpr RuntimeUiId kMicronovaRuntimeIdFanSpeed = makeRuntimeUiId(ModuleId::MicronovaBoiler, 6);
-constexpr RuntimeUiId kMicronovaRuntimeIdTargetTemp = makeRuntimeUiId(ModuleId::MicronovaBoiler, 7);
-constexpr RuntimeUiId kMicronovaRuntimeIdRoomTemp = makeRuntimeUiId(ModuleId::MicronovaBoiler, 8);
-constexpr RuntimeUiId kMicronovaRuntimeIdFumesTemp = makeRuntimeUiId(ModuleId::MicronovaBoiler, 9);
-constexpr RuntimeUiId kMicronovaRuntimeIdWaterTemp = makeRuntimeUiId(ModuleId::MicronovaBoiler, 10);
-constexpr RuntimeUiId kMicronovaRuntimeIdWaterPressure = makeRuntimeUiId(ModuleId::MicronovaBoiler, 11);
-constexpr RuntimeUiId kMicronovaRuntimeIdAlarmCode = makeRuntimeUiId(ModuleId::MicronovaBoiler, 12);
-constexpr RuntimeUiId kMicronovaRuntimeIdLastUpdateMs = makeRuntimeUiId(ModuleId::MicronovaBoiler, 13);
-constexpr RuntimeUiId kMicronovaRuntimeIdLastCommand = makeRuntimeUiId(ModuleId::MicronovaBoiler, 14);
-
-const char kMicronovaRuntimeManifestJson[] PROGMEM = R"json({
-  "ok": true,
-  "values": [
-    {"id":2901,"runtimeId":2901,"moduleId":29,"module":"micronova.boiler","valueId":1,"key":"micronova.online","label":"Connexion chaudière","type":"bool","domain":"micronova","group":"Chaudière","unit":null,"decimals":null,"order":10,"display":"boolean"},
-    {"id":2902,"runtimeId":2902,"moduleId":29,"module":"micronova.boiler","valueId":2,"key":"micronova.stove_state_code","label":"Code état","type":"int32","domain":"micronova","group":"Chaudière","unit":null,"decimals":0,"order":20},
-    {"id":2903,"runtimeId":2903,"moduleId":29,"module":"micronova.boiler","valueId":3,"key":"micronova.stove_state_text","label":"État","type":"string","domain":"micronova","group":"Chaudière","unit":null,"decimals":null,"order":30,"display":"badge"},
-    {"id":2904,"runtimeId":2904,"moduleId":29,"module":"micronova.boiler","valueId":4,"key":"micronova.power_state","label":"Marche","type":"string","domain":"micronova","group":"Chaudière","unit":null,"decimals":null,"order":40,"display":"badge"},
-    {"id":2905,"runtimeId":2905,"moduleId":29,"module":"micronova.boiler","valueId":5,"key":"micronova.power_level","label":"Puissance","type":"int32","domain":"micronova","group":"Commandes","unit":null,"decimals":0,"order":50},
-    {"id":2906,"runtimeId":2906,"moduleId":29,"module":"micronova.boiler","valueId":6,"key":"micronova.fan_speed","label":"Ventilation","type":"int32","domain":"micronova","group":"Commandes","unit":null,"decimals":0,"order":60},
-    {"id":2907,"runtimeId":2907,"moduleId":29,"module":"micronova.boiler","valueId":7,"key":"micronova.target_temperature","label":"Consigne","type":"int32","domain":"micronova","group":"Températures","unit":"°C","decimals":0,"order":70},
-    {"id":2908,"runtimeId":2908,"moduleId":29,"module":"micronova.boiler","valueId":8,"key":"micronova.room_temperature","label":"Température ambiante","type":"float","domain":"micronova","group":"Températures","unit":"°C","decimals":1,"order":80},
-    {"id":2909,"runtimeId":2909,"moduleId":29,"module":"micronova.boiler","valueId":9,"key":"micronova.fumes_temperature","label":"Température fumées","type":"float","domain":"micronova","group":"Températures","unit":"°C","decimals":1,"order":90},
-    {"id":2910,"runtimeId":2910,"moduleId":29,"module":"micronova.boiler","valueId":10,"key":"micronova.water_temperature","label":"Température eau","type":"float","domain":"micronova","group":"Hydraulique","unit":"°C","decimals":1,"order":100},
-    {"id":2911,"runtimeId":2911,"moduleId":29,"module":"micronova.boiler","valueId":11,"key":"micronova.water_pressure","label":"Pression eau","type":"float","domain":"micronova","group":"Hydraulique","unit":"bar","decimals":2,"order":110},
-    {"id":2912,"runtimeId":2912,"moduleId":29,"module":"micronova.boiler","valueId":12,"key":"micronova.alarm_code","label":"Code alarme","type":"int32","domain":"micronova","group":"Alarmes","unit":null,"decimals":0,"order":120},
-    {"id":2913,"runtimeId":2913,"moduleId":29,"module":"micronova.boiler","valueId":13,"key":"micronova.last_update_ms","label":"Dernière lecture","type":"uint32","domain":"micronova","group":"Chaudière","unit":"ms","decimals":0,"order":130},
-    {"id":2914,"runtimeId":2914,"moduleId":29,"module":"micronova.boiler","valueId":14,"key":"micronova.last_command","label":"Dernière commande","type":"string","domain":"micronova","group":"Commandes","unit":null,"decimals":null,"order":140,"display":"badge"},
-    {"id":2001,"runtimeId":2001,"moduleId":20,"module":"mqtt","valueId":1,"key":"mqtt.ready","label":"MQTT connecté","type":"bool","domain":"mqtt","group":"MQTT","unit":null,"decimals":null,"order":10,"display":"boolean"},
-    {"id":2003,"runtimeId":2003,"moduleId":20,"module":"mqtt","valueId":3,"key":"mqtt.rx_drop","label":"Messages ignorés","type":"uint32","domain":"mqtt","group":"MQTT","unit":null,"decimals":0,"order":30},
-    {"id":2004,"runtimeId":2004,"moduleId":20,"module":"mqtt","valueId":4,"key":"mqtt.parse_fail","label":"Payloads invalides","type":"uint32","domain":"mqtt","group":"MQTT","unit":null,"decimals":0,"order":40},
-    {"id":2005,"runtimeId":2005,"moduleId":20,"module":"mqtt","valueId":5,"key":"mqtt.handler_fail","label":"Commandes refusées","type":"uint32","domain":"mqtt","group":"MQTT","unit":null,"decimals":0,"order":50},
-    {"id":2006,"runtimeId":2006,"moduleId":20,"module":"mqtt","valueId":6,"key":"mqtt.oversize_drop","label":"Messages trop grands","type":"uint32","domain":"mqtt","group":"MQTT","unit":null,"decimals":0,"order":60},
-    {"id":1701,"runtimeId":1701,"moduleId":17,"module":"system","valueId":1,"key":"system.firmware","label":"Firmware","type":"string","domain":"system","group":"Système","unit":null,"decimals":null,"order":10},
-    {"id":1702,"runtimeId":1702,"moduleId":17,"module":"system","valueId":2,"key":"system.uptime_ms","label":"Uptime","type":"uint32","domain":"system","group":"Système","unit":"ms","decimals":0,"order":20},
-    {"id":1703,"runtimeId":1703,"moduleId":17,"module":"system","valueId":3,"key":"system.heap_free","label":"Heap libre","type":"uint32","domain":"system","group":"Mémoire","unit":"B","decimals":0,"order":30},
-    {"id":1704,"runtimeId":1704,"moduleId":17,"module":"system","valueId":4,"key":"system.heap_min_free","label":"Heap minimum","type":"uint32","domain":"system","group":"Mémoire","unit":"B","decimals":0,"order":40},
-    {"id":1001,"runtimeId":1001,"moduleId":10,"module":"wifi","valueId":1,"key":"wifi.ready","label":"Réseau connecté","type":"bool","domain":"wifi","group":"Réseau","unit":null,"decimals":null,"order":10,"display":"boolean"},
-    {"id":1002,"runtimeId":1002,"moduleId":10,"module":"wifi","valueId":2,"key":"wifi.ip","label":"Adresse IP","type":"string","domain":"wifi","group":"Réseau","unit":null,"decimals":null,"order":20},
-    {"id":1003,"runtimeId":1003,"moduleId":10,"module":"wifi","valueId":3,"key":"wifi.rssi","label":"RSSI","type":"int32","domain":"wifi","group":"Réseau","unit":"dBm","decimals":0,"order":30},
-    {"id":1004,"runtimeId":1004,"moduleId":10,"module":"wifi","valueId":4,"key":"network.type","label":"Type","type":"string","domain":"wifi","group":"Réseau","unit":null,"decimals":null,"order":40}
-  ]
-})json";
-
 void printRuntimeValuePrefix_(Print& out, bool& firstValue, RuntimeUiId id, const char* key, const char* type, const char* unit)
 {
     if (!firstValue) out.print(',');
@@ -1622,91 +1477,7 @@ void printRuntimeUnavailable_(Print& out, bool& firstValue, RuntimeUiId id, cons
     out.print(",\"status\":\"unavailable\"}");
 }
 
-bool appendMicronovaLocalRuntimeValue_(Print& out, DataStore* dataStore, RuntimeUiId id, bool& firstValue)
-{
-    if (!dataStore) return false;
-    const RuntimeData& rt = dataStore->data();
-    const MicronovaRuntimeData& mn = rt.micronova;
-    switch (id) {
-        case kMicronovaRuntimeIdOnline: printRuntimeBool_(out, firstValue, id, "micronova.online", mn.online); return true;
-        case kMicronovaRuntimeIdStateCode: printRuntimeI32_(out, firstValue, id, "micronova.stove_state_code", mn.stoveStateCode); return true;
-        case kMicronovaRuntimeIdStateText: printRuntimeString_(out, firstValue, id, "micronova.stove_state_text", mn.stoveStateText); return true;
-        case kMicronovaRuntimeIdPowerState: printRuntimeString_(out, firstValue, id, "micronova.power_state", mn.powerState); return true;
-        case kMicronovaRuntimeIdPowerLevel: printRuntimeI32_(out, firstValue, id, "micronova.power_level", mn.powerLevel); return true;
-        case kMicronovaRuntimeIdFanSpeed: printRuntimeI32_(out, firstValue, id, "micronova.fan_speed", mn.fanSpeed); return true;
-        case kMicronovaRuntimeIdTargetTemp: printRuntimeI32_(out, firstValue, id, "micronova.target_temperature", mn.targetTemperature, "\xC2\xB0""C"); return true;
-        case kMicronovaRuntimeIdRoomTemp: printRuntimeF32_(out, firstValue, id, "micronova.room_temperature", mn.roomTemperature, "\xC2\xB0""C"); return true;
-        case kMicronovaRuntimeIdFumesTemp: printRuntimeF32_(out, firstValue, id, "micronova.fumes_temperature", mn.fumesTemperature, "\xC2\xB0""C"); return true;
-        case kMicronovaRuntimeIdWaterTemp: printRuntimeF32_(out, firstValue, id, "micronova.water_temperature", mn.waterTemperature, "\xC2\xB0""C"); return true;
-        case kMicronovaRuntimeIdWaterPressure: printRuntimeF32_(out, firstValue, id, "micronova.water_pressure", mn.waterPressure, "bar"); return true;
-        case kMicronovaRuntimeIdAlarmCode: printRuntimeI32_(out, firstValue, id, "micronova.alarm_code", mn.alarmCode); return true;
-        case kMicronovaRuntimeIdLastUpdateMs: printRuntimeU32_(out, firstValue, id, "micronova.last_update_ms", mn.lastUpdateMs, "ms"); return true;
-        case kMicronovaRuntimeIdLastCommand: printRuntimeString_(out, firstValue, id, "micronova.last_command", mn.lastCommand); return true;
-        case makeRuntimeUiId(ModuleId::Mqtt, 1): printRuntimeBool_(out, firstValue, id, "mqtt.ready", mqttReady(*dataStore)); return true;
-        case makeRuntimeUiId(ModuleId::Mqtt, 3): printRuntimeU32_(out, firstValue, id, "mqtt.rx_drop", mqttRxDrop(*dataStore)); return true;
-        case makeRuntimeUiId(ModuleId::Mqtt, 4): printRuntimeU32_(out, firstValue, id, "mqtt.parse_fail", mqttParseFail(*dataStore)); return true;
-        case makeRuntimeUiId(ModuleId::Mqtt, 5): printRuntimeU32_(out, firstValue, id, "mqtt.handler_fail", mqttHandlerFail(*dataStore)); return true;
-        case makeRuntimeUiId(ModuleId::Mqtt, 6): printRuntimeU32_(out, firstValue, id, "mqtt.oversize_drop", mqttOversizeDrop(*dataStore)); return true;
-        case makeRuntimeUiId(ModuleId::System, 1): printRuntimeString_(out, firstValue, id, "system.firmware", FirmwareVersion::Full); return true;
-        case makeRuntimeUiId(ModuleId::System, 2): {
-            SystemStatsSnapshot snap{};
-            SystemStats::collect(snap);
-            printRuntimeU32_(out, firstValue, id, "system.uptime_ms", snap.uptimeMs, "ms");
-            return true;
-        }
-        case makeRuntimeUiId(ModuleId::System, 3): {
-            SystemStatsSnapshot snap{};
-            SystemStats::collect(snap);
-            printRuntimeU32_(out, firstValue, id, "system.heap_free", snap.heap.freeBytes, "B");
-            return true;
-        }
-        case makeRuntimeUiId(ModuleId::System, 4): {
-            SystemStatsSnapshot snap{};
-            SystemStats::collect(snap);
-            printRuntimeU32_(out, firstValue, id, "system.heap_min_free", snap.heap.minFreeBytes, "B");
-            return true;
-        }
-        case makeRuntimeUiId(ModuleId::Wifi, 1): printRuntimeBool_(out, firstValue, id, "wifi.ready", networkReady(*dataStore)); return true;
-        case makeRuntimeUiId(ModuleId::Wifi, 2): {
-            const IpV4 ip = networkIp(*dataStore);
-            char ipText[16] = {0};
-            snprintf(ipText, sizeof(ipText), "%u.%u.%u.%u", (unsigned)ip.b[0], (unsigned)ip.b[1], (unsigned)ip.b[2], (unsigned)ip.b[3]);
-            printRuntimeString_(out, firstValue, id, "wifi.ip", ipText);
-            return true;
-        }
-        case makeRuntimeUiId(ModuleId::Wifi, 3): printRuntimeI32_(out, firstValue, id, "wifi.rssi", WiFi.isConnected() ? (int32_t)WiFi.RSSI() : 0, "dBm"); return true;
-        default:
-            printRuntimeUnavailable_(out, firstValue, id, "", "unknown");
-            return true;
-    }
-}
 
-void sendMicronovaLocalRuntimeValuesResponse_(AsyncWebServerRequest* request,
-                                              DataStore* dataStore,
-                                              const RuntimeUiId* ids,
-                                              size_t idCount)
-{
-    if (!request || !dataStore) {
-        if (request) request->send(503, "application/json", "{\"ok\":false,\"err\":{\"code\":\"NotReady\",\"where\":\"runtime.values.local\"}}");
-        return;
-    }
-    if (!ids || idCount == 0U) {
-        request->send(400, "application/json", "{\"ok\":false,\"err\":{\"code\":\"BadRequest\",\"where\":\"runtime.values.ids\"}}");
-        return;
-    }
-    AsyncResponseStream* response = request->beginResponseStream("application/json");
-    addNoCacheHeaders_(response);
-    response->print("{\"ok\":true,\"values\":[");
-    bool firstValue = true;
-    for (size_t i = 0U; i < idCount; ++i) {
-        (void)appendMicronovaLocalRuntimeValue_(*response, dataStore, ids[i], firstValue);
-    }
-    response->print("]}");
-    request->send(response);
-}
-#endif
-
-#if defined(FLOW_PROFILE_WAVESHARE)
 bool waveshareLoadPoolModeFlags_(ConfigStore* cfgStore,
                                 bool& hasMode,
                                 bool& autoMode,
@@ -3591,7 +3362,6 @@ void sendWaveshareAlarmDashboardSlotsResponse_(AsyncResponseStream& response,
         firstSlot = false;
     }
 }
-#endif
 
 bool parseRuntimeUiIdsCsv_(const char* raw, RuntimeUiId* idsOut, size_t capacity, size_t& countOut)
 {
@@ -3709,103 +3479,6 @@ bool dashboardSlotDegreeCUnit_(const char* unit)
     return (uint8_t)unit[0] == 0xC2 && (uint8_t)unit[1] == 0xB0 && unit[2] == 'C' && unit[3] == '\0';
 }
 
-#if !defined(FLOW_PROFILE_MICRONOVA) && !defined(FLOW_PROFILE_WAVESHARE)
-void dashboardSlotBgColorHex_(uint16_t color565, char* out, size_t outLen)
-{
-    if (!out || outLen < 8U) return;
-    const uint8_t r5 = (uint8_t)((color565 >> 11) & 0x1FU);
-    const uint8_t g6 = (uint8_t)((color565 >> 5) & 0x3FU);
-    const uint8_t b5 = (uint8_t)(color565 & 0x1FU);
-    const uint8_t r8 = (uint8_t)((r5 << 3) | (r5 >> 2));
-    const uint8_t g8 = (uint8_t)((g6 << 2) | (g6 >> 4));
-    const uint8_t b8 = (uint8_t)((b5 << 3) | (b5 >> 2));
-    snprintf(out, outLen, "#%02X%02X%02X", (unsigned)r8, (unsigned)g8, (unsigned)b8);
-}
-
-uint8_t dashboardSlotDecimals_(const FlowRemoteDashboardSlotRuntime& slot)
-{
-    if ((RuntimeUiWireType)slot.wireType != RuntimeUiWireType::Float32) return 0U;
-    if (slot.runtimeUiId == makeRuntimeUiId(ModuleId::Io, 3)) return 2U;
-    if (slot.runtimeUiId == makeRuntimeUiId(ModuleId::Io, 6)) return 2U;
-    const RuntimeUiManifestItem* item = findRuntimeUiManifestItem(slot.runtimeUiId);
-    const char* unit = (item && item->unit) ? item->unit : "";
-    if (unit && strcmp(unit, "mV") == 0) return 0U;
-    return 1U;
-}
-
-void trimDashboardSlotFloat_(char* text)
-{
-    if (!text) return;
-    char* dot = strchr(text, '.');
-    if (!dot) return;
-    char* end = text + strlen(text);
-    while (end > dot && end[-1] == '0') --end;
-    if (end > dot && end[-1] == '.') --end;
-    *end = '\0';
-    if (strcmp(text, "-0") == 0) snprintf(text, 4, "0");
-}
-
-void formatDashboardSlotValueText_(const FlowRemoteDashboardSlotRuntime& slot, char* out, size_t outLen)
-{
-    if (!out || outLen == 0U) return;
-    if (!slot.enabled || !slot.available) {
-        snprintf(out, outLen, "Indisponible");
-        return;
-    }
-
-    const RuntimeUiManifestItem* item = findRuntimeUiManifestItem(slot.runtimeUiId);
-    const char* unit = (item && item->unit) ? item->unit : "";
-
-    switch ((RuntimeUiWireType)slot.wireType) {
-        case RuntimeUiWireType::Bool:
-            snprintf(out, outLen, "%s", slot.boolValue ? "Actif" : "Arret");
-            return;
-        case RuntimeUiWireType::Enum:
-            snprintf(out, outLen, "%u", (unsigned)slot.enumValue);
-            return;
-        case RuntimeUiWireType::Int32:
-            if (unit && unit[0] != '\0') {
-                snprintf(out, outLen, "%ld %s", (long)slot.i32Value, unit);
-            } else {
-                snprintf(out, outLen, "%ld", (long)slot.i32Value);
-            }
-            return;
-        case RuntimeUiWireType::UInt32:
-            if (unit && unit[0] != '\0') {
-                snprintf(out, outLen, "%lu %s", (unsigned long)slot.u32Value, unit);
-            } else {
-                snprintf(out, outLen, "%lu", (unsigned long)slot.u32Value);
-            }
-            return;
-        case RuntimeUiWireType::Float32: {
-            char numberBuf[24] = {0};
-            const uint8_t decimals = dashboardSlotDecimals_(slot);
-            if (decimals > 0U) {
-                snprintf(numberBuf, sizeof(numberBuf), "%.*f", (int)decimals, (double)slot.f32Value);
-                trimDashboardSlotFloat_(numberBuf);
-            } else {
-                snprintf(numberBuf, sizeof(numberBuf), "%ld", lroundf(slot.f32Value));
-            }
-            if (unit && unit[0] != '\0') {
-                if (dashboardSlotDegreeCUnit_(unit)) {
-                    snprintf(out, outLen, "%s %s", numberBuf, "\xC2\xB0""C");
-                } else {
-                    snprintf(out, outLen, "%s %s", numberBuf, unit);
-                }
-            } else {
-                snprintf(out, outLen, "%s", numberBuf);
-            }
-            return;
-        }
-        case RuntimeUiWireType::NotFound:
-        case RuntimeUiWireType::Unavailable:
-        case RuntimeUiWireType::String:
-        default:
-            snprintf(out, outLen, "Indisponible");
-            return;
-    }
-}
-#endif
 
 struct HttpLatencyScope {
     AsyncWebServerRequest* req;
@@ -3845,14 +3518,9 @@ struct HttpLatencyScope {
         if (elapsedMs < infoMs) return;
 
         const char* method = req ? httpMethodName_(req->method()) : "?";
-#if defined(FLOW_PROFILE_WAVESHARE)
         const uint32_t heapFree = (uint32_t)heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
         const uint32_t heapLargest =
             (uint32_t)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-#else
-        const uint32_t heapFree = (uint32_t)ESP.getFreeHeap();
-        const uint32_t heapLargest = heapFree;
-#endif
         if (elapsedMs >= warnMs) {
             LOGW("HTTP slow %s %s latency=%lums heap=%lu largest=%lu",
                  method,
@@ -4571,7 +4239,6 @@ WebInterfaceModule::~WebInterfaceModule()
 
 void WebInterfaceModule::initRuntimeValuesBodyScratch_()
 {
-#if defined(FLOW_PROFILE_WAVESHARE)
     if (runtimeValuesBodyScratchInPsram_) return;
     if (!psramFound()) {
         runtimeValuesBodyScratch_ = runtimeValuesBodyScratchLocal_;
@@ -4596,18 +4263,15 @@ void WebInterfaceModule::initRuntimeValuesBodyScratch_()
     LOGI("Web runtime body scratch in PSRAM size=%u free_psram=%luKB",
          (unsigned)kRuntimeValuesBodyMax,
          (unsigned long)(ESP.getFreePsram() / 1024U));
-#endif
 }
 
 void WebInterfaceModule::freeRuntimeValuesBodyScratch_()
 {
-#if defined(FLOW_PROFILE_WAVESHARE)
     if (runtimeValuesBodyScratchInPsram_ && runtimeValuesBodyScratch_) {
         heap_caps_free(runtimeValuesBodyScratch_);
     }
     runtimeValuesBodyScratch_ = runtimeValuesBodyScratchLocal_;
     runtimeValuesBodyScratchInPsram_ = false;
-#endif
 }
 
 bool WebInterfaceModule::initLocalLogQueue_()
@@ -4615,7 +4279,6 @@ bool WebInterfaceModule::initLocalLogQueue_()
     if (localLogQueue_) return true;
 
     const size_t storageBytes = (size_t)kLocalLogQueueLen * kLocalLogLineMax;
-#if defined(FLOW_PROFILE_WAVESHARE)
     if (psramFound()) {
         localLogQueueStorage_ = static_cast<uint8_t*>(
             heap_caps_malloc(storageBytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)
@@ -4632,7 +4295,6 @@ bool WebInterfaceModule::initLocalLogQueue_()
              (unsigned)kLocalLogQueueLen,
              (unsigned)storageBytes);
     }
-#endif
     if (!localLogQueueStorage_) {
         localLogQueueStorage_ = static_cast<uint8_t*>(
             heap_caps_malloc(storageBytes, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)
@@ -4888,15 +4550,20 @@ void WebInterfaceModule::sendActivityLogHttpResponse_(AsyncWebServerRequest* req
     }
 
     int32_t requestedOffset = statusOnly ? 0 : requestIntParam_(request, "offset", 0);
-    int32_t requestedLimit = statusOnly ? 0 : requestIntParam_(request, "limit", 64);
+    int32_t requestedLimit = statusOnly ? 0 : requestIntParam_(request, "limit", 16);
     if (requestedOffset < 0) requestedOffset = 0;
-    if (requestedLimit <= 0) requestedLimit = statusOnly ? 0 : 64;
-    if (requestedLimit > 128) requestedLimit = 128;
+    if (requestedLimit <= 0) requestedLimit = statusOnly ? 0 : 16;
+    if (requestedLimit > 16) requestedLimit = 16;
 
     const uint16_t offset = (requestedOffset > UINT16_MAX) ? UINT16_MAX : (uint16_t)requestedOffset;
     const uint16_t limit = (requestedLimit > UINT16_MAX) ? UINT16_MAX : (uint16_t)requestedLimit;
 
-    AsyncResponseStream* response = request->beginResponseStream("application/json");
+    ActivityLogResponse* response = new (std::nothrow) ActivityLogResponse();
+    if (!response || !response->ready()) {
+        delete response;
+        request->send(503, "application/json", "{\"ok\":false,\"error\":\"Journal temporairement indisponible (memoire)\"}");
+        return;
+    }
     addNoCacheHeaders_(response);
     response->printf("{\"available\":%s,\"capacity\":%u,\"entries\":%u,\"dropped\":%lu,\"persisted\":%lu,\"persist_dropped\":%lu,\"psram\":%s,\"spiffs\":%s",
                      available ? "true" : "false",
@@ -4910,6 +4577,7 @@ void WebInterfaceModule::sendActivityLogHttpResponse_(AsyncWebServerRequest* req
 
     if (statusOnly) {
         response->print('}');
+        response->finish();
         request->send(response);
         return;
     }
@@ -4946,6 +4614,11 @@ void WebInterfaceModule::sendActivityLogHttpResponse_(AsyncWebServerRequest* req
                                      &pageCtx);
     }
     response->print("]}");
+    if (!response->finish()) {
+        delete response;
+        request->send(503, "application/json", "{\"ok\":false,\"error\":\"Reponse du journal trop volumineuse\"}");
+        return;
+    }
     request->send(response);
 }
 
@@ -5060,19 +4733,13 @@ void WebInterfaceModule::init(ConfigStore& cfg, ServiceRegistry& services)
     health_.paused = uartPaused_;
     portEXIT_CRITICAL(&healthMux_);
 
-#if defined(FLOW_PROFILE_WAVESHARE)
     pinMode(kBootRecoveryPin, INPUT_PULLUP);
     LOGI("Web physical recovery armed on BOOT GPIO%d hold=%lus window=%lus",
          kBootRecoveryPin,
          (unsigned long)(kBootRecoveryHoldMs / 1000U),
          (unsigned long)(kPhysicalRecoveryWindowMs / 1000U));
-#endif
 
-#if defined(FLOW_PROFILE_MICRONOVA) || defined(FLOW_PROFILE_WAVESHARE)
     LOGI("WebInterface local runtime deferred (server deferred)");
-#else
-    startLocalRuntime_();
-#endif
 }
 
 void WebInterfaceModule::onConfigLoaded(ConfigStore& cfg, ServiceRegistry&)
@@ -5103,18 +4770,14 @@ void WebInterfaceModule::onConfigLoaded(ConfigStore& cfg, ServiceRegistry&)
 
 void WebInterfaceModule::onStart(ConfigStore&, ServiceRegistry&)
 {
-#if defined(FLOW_PROFILE_MICRONOVA) || defined(FLOW_PROFILE_WAVESHARE)
     startLocalRuntime_();
-#endif
 }
 
 void WebInterfaceModule::startLocalRuntime_()
 {
-#if defined(FLOW_PROFILE_WAVESHARE)
     // flow.io exposes its own LogHub on /wslog; there is no secondary UART
     // bridge to read, especially now that USB CDC on boot is disabled.
     bridgeUartEnabled_ = false;
-#endif
 
     if (!initLocalLogQueue_()) return;
     if (!localLogSinkRegistered_ && localLogQueue_ && logSinkReg_ && logSinkReg_->add) {
@@ -5132,10 +4795,8 @@ void WebInterfaceModule::startLocalRuntime_()
         return;
     }
 
-#if defined(FLOW_PROFILE_WAVESHARE)
     LOGI("WebInterface local log runtime enabled on flow.io (serial bridge disabled)");
     return;
-#endif
 
 #if !FLOW_ENABLE_READONLY_SERIAL_LOG
     bridgeUartEnabled_ = false;
@@ -6059,19 +5720,9 @@ void WebInterfaceModule::startServer_()
             hmiSvc_->getDisplayVersion(hmiSvc_->ctx, nextionDisplayVersion, sizeof(nextionDisplayVersion))) {
             doc["nextion_display_version"] = nextionDisplayVersion;
         }
-#if defined(FLOW_PROFILE_MICRONOVA)
-        doc["local_runtime"] = true;
-        doc["local_config_label"] = "Config Store Micronova";
-        doc["remote_config_enabled"] = false;
-#elif defined(FLOW_PROFILE_WAVESHARE)
         doc["local_runtime"] = true;
         doc["local_config_label"] = "Config Store flow.io";
         doc["remote_config_enabled"] = false;
-#else
-        doc["local_runtime"] = false;
-        doc["local_config_label"] = "Config Store Supervisor";
-        doc["remote_config_enabled"] = true;
-#endif
         doc["unify_status_card_icons"] = (FLOW_WEB_UNIFY_STATUS_CARD_ICONS != 0);
         SystemStatsSnapshot snap{};
         SystemStats::collect(snap);
@@ -6207,11 +5858,7 @@ void WebInterfaceModule::startServer_()
         const bool useLightUi =
             !request->hasParam("full") &&
             (mode == NetworkAccessMode::AccessPoint
-#if defined(FLOW_PROFILE_MICRONOVA)
-             || true
-#endif
             );
-#if defined(FLOW_PROFILE_WAVESHARE)
         if (mode == NetworkAccessMode::AccessPoint && !request->hasParam("full")) {
             if (provisioningUiAssetsAvailable()) {
                 SpiffsAssetForensicMeta forensicMeta{};
@@ -6236,7 +5883,6 @@ void WebInterfaceModule::startServer_()
             sendRescuePage(request);
             return;
         }
-#endif
         if (useLightUi) {
             if (lightUiAssetsAvailable()) {
                 SpiffsAssetForensicMeta forensicMeta{};
@@ -6888,13 +6534,11 @@ void WebInterfaceModule::startServer_()
             LOGW("flow.io reboot request failed err=%s", flowRebootErr[0] ? flowRebootErr : "unknown");
         }
 
-#if defined(FLOW_PROFILE_WAVESHARE)
         if (applyWifiConfig && wasApProvisioning) {
             scheduleReboot_(1200U, "prov.done.wifi");
             request->send(200, "application/json", "{\"ok\":true,\"reboot_scheduled\":true}");
             return;
         }
-#endif
 
         char out[384] = {0};
         const int n = snprintf(out,
@@ -7071,30 +6715,12 @@ void WebInterfaceModule::startServer_()
         char srcStr[24] = {0};
         copyRequestParamValue_(request, "src", false, srcStr, sizeof(srcStr), "");
         LOGD("runtime.call route=/api/flow/status src=%s", srcStr[0] ? srcStr : "-");
-#if defined(FLOW_PROFILE_WAVESHARE)
         const AlarmService* alarmSvc = services_ ? services_->get<AlarmService>(ServiceId::Alarm) : nullptr;
         if (!sendWaveshareStatusCompactResponse_(request, dataStore_, cfgStore_, alarmSvc)) {
             request->send(500, "application/json",
                           "{\"ok\":false,\"err\":{\"code\":\"Failed\",\"where\":\"flow.status.local\"}}");
         }
         return;
-#else
-        if (!flowCfgSvc_ && services_) {
-            flowCfgSvc_ = services_->get<FlowCfgRemoteService>(ServiceId::FlowCfg);
-        }
-        if (!flowCfgSvc_ || !flowCfgSvc_->runtimeStatusDomainJson) {
-            request->send(503, "application/json",
-                          "{\"ok\":false,\"err\":{\"code\":\"NotReady\",\"where\":\"flow.status\"}}");
-            return;
-        }
-        if (flowCfgSvc_->isReady && !flowCfgSvc_->isReady(flowCfgSvc_->ctx)) {
-            request->send(503, "application/json",
-                          "{\"ok\":false,\"err\":{\"code\":\"NotReady\",\"where\":\"flow.status.link\"}}");
-            return;
-        }
-
-        (void)sendFlowStatusCompactResponse_(request, flowCfgSvc_);
-#endif
     });
 
     server_.on("/api/flow/status/domain", HTTP_GET, [this](AsyncWebServerRequest* request) {
@@ -7122,7 +6748,6 @@ void WebInterfaceModule::startServer_()
             return;
         }
 
-#if defined(FLOW_PROFILE_WAVESHARE)
         char domainBuf[768] = {0};
         const AlarmService* alarmSvc = services_ ? services_->get<AlarmService>(ServiceId::Alarm) : nullptr;
         if (!waveshareBuildStatusDomainJson_(domain, dataStore_, cfgStore_, alarmSvc, domainBuf, sizeof(domainBuf))) {
@@ -7135,57 +6760,11 @@ void WebInterfaceModule::startServer_()
              domainStr);
         request->send(200, "application/json", domainBuf);
         return;
-#else
-        if (!flowCfgSvc_ && services_) {
-            flowCfgSvc_ = services_->get<FlowCfgRemoteService>(ServiceId::FlowCfg);
-        }
-        if (!flowCfgSvc_ || !flowCfgSvc_->runtimeStatusDomainJson) {
-            request->send(503, "application/json",
-                          "{\"ok\":false,\"err\":{\"code\":\"NotReady\",\"where\":\"flow.status.domain\"}}");
-            return;
-        }
-        if (flowCfgSvc_->isReady && !flowCfgSvc_->isReady(flowCfgSvc_->ctx)) {
-            request->send(503, "application/json",
-                          "{\"ok\":false,\"err\":{\"code\":\"NotReady\",\"where\":\"flow.status.domain.link\"}}");
-            return;
-        }
-
-        char domainBuf[640] = {0};
-        if (!flowCfgSvc_->runtimeStatusDomainJson(flowCfgSvc_->ctx, domain, domainBuf, sizeof(domainBuf))) {
-            LOGD("runtime.call route=/api/flow/status/domain src=%s domain=%s result=call_fail",
-                 srcStr[0] ? srcStr : "-",
-                 domainStr);
-            if (domainBuf[0] != '\0') {
-                // Domain can be temporarily unavailable (or unsupported remotely).
-                // Return structured JSON without HTTP error to avoid noisy client console
-                // and let the UI render the domain as unavailable.
-                request->send(200, "application/json", domainBuf);
-            } else {
-                request->send(200, "application/json",
-                              "{\"ok\":false,\"err\":{\"code\":\"Failed\",\"where\":\"flow.status.domain.fetch\"}}");
-            }
-            return;
-        }
-
-        LOGD("runtime.call route=/api/flow/status/domain src=%s domain=%s result=ok",
-             srcStr[0] ? srcStr : "-",
-             domainStr);
-        request->send(200, "application/json", domainBuf);
-#endif
     });
 
     server_.on("/api/runtime/manifest", HTTP_GET, [this, beginSpiffsAssetResponse, sendPreparedAssetResponse](AsyncWebServerRequest* request) {
         HttpLatencyScope latency(request, "/api/runtime/manifest");
         LOGD("runtime.call route=/api/runtime/manifest");
-#if defined(FLOW_PROFILE_MICRONOVA)
-        AsyncWebServerResponse* response =
-            request->beginResponse(200,
-                                   "application/json",
-                                   reinterpret_cast<const uint8_t*>(kMicronovaRuntimeManifestJson),
-                                   sizeof(kMicronovaRuntimeManifestJson) - 1U);
-        addNoCacheHeaders_(response);
-        request->send(response);
-#else
         AsyncWebServerResponse* response =
             request->beginResponse(200,
                                    "application/json",
@@ -7193,7 +6772,6 @@ void WebInterfaceModule::startServer_()
                                    sizeof(kRuntimeUiManifestJson) - 1U);
         addNoCacheHeaders_(response);
         request->send(response);
-#endif
     });
 
     server_.on("/api/runtime/alarms", HTTP_GET, [this](AsyncWebServerRequest* request) {
@@ -7209,7 +6787,6 @@ void WebInterfaceModule::startServer_()
     server_.on("/api/io/summary", HTTP_GET, [this](AsyncWebServerRequest* request) {
         HttpLatencyScope latency(request, "/api/io/summary");
         LOGD("runtime.call route=/api/io/summary");
-#if defined(FLOW_PROFILE_WAVESHARE)
         if (!ioSvc_ && services_) {
             ioSvc_ = services_->get<IOServiceV2>(ServiceId::Io);
         }
@@ -7218,10 +6795,6 @@ void WebInterfaceModule::startServer_()
         addNoCacheHeaders_(response);
         sendWaveshareIoSummaryResponse_(*response, ioSvc_, poolSvc);
         request->send(response);
-#else
-        request->send(404, "application/json",
-                      "{\"ok\":false,\"err\":{\"code\":\"Unsupported\",\"where\":\"io.summary\"}}");
-#endif
     });
 
     server_.on("/api/runtime/dashboard_slots", HTTP_GET, [this](AsyncWebServerRequest* request) {
@@ -7231,7 +6804,6 @@ void WebInterfaceModule::startServer_()
         addNoCacheHeaders_(response);
         response->print("{\"ok\":true,\"slots\":[");
         bool first = true;
-#if defined(FLOW_PROFILE_WAVESHARE)
         if (!ioSvc_ && services_) {
             ioSvc_ = services_->get<IOServiceV2>(ServiceId::Io);
         }
@@ -7239,55 +6811,12 @@ void WebInterfaceModule::startServer_()
             const AlarmService* alarmSvc = services_ ? services_->get<AlarmService>(ServiceId::Alarm) : nullptr;
             sendWaveshareDashboardSlotsResponse_(*response, first, dataStore_, cfgStore_, alarmSvc, ioSvc_);
         }
-#elif !defined(FLOW_PROFILE_MICRONOVA)
-        if (dataStore_) {
-            const FlowRemoteRuntimeData& flow = flowRemoteRuntime(*dataStore_);
-            for (uint8_t i = 0U; i < kFlowRemoteDashboardSlotCount; ++i) {
-                const FlowRemoteDashboardSlotRuntime& slot = flow.dashboardSlots[i];
-                if (!slot.enabled) continue;
-
-                char valueBuf[40] = {0};
-                char bgColorBuf[8] = {0};
-                formatDashboardSlotValueText_(slot, valueBuf, sizeof(valueBuf));
-                dashboardSlotBgColorHex_(slot.bgColor565, bgColorBuf, sizeof(bgColorBuf));
-                if (!first) response->print(',');
-                response->print("{\"slot\":");
-                response->print((unsigned)i);
-                response->print(",\"runtime_ui_id\":");
-                response->print((unsigned long)slot.runtimeUiId);
-                const RuntimeUiManifestItem* item = findRuntimeUiManifestItem(slot.runtimeUiId);
-                const char* unit = (item && item->unit) ? item->unit : "";
-                response->print(",\"label\":");
-                printJsonEscaped_(*response, slot.label[0] != '\0' ? slot.label : "Mesure");
-                response->print(",\"value\":");
-                printJsonEscaped_(*response, valueBuf);
-                response->print(",\"unit\":");
-                if (unit && unit[0] != '\0') {
-                    printJsonEscaped_(*response, dashboardSlotDegreeCUnit_(unit) ? "\xC2\xB0""C" : unit);
-                } else {
-                    printJsonEscaped_(*response, "");
-                }
-                response->print(",\"bg_color\":");
-                printJsonEscaped_(*response, bgColorBuf);
-                response->print(",\"available\":");
-                response->print(slot.available ? "true" : "false");
-                response->print("}");
-                first = false;
-            }
-        }
-#else
-        (void)first;
-#endif
         response->print("],\"alarm_slots\":[");
         bool firstAlarmSlot = true;
-#if defined(FLOW_PROFILE_WAVESHARE)
         {
             const AlarmService* alarmSvc = services_ ? services_->get<AlarmService>(ServiceId::Alarm) : nullptr;
             sendWaveshareAlarmDashboardSlotsResponse_(*response, firstAlarmSlot, cfgStore_, alarmSvc);
         }
-#else
-        (void)firstAlarmSlot;
-#endif
         response->print("]}");
         request->send(response);
     });
@@ -7318,16 +6847,10 @@ void WebInterfaceModule::startServer_()
         }
         LOGD("runtime.call route=/api/runtime/values method=GET ids=%u", (unsigned)idCount);
 
-#if defined(FLOW_PROFILE_MICRONOVA)
-        sendMicronovaLocalRuntimeValuesResponse_(request, dataStore_, ids, idCount);
-#elif defined(FLOW_PROFILE_WAVESHARE)
         {
             const AlarmService* alarmSvc = services_ ? services_->get<AlarmService>(ServiceId::Alarm) : nullptr;
             sendWaveshareLocalRuntimeValuesResponse_(request, dataStore_, cfgStore_, alarmSvc, ids, idCount);
         }
-#else
-        sendRuntimeUiValuesResponse_(request, flowCfgSvc_, ids, idCount);
-#endif
     });
 
     server_.on(
@@ -7387,16 +6910,10 @@ void WebInterfaceModule::startServer_()
             }
             LOGD("runtime.call route=/api/runtime/values method=POST ids=%u", (unsigned)idCount);
 
-#if defined(FLOW_PROFILE_MICRONOVA)
-            sendMicronovaLocalRuntimeValuesResponse_(request, dataStore_, ids, idCount);
-#elif defined(FLOW_PROFILE_WAVESHARE)
             {
                 const AlarmService* alarmSvc = services_ ? services_->get<AlarmService>(ServiceId::Alarm) : nullptr;
                 sendWaveshareLocalRuntimeValuesResponse_(request, dataStore_, cfgStore_, alarmSvc, ids, idCount);
             }
-#else
-            sendRuntimeUiValuesResponse_(request, flowCfgSvc_, ids, idCount);
-#endif
         },
         nullptr,
         [this](AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
@@ -7435,7 +6952,6 @@ void WebInterfaceModule::startServer_()
                                  "/api/flowcfg/modules",
                                  kHttpLatencyFlowCfgInfoMs,
                                  kHttpLatencyFlowCfgWarnMs);
-#if defined(FLOW_PROFILE_WAVESHARE)
         if (!cfgStore_) {
             request->send(503, "application/json",
                           "{\"ok\":false,\"err\":{\"code\":\"NotReady\",\"where\":\"flowcfg.modules\"}}");
@@ -7459,29 +6975,6 @@ void WebInterfaceModule::startServer_()
         response->print("]}");
         request->send(response);
         return;
-#else
-        if (!flowCfgSvc_ && services_) {
-            flowCfgSvc_ = services_->get<FlowCfgRemoteService>(ServiceId::FlowCfg);
-        }
-        if (!flowCfgSvc_ || !flowCfgSvc_->listModulesJson) {
-            request->send(503, "application/json",
-                          "{\"ok\":false,\"err\":{\"code\":\"NotReady\",\"where\":\"flowcfg.modules\"}}");
-            return;
-        }
-        char out[Limits::Mqtt::Buffers::Ack] = {0};
-        if (!flowCfgSvc_->listModulesJson(flowCfgSvc_->ctx, out, sizeof(out))) {
-            if (out[0] != '\0') {
-                LOGW("flowcfg.modules failed details=%s", out);
-                request->send(500, "application/json", out);
-            } else {
-                request->send(500, "application/json",
-                              "{\"ok\":false,\"err\":{\"code\":\"Failed\",\"where\":\"flowcfg.modules\"}}");
-            }
-            return;
-        }
-
-        request->send(200, "application/json", out);
-#endif
     });
 
     server_.on("/api/flowcfg/children", HTTP_GET, [this](AsyncWebServerRequest* request) {
@@ -7489,7 +6982,6 @@ void WebInterfaceModule::startServer_()
                                  "/api/flowcfg/children",
                                  kHttpLatencyFlowCfgInfoMs,
                                  kHttpLatencyFlowCfgWarnMs);
-#if defined(FLOW_PROFILE_WAVESHARE)
         if (!cfgStore_) {
             request->send(503, "application/json",
                           "{\"ok\":false,\"err\":{\"code\":\"NotReady\",\"where\":\"flowcfg.children\"}}");
@@ -7556,30 +7048,6 @@ void WebInterfaceModule::startServer_()
         response->print("]}");
         request->send(response);
         return;
-#else
-        if (!flowCfgSvc_ && services_) {
-            flowCfgSvc_ = services_->get<FlowCfgRemoteService>(ServiceId::FlowCfg);
-        }
-        if (!flowCfgSvc_ || !flowCfgSvc_->listChildrenJson) {
-            request->send(503, "application/json",
-                          "{\"ok\":false,\"err\":{\"code\":\"NotReady\",\"where\":\"flowcfg.children\"}}");
-            return;
-        }
-        char prefix[128] = {0};
-        copyRequestParamValue_(request, "prefix", false, prefix, sizeof(prefix), "");
-        char out[Limits::Mqtt::Buffers::Ack] = {0};
-        if (!flowCfgSvc_->listChildrenJson(flowCfgSvc_->ctx, prefix, out, sizeof(out))) {
-            if (out[0] != '\0') {
-                LOGW("flowcfg.children failed prefix=%s details=%s", prefix, out);
-                request->send(500, "application/json", out);
-            } else {
-                request->send(500, "application/json",
-                              "{\"ok\":false,\"err\":{\"code\":\"Failed\",\"where\":\"flowcfg.children\"}}");
-            }
-            return;
-        }
-        request->send(200, "application/json", out);
-#endif
     });
 
     server_.on("/api/flowcfg/module", HTTP_GET, [this](AsyncWebServerRequest* request) {
@@ -7587,7 +7055,6 @@ void WebInterfaceModule::startServer_()
                                  "/api/flowcfg/module",
                                  kHttpLatencyFlowCfgInfoMs,
                                  kHttpLatencyFlowCfgWarnMs);
-#if defined(FLOW_PROFILE_WAVESHARE)
         if (!cfgStore_) {
             request->send(503, "application/json",
                           "{\"ok\":false,\"err\":{\"code\":\"NotReady\",\"where\":\"flowcfg.module\"}}");
@@ -7634,61 +7101,6 @@ void WebInterfaceModule::startServer_()
         response->print('}');
         request->send(response);
         return;
-#else
-        if (!flowCfgSvc_ && services_) {
-            flowCfgSvc_ = services_->get<FlowCfgRemoteService>(ServiceId::FlowCfg);
-        }
-        if (!flowCfgSvc_ || !flowCfgSvc_->getModuleJson) {
-            request->send(503, "application/json",
-                          "{\"ok\":false,\"err\":{\"code\":\"NotReady\",\"where\":\"flowcfg.module\"}}");
-            return;
-        }
-        if (!request->hasParam("name")) {
-            request->send(400, "application/json",
-                          "{\"ok\":false,\"err\":{\"code\":\"InvalidArg\",\"where\":\"flowcfg.module.name\"}}");
-            return;
-        }
-
-        char moduleStr[64] = {0};
-        copyRequestParamValue_(request, "name", false, moduleStr, sizeof(moduleStr), "");
-        if (moduleStr[0] == '\0') {
-            request->send(400, "application/json",
-                          "{\"ok\":false,\"err\":{\"code\":\"InvalidArg\",\"where\":\"flowcfg.module.name\"}}");
-            return;
-        }
-
-        char moduleName[64] = {0};
-        snprintf(moduleName, sizeof(moduleName), "%s", moduleStr);
-        sanitizeJsonString_(moduleName);
-
-        bool truncated = false;
-        WebHeapCharBuffer moduleJson(Limits::Mqtt::Buffers::StateCfg);
-        if (!moduleJson) {
-            sendTinyBusyJson_(request, "web_scratch_alloc");
-            return;
-        }
-        if (!flowCfgSvc_->getModuleJson(flowCfgSvc_->ctx, moduleStr, moduleJson.data, moduleJson.capacity, &truncated)) {
-            if (moduleJson.data[0] != '\0') {
-                LOGW("flowcfg.module failed module=%s details=%s", moduleStr, moduleJson.data);
-                request->send(500, "application/json", moduleJson.data);
-            } else {
-                request->send(500, "application/json",
-                              "{\"ok\":false,\"err\":{\"code\":\"Failed\",\"where\":\"flowcfg.module.get\"}}");
-            }
-            return;
-        }
-
-        AsyncResponseStream* response = request->beginResponseStream("application/json");
-        addNoCacheHeaders_(response);
-        response->print("{\"ok\":true,\"module\":");
-        printJsonEscaped_(*response, moduleName);
-        response->print(",\"truncated\":");
-        response->print(truncated ? "true" : "false");
-        response->print(",\"data\":");
-        response->print(moduleJson.data);
-        response->print('}');
-        request->send(response);
-#endif
     });
 
     server_.on("/api/pool/config", HTTP_GET, [this](AsyncWebServerRequest* request) {
@@ -7696,7 +7108,6 @@ void WebInterfaceModule::startServer_()
                                  "/api/pool/config",
                                  kHttpLatencyFlowCfgInfoMs,
                                  kHttpLatencyFlowCfgWarnMs);
-#if defined(FLOW_PROFILE_WAVESHARE)
         if (!cfgStore_) {
             request->send(503, "application/json",
                           "{\"ok\":false,\"err\":{\"code\":\"NotReady\",\"where\":\"pool.config\"}}");
@@ -7755,10 +7166,6 @@ void WebInterfaceModule::startServer_()
         response->print(anyTruncated ? "true" : "false");
         response->print('}');
         request->send(response);
-#else
-        request->send(404, "application/json",
-                      "{\"ok\":false,\"err\":{\"code\":\"NotSupported\",\"where\":\"pool.config\"}}");
-#endif
     });
 
     server_.on("/api/flowcfg/apply", HTTP_POST, [this](AsyncWebServerRequest* request) {
@@ -7766,7 +7173,6 @@ void WebInterfaceModule::startServer_()
                                  "/api/flowcfg/apply",
                                  kHttpLatencyFlowCfgInfoMs,
                                  kHttpLatencyFlowCfgWarnMs);
-#if defined(FLOW_PROFILE_WAVESHARE)
         if (!cfgStore_) {
             request->send(503, "application/json",
                           "{\"ok\":false,\"err\":{\"code\":\"NotReady\",\"where\":\"flowcfg.apply\"}}");
@@ -7792,39 +7198,6 @@ void WebInterfaceModule::startServer_()
         emitConfigPatchActivity_("Config flow.io", patchStr.data);
         request->send(200, "application/json", "{\"ok\":true}");
         return;
-#else
-        if (!flowCfgSvc_ && services_) {
-            flowCfgSvc_ = services_->get<FlowCfgRemoteService>(ServiceId::FlowCfg);
-        }
-        if (!flowCfgSvc_ || !flowCfgSvc_->applyPatchJson) {
-            request->send(503, "application/json",
-                          "{\"ok\":false,\"err\":{\"code\":\"NotReady\",\"where\":\"flowcfg.apply\"}}");
-            return;
-        }
-        if (!request->hasParam("patch", true)) {
-            request->send(400, "application/json",
-                          "{\"ok\":false,\"err\":{\"code\":\"InvalidArg\",\"where\":\"flowcfg.apply.patch\"}}");
-            return;
-        }
-
-        WebHeapCharBuffer patchStr(Limits::Mqtt::Buffers::StateCfg);
-        if (!patchStr) {
-            sendTinyBusyJson_(request, "web_scratch_alloc");
-            return;
-        }
-        copyRequestParamValue_(request, "patch", true, patchStr.data, patchStr.capacity, "");
-        char ack[Limits::Mqtt::Buffers::Ack] = {0};
-        if (!flowCfgSvc_->applyPatchJson(flowCfgSvc_->ctx, patchStr.data, ack, sizeof(ack))) {
-            if (ack[0] != '\0') {
-                request->send(flowCfgApplyHttpStatus_(ack), "application/json", ack);
-            } else {
-                request->send(500, "application/json",
-                              "{\"ok\":false,\"err\":{\"code\":\"Failed\",\"where\":\"flowcfg.apply.exec\"}}");
-            }
-            return;
-        }
-        request->send(200, "application/json", ack);
-#endif
     });
 
     server_.on("/api/supervisorcfg/modules", HTTP_GET, [this](AsyncWebServerRequest* request) {

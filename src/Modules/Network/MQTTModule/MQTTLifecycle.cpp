@@ -144,11 +144,7 @@ bool MQTTModule::allocateScratchBuffers_()
     if (scratch_) return true;
 
     scratch_ = static_cast<ScratchBuffers*>(
-#if defined(FLOW_PROFILE_WAVESHARE)
         heap_caps_calloc(1, sizeof(ScratchBuffers), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)
-#else
-        heap_caps_calloc(1, sizeof(ScratchBuffers), MALLOC_CAP_8BIT)
-#endif
     );
     if (!scratch_) {
         LOGE("mqtt scratch alloc failed (%u bytes)", (unsigned)sizeof(ScratchBuffers));
@@ -164,11 +160,7 @@ bool MQTTModule::allocateRxQueue_()
     const size_t rxItemSize = sizeof(RxMsg);
     const size_t rxQueueStorageLen = ((size_t)Limits::Mqtt::Capacity::RxQueueLen) * rxItemSize;
     rxQueueStorage_ = static_cast<uint8_t*>(
-#if defined(FLOW_PROFILE_WAVESHARE)
         heap_caps_malloc(rxQueueStorageLen, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)
-#else
-        heap_caps_malloc(rxQueueStorageLen, MALLOC_CAP_8BIT)
-#endif
     );
     if (rxQueueStorage_) {
         rxQ_ = xQueueCreateStatic(Limits::Mqtt::Capacity::RxQueueLen,
@@ -504,12 +496,7 @@ void MQTTModule::init(ConfigStore& cfg, ServiceRegistry& services)
     makeDeviceId(deviceId_, sizeof(deviceId_));
     buildTopics_();
 
-#if defined(FLOW_PROFILE_MICRONOVA) || defined(FLOW_PROFILE_WAVESHARE)
     LOGI("mqtt heap buffers deferred until startup release");
-#else
-    (void)allocateScratchBuffers_();
-    (void)allocateRxQueue_();
-#endif
 
     netReady_ = dataStore_ ? networkReady(*dataStore_) : false;
     netReadyTs_ = millis();
@@ -538,10 +525,8 @@ void MQTTModule::onConfigLoaded(ConfigStore&, ServiceRegistry& services)
 
 void MQTTModule::onStart(ConfigStore&, ServiceRegistry&)
 {
-#if defined(FLOW_PROFILE_MICRONOVA) || defined(FLOW_PROFILE_WAVESHARE)
     (void)allocateScratchBuffers_();
     (void)allocateRxQueue_();
-#endif
     runtimeProducerCore_.rebuildRoutes();
     LOGI("runtime routes ready count=%u", (unsigned)runtimeProducerCore_.routeCount());
 }

@@ -11,11 +11,7 @@
 #include "Core/WokwiDefaultOverrides.h"
 
 struct MqttConfigData {
-#if defined(FLOW_PROFILE_WAVESHARE)
     bool enabled = false;
-#else
-    bool enabled = FLOW_WIRDEF_MQ_EN;
-#endif
     char host[Limits::Mqtt::Buffers::Host] = FLOW_WIRDEF_MQ_HOST;
     int32_t port = FLOW_WIRDEF_MQ_PORT;
     char user[Limits::Mqtt::Buffers::User] = FLOW_WIRDEF_MQ_USER;

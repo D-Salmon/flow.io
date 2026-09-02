@@ -96,7 +96,6 @@ static constexpr uint32_t kRtcFallbackDelayMs = 30000U;
 static constexpr uint32_t kRtcFallbackRetryMs = 10000U;
 static constexpr uint32_t kRtcPushRetryMs = 60000U;
 static constexpr uint16_t kLocalNextionRtcReadTimeoutMs = 180U;
-static constexpr uint16_t kRemoteNextionRtcReadTimeoutMs = 2000U;
 static constexpr const char* kNextionDisplayVersionExpected = TFT_FIRMW;
 static constexpr uint8_t kNextionHomePagePrimary = 0U;
 static constexpr uint8_t kNextionHomePageAlias = 1U;
@@ -106,17 +105,9 @@ static constexpr uint8_t kNextionAlarmPagePrimary = 11U;
 static constexpr uint8_t kNextionAlarmPageAlias = 3U;
 static constexpr const char* kNextionDegreeC = "\xC2\xB0""C";
 static constexpr bool kFrontLedsSupported =
-#if FLOW_BUILD_IS_WAVESHARE
     false;
-#else
-    true;
-#endif
 static constexpr bool kWs2812StatusLedDefaultEnabled =
-#if FLOW_BUILD_IS_WAVESHARE
     true;
-#else
-    false;
-#endif
 static constexpr int8_t kWs2812StatusLedGpio = 38;
 static constexpr uint8_t kWs2812T0BlueRed = 0U;
 static constexpr uint8_t kWs2812T0BlueGreen = 0U;
@@ -452,14 +443,12 @@ void HMIModule::applyOutputConfig_()
     IHmiDriver* wantedDriver = nullptr;
     const bool nextionUartConfigured = (Board::SerialMap::hmiRxPin() >= 0) && (Board::SerialMap::hmiTxPin() >= 0);
     const bool hmiUartBlockedByNativeUsb = Board::SerialMap::hmiUartBlockedByNativeUsb();
-    if (cfgData_.nextionEnabled && !cfgData_.remoteUdpEnabled && hmiUartBlockedByNativeUsb) {
+    if (cfgData_.nextionEnabled && hmiUartBlockedByNativeUsb) {
         LOGW("Nextion disabled: HMI UART pins overlap native USB CDC (set FLOW_ALLOW_HMI_ON_NATIVE_USB_PINS=1 to override)");
-    } else if (cfgData_.nextionEnabled && !cfgData_.remoteUdpEnabled && !nextionUartConfigured) {
+    } else if (cfgData_.nextionEnabled && !nextionUartConfigured) {
         LOGW("Nextion disabled: no local HMI UART configured on active board");
     }
-    if (cfgData_.remoteUdpEnabled) {
-        wantedDriver = static_cast<IHmiDriver*>(&remoteUdp_);
-    } else if (cfgData_.nextionEnabled && nextionUartConfigured && !nextionDisabledByVersion_) {
+    if (cfgData_.nextionEnabled && nextionUartConfigured && !nextionDisabledByVersion_) {
         wantedDriver = static_cast<IHmiDriver*>(&nextion_);
     }
     if (driver_ != wantedDriver) {
@@ -475,14 +464,12 @@ void HMIModule::applyOutputConfig_()
     TfaVeniceRf433Config veniceCfg{};
     int8_t veniceTxPin =
         (cfgData_.veniceTxGpio >= 0 && cfgData_.veniceTxGpio <= 127) ? (int8_t)cfgData_.veniceTxGpio : (int8_t)-1;
-#if FLOW_BUILD_IS_WAVESHARE
     // Only unassigned, externally available pins are accepted on the
     // Waveshare N16R8 profile. In particular GPIO14 is Ethernet MISO and the
     // old persisted default must never be driven by the RF433 output.
     const bool flowIOS3PinAllowed =
         (veniceTxPin >= 1 && veniceTxPin <= 3) || veniceTxPin == 40;
     if (!flowIOS3PinAllowed) veniceTxPin = -1;
-#endif
     veniceCfg.enabled = cfgData_.veniceEnabled && veniceTxPin >= 0;
     veniceCfg.txPin = veniceTxPin;
     venice_.setConfig(veniceCfg);
@@ -492,12 +479,6 @@ void HMIModule::applyOutputConfig_()
     }
     (void)ws2812StatusLed_.setEnabled(cfgData_.waveshareLedEnabled);
     ledMaskValid_ = false;
-}
-
-void HMIModule::setRemoteUdpServer(HmiUdpServerModule* server)
-{
-    remoteUdpServer_ = server;
-    remoteUdp_.setUdpServer(server);
 }
 
 bool HMIModule::requestRefresh_()
@@ -649,7 +630,6 @@ void HMIModule::init(ConfigStore& cfg, ServiceRegistry& services)
     cfg.registerVar(ledsEnabledVar_);
     cfg.registerVar(waveshareLedEnabledVar_);
     cfg.registerVar(nextionEnabledVar_);
-    cfg.registerVar(remoteUdpEnabledVar_);
     cfg.registerVar(veniceEnabledVar_);
     cfg.registerVar(veniceTxGpioVar_);
 
@@ -813,11 +793,7 @@ void HMIModule::onConfigLoaded(ConfigStore&, ServiceRegistry&)
 void HMIModule::refreshMqttConfig_()
 {
     bool enabled =
-#if FLOW_BUILD_IS_WAVESHARE
         false;
-#else
-        true;
-#endif
     char mqttJson[160] = {0};
     if (cfgSvc_ && cfgSvc_->toJsonModule &&
         cfgSvc_->toJsonModule(cfgSvc_->ctx, "mqtt", mqttJson, sizeof(mqttJson), nullptr)) {
@@ -1391,9 +1367,7 @@ bool HMIModule::readNextionRtcAndSetTime_()
     if (!driver_ || !timeSvc_ || !timeSvc_->setExternalEpoch) return false;
 
     HmiRtcDateTime rtc{};
-    const uint16_t timeoutMs =
-        (driver_ == static_cast<IHmiDriver*>(&remoteUdp_)) ? kRemoteNextionRtcReadTimeoutMs : kLocalNextionRtcReadTimeoutMs;
-    if (!driver_->readRtc(rtc, timeoutMs)) {
+    if (!driver_->readRtc(rtc, kLocalNextionRtcReadTimeoutMs)) {
         LOGW("HMI Nextion RTC read failed");
         return false;
     }
@@ -1850,7 +1824,7 @@ void HMIModule::onEvent_(const Event& e)
         if (p->module[0] && strncmp(p->module, kHmiModulePrefix, strlen(kHmiModulePrefix)) == 0) {
             applyOutputConfig_();
             ledDirty = cfgData_.ledsEnabled;
-            if (cfgData_.nextionEnabled || cfgData_.remoteUdpEnabled) {
+            if (cfgData_.nextionEnabled) {
                 homePublishMask |= kHomePublishAll;
             }
         }
@@ -2703,10 +2677,6 @@ bool HMIModule::isDisplaySleeping_() const
     if (driver_ == static_cast<const IHmiDriver*>(&nextion_)) {
         return nextion_.isSleeping();
     }
-    if (driver_ == static_cast<const IHmiDriver*>(&remoteUdp_) &&
-        remoteUdpServer_) {
-        return remoteUdpServer_->isDisplaySleeping();
-    }
     return false;
 }
 
@@ -2887,16 +2857,6 @@ void HMIModule::loop()
         if (!validateDriverDisplayVersion_(false)) {
             vTaskDelay(pdMS_TO_TICKS(25));
             return;
-        }
-
-        if (driverReady_ && driver_ == static_cast<IHmiDriver*>(&remoteUdp_) &&
-            remoteUdpServer_ && remoteUdpServer_->consumeFullRefreshRequested()) {
-            resetClockPublishStamps_();
-            queueHomePublish_(kHomePublishAll);
-            lastHomePeriodicRefreshMs_ = millis();
-            rtcPushPending_ = true;
-            lastRtcPushAttemptMs_ = 0;
-            viewDirty_ = true;
         }
 
         HmiEvent ev{};

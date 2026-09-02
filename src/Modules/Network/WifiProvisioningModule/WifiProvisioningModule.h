@@ -100,11 +100,7 @@ public:
     const char* taskName() const override { return "wifiprov"; }
     BaseType_t taskCore() const override { return 0; }
     uint16_t taskStackSize() const override {
-#if defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY)
-        return 5120;
-#else
         return 3072;
-#endif
     }
     uint8_t taskCount() const override { return 1; }
     const ModuleTaskSpec* taskSpecs() const override { return singleLoopTaskSpec(); }
@@ -121,11 +117,7 @@ public:
     void onStart(ConfigStore& cfg, ServiceRegistry& services) override;
     void loop() override;
     uint32_t startDelayMs() const override {
-#if defined(FLOW_PROFILE_WAVESHARE)
         return fastPortalStart_ ? 0U : Limits::Boot::WifiProvisioningStartDelayMs;
-#else
-        return Limits::Boot::WifiProvisioningStartDelayMs;
-#endif
     }
 
 private:
@@ -194,25 +186,6 @@ private:
     wifi_event_id_t wifiEventHandlerId_ = 0;
     char apSsid_[40] = {0};
     char apPass_[32] = {0};
-#if defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY)
-    WiFiServer portalServer_{80};
-    bool portalHttpActive_ = false;
-    bool portalCredentialsSaved_ = false;
-    bool portalSpiffsReady_ = false;
-    bool portalRebootPending_ = false;
-    char portalReqLine_[384] = {0};
-    char portalPath_[384] = {0};
-    char portalMethod_[8] = {0};
-    char portalBody_[384] = {0};
-    char portalSsid_[33] = {0};
-    char portalPass_[65] = {0};
-    char portalJson_[320] = {0};
-    char portalEscSsid_[67] = {0};
-    char portalEscPass_[131] = {0};
-    char portalScanJson_[Limits::Wifi::Buffers::ScanStatusJson] = {0};
-    uint8_t portalFileBuf_[256] = {0};
-    uint32_t portalRebootAtMs_ = 0;
-#endif
 
     bool isWebReachable_() const;
     NetworkAccessMode mode_() const;
@@ -240,35 +213,6 @@ private:
     void setHmiCaptivePortalCondition_(bool active, bool force = false);
     bool getStaIp_(char* out, size_t len) const;
     bool getApIp_(char* out, size_t len) const;
-#if defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY)
-    void startLightPortal_();
-    void stopLightPortal_();
-    void handleLightPortalClient_();
-    bool handleLightPortalRequest_(WiFiClient& client,
-                                   const char* method,
-                                   const char* path,
-                                   const char* query,
-                                   const char* body);
-    void sendHttpHeader_(WiFiClient& client, const char* status, const char* contentType);
-    void sendJson_(WiFiClient& client, const char* status, const char* body);
-    void sendPlain_(WiFiClient& client, const char* status, const char* body);
-    bool sendSpiffsAsset_(WiFiClient& client, const char* path, const char* contentType);
-    void sendPortalFallbackPage_(WiFiClient& client, const char* message, bool success);
-    void sendWebMetaJson_(WiFiClient& client);
-    void sendWifiConfigJson_(WiFiClient& client);
-    void sendApStatusJson_(WiFiClient& client);
-    void sendWifiScanJson_(WiFiClient& client);
-    void sendSaveResponse_(WiFiClient& client, bool ok);
-    void schedulePortalReboot_(uint32_t delayMs);
-    bool readRequestLine_(WiFiClient& client, char* out, size_t outLen);
-    bool readHeaderLine_(WiFiClient& client, char* out, size_t outLen);
-    bool readRequestBody_(WiFiClient& client, size_t contentLen, char* out, size_t outLen);
-    bool handleSaveRequest_(const char* query);
-    static bool getQueryParam_(const char* query, const char* key, char* out, size_t outLen);
-    static bool urlDecode_(const char* in, size_t len, char* out, size_t outLen);
-    static int hexNibble_(char c);
-    static bool jsonEscape_(const char* in, char* out, size_t outLen);
-#endif
 
     NetworkAccessService netAccessSvc_{
         ServiceBinding::bind<&WifiProvisioningModule::isWebReachable_>,

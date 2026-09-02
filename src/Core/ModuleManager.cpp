@@ -417,12 +417,6 @@ bool ModuleManager::tickStartup(ConfigStore& cfg, ServiceRegistry& services)
         if (!nowStarted) {
             allStarted = false;
         }
-#if defined(FLOW_PROFILE_MICRONOVA)
-        if (!wasStarted && nowStarted) {
-            allStarted = false;
-            break;
-        }
-#endif
     }
 
     if (allStarted) {

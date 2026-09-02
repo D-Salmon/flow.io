@@ -66,7 +66,6 @@ bool ConfigStore::ensureMetaStorage_()
 
     const size_t bytes = MAX_CONFIG_VARS * sizeof(ConfigMeta);
     void* mem = nullptr;
-#if defined(FLOW_PROFILE_WAVESHARE)
     if (psramFound()) {
         mem = heap_caps_calloc(MAX_CONFIG_VARS, sizeof(ConfigMeta), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
         if (mem) {
@@ -76,7 +75,6 @@ bool ConfigStore::ensureMetaStorage_()
                       (unsigned)MAX_CONFIG_VARS);
         }
     }
-#endif
     if (!mem) {
         mem = heap_caps_calloc(MAX_CONFIG_VARS, sizeof(ConfigMeta), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
         if (mem) {

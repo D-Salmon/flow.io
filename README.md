@@ -5,9 +5,35 @@ est actuellement la carte **Waveshare ESP32-S3-POE-ETH-8DI-8RO N16R8**, utilisé
 façon autonome : un seul ESP32-S3 exécute les entrées/sorties, les automatismes,
 les sécurités, le réseau, l’interface Web, MQTT et l’intégration Home Assistant.
 
-La version déclarée pour cette cible est **3.1.5**. L’environnement PlatformIO à
+La version déclarée pour cette cible est **3.2.0**. L’environnement PlatformIO à
 utiliser est `Waveshare-ESP32-S3`, également défini comme environnement par
 défaut dans `platformio.ini`.
+
+Cette branche ne contient désormais que le profil Waveshare. Les profils FlowIO,
+Supervisor, FlowConnectDisplay et Micronova, leurs cartes et leurs modules exclusifs
+ont été retirés. Le Nextion local et le TFT S3 sont conservés ; le transport HMI UDP
+de FlowConnectDisplay est supprimé. Les anciens documents multi-profils ci-dessous
+sont des références historiques, pas des instructions de compilation de cette branche.
+
+## État de validation 3.2.0 — 2 septembre 2026
+
+Le firmware et les fichiers Web ont été compilés et flashés sur le Waveshare.
+Le journal d’activité utilise des réponses bornées en PSRAM, des lots de 16 événements,
+et annule son chargement lorsque la page est quittée. Les tests de concurrence,
+d’annulation, de pagination et d’affichage des erreurs passent
+(`node scripts/test_activity_page.cjs`), ainsi que `python scripts/verify_release.py`.
+L’utilisateur confirme que le journal s’affiche à nouveau.
+
+**Limite connue : les redémarrages watchdog ne sont pas résolus.** Le journal a
+enregistré un démarrage `reset=task_wdt` à 21:04:23 le 2 septembre 2026 avec le
+firmware `3.2.0+20260902.205208`, après le flash. La tâche responsable reste à
+identifier par une capture série. Cette version constitue un point de sauvegarde,
+pas une validation de stabilité prolongée.
+
+Les images publiées dans `binary/` ne contiennent pas l’historique du contrôleur.
+Une mise à jour complète du SPIFFS remplace ses fichiers : sauvegarder les données
+locales avant de flasher cette partition. Les sauvegardes de diagnostic et l’image
+locale contenant le journal conservé ne sont pas publiées dans le dépôt.
 
 ## Vue de la cible Waveshare
 
@@ -24,7 +50,7 @@ Cette vue résume les raccordements exploités par le firmware. Pour les tableau
 d’affectation complets et les précautions électriques, consulter le
 [schéma de raccordement Waveshare](docs/integration/schema-raccordement-waveshare.md).
 
-## État actuel
+## Validation matérielle historique (3.1.5)
 
 La 3.1.5 a été compilée, flashée et démarrée sur la carte réelle. Le contrôle de
 démarrage confirme la PSRAM de 8 Mo, la connexion Wi-Fi, MQTT TLS, le service

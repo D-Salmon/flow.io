@@ -20,20 +20,12 @@ public:
     const char* taskName() const override { return "fwupdate"; }
     BaseType_t taskCore() const override { return 0; }
     uint16_t taskStackSize() const override {
-#if defined(FLOW_PROFILE_WAVESHARE)
         return 6144;
-#else
-        return 8192;
-#endif
     }
     uint8_t taskCount() const override { return 1; }
     const ModuleTaskSpec* taskSpecs() const override { return singleLoopTaskSpec(); }
     uint32_t startDelayMs() const override {
-#if defined(FLOW_PROFILE_WAVESHARE)
         return 6000U;
-#else
-        return 0U;
-#endif
     }
 
     uint8_t dependencyCount() const override { return 4; }

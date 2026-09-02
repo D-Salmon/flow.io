@@ -156,17 +156,15 @@ def _export_program_bin(source, target, env):
     env_name = env.subst("$PIOENV")
     fw_version = _resolve_firmware_version()
 
-    if env_name == "Waveshare-ESP32-S3" or env_name == "WaveshareWokwi":
+    if env_name == "Waveshare-ESP32-S3":
         _copy_if_exists(build_dir / "firmware.bin", f"flowios3-{fw_version}.bin")
-    elif env_name == "FlowConnectDisplay":
-        _copy_if_exists(build_dir / "firmware.bin", f"flow-connect-display-{fw_version}.bin")
 
 
 def _export_spiffs_bin(source, target, env):
     build_dir = Path(env.subst("$BUILD_DIR"))
     env_name = env.subst("$PIOENV")
     fw_version = _resolve_firmware_version()
-    if env_name == "Waveshare-ESP32-S3" or env_name == "WaveshareWokwi":
+    if env_name == "Waveshare-ESP32-S3":
         _copy_if_exists(build_dir / "spiffs.bin", f"flowios3-spiffs-{fw_version}.bin")
         return
 

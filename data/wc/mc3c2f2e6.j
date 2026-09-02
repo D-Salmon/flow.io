@@ -1,1 +1,0 @@
-{"ok":true,"module":"fcd/udp","docs":{"fcd/udp/token":{"type":"CharArray","label_t":"cfgdocs.fcd.udp.token.label","help_t":"cfgdocs.fcd.udp.token.help","label":"Token Flow Connect Display","label_i18n":"cfgdocs.fcd.udp.token.label","help":"Token pour l'appairage flow.io (optionnel).","help_i18n":"cfgdocs.fcd.udp.token.help"}},"meta":{}}

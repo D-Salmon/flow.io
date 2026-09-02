@@ -30,7 +30,7 @@
 #include "Modules/Network/MQTTModule/MQTTRuntime.h"
 #include "Modules/Network/WifiModule/WifiRuntime.h"
 #include "Modules/PoolDeviceModule/PoolDeviceRuntime.h"
-#include "Modules/SupervisorHMIModule/Drivers/FlowIoLogoBitmap.h"
+#include "Modules/TFTModuleS3/FlowIoLogoBitmap.h"
 #include <WiFi.h>
 
 #define LOG_MODULE_ID ((LogModuleId)LogModuleIdValue::HMIModule)

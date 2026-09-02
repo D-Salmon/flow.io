@@ -3451,23 +3451,13 @@ void IOModule::onConfigLoaded(ConfigStore& cfg, ServiceRegistry& services)
         cfgMqttPubConfigured_ = true;
     }
 
-#if defined(FLOW_PROFILE_MICRONOVA)
-    LOGI("io.onConfigLoaded deferred runtime init enabled=%s i2c_sda=%ld i2c_scl=%ld",
-         cfgData_.enabled ? "true" : "false",
-         (long)cfgData_.i2cSda,
-         (long)cfgData_.i2cScl);
-#else
     configureRuntimeAfterConfig_();
-#endif
 }
 
 void IOModule::onStart(ConfigStore& cfg, ServiceRegistry& services)
 {
     (void)cfg;
     (void)services;
-#if defined(FLOW_PROFILE_MICRONOVA)
-    configureRuntimeAfterConfig_();
-#endif
 }
 
 void IOModule::configureRuntimeAfterConfig_()

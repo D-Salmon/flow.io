@@ -8,25 +8,7 @@
 #define FLOW_ENABLE_BOOT_LOG_CAPTURE 0
 #endif
 
-#if FLOW_BUILD_IS_FLOWIO
-#include "Profiles/FlowIO/FlowIOProfile.h"
-#endif
-
-#if FLOW_BUILD_IS_WAVESHARE
 #include "Profiles/Waveshare/WaveshareProfile.h"
-#endif
-
-#if FLOW_BUILD_IS_SUPERVISOR
-#include "Profiles/Supervisor/SupervisorProfile.h"
-#endif
-
-#if FLOW_BUILD_IS_FLOW_CONNECT_DISPLAY
-#include "Profiles/FlowConnectDisplay/FlowConnectDisplayProfile.h"
-#endif
-
-#if FLOW_BUILD_IS_MICRONOVA
-#include "Profiles/Micronova/MicronovaProfile.h"
-#endif
 
 namespace {
 
@@ -43,19 +25,7 @@ bool bootLogCaptureWaitsForHaDiscovery()
 
 const FirmwareProfile& resolveProfile()
 {
-#if FLOW_BUILD_IS_FLOWIO
-    return Profiles::FlowIO::profile();
-#elif FLOW_BUILD_IS_WAVESHARE
     return Profiles::Waveshare::profile();
-#elif FLOW_BUILD_IS_SUPERVISOR
-    return Profiles::Supervisor::profile();
-#elif FLOW_BUILD_IS_FLOW_CONNECT_DISPLAY
-    return Profiles::FlowConnectDisplay::profile();
-#elif FLOW_BUILD_IS_MICRONOVA
-    return Profiles::Micronova::profile();
-#else
-#error "Unsupported build profile."
-#endif
 }
 
 }  // namespace

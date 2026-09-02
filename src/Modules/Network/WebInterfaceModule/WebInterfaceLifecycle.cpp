@@ -15,12 +15,8 @@
 
 bool WebInterfaceModule::physicalRecoveryActive_() const
 {
-#if defined(FLOW_PROFILE_WAVESHARE)
     return physicalRecoveryDeadlineMs_ != 0U &&
            (int32_t)(physicalRecoveryDeadlineMs_ - millis()) > 0;
-#else
-    return false;
-#endif
 }
 
 uint32_t WebInterfaceModule::physicalRecoveryRemainingMs_() const
@@ -31,7 +27,6 @@ uint32_t WebInterfaceModule::physicalRecoveryRemainingMs_() const
 
 void WebInterfaceModule::pollBootRecoveryButton_()
 {
-#if defined(FLOW_PROFILE_WAVESHARE)
     const uint32_t now = millis();
     if (physicalRecoveryDeadlineMs_ != 0U &&
         (int32_t)(physicalRecoveryDeadlineMs_ - now) <= 0) {
@@ -57,7 +52,6 @@ void WebInterfaceModule::pollBootRecoveryButton_()
         LOGW("Web physical recovery enabled by BOOT long press for %lu seconds",
              (unsigned long)(kPhysicalRecoveryWindowMs / 1000U));
     }
-#endif
 }
 
 bool WebInterfaceModule::setPaused_(bool paused)
@@ -236,7 +230,6 @@ void WebInterfaceModule::loop()
             return;
         }
 
-#if defined(FLOW_PROFILE_WAVESHARE)
         if (mode == NetworkAccessMode::AccessPoint) {
             provisioningOnly_ = true;
             LOGI("Web startup in flow.io AP provisioning mode");
@@ -281,7 +274,6 @@ void WebInterfaceModule::loop()
                 LOGI("Web station server released immediately: MQTT was not valid on previous boot");
             }
         }
-#endif
 
         const bool bootNetworkReady = (mode == NetworkAccessMode::AccessPoint) ? true : netReady_;
         if (!bootNetworkReady) {

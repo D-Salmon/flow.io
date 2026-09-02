@@ -252,23 +252,11 @@ constexpr size_t JsonCmdBuf = 256;
 /** @brief Shared WiFi runtime timings and buffers. */
 namespace Wifi {
 /** @brief Maximum number of scanned networks retained for provisioning UIs. */
-#if defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY)
-constexpr uint8_t MaxScanResults = 8;
-#elif defined(FLOW_PROFILE_WAVESHARE)
 constexpr uint8_t MaxScanResults = 12;
-#else
-constexpr uint8_t MaxScanResults = 24;
-#endif
 
 namespace Buffers {
 /** @brief JSON document/output buffer used for WiFi scan status snapshots. */
-#if defined(FLOW_PROFILE_FLOW_CONNECT_DISPLAY)
-constexpr size_t ScanStatusJson = 1536;
-#elif defined(FLOW_PROFILE_WAVESHARE)
 constexpr size_t ScanStatusJson = 4096;
-#else
-constexpr size_t ScanStatusJson = 3072;
-#endif
 }  // namespace Buffers
 
 namespace Timing {
@@ -340,21 +328,12 @@ constexpr uint32_t MinLargestBlockBytes = 4096U;
 /** @brief Boot orchestration timings used in `main.cpp` staged startup. */
 namespace Boot {
 /** @brief Delay in ms before allowing MQTT connection attempts (`MQTTModule::setStartupReady`). */
-#if defined(FLOW_PROFILE_MICRONOVA)
-constexpr uint32_t WifiProvisioningStartDelayMs = 500;
-constexpr uint32_t IoStartDelayMs = 8000;
-constexpr uint32_t MicronovaBusStartDelayMs = 12000;
-constexpr uint32_t MicronovaBoilerStartDelayMs = 16000;
-constexpr uint32_t MqttStartDelayMs = 22000;
-constexpr uint32_t WebInterfaceStartDelayMs = 9000;
-#else
 constexpr uint32_t WifiProvisioningStartDelayMs = 0;
 constexpr uint32_t IoStartDelayMs = 0;
 constexpr uint32_t MicronovaBusStartDelayMs = 0;
 constexpr uint32_t MicronovaBoilerStartDelayMs = 0;
 constexpr uint32_t MqttStartDelayMs = 1500;
 constexpr uint32_t WebInterfaceStartDelayMs = 10000;
-#endif
 /** @brief Delay in ms before enabling HA auto-discovery publishing (`HAModule::setStartupReady`). */
 constexpr uint32_t HaStartDelayMs = 15000;
 /** @brief Delay in ms before enabling PoolLogic control loop (`PoolLogicModule::setStartupReady`). */
