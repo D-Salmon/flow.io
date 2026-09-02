@@ -36,6 +36,8 @@ void test_first_boot_only_exposes_bootstrap_routes()
         false, false, true, WebRouteMethod::Get, "/rescue"));
     TEST_ASSERT_TRUE(unauthenticatedWebRouteAllowed(
         false, false, true, WebRouteMethod::Get, "/api/web/meta"));
+    TEST_ASSERT_TRUE(unauthenticatedWebRouteAllowed(
+        false, false, true, WebRouteMethod::Get, "/login"));
     TEST_ASSERT_FALSE(unauthenticatedWebRouteAllowed(
         false, false, true, WebRouteMethod::Get, "/api/wifi/config"));
     TEST_ASSERT_FALSE(unauthenticatedWebRouteAllowed(
@@ -74,6 +76,8 @@ void test_provisioning_with_admin_keeps_configuration_protected()
         true, false, true, WebRouteMethod::Post, "/api/mqtt/config"));
     TEST_ASSERT_FALSE(unauthenticatedWebRouteAllowed(
         true, false, false, WebRouteMethod::Get, "/api/web/meta"));
+    TEST_ASSERT_FALSE(unauthenticatedWebRouteAllowed(
+        true, false, false, WebRouteMethod::Get, "/login"));
 }
 
 void test_source_auth_throttle_blocks_and_expires()

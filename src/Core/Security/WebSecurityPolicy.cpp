@@ -201,7 +201,8 @@ bool unauthenticatedWebRouteAllowed(bool credentialsReady,
                (isRootOrRecoveryPage ||
                 isCaptivePortalProbe ||
                 isWebInterfaceEntry ||
-                isPublicBootstrapApi);
+                isPublicBootstrapApi ||
+                strcmp(path, "/login") == 0);
     }
 
     if (provisioningOnly && isGet) {

@@ -25,7 +25,15 @@
 
   function setBootStatus(text, isError) {
     var bootStatus = document.getElementById('bootStatus');
-    if (!bootStatus) return;
+    if (!bootStatus) {
+      var root = document.getElementById('app-root');
+      if (!root) return;
+      root.className = 'is-booting';
+      root.innerHTML = '';
+      bootStatus = document.createElement('div');
+      bootStatus.id = 'bootStatus';
+      root.appendChild(bootStatus);
+    }
     bootStatus.textContent = text;
     bootStatus.className = isError ? 'boot-status error' : 'boot-status';
   }
@@ -247,9 +255,30 @@
       await loadCssOnce(assetUrl('/webinterface/app-core.css', version), { retries: 3 });
       root.className = '';
       root.innerHTML = await fetchShellMarkup(assetUrl('/webinterface/sh.html', version));
-      await loadScriptOnce(assetUrl('/webinterface/app.js', version), { retries: 3 });
+      window.__FLOW_WEB_APP_READY__ = false;
+      var appRuntimeError = '';
+      var captureAppError = function (event) {
+        if (appRuntimeError) return;
+        var message = event && event.message ? String(event.message) : 'exception JavaScript';
+        var source = event && event.filename ? String(event.filename).split('/').pop() : 'app.js';
+        var line = event && event.lineno ? ':' + event.lineno : '';
+        var column = event && event.colno ? ':' + event.colno : '';
+        appRuntimeError = message + ' @ ' + source + line + column;
+      };
+      window.addEventListener('error', captureAppError);
+      try {
+        await loadScriptOnce(assetUrl('/webinterface/app.js', version), { retries: 3 });
+      } finally {
+        window.removeEventListener('error', captureAppError);
+      }
+      if (window.__FLOW_WEB_APP_READY__ !== true) {
+        throw new Error(appRuntimeError || 'app_init');
+      }
     } catch (err) {
-      setBootStatus("Chargement de l'interface impossible.", true);
+      var detail = err && err.message ? String(err.message) : String(err || 'erreur inconnue');
+      window.__FLOW_WEB_BOOT_ERROR__ = detail;
+      try { console.error('[flow-web] bootstrap failed:', err); } catch (consoleErr) {}
+      setBootStatus("Chargement de l'interface impossible (" + detail + ").", true);
     }
   }
 

@@ -25,6 +25,11 @@
     var toggleWifiPassBtn = document.getElementById('toggleWifiPass');
     var scanWifiBtn = document.getElementById('scanWifi');
     var applyWifiCfgBtn = document.getElementById('applyWifiCfg');
+    var cancelWifiCfgBtn = document.getElementById('cancelWifiCfg');
+    var applyEthernetCfgBtn = document.getElementById('applyEthernetCfg');
+    var cancelEthernetCfgBtn = document.getElementById('cancelEthernetCfg');
+    var applyMqttCfgBtn = document.getElementById('applyMqttCfg');
+    var cancelMqttCfgBtn = document.getElementById('cancelMqttCfg');
     var wifiConfigStatus = document.getElementById('wifiConfigStatus');
     var wifiConfigFields = document.getElementById('wifiConfigFields');
     var ethernetEnabled = document.getElementById('ethernetEnabled');
@@ -56,6 +61,8 @@
     var connectionStatusTimer = null;
     var visible = false;
     var initialized = false;
+    var networkSnapshot = null;
+    var mqttSnapshot = null;
 
     function translate(key, fallback) {
       return typeof tr === 'function' ? tr(key, fallback) : fallback;
@@ -104,10 +111,28 @@
     function syncWifiConfigUi() {
       if (!wifiEnabled) return;
       var enabled = wifiEnabled.checked;
-      [wifiSsid, wifiSsidList, wifiPass, toggleWifiPassBtn, scanWifiBtn].forEach(function (control) {
+      [wifiSsidList, wifiPass, toggleWifiPassBtn].forEach(function (control) {
         if (control) control.disabled = !enabled;
       });
+      if (scanWifiBtn) scanWifiBtn.disabled = false;
       if (wifiConfigFields) wifiConfigFields.classList.toggle('is-disabled', !enabled);
+    }
+
+    function setSectionDirty(section, dirty) {
+      var apply = section === 'ethernet' ? applyEthernetCfgBtn : (section === 'wifi' ? applyWifiCfgBtn : applyMqttCfgBtn);
+      var cancel = section === 'ethernet' ? cancelEthernetCfgBtn : (section === 'wifi' ? cancelWifiCfgBtn : cancelMqttCfgBtn);
+      if (apply) apply.disabled = !dirty;
+      if (cancel) cancel.disabled = !dirty;
+    }
+
+    function appendWifiOption(value, label) {
+      if (!wifiSsidList || !value) return;
+      var exists = Array.from(wifiSsidList.options).some(function (option) { return option.value === value; });
+      if (exists) return;
+      var option = document.createElement('option');
+      option.value = value;
+      option.textContent = label || value;
+      wifiSsidList.appendChild(option);
     }
 
     function syncMqttConfigUi() {
@@ -180,10 +205,10 @@
       var maxLabelLength = 56;
 
       wifiSsidList.innerHTML = '';
-      var manualOption = document.createElement('option');
-      manualOption.value = '';
-      manualOption.textContent = 'Saisie manuelle';
-      wifiSsidList.appendChild(manualOption);
+      var emptyOption = document.createElement('option');
+      emptyOption.value = '';
+      emptyOption.textContent = networks.length ? 'Choisir un réseau…' : 'Aucun réseau détecté';
+      wifiSsidList.appendChild(emptyOption);
 
       networks.forEach(function (network) {
         if (!network || typeof network.ssid !== 'string' || network.ssid.length === 0 || network.hidden) return;
@@ -198,6 +223,7 @@
         wifiSsidList.appendChild(option);
       });
 
+      appendWifiOption(currentSsid, currentSsid ? currentSsid + ' (configuré)' : '');
       var values = Array.from(wifiSsidList.options).map(function (option) { return option.value; });
       if (currentSsid && values.indexOf(currentSsid) >= 0) {
         wifiSsidList.value = currentSsid;
@@ -253,10 +279,12 @@
     async function refreshConnectionStates(forceRefresh) {
       var results = await Promise.all([
         fetchFlowStatusDomain('wifi', !!forceRefresh, 'network-config').catch(function () { return null; }),
-        fetchFlowStatusDomain('mqtt', !!forceRefresh, 'network-config').catch(function () { return null; })
+        fetchFlowStatusDomain('mqtt', !!forceRefresh, 'network-config').catch(function () { return null; }),
+        fetchOkJson('/api/wifi/config', { cache: 'no-store' }, 'état réseau indisponible').catch(function () { return null; })
       ]);
       var wifiDomain = results[0];
       var mqttDomain = results[1];
+      var runtimeConfig = results[2];
       var network = wifiDomain && wifiDomain.ok === true && wifiDomain.wifi && typeof wifiDomain.wifi === 'object'
         ? wifiDomain.wifi
         : null;
@@ -264,11 +292,15 @@
       var networkType = network ? normalizeNetworkType(network.typ) : '';
       setNetworkConnectionState(
         ethernetConnectionState,
-        network ? (networkReady && networkType === 'ethernet' ? 'connected' : 'disconnected') : 'unavailable'
+        runtimeConfig && runtimeConfig.ethernet
+          ? (toBool(runtimeConfig.ethernet.connected) ? 'connected' : 'disconnected')
+          : (network ? (networkReady && networkType === 'ethernet' ? 'connected' : 'disconnected') : 'unavailable')
       );
       setNetworkConnectionState(
         wifiConnectionState,
-        network ? (networkReady && networkType === 'wifi' ? 'connected' : 'disconnected') : 'unavailable'
+        runtimeConfig && runtimeConfig.runtime
+          ? (toBool(runtimeConfig.runtime.connected) ? 'connected' : 'disconnected')
+          : (network ? (networkReady && networkType === 'wifi' ? 'connected' : 'disconnected') : 'unavailable')
       );
       var mqtt = mqttDomain && mqttDomain.ok === true && mqttDomain.mqtt && typeof mqttDomain.mqtt === 'object'
         ? mqttDomain.mqtt
@@ -281,6 +313,10 @@
         var data = await fetchOkJson('/api/wifi/config', { cache: 'no-store' }, 'chargement réseau indisponible');
         if (wifiEnabled) wifiEnabled.checked = toBool(data.enabled);
         if (wifiSsid) wifiSsid.value = data.ssid || '';
+        if (wifiSsidList) {
+          appendWifiOption(data.ssid || '', data.ssid ? data.ssid + ' (configuré)' : '');
+          wifiSsidList.value = data.ssid || '';
+        }
         if (wifiPass) {
           wifiPass.value = '';
           wifiPass.placeholder = data.password_configured
@@ -297,6 +333,17 @@
         if (ethernetDns2) ethernetDns2.value = ethernet.dns2 || '';
         syncEthernetConfigUi();
         syncWifiConfigUi();
+        networkSnapshot = {
+          wifiEnabled: !!(wifiEnabled && wifiEnabled.checked),
+          wifiSsid: wifiSsid ? wifiSsid.value : '',
+          ethernetEnabled: !!(ethernetEnabled && ethernetEnabled.checked),
+          ethernetDhcp: !!(ethernetDhcp && ethernetDhcp.checked),
+          ethernetIp: ethernetIp ? ethernetIp.value : '', ethernetSubnet: ethernetSubnet ? ethernetSubnet.value : '',
+          ethernetGateway: ethernetGateway ? ethernetGateway.value : '', ethernetDns1: ethernetDns1 ? ethernetDns1.value : '',
+          ethernetDns2: ethernetDns2 ? ethernetDns2.value : ''
+        };
+        setSectionDirty('ethernet', false);
+        setSectionDirty('wifi', false);
         setStatus('Configuration réseau chargée.');
       } catch (err) {
         setStatus('Chargement réseau échoué: ' + err);
@@ -321,12 +368,21 @@
             : translate('mqtt.password.placeholder', 'Mot de passe MQTT');
         }
         syncMqttConfigUi();
+        mqttSnapshot = {
+          enabled: !!(mqttEnabled && mqttEnabled.checked), host: mqttHost ? mqttHost.value : '', port: mqttPort ? mqttPort.value : '',
+          user: mqttUser ? mqttUser.value : '', baseTopic: mqttBaseTopic ? mqttBaseTopic.value : '',
+          topicDeviceId: mqttTopicDeviceId ? mqttTopicDeviceId.value : '', deviceName: mqttDeviceName ? mqttDeviceName.value : ''
+        };
+        setSectionDirty('mqtt', false);
       } catch (err) {
         setStatus(translate('mqtt.loadFailed', 'Chargement MQTT échoué') + ': ' + err);
       }
     }
 
-    async function saveWifiConfig() {
+    async function saveWifiConfig(section) {
+      if (wifiEnabled && !wifiEnabled.checked && ethernetEnabled && !ethernetEnabled.checked) {
+        throw new Error('Ethernet et Wi-Fi ne peuvent pas être désactivés simultanément.');
+      }
       var staticMode = !!(ethernetEnabled && ethernetEnabled.checked && ethernetDhcp && !ethernetDhcp.checked);
       if (staticMode &&
           (!validIpv4(ethernetIp && ethernetIp.value, true) ||
@@ -336,18 +392,53 @@
            !validIpv4(ethernetDns2 && ethernetDns2.value, false))) {
         throw new Error(translate('ethernet.static.invalid', 'Vérifiez l’adresse IP, le masque, la passerelle et les DNS.'));
       }
+      var ethernetOnly = section === 'ethernet';
+      var values = { scope: ethernetOnly ? 'ethernet' : 'wifi' };
+      if (ethernetOnly) {
+        values.eth_enabled = ethernetEnabled && ethernetEnabled.checked ? '1' : '0';
+        values.eth_dhcp = ethernetDhcp && ethernetDhcp.checked ? '1' : '0';
+        values.eth_ip = ethernetIp ? ethernetIp.value.trim() : '';
+        values.eth_subnet = ethernetSubnet ? ethernetSubnet.value.trim() : '';
+        values.eth_gateway = ethernetGateway ? ethernetGateway.value.trim() : '';
+        values.eth_dns1 = ethernetDns1 ? ethernetDns1.value.trim() : '';
+        values.eth_dns2 = ethernetDns2 ? ethernetDns2.value.trim() : '';
+      } else {
+        values.enabled = wifiEnabled && wifiEnabled.checked ? '1' : '0';
+        values.ssid = wifiSsid ? wifiSsid.value.trim() : '';
+        values.pass = wifiPass ? wifiPass.value : '';
+      }
+      await fetchOkJson('/api/wifi/config', createFormPostOptions(values), 'échec application');
+    }
+
+    function waitMs(delay) {
+      return new Promise(function (resolve) { setTimeout(resolve, delay); });
+    }
+
+    async function validateNewWifiPassword() {
+      var deadline = Date.now() + 18000;
+      setStatus('Vérification du mot de passe Wi-Fi…');
+      while (Date.now() < deadline) {
+        await waitMs(1200);
+        var data = await fetchOkJson('/api/wifi/config', { cache: 'no-store' }, 'vérification Wi-Fi indisponible')
+          .catch(function () { return null; });
+        if (data && data.runtime && toBool(data.runtime.connected)) {
+          setNetworkConnectionState(wifiConnectionState, 'connected');
+          setStatus('Mot de passe Wi-Fi correct · connexion établie' + (data.runtime.ip ? ' (' + data.runtime.ip + ')' : '') + '.');
+          return true;
+        }
+      }
+
       await fetchOkJson('/api/wifi/config', createFormPostOptions({
-        enabled: wifiEnabled && wifiEnabled.checked ? '1' : '0',
+        scope: 'wifi',
+        enabled: '0',
         ssid: wifiSsid ? wifiSsid.value.trim() : '',
-        pass: wifiPass ? wifiPass.value : '',
-        eth_enabled: ethernetEnabled && ethernetEnabled.checked ? '1' : '0',
-        eth_dhcp: ethernetDhcp && ethernetDhcp.checked ? '1' : '0',
-        eth_ip: ethernetIp ? ethernetIp.value.trim() : '',
-        eth_subnet: ethernetSubnet ? ethernetSubnet.value.trim() : '',
-        eth_gateway: ethernetGateway ? ethernetGateway.value.trim() : '',
-        eth_dns1: ethernetDns1 ? ethernetDns1.value.trim() : '',
-        eth_dns2: ethernetDns2 ? ethernetDns2.value.trim() : ''
-      }), 'échec application');
+        pass: ''
+      }), 'désactivation Wi-Fi impossible');
+      if (wifiEnabled) wifiEnabled.checked = false;
+      syncWifiConfigUi();
+      setNetworkConnectionState(wifiConnectionState, 'disconnected');
+      setStatus('Mot de passe Wi-Fi incorrect ou refusé par le réseau · Wi-Fi non activé.');
+      return false;
     }
 
     async function saveMqttConfig() {
@@ -385,11 +476,50 @@
     async function saveNetworkConfig() {
       setStatus(translate('network.saving', 'Enregistrement des réglages réseau...'));
       await saveMqttConfig();
-      await saveWifiConfig();
+      await saveWifiConfig('wifi');
+      await saveWifiConfig('ethernet');
       setStatus(translate('network.applied', 'Configuration réseau et MQTT appliquée (reconnexion en cours).'));
       setTimeout(function () {
         if (isVisible()) refreshConnectionStates(true).catch(function () {});
       }, 1800);
+    }
+
+    function restoreNetworkSection(section) {
+      if (!networkSnapshot) return;
+      if (section === 'wifi') {
+        if (wifiEnabled) wifiEnabled.checked = networkSnapshot.wifiEnabled;
+        if (wifiSsid) wifiSsid.value = networkSnapshot.wifiSsid;
+        appendWifiOption(networkSnapshot.wifiSsid, networkSnapshot.wifiSsid ? networkSnapshot.wifiSsid + ' (configuré)' : '');
+        if (wifiSsidList) wifiSsidList.value = networkSnapshot.wifiSsid;
+        if (wifiPass) wifiPass.value = '';
+        syncWifiConfigUi();
+      } else {
+        if (ethernetEnabled) ethernetEnabled.checked = networkSnapshot.ethernetEnabled;
+        if (ethernetDhcp) ethernetDhcp.checked = networkSnapshot.ethernetDhcp;
+        if (ethernetIp) ethernetIp.value = networkSnapshot.ethernetIp;
+        if (ethernetSubnet) ethernetSubnet.value = networkSnapshot.ethernetSubnet;
+        if (ethernetGateway) ethernetGateway.value = networkSnapshot.ethernetGateway;
+        if (ethernetDns1) ethernetDns1.value = networkSnapshot.ethernetDns1;
+        if (ethernetDns2) ethernetDns2.value = networkSnapshot.ethernetDns2;
+        syncEthernetConfigUi();
+      }
+      setSectionDirty(section, false);
+      setStatus('Modifications annulées.');
+    }
+
+    function restoreMqttSection() {
+      if (!mqttSnapshot) return;
+      if (mqttEnabled) mqttEnabled.checked = mqttSnapshot.enabled;
+      if (mqttHost) mqttHost.value = mqttSnapshot.host;
+      if (mqttPort) mqttPort.value = mqttSnapshot.port;
+      if (mqttUser) mqttUser.value = mqttSnapshot.user;
+      if (mqttBaseTopic) mqttBaseTopic.value = mqttSnapshot.baseTopic;
+      if (mqttTopicDeviceId) mqttTopicDeviceId.value = mqttSnapshot.topicDeviceId;
+      if (mqttDeviceName) mqttDeviceName.value = mqttSnapshot.deviceName;
+      if (mqttPass) mqttPass.value = '';
+      syncMqttConfigUi();
+      setSectionDirty('mqtt', false);
+      setStatus('Modifications MQTT annulées.');
     }
 
     function bindPasswordToggle(input, button, showKey, showFallback, hideKey, hideFallback) {
@@ -422,24 +552,44 @@
       if (wifiSsidList && wifiSsid) {
         wifiSsidList.addEventListener('change', function () {
           var selected = String(wifiSsidList.value || '').trim();
-          if (selected) wifiSsid.value = selected;
+          if (wifiSsid) wifiSsid.value = selected;
+          setSectionDirty('wifi', true);
         });
       }
-      if (wifiEnabled) wifiEnabled.addEventListener('change', syncWifiConfigUi);
-      if (ethernetEnabled) ethernetEnabled.addEventListener('change', syncEthernetConfigUi);
-      if (ethernetDhcp) ethernetDhcp.addEventListener('change', syncEthernetConfigUi);
-      if (mqttEnabled) mqttEnabled.addEventListener('change', syncMqttConfigUi);
+      if (wifiEnabled) wifiEnabled.addEventListener('change', function () { syncWifiConfigUi(); setSectionDirty('wifi', true); });
+      if (ethernetEnabled) ethernetEnabled.addEventListener('change', function () { syncEthernetConfigUi(); setSectionDirty('ethernet', true); });
+      if (ethernetDhcp) ethernetDhcp.addEventListener('change', function () { syncEthernetConfigUi(); setSectionDirty('ethernet', true); });
+      if (mqttEnabled) mqttEnabled.addEventListener('change', function () { syncMqttConfigUi(); setSectionDirty('mqtt', true); });
+      [wifiPass].forEach(function (node) { if (node) node.addEventListener('input', function () { setSectionDirty('wifi', true); }); });
+      [ethernetIp, ethernetSubnet, ethernetGateway, ethernetDns1, ethernetDns2].forEach(function (node) { if (node) node.addEventListener('input', function () { setSectionDirty('ethernet', true); }); });
+      [mqttDeviceName, mqttBaseTopic, mqttHost, mqttPort, mqttUser, mqttPass, mqttTopicDeviceId].forEach(function (node) { if (node) node.addEventListener('input', function () { setSectionDirty('mqtt', true); }); });
       syncWifiConfigUi();
       syncEthernetConfigUi();
       syncMqttConfigUi();
       bindClickAction(scanWifiBtn, function () { return refreshWifiScanStatus(true); });
       bindClickAction(applyWifiCfgBtn, async function () {
         try {
-          await saveNetworkConfig();
+          setStatus('Application de la configuration Wi-Fi…');
+          var mustValidatePassword = !!(wifiEnabled && wifiEnabled.checked && wifiPass && wifiPass.value);
+          await saveWifiConfig('wifi');
+          if (mustValidatePassword && !(await validateNewWifiPassword())) return;
+          await loadWifiConfig();
+          if (mustValidatePassword) setStatus('Mot de passe Wi-Fi correct · connexion établie.');
         } catch (err) {
           setStatus(translate('system.action.wifiApplyFailed', 'Application réseau échouée') + ': ' + err);
         }
       });
+      bindClickAction(applyEthernetCfgBtn, async function () {
+        try { setStatus('Application de la configuration Ethernet…'); await saveWifiConfig('ethernet'); await loadWifiConfig(); }
+        catch (err) { setStatus('Application Ethernet échouée : ' + err); }
+      });
+      bindClickAction(applyMqttCfgBtn, async function () {
+        try { setStatus('Application de la configuration MQTT…'); await saveMqttConfig(); await loadMqttConfig(); }
+        catch (err) { setStatus('Application MQTT échouée : ' + err); }
+      });
+      bindClickAction(cancelWifiCfgBtn, function () { restoreNetworkSection('wifi'); });
+      bindClickAction(cancelEthernetCfgBtn, function () { restoreNetworkSection('ethernet'); });
+      bindClickAction(cancelMqttCfgBtn, restoreMqttSection);
     }
 
     async function show() {

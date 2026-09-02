@@ -15,10 +15,6 @@
 #include <WiFi.h>
 #include <ESPmDNS.h>
 
-#ifndef ETH_TIMEOUT_MS
-#define ETH_TIMEOUT_MS 7000UL
-#endif
-
 /** @brief WiFi configuration values. */
 struct WifiConfig {
     bool enabled = true;
@@ -196,7 +192,6 @@ private:
     void syncMdns_();
     void loadSystemDeviceName_();
     void refreshEthernetConfig_(ConfigStore& cfg);
-    bool preferredEthernetAvailable_() const;
     bool requestScan_(bool force);
     void processScan_();
     bool buildScanStatusJson_(char* out, size_t outLen);

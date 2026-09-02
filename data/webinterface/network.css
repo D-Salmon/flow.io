@@ -11,6 +11,7 @@
 .network-connection-state strong.is-disconnected{color:#A33A4B;}
 .network-connection-state strong.is-disconnected .network-state-dot{background:#D14C66;box-shadow:0 0 0 2px rgba(209,76,102,.14);}
 .network-connection-state strong.is-disabled{color:var(--text-muted);}
+.network-connection-state-bottom{margin:14px 0 0;}
 .network-option-row{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:14px;padding:12px 0;}
 .network-option-row>div{display:grid;gap:4px;min-width:0;}
 .network-option-row strong{color:var(--text);font-size:13px;line-height:1.3;}
@@ -18,6 +19,11 @@
 .network-config-actions{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;margin-top:16px;}
 .network-config-actions .config-status{margin-top:0;}
 .network-config-actions .btn-primary{min-width:190px;}
+.network-card-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;padding-top:14px;border-top:1px solid var(--border);}
+.network-card-actions .btn-primary,.network-card-actions .btn-tonal{min-width:112px;}
+.users-card{max-width:760px;display:grid;gap:16px;}
+.users-status-line{display:flex;justify-content:space-between;gap:16px;align-items:center;padding:14px 16px;border-radius:12px;background:var(--surface-soft);}
+.users-status-line strong.is-ok{color:var(--state-ok-fg);}.users-status-line strong.is-alert{color:var(--state-alert-fg);}
 #wifiConfigFields,#mqttConfigFields{transition:opacity .18s ease;}
 #wifiConfigFields.is-disabled,#mqttConfigFields.is-disabled{opacity:.56;}
 .ethernet-static-fields{margin-top:12px;}
@@ -28,4 +34,5 @@
   .network-section-toggle{width:100%;justify-content:space-between;}
   .network-config-actions{grid-template-columns:1fr;}
   .network-config-actions .btn-primary{width:100%;}
+  .network-card-actions{display:grid;grid-template-columns:1fr 1fr;}
 }

@@ -99,7 +99,15 @@ void EthernetModule::onConfigLoaded(ConfigStore&, ServiceRegistry& services)
 {
     loadSystemDeviceName_();
 #if ENABLE_ETHERNET
-    const bool ethernetEnabled = cfgData_.enabled;
+    bool ethernetEnabled = cfgData_.enabled;
+    if (!ethernetEnabled) {
+        // Keep the driver available as a physical recovery path. cfgData_.enabled
+        // deliberately remains false: WiFi therefore stays eligible and the
+        // saved configuration is untouched. With no cable this has no network
+        // effect; with a cable it prevents an unreachable controller.
+        ethernetEnabled = true;
+        LOGW("[NET] Recovery fallback: Ethernet driver started without changing saved configuration");
+    }
 #else
     const bool ethernetEnabled = false;
 #endif
@@ -529,6 +537,15 @@ void EthernetModule::handleDeferredDriverActions_()
 {
     if (!driverStarted_) return;
 
+    // ESPmDNS is a singleton shared by Ethernet and Wi-Fi. Wi-Fi owns it while
+    // associated; Ethernet transparently takes it back when Wi-Fi disconnects.
+    if (wifiStaConnected_()) {
+        mdnsStarted_ = false;
+        mdnsApplied_[0] = '\0';
+    } else if (gotIp_ && !mdnsStarted_) {
+        mdnsStartDirty_ = true;
+    }
+
     if (hostnameDirty_) {
         hostnameDirty_ = false;
         (void)ETH.setHostname("flowio-eth0");
@@ -555,6 +572,7 @@ void EthernetModule::startMdns_()
 {
     if (mdnsStarted_) return;
     if (!gotIp_) return;
+    if (wifiStaConnected_()) return;
 
     char host[sizeof(deviceName_)] = {0};
     size_t w = 0;
@@ -598,6 +616,11 @@ void EthernetModule::startMdns_()
 void EthernetModule::stopMdns_()
 {
     if (!mdnsStarted_) return;
+    if (wifiStaConnected_()) {
+        mdnsStarted_ = false;
+        mdnsApplied_[0] = '\0';
+        return;
+    }
     MDNS.end();
     mdnsStarted_ = false;
     mdnsApplied_[0] = '\0';

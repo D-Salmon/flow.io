@@ -23,6 +23,7 @@
         <button class="menu-item" data-page="page-control"><span class="ico icon-flowcfg" aria-hidden="true"></span><span class="label" data-i18n="menu.config">Configuration</span></button>
         <button class="menu-item" data-page="page-wifi"><span class="ico icon-network" aria-hidden="true"></span><span class="label" data-i18n="menu.network">Réseau</span></button>
         <button class="menu-item" data-page="page-io-summary"><span class="ico icon-io" aria-hidden="true"></span><span class="label" data-i18n="menu.io">Entrées/Sorties</span></button>
+        <button class="menu-item" data-page="page-users"><span class="ico icon-users" aria-hidden="true"></span><span class="label">Utilisateurs</span></button>
         <button class="menu-item" data-page="page-info"><span class="ico icon-info" aria-hidden="true"></span><span class="label" data-i18n="menu.info">Informations</span></button>
       </nav>
       <div class="drawer-footer">
@@ -96,7 +97,7 @@
         <div class="dashboard-shell">
           <section class="dashboard-hero" aria-live="polite">
             <div class="dashboard-hero-main">
-              <span class="ui-msr dashboard-hero-icon" aria-hidden="true">pool</span>
+              <span class="ui-msr dashboard-hero-icon" data-fallback="≈" aria-hidden="true">pool</span>
               <div class="dashboard-hero-copy">
                 <div class="dashboard-eyebrow" data-i18n="dashboard.overview.eyebrow">Vue d’ensemble</div>
                 <h2 id="dashboardModeTitle" data-i18n="dashboard.loading">Chargement en cours...</h2>
@@ -122,10 +123,10 @@
                 <span data-i18n="dashboard.loading">Chargement en cours...</span>
               </div>
               <div class="dashboard-shortcuts" aria-label="Accès rapides" data-i18n-aria-label="dashboard.shortcuts.aria">
-                <button id="dashboardLightsShortcut" type="button" class="dashboard-shortcut dashboard-lights-shortcut" aria-label="Commander l’éclairage" data-i18n-aria-label="dashboard.lights.command"><span class="ui-msr" aria-hidden="true">lightbulb</span><span data-i18n="dashboard.equipment.lights">Éclairage</span></button>
-                <button type="button" class="dashboard-shortcut" data-dashboard-page="page-pool"><span class="ui-msr" aria-hidden="true">tune</span><span data-i18n="menu.pool">Piscine</span></button>
-                <button type="button" class="dashboard-shortcut" data-dashboard-page="page-calibration"><span class="ui-msr" aria-hidden="true">science</span><span data-i18n="menu.calibration">Étalonnage</span></button>
-                <button type="button" class="dashboard-shortcut" data-dashboard-page="page-activity-log"><span class="ui-msr" aria-hidden="true">history</span><span data-i18n="menu.activity">Journal d’Activité</span></button>
+                <button id="dashboardLightsShortcut" type="button" class="dashboard-shortcut dashboard-lights-shortcut" aria-label="Commander l’éclairage" data-i18n-aria-label="dashboard.lights.command"><span class="ui-msr" data-fallback="☀" aria-hidden="true">lightbulb</span><span data-i18n="dashboard.equipment.lights">Éclairage</span></button>
+                <button type="button" class="dashboard-shortcut" data-dashboard-page="page-pool"><span class="ui-msr" data-fallback="⚙" aria-hidden="true">tune</span><span data-i18n="menu.pool">Piscine</span></button>
+                <button type="button" class="dashboard-shortcut" data-dashboard-page="page-calibration"><span class="ui-msr" data-fallback="⚗" aria-hidden="true">science</span><span data-i18n="menu.calibration">Étalonnage</span></button>
+                <button type="button" class="dashboard-shortcut" data-dashboard-page="page-activity-log"><span class="ui-msr" data-fallback="↶" aria-hidden="true">history</span><span data-i18n="menu.activity">Journal d’Activité</span></button>
               </div>
             </div>
           </section>
@@ -368,10 +369,6 @@
                 </label>
               </div>
             </div>
-            <div class="network-connection-state" aria-live="polite">
-              <span data-i18n="network.state.label">État</span>
-              <strong id="ethernetConnectionState" class="is-unknown"><span class="network-state-dot" aria-hidden="true"></span><span data-i18n="network.state.checking">Vérification...</span></strong>
-            </div>
             <div class="network-option-row">
               <div>
                 <strong data-i18n="ethernet.dhcp.label">Configuration automatique (DHCP)</strong>
@@ -405,6 +402,14 @@
                 <input id="ethernetDns2" inputmode="decimal" autocomplete="off" placeholder="Facultatif" data-i18n-placeholder="ethernet.dns2.placeholder" />
               </div>
             </div>
+            <div class="network-card-actions">
+              <button id="cancelEthernetCfg" type="button" class="btn-tonal" disabled>Annuler</button>
+              <button id="applyEthernetCfg" type="button" class="btn-primary" disabled>Appliquer</button>
+            </div>
+            <div class="network-connection-state network-connection-state-bottom" aria-live="polite">
+              <span data-i18n="network.state.label">État</span>
+              <strong id="ethernetConnectionState" class="is-unknown"><span class="network-state-dot" aria-hidden="true"></span><span data-i18n="network.state.checking">Vérification...</span></strong>
+            </div>
           </div>
 
           <div class="card network-config-card">
@@ -419,12 +424,8 @@
                 </label>
               </div>
             </div>
-            <div class="network-connection-state" aria-live="polite">
-              <span data-i18n="network.state.label">État</span>
-              <strong id="wifiConnectionState" class="is-unknown"><span class="network-state-dot" aria-hidden="true"></span><span data-i18n="network.state.checking">Vérification...</span></strong>
-            </div>
             <div id="wifiConfigFields" class="form-grid">
-              <div class="field">
+              <div class="field full">
                 <label for="wifiSsidList" data-i18n="wifi.networksDetected">Réseaux détectés</label>
                 <div class="field-inline-select-action">
                   <select id="wifiSsidList">
@@ -433,10 +434,7 @@
                   <button id="scanWifi" class="btn-tonal btn-icon-only btn-refresh-icon field-inline-refresh" aria-label="Scanner les réseaux" title="Scanner les réseaux" data-i18n-aria-label="wifi.scanNetworks" data-i18n-title="wifi.scanNetworks"><span class="refresh-icon-glyph" aria-hidden="true"></span></button>
                 </div>
               </div>
-              <div class="field">
-                <label for="wifiSsid" data-i18n="wifi.ssid.label">SSID</label>
-                <input id="wifiSsid" placeholder="Nom du réseau" data-i18n-placeholder="wifi.ssid.placeholder" />
-              </div>
+              <input id="wifiSsid" type="hidden" />
               <div class="field full">
                 <label for="wifiPass" data-i18n="wifi.password.label">Mot de passe</label>
                 <div class="password-wrap">
@@ -444,6 +442,14 @@
                   <button id="toggleWifiPass" class="password-toggle" type="button" aria-label="Afficher le mot de passe réseau" aria-pressed="false" data-i18n="wifi.password.showShort" data-i18n-aria-label="wifi.password.show">Voir</button>
                 </div>
               </div>
+            </div>
+            <div class="network-card-actions">
+              <button id="cancelWifiCfg" type="button" class="btn-tonal" disabled>Annuler</button>
+              <button id="applyWifiCfg" type="button" class="btn-primary" disabled>Appliquer</button>
+            </div>
+            <div class="network-connection-state network-connection-state-bottom" aria-live="polite">
+              <span data-i18n="network.state.label">État</span>
+              <strong id="wifiConnectionState" class="is-unknown"><span class="network-state-dot" aria-hidden="true"></span><span data-i18n="network.state.checking">Vérification...</span></strong>
             </div>
           </div>
 
@@ -458,10 +464,6 @@
                   <span class="md3-thumb"></span>
                 </label>
               </div>
-            </div>
-            <div class="network-connection-state" aria-live="polite">
-              <span data-i18n="network.state.label">État</span>
-              <strong id="mqttConnectionState" class="is-unknown"><span class="network-state-dot" aria-hidden="true"></span><span data-i18n="network.state.checking">Vérification...</span></strong>
             </div>
             <div id="mqttConfigFields" class="form-grid">
               <div class="field">
@@ -499,11 +501,33 @@
                 <small data-i18n="mqtt.topicDeviceId.help">Segment &lt;deviceId&gt; des topics MQTT. Laissez vide pour utiliser automatiquement la MAC.</small>
               </div>
             </div>
+            <div class="network-card-actions">
+              <button id="cancelMqttCfg" type="button" class="btn-tonal" disabled>Annuler</button>
+              <button id="applyMqttCfg" type="button" class="btn-primary" disabled>Appliquer</button>
+            </div>
+            <div class="network-connection-state network-connection-state-bottom" aria-live="polite">
+              <span data-i18n="network.state.label">État</span>
+              <strong id="mqttConnectionState" class="is-unknown"><span class="network-state-dot" aria-hidden="true"></span><span data-i18n="network.state.checking">Vérification...</span></strong>
+            </div>
           </div>
         </div>
         <div class="network-config-actions">
           <div id="wifiConfigStatus" class="config-status" data-i18n="wifi.ready">Configuration réseau prête.</div>
-          <button id="applyWifiCfg" class="btn-primary"><span id="applyNetworkIcon" class="ui-msr btn-msr" aria-hidden="true">wifi_protected_setup</span><span data-i18n="wifi.apply">Appliquer réseau</span></button>
+        </div>
+      </section>
+
+      <section id="page-users" class="page">
+        <div class="topbar">
+          <h1 class="ui-heading-inline"><span class="ui-msr" aria-hidden="true">manage_accounts</span><span>Utilisateurs</span></h1>
+        </div>
+        <div class="card users-card">
+          <div class="users-status-line"><span>Session courante</span><strong id="usersSessionStatus">Vérification…</strong></div>
+          <p id="usersSessionHelp">La configuration sensible nécessite une session administrateur.</p>
+          <div class="btn-row">
+            <a id="usersLoginBtn" class="btn-primary" href="/webinterface?page=page-users&amp;auth=1">Se connecter comme administrateur</a>
+            <a class="btn-tonal" href="/rescue">Gérer les identifiants</a>
+          </div>
+          <p class="note">La modification des identifiants nécessite le mode de récupération physique par appui long sur BOOT.</p>
         </div>
       </section>
 

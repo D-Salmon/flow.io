@@ -147,6 +147,8 @@
     "pool.control.winterMode.note": "Force le fonctionnement en mode hiver pour la protection anti-gel.",
     "pool.control.robotAutomatic": "Robot automatique",
     "pool.control.robotAutomatic.note": "Autorise le lancement selon la programmation.",
+    "pool.control.heaterAutomatic": "Chauffage automatique",
+    "pool.control.heaterAutomatic.note": "Régule automatiquement la température selon la consigne.",
     "pool.control.enable": "Activer",
     "pool.control.disable": "Désactiver",
     "pool.control.settingPending": "Application du réglage…",

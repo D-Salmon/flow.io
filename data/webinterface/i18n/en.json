@@ -147,6 +147,8 @@
     "pool.control.winterMode.note": "Forces winter operation for frost protection.",
     "pool.control.robotAutomatic": "Automatic robot",
     "pool.control.robotAutomatic.note": "Allows scheduled robot operation.",
+    "pool.control.heaterAutomatic": "Automatic heating",
+    "pool.control.heaterAutomatic.note": "Automatically regulates the water temperature to the setpoint.",
     "pool.control.enable": "Enable",
     "pool.control.disable": "Disable",
     "pool.control.settingPending": "Applying setting…",

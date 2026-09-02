@@ -1095,10 +1095,19 @@ const char* webAssetVersion_()
     hash = webAssetFingerprintFile_(hash, "/webinterface/app-core.css.gz");
     hash = webAssetFingerprintFile_(hash, "/webinterface/network.css.gz");
     hash = webAssetFingerprintFile_(hash, "/webinterface/activity.css.gz");
+    hash = webAssetFingerprintFile_(hash, "/webinterface/io-summary.css.gz");
+    hash = webAssetFingerprintFile_(hash, "/webinterface/calib.css.gz");
     hash = webAssetFingerprintFile_(hash, "/webinterface/sh.html.gz");
     hash = webAssetFingerprintFile_(hash, "/webinterface/app.js.gz");
     hash = webAssetFingerprintFile_(hash, "/webinterface/network.js.gz");
     hash = webAssetFingerprintFile_(hash, "/webinterface/activity.js.gz");
+    hash = webAssetFingerprintFile_(hash, "/webinterface/io-summary.js.gz");
+    hash = webAssetFingerprintFile_(hash, "/webinterface/calib.js.gz");
+    hash = webAssetFingerprintFile_(hash, "/webinterface/info.js.gz");
+    hash = webAssetFingerprintFile_(hash, "/webinterface/logs.js.gz");
+    hash = webAssetFingerprintFile_(hash, "/webinterface/updates.js.gz");
+    hash = webAssetFingerprintFile_(hash, "/webinterface/pool.js.gz");
+    hash = webAssetFingerprintFile_(hash, "/webinterface/config.js.gz");
     hash = webAssetFingerprintFile_(hash, "/wc/i.j.gz");
     snprintf(version, sizeof(version), "%s-%08lx", FirmwareVersion::BuildRef, (unsigned long)hash);
     return version;
@@ -5211,19 +5220,6 @@ void WebInterfaceModule::startServer_()
         LOGI("SPIFFS mounted for web assets");
     }
 
-    auto spiffsAssetExists = [this](const char* assetPath, const char* gzipOverridePath = nullptr) -> bool {
-        if (!spiffsReady_ || !assetPath || assetPath[0] == '\0') return false;
-        if (gzipOverridePath && gzipOverridePath[0] != '\0') {
-            return SPIFFS.exists(gzipOverridePath);
-        }
-        char gzipPath[128] = {0};
-        const int gzipPathLen = snprintf(gzipPath, sizeof(gzipPath), "%s.gz", assetPath);
-        if ((gzipPathLen > 0) && ((size_t)gzipPathLen < sizeof(gzipPath)) && SPIFFS.exists(gzipPath)) {
-            return true;
-        }
-        return SPIFFS.exists(assetPath);
-    };
-
     auto beginSpiffsAssetResponse =
         [this](AsyncWebServerRequest* request,
                const char* assetPath,
@@ -5360,25 +5356,13 @@ void WebInterfaceModule::startServer_()
         request->send(response);
     };
 
-    const bool lightUiAssetsReady =
-        spiffsAssetExists("/webinterface/light.html") &&
-        spiffsAssetExists("/webinterface/light.css") &&
-        spiffsAssetExists("/webinterface/light.js");
-
-    const bool fullUiAssetsReady =
-        spiffsAssetExists("/webinterface/index.html") &&
-        spiffsAssetExists("/webinterface/app-core.js") &&
-        spiffsAssetExists("/webinterface/app.js") &&
-        spiffsAssetExists("/webinterface/network.js") &&
-        spiffsAssetExists("/webinterface/activity.js") &&
-        spiffsAssetExists("/webinterface/app-core.css") &&
-        spiffsAssetExists("/webinterface/network.css") &&
-        spiffsAssetExists("/webinterface/activity.css");
-
-    const bool provisioningUiAssetsReady =
-        spiffsAssetExists("/webinterface/prov.html") &&
-        spiffsAssetExists("/webinterface/prov.js") &&
-        spiffsAssetExists("/webinterface/app-core.css");
+    // SPIFFS performs a linear object lookup for every exists() call. Checking
+    // every lazy web module here can starve IDLE0 long enough to trigger the
+    // task watchdog on a populated filesystem. Asset handlers already verify
+    // the requested file, so startup only needs the mount result.
+    const bool lightUiAssetsReady = spiffsReady_;
+    const bool fullUiAssetsReady = spiffsReady_;
+    const bool provisioningUiAssetsReady = spiffsReady_;
 
     auto lightUiAssetsAvailable = [lightUiAssetsReady]() -> bool {
         return lightUiAssetsReady;
@@ -5404,6 +5388,10 @@ void WebInterfaceModule::startServer_()
 
     server_.on("/webinterface/rescue", HTTP_GET, [sendRescuePage](AsyncWebServerRequest* request) {
         sendRescuePage(request);
+    });
+
+    server_.on("/login", HTTP_GET, [this](AsyncWebServerRequest* request) {
+        request->redirect(webCredentialsReady_ ? "/webinterface?page=page-users" : "/rescue");
     });
 
     server_.on("/webinterface/app.css", HTTP_GET, [this, beginSpiffsAssetResponse, sendPreparedAssetResponse](AsyncWebServerRequest* request) {
@@ -5503,6 +5491,38 @@ void WebInterfaceModule::startServer_()
         }
         sendPreparedAssetResponse(request, response, &forensicMeta);
     });
+    server_.on("/webinterface/io-summary.css", HTTP_GET, [this, beginSpiffsAssetResponse, sendPreparedAssetResponse](AsyncWebServerRequest* request) {
+        SpiffsAssetForensicMeta forensicMeta{};
+        bool heapRejected = false;
+        bool buildBusy = false;
+        AsyncWebServerResponse* response =
+            beginSpiffsAssetResponse(request, "/webinterface/io-summary.css", "text/css", true, nullptr, &forensicMeta, &heapRejected, &buildBusy);
+        if (!response) {
+            if (heapRejected || buildBusy) {
+                sendTinyBusyJson_(request, heapRejected ? "low_memory" : "asset_build_busy");
+                return;
+            }
+            request->send(404, "text/plain", "Not found");
+            return;
+        }
+        sendPreparedAssetResponse(request, response, &forensicMeta);
+    });
+    server_.on("/webinterface/calibration.css", HTTP_GET, [this, beginSpiffsAssetResponse, sendPreparedAssetResponse](AsyncWebServerRequest* request) {
+        SpiffsAssetForensicMeta forensicMeta{};
+        bool heapRejected = false;
+        bool buildBusy = false;
+        AsyncWebServerResponse* response =
+            beginSpiffsAssetResponse(request, "/webinterface/calibration.css", "text/css", true, "/webinterface/calib.css.gz", &forensicMeta, &heapRejected, &buildBusy);
+        if (!response) {
+            if (heapRejected || buildBusy) {
+                sendTinyBusyJson_(request, heapRejected ? "low_memory" : "asset_build_busy");
+                return;
+            }
+            request->send(404, "text/plain", "Not found");
+            return;
+        }
+        sendPreparedAssetResponse(request, response, &forensicMeta);
+    });
     server_.on("/webinterface/network.js", HTTP_GET, [this, beginSpiffsAssetResponse, sendPreparedAssetResponse](AsyncWebServerRequest* request) {
         SpiffsAssetForensicMeta forensicMeta{};
         bool heapRejected = false;
@@ -5527,6 +5547,125 @@ void WebInterfaceModule::startServer_()
         AsyncWebServerResponse* response =
             beginSpiffsAssetResponse(
                 request, "/webinterface/activity.js", "application/javascript", true, nullptr, &forensicMeta, &heapRejected, &buildBusy);
+        if (!response) {
+            if (heapRejected || buildBusy) {
+                sendTinyBusyJson_(request, heapRejected ? "low_memory" : "asset_build_busy");
+                return;
+            }
+            request->send(404, "text/plain", "Not found");
+            return;
+        }
+        sendPreparedAssetResponse(request, response, &forensicMeta);
+    });
+    server_.on("/webinterface/io-summary.js", HTTP_GET, [this, beginSpiffsAssetResponse, sendPreparedAssetResponse](AsyncWebServerRequest* request) {
+        SpiffsAssetForensicMeta forensicMeta{};
+        bool heapRejected = false;
+        bool buildBusy = false;
+        AsyncWebServerResponse* response =
+            beginSpiffsAssetResponse(
+                request, "/webinterface/io-summary.js", "application/javascript", true, nullptr, &forensicMeta, &heapRejected, &buildBusy);
+        if (!response) {
+            if (heapRejected || buildBusy) {
+                sendTinyBusyJson_(request, heapRejected ? "low_memory" : "asset_build_busy");
+                return;
+            }
+            request->send(404, "text/plain", "Not found");
+            return;
+        }
+        sendPreparedAssetResponse(request, response, &forensicMeta);
+    });
+    server_.on("/webinterface/calibration.js", HTTP_GET, [this, beginSpiffsAssetResponse, sendPreparedAssetResponse](AsyncWebServerRequest* request) {
+        SpiffsAssetForensicMeta forensicMeta{};
+        bool heapRejected = false;
+        bool buildBusy = false;
+        AsyncWebServerResponse* response =
+            beginSpiffsAssetResponse(
+                request, "/webinterface/calibration.js", "application/javascript", true, "/webinterface/calib.js.gz", &forensicMeta, &heapRejected, &buildBusy);
+        if (!response) {
+            if (heapRejected || buildBusy) {
+                sendTinyBusyJson_(request, heapRejected ? "low_memory" : "asset_build_busy");
+                return;
+            }
+            request->send(404, "text/plain", "Not found");
+            return;
+        }
+        sendPreparedAssetResponse(request, response, &forensicMeta);
+    });
+    server_.on("/webinterface/logs.js", HTTP_GET, [this, beginSpiffsAssetResponse, sendPreparedAssetResponse](AsyncWebServerRequest* request) {
+        SpiffsAssetForensicMeta forensicMeta{};
+        bool heapRejected = false;
+        bool buildBusy = false;
+        AsyncWebServerResponse* response =
+            beginSpiffsAssetResponse(
+                request, "/webinterface/logs.js", "application/javascript", true, nullptr, &forensicMeta, &heapRejected, &buildBusy);
+        if (!response) {
+            if (heapRejected || buildBusy) {
+                sendTinyBusyJson_(request, heapRejected ? "low_memory" : "asset_build_busy");
+                return;
+            }
+            request->send(404, "text/plain", "Not found");
+            return;
+        }
+        sendPreparedAssetResponse(request, response, &forensicMeta);
+    });
+    server_.on("/webinterface/info.js", HTTP_GET, [this, beginSpiffsAssetResponse, sendPreparedAssetResponse](AsyncWebServerRequest* request) {
+        SpiffsAssetForensicMeta forensicMeta{};
+        bool heapRejected = false;
+        bool buildBusy = false;
+        AsyncWebServerResponse* response =
+            beginSpiffsAssetResponse(
+                request, "/webinterface/info.js", "application/javascript", true, nullptr, &forensicMeta, &heapRejected, &buildBusy);
+        if (!response) {
+            if (heapRejected || buildBusy) {
+                sendTinyBusyJson_(request, heapRejected ? "low_memory" : "asset_build_busy");
+                return;
+            }
+            request->send(404, "text/plain", "Not found");
+            return;
+        }
+        sendPreparedAssetResponse(request, response, &forensicMeta);
+    });
+    server_.on("/webinterface/updates.js", HTTP_GET, [this, beginSpiffsAssetResponse, sendPreparedAssetResponse](AsyncWebServerRequest* request) {
+        SpiffsAssetForensicMeta forensicMeta{};
+        bool heapRejected = false;
+        bool buildBusy = false;
+        AsyncWebServerResponse* response =
+            beginSpiffsAssetResponse(
+                request, "/webinterface/updates.js", "application/javascript", true, nullptr, &forensicMeta, &heapRejected, &buildBusy);
+        if (!response) {
+            if (heapRejected || buildBusy) {
+                sendTinyBusyJson_(request, heapRejected ? "low_memory" : "asset_build_busy");
+                return;
+            }
+            request->send(404, "text/plain", "Not found");
+            return;
+        }
+        sendPreparedAssetResponse(request, response, &forensicMeta);
+    });
+    server_.on("/webinterface/pool.js", HTTP_GET, [this, beginSpiffsAssetResponse, sendPreparedAssetResponse](AsyncWebServerRequest* request) {
+        SpiffsAssetForensicMeta forensicMeta{};
+        bool heapRejected = false;
+        bool buildBusy = false;
+        AsyncWebServerResponse* response =
+            beginSpiffsAssetResponse(
+                request, "/webinterface/pool.js", "application/javascript", true, nullptr, &forensicMeta, &heapRejected, &buildBusy);
+        if (!response) {
+            if (heapRejected || buildBusy) {
+                sendTinyBusyJson_(request, heapRejected ? "low_memory" : "asset_build_busy");
+                return;
+            }
+            request->send(404, "text/plain", "Not found");
+            return;
+        }
+        sendPreparedAssetResponse(request, response, &forensicMeta);
+    });
+    server_.on("/webinterface/config.js", HTTP_GET, [this, beginSpiffsAssetResponse, sendPreparedAssetResponse](AsyncWebServerRequest* request) {
+        SpiffsAssetForensicMeta forensicMeta{};
+        bool heapRejected = false;
+        bool buildBusy = false;
+        AsyncWebServerResponse* response =
+            beginSpiffsAssetResponse(
+                request, "/webinterface/config.js", "application/javascript", true, nullptr, &forensicMeta, &heapRejected, &buildBusy);
         if (!response) {
             if (heapRejected || buildBusy) {
                 sendTinyBusyJson_(request, heapRejected ? "low_memory" : "asset_build_busy");
@@ -6045,7 +6184,6 @@ void WebInterfaceModule::startServer_()
             "{\"ok\":true,\"reboot_scheduled\":true,\"reboot_in_s\":8}");
     });
     server_.on("/webinterface", HTTP_GET, [this,
-                                           spiffsAssetExists,
                                            beginSpiffsAssetResponse,
                                            sendPreparedAssetResponse,
                                            lightUiAssetsAvailable,
@@ -6087,7 +6225,8 @@ void WebInterfaceModule::startServer_()
                         sendTinyBusyJson_(request, heapRejected ? "low_memory" : "asset_build_busy");
                         return;
                     }
-                    request->send(500, "text/plain", "Failed to load provisioning web interface");
+                    LOGW("Provisioning entry asset unavailable; serving PROGMEM rescue UI");
+                    sendRescuePage(request);
                     return;
                 }
                 sendPreparedAssetResponse(request, response, &forensicMeta);
@@ -6111,7 +6250,8 @@ void WebInterfaceModule::startServer_()
                         sendTinyBusyJson_(request, heapRejected ? "low_memory" : "asset_build_busy");
                         return;
                     }
-                    request->send(500, "text/plain", "Failed to load light web interface");
+                    LOGW("Light entry asset unavailable; redirecting to PROGMEM rescue UI");
+                    request->redirect("/rescue");
                     return;
                 }
                 sendPreparedAssetResponse(request, response, &forensicMeta);
@@ -6143,7 +6283,8 @@ void WebInterfaceModule::startServer_()
                     sendTinyBusyJson_(request, heapRejected ? "low_memory" : "asset_build_busy");
                     return;
                 }
-                request->send(500, "text/plain", "Failed to load web interface");
+                LOGW("Full entry asset unavailable; redirecting to PROGMEM rescue UI");
+                request->redirect("/rescue");
                 return;
             }
             sendPreparedAssetResponse(request, response, &forensicMeta);
@@ -6410,6 +6551,16 @@ void WebInterfaceModule::startServer_()
         response["enabled"] = enabled;
         response["ssid"] = ssid ? ssid : "";
         response["password_configured"] = passwordConfigured;
+        JsonObject wifiRuntime = response["runtime"].to<JsonObject>();
+        const bool wifiConnected = wifiSvc_ && wifiSvc_->isConnected &&
+                                   wifiSvc_->isConnected(wifiSvc_->ctx);
+        char wifiIp[24] = {0};
+        if (wifiConnected && wifiSvc_->getIP) {
+            (void)wifiSvc_->getIP(wifiSvc_->ctx, wifiIp, sizeof(wifiIp));
+        }
+        wifiRuntime["connected"] = wifiConnected;
+        wifiRuntime["ip"] = wifiIp;
+        wifiRuntime["rssi"] = wifiConnected ? WiFi.RSSI() : 0;
         JsonObject ethernet = response["ethernet"].to<JsonObject>();
         ethernet["enabled"] = ethernetRoot["enabled"] | true;
         ethernet["dhcp"] = ethernetRoot["dhcp"] | true;
@@ -6418,6 +6569,10 @@ void WebInterfaceModule::startServer_()
         ethernet["gateway"] = ethernetRoot["gateway"] | "";
         ethernet["dns1"] = ethernetRoot["dns1"] | "";
         ethernet["dns2"] = ethernetRoot["dns2"] | "";
+        const bool ethernetConnected = ETH.linkUp() && ((uint32_t)ETH.localIP() != 0U);
+        ethernet["connected"] = ethernetConnected;
+        ethernet["link_up"] = ETH.linkUp();
+        ethernet["runtime_ip"] = ethernetConnected ? ETH.localIP().toString() : "";
 
         String out;
         out.reserve(640U);
@@ -6559,10 +6714,13 @@ void WebInterfaceModule::startServer_()
                                        (netAccessSvc_->mode(netAccessSvc_->ctx) == NetworkAccessMode::AccessPoint);
 
         char enabledStr[8] = {0};
+        char scope[16] = {0};
         char ssid[96] = {0};
         char pass[96] = {0};
         char previousPass[96] = {0};
         char clearPassStr[8] = {0};
+        copyRequestParamValue_(request, "scope", true, scope, sizeof(scope), "wifi");
+        const bool applyWifiConfig = strcmp(scope, "ethernet") != 0;
         copyRequestParamValue_(request, "enabled", true, enabledStr, sizeof(enabledStr), "1");
         const bool enabled = parseBoolParam_(enabledStr, true);
         copyRequestParamValue_(request, "ssid", true, ssid, sizeof(ssid), "");
@@ -6593,6 +6751,11 @@ void WebInterfaceModule::startServer_()
         copyRequestParamValue_(request, "eth_dns2", true, ethDns2, sizeof(ethDns2), "");
         const bool ethEnabled = parseBoolParam_(ethEnabledStr, true);
         const bool ethDhcp = parseBoolParam_(ethDhcpStr, true);
+        if (hasEthernetConfig && !enabled && !ethEnabled) {
+            request->send(400, "application/json",
+                          "{\"ok\":false,\"err\":{\"code\":\"InvalidArgument\",\"where\":\"network.last_interface\",\"message\":\"Ethernet et WiFi ne peuvent pas être désactivés simultanément\"}}");
+            return;
+        }
         if (hasEthernetConfig && ethEnabled && !ethDhcp &&
             (!validIpv4Param_(ethIp, true) ||
              !validIpv4Param_(ethSubnet, true) ||
@@ -6605,7 +6768,7 @@ void WebInterfaceModule::startServer_()
         }
 
         char previousWifiJson[320] = {0};
-        if (!clearPass && pass[0] == '\0' &&
+        if (applyWifiConfig && !clearPass && pass[0] == '\0' &&
             cfgStore_->toJsonModule("wifi", previousWifiJson, sizeof(previousWifiJson), nullptr, false)) {
             JsonDocument previousDoc;
             if (deserializeJson(previousDoc, previousWifiJson) == DeserializationError::Ok &&
@@ -6620,10 +6783,12 @@ void WebInterfaceModule::startServer_()
 
         JsonDocument patch;
         JsonObject root = patch.to<JsonObject>();
-        JsonObject wifi = root["wifi"].to<JsonObject>();
-        wifi["enabled"] = enabled;
-        wifi["ssid"] = ssid;
-        wifi["pass"] = effectivePass;
+        if (applyWifiConfig) {
+            JsonObject wifi = root["wifi"].to<JsonObject>();
+            wifi["enabled"] = enabled;
+            wifi["ssid"] = ssid;
+            wifi["pass"] = effectivePass;
+        }
         if (hasEthernetConfig) {
             JsonObject ethernet = root["ethernet"].to<JsonObject>();
             ethernet["enabled"] = ethEnabled;
@@ -6652,7 +6817,7 @@ void WebInterfaceModule::startServer_()
         if (!netAccessSvc_ && services_) {
             netAccessSvc_ = services_->get<NetworkAccessService>(ServiceId::NetworkAccess);
         }
-        if (netAccessSvc_ && netAccessSvc_->notifyWifiConfigChanged) {
+        if (applyWifiConfig && netAccessSvc_ && netAccessSvc_->notifyWifiConfigChanged) {
             netAccessSvc_->notifyWifiConfigChanged(netAccessSvc_->ctx);
         }
 
@@ -6662,7 +6827,7 @@ void WebInterfaceModule::startServer_()
         if (!flowCfgSvc_ && services_) {
             flowCfgSvc_ = services_->get<FlowCfgRemoteService>(ServiceId::FlowCfg);
         }
-        if (flowCfgSvc_ && flowCfgSvc_->applyPatchJson) {
+        if (applyWifiConfig && flowCfgSvc_ && flowCfgSvc_->applyPatchJson) {
             flowSyncAttempted = true;
 
             JsonDocument flowPatchDoc;
@@ -6696,7 +6861,7 @@ void WebInterfaceModule::startServer_()
         bool flowRebootAttempted = false;
         bool flowRebootOk = false;
         char flowRebootErr[96] = {0};
-        if (wasApProvisioning && flowSyncAttempted && flowSyncOk) {
+        if (applyWifiConfig && wasApProvisioning && flowSyncAttempted && flowSyncOk) {
             flowRebootAttempted = true;
             if (!cmdSvc_ && services_) {
                 cmdSvc_ = services_->get<CommandService>(ServiceId::Command);
@@ -6724,7 +6889,7 @@ void WebInterfaceModule::startServer_()
         }
 
 #if defined(FLOW_PROFILE_WAVESHARE)
-        if (wasApProvisioning) {
+        if (applyWifiConfig && wasApProvisioning) {
             scheduleReboot_(1200U, "prov.done.wifi");
             request->send(200, "application/json", "{\"ok\":true,\"reboot_scheduled\":true}");
             return;

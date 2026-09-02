@@ -949,14 +949,11 @@ void WifiModule::onConfigLoaded(ConfigStore& cfg, ServiceRegistry& services)
         setState(WifiState::Disabled);
         return;
     }
+    initialConnectNotBeforeMs_ = isBlank_(cfgData.ssid, sizeof(cfgData.ssid))
+        ? 0U
+        : millis() + kInitialConnectDelayMs;
     if (ethernetEnabled_ && !isBlank_(cfgData.ssid, sizeof(cfgData.ssid))) {
-        initialConnectNotBeforeMs_ = millis() + ETH_TIMEOUT_MS;
-        LOGI("[NET] Ethernet preferred; WiFi STA fallback armed after %lu ms",
-             (unsigned long)ETH_TIMEOUT_MS);
-    } else {
-        initialConnectNotBeforeMs_ = isBlank_(cfgData.ssid, sizeof(cfgData.ssid))
-            ? 0U
-            : millis() + kInitialConnectDelayMs;
+        LOGI("[NET] Ethernet and WiFi STA enabled concurrently");
     }
     startupTransientLogUntilMs_ = millis() + kStartupTransientLogWindowMs;
     setState(WifiState::Idle);
@@ -977,14 +974,6 @@ void WifiModule::refreshEthernetConfig_(ConfigStore& cfg)
     ethernetEnabled_ = root["enabled"] | false;
 }
 
-bool WifiModule::preferredEthernetAvailable_() const
-{
-    if (!ethernetEnabled_) return false;
-    if (WiFi.isConnected()) return false;
-    if (!netAccessSvc_ || !netAccessSvc_->mode) return false;
-    return netAccessSvc_->mode(netAccessSvc_->ctx) == NetworkAccessMode::Station;
-}
-
 void WifiModule::onEventStatic_(const Event& e, void* user)
 {
     WifiModule* self = static_cast<WifiModule*>(user);
@@ -997,6 +986,22 @@ void WifiModule::onEvent_(const Event& e)
     if (!e.payload || e.len < sizeof(ConfigChangedPayload)) return;
 
     const ConfigChangedPayload* p = static_cast<const ConfigChangedPayload*>(e.payload);
+    if (p->moduleId == (uint8_t)ConfigModuleId::Wifi) {
+        cfgData.ssid[sizeof(cfgData.ssid) - 1U] = '\0';
+        cfgData.pass[sizeof(cfgData.pass) - 1U] = '\0';
+        if (cfgStore_) refreshEthernetConfig_(*cfgStore_);
+        logConfigSummary_();
+        if (!cfgData.enabled) {
+            if (WiFi.isConnected()) WiFi.disconnect(false, false);
+            setState(WifiState::Disabled);
+        } else {
+            initialConnectNotBeforeMs_ = millis() + kInitialConnectDelayMs;
+            staRetryEnabled_ = true;
+            setState(WifiState::Idle);
+        }
+        LOGI("WiFi configuration applied without reboot enabled=%d", (int)cfgData.enabled);
+        return;
+    }
     if (p->moduleId != (uint8_t)ConfigModuleId::System) return;
     if (strcmp(p->nvsKey, NvsKeys::System::DeviceName) != 0) return;
     deviceNameDirty_ = true;
@@ -1075,6 +1080,9 @@ void WifiModule::syncMdns_()
         mdnsApplied[0] = '\0';
     }
 
+    // Ethernet may have registered the singleton first. Wi-Fi becomes the
+    // owner while associated so flowio.local remains reachable on Wi-Fi.
+    MDNS.end();
     if (!MDNS.begin(host)) {
         LOGW("mDNS start failed host=%s", host);
         return;
@@ -1108,10 +1116,6 @@ void WifiModule::loop() {
     case WifiState::Idle:
         if (!staRetryEnabled_) {
             vTaskDelay(pdMS_TO_TICKS(Limits::Wifi::Timing::IdleRetryDisabledLoopDelayMs));
-            break;
-        }
-        if (preferredEthernetAvailable_()) {
-            vTaskDelay(pdMS_TO_TICKS(Limits::Wifi::Timing::IdleConnectPollDelayMs));
             break;
         }
         if (initialConnectNotBeforeMs_ != 0U && millis() < initialConnectNotBeforeMs_) {

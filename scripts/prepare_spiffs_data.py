@@ -64,11 +64,20 @@ if src_dir.exists():
         Path("webinterface/app.js"): Path("webinterface/app.js.gz"),
         Path("webinterface/network.js"): Path("webinterface/network.js.gz"),
         Path("webinterface/activity.js"): Path("webinterface/activity.js.gz"),
+        Path("webinterface/io-summary.js"): Path("webinterface/io-summary.js.gz"),
+        Path("webinterface/calibration.js"): Path("webinterface/calib.js.gz"),
+        Path("webinterface/info.js"): Path("webinterface/info.js.gz"),
+        Path("webinterface/logs.js"): Path("webinterface/logs.js.gz"),
+        Path("webinterface/updates.js"): Path("webinterface/updates.js.gz"),
+        Path("webinterface/pool.js"): Path("webinterface/pool.js.gz"),
+        Path("webinterface/config.js"): Path("webinterface/config.js.gz"),
         Path("webinterface/i18n/fr.json"): Path("webinterface/i18n/fr.json.gz"),
         Path("webinterface/i18n/en.json"): Path("webinterface/i18n/en.json.gz"),
         Path("webinterface/app-core.css"): Path("webinterface/app-core.css.gz"),
         Path("webinterface/network.css"): Path("webinterface/network.css.gz"),
         Path("webinterface/activity.css"): Path("webinterface/activity.css.gz"),
+        Path("webinterface/io-summary.css"): Path("webinterface/io-summary.css.gz"),
+        Path("webinterface/calibration.css"): Path("webinterface/calib.css.gz"),
         Path("webinterface/app-core.js"): Path("webinterface/app-core.js.gz"),
         Path("webinterface/light.html"): Path("webinterface/light.html.gz"),
         Path("webinterface/light.css"): Path("webinterface/light.css.gz"),
@@ -83,6 +92,9 @@ if src_dir.exists():
             rel = cfgdoc_src.relative_to(src_dir)
             compressed_sources[rel] = rel.with_suffix(".j.gz")
     generated_outputs = set(compressed_sources.values())
+    # Legacy 3.2.0 development artifact. The shorter config.js filename is
+    # required by SPIFFS, whose object names are limited to 31 characters.
+    generated_outputs.add(Path("webinterface/configuration.js.gz"))
 
     for path in src_dir.rglob("*"):
         if not path.is_file():
