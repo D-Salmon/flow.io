@@ -103,7 +103,20 @@ private:
     volatile bool linkInfoDirty_ = false;
     volatile bool mdnsStartDirty_ = false;
     volatile bool mdnsStopDirty_ = false;
+    volatile bool dhcpConfigDirty_ = false;
     volatile uint32_t ipAddr_ = 0U;
+
+    // Tracks which physical interface is currently carrying traffic
+    // (Ethernet takes priority when both are up). Used to steer the
+    // system's default esp-netif (which also governs which interface's
+    // DNS servers get consulted for hostname resolution) and to detect a
+    // "handover" between interfaces (e.g. Ethernet cable pulled while
+    // Wi-Fi stays associated) so we can pulse networkReady and force
+    // consumers like MQTT to reconnect, even though the combined ready
+    // flag never goes false during such a handover.
+    enum class ActiveNetIf : uint8_t { None, Eth, Wifi };
+    ActiveNetIf lastActiveIf_ = ActiveNetIf::None;
+    void syncDefaultNetif_(bool ethUp, bool wifiUp);
 
     ConfigVariable<bool,0> enabledVar_{
         NVS_KEY(NvsKeys::Ethernet::Enabled), "enabled", "ethernet",
@@ -145,6 +158,7 @@ private:
     bool ensureDriverStarted_();
     bool installDriver_();
     bool applyIpConfig_();
+    void applyDhcpConfigOnLinkUp_();
     bool parseIp_(const char* text, IPAddress& out, bool required) const;
     void restartFromConfig_();
     void cleanupDriver_();

@@ -11,6 +11,7 @@
 #include <WiFi.h>                ///< only for RSSI (optional)
 #include <esp_heap_caps.h>
 #include <esp_system.h>
+#include <esp_core_dump.h>
 #include <new>
 #include <string.h>
 #ifdef CONFIG_HEAP_TASK_TRACKING
@@ -250,6 +251,27 @@ void SystemMonitorModule::logBootInfo() {
          psramOk ? "yes" : "no",
          (unsigned long)(psramSizeBytes / 1024U),
          (unsigned long)(ESP.getFreePsram() / 1024U));
+
+#if CONFIG_ESP_COREDUMP_ENABLE_TO_FLASH && CONFIG_ESP_COREDUMP_DATA_FORMAT_ELF
+    // A crash (e.g. a task-watchdog reset) leaves a core dump in the
+    // dedicated flash partition. Surface a quick summary right here so the
+    // culprit task is visible in the boot log itself, without requiring a
+    // separate espcoredump.py pass against the build's .elf (still needed
+    // for a full backtrace). The dump is left in flash for that follow-up
+    // extraction; it is only cleared by the next crash overwriting it or by
+    // an explicit esp_core_dump_image_erase() call.
+    if (esp_core_dump_image_check() == ESP_OK) {
+        esp_core_dump_summary_t summary{};
+        if (esp_core_dump_get_summary(&summary) == ESP_OK) {
+            LOGW("Core dump present in flash: task='%s' pc=0x%08lx - extract with "
+                 "espcoredump.py against this build's .elf for a full backtrace",
+                 summary.exc_task,
+                 (unsigned long)summary.exc_pc);
+        } else {
+            LOGW("Core dump present in flash but its summary could not be read");
+        }
+    }
+#endif
 }
 
 void SystemMonitorModule::logHeapStats() {

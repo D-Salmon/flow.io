@@ -1967,6 +1967,17 @@ bool waveshareBuildStatusDomainJson_(FlowStatusDomain domain,
             wifi["rssi"] = 0;
             wifi["hrss"] = false;
         }
+
+        // Per-interface state/IP so UI surfaces (dashboard, info page) can
+        // show Ethernet and Wi-Fi independently instead of a single
+        // combined "active interface" value, which hides one of the two
+        // when both (or neither) are up.
+        const bool ethConnected = ETH.linkUp() && ((uint32_t)ETH.localIP() != 0U);
+        wifi["eth_rdy"] = ethConnected;
+        wifi["eth_ip"] = ethConnected ? ETH.localIP().toString() : "";
+        wifi["wifi_rdy"] = wifiConnected;
+        wifi["wifi_ip"] = wifiConnected ? WiFi.localIP().toString() : "";
+
         return serializeJson(doc, out, outLen) > 0U;
     }
 
@@ -5110,6 +5121,26 @@ void WebInterfaceModule::startServer_()
         }
         sendPreparedAssetResponse(request, response, &forensicMeta);
     });
+    server_.on("/webinterface/msr-icons.woff2", HTTP_GET, [this, beginSpiffsAssetResponse, sendPreparedAssetResponse](AsyncWebServerRequest* request) {
+        // Locally bundled, subsetted (~75KB) icon font: covers every
+        // Material Symbols glyph the UI actually uses, so icons render
+        // without any internet access (previously required loading the
+        // full font from Google Fonts' CDN).
+        SpiffsAssetForensicMeta forensicMeta{};
+        bool heapRejected = false;
+        bool buildBusy = false;
+        AsyncWebServerResponse* response =
+            beginSpiffsAssetResponse(request, "/webinterface/msr-icons.woff2", "font/woff2", true, nullptr, &forensicMeta, &heapRejected, &buildBusy);
+        if (!response) {
+            if (heapRejected || buildBusy) {
+                sendTinyBusyJson_(request, heapRejected ? "low_memory" : "asset_build_busy");
+                return;
+            }
+            request->send(404, "text/plain", "Not found");
+            return;
+        }
+        sendPreparedAssetResponse(request, response, &forensicMeta);
+    });
     server_.on("/webinterface/sh.html", HTTP_GET, [this, beginSpiffsAssetResponse, sendPreparedAssetResponse](AsyncWebServerRequest* request) {
         SpiffsAssetForensicMeta forensicMeta{};
         bool heapRejected = false;
@@ -5735,7 +5766,13 @@ void WebInterfaceModule::startServer_()
         doc["ok"] = true;
         doc["csrf_token"] = csrfToken_;
         doc["auth_enabled"] = webCredentialsReady_;
-        doc["admin_authenticated"] = webRequestAuthorized_(request);
+        // Reaching this handler through a protected route proves that the global
+        // Digest middleware already authenticated the request. Recovery/bootstrap
+        // routes remain public and still require an explicit credential check.
+        const bool routeAllowsUnauthenticatedAccess = allowUnauthenticatedRequest_(request);
+        doc["admin_authenticated"] =
+            webCredentialsReady_ &&
+            (!routeAllowsUnauthenticatedAccess || webRequestAuthorized_(request));
         doc["physical_recovery_active"] = physicalRecoveryActive_();
         doc["physical_recovery_remaining_s"] =
             (physicalRecoveryRemainingMs_() + 999U) / 1000U;

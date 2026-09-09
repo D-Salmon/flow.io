@@ -19,11 +19,11 @@
         <button class="menu-item" data-page="page-pool"><span class="ico icon-pool" aria-hidden="true"></span><span class="label" data-i18n="menu.pool">Piscine</span></button>
         <button class="menu-item" data-page="page-calibration"><span class="ico icon-calibration" aria-hidden="true"></span><span class="label" data-i18n="menu.calibration">Étalonnage</span></button>
         <button class="menu-item" data-page="page-activity-log"><span class="ico icon-activity" aria-hidden="true"></span><span class="label" data-i18n="menu.activity">Journal d’Activité</span></button>
-        <button class="menu-item" data-page="page-system"><span class="ico icon-system" aria-hidden="true"></span><span class="label" data-i18n="menu.updates">Mises à Jour</span></button>
         <button class="menu-item" data-page="page-control"><span class="ico icon-flowcfg" aria-hidden="true"></span><span class="label" data-i18n="menu.config">Configuration</span></button>
         <button class="menu-item" data-page="page-wifi"><span class="ico icon-network" aria-hidden="true"></span><span class="label" data-i18n="menu.network">Réseau</span></button>
         <button class="menu-item" data-page="page-io-summary"><span class="ico icon-io" aria-hidden="true"></span><span class="label" data-i18n="menu.io">Entrées/Sorties</span></button>
         <button class="menu-item" data-page="page-users"><span class="ico icon-users" aria-hidden="true"></span><span class="label">Utilisateurs</span></button>
+        <button class="menu-item" data-page="page-system"><span class="ico icon-system" aria-hidden="true"></span><span class="label" data-i18n="menu.updates">Mises à Jour</span></button>
         <button class="menu-item" data-page="page-info"><span class="ico icon-info" aria-hidden="true"></span><span class="label" data-i18n="menu.info">Informations</span></button>
       </nav>
       <div class="drawer-footer">
@@ -234,8 +234,8 @@
             </div>
           </section>
           <section id="poolEquipmentControl" class="pool-equipment-control" aria-live="polite"></section>
-          <section id="poolGeneralControl" class="pool-config-grid pool-general-control" aria-live="polite"></section>
           <section id="poolAlarmCard" class="pool-alarm-card" hidden aria-live="polite"></section>
+          <section id="poolProtectionSummary" class="pool-protection-summary" aria-live="polite"></section>
           <section id="poolChemistryPanel" class="pool-chemistry-panel" aria-live="polite"></section>
           <section id="poolDisinfectionModes" class="pool-treatment-panel" aria-live="polite"></section>
           <section id="poolConfigGrid" class="pool-config-grid" aria-live="polite"></section>
@@ -414,6 +414,10 @@
               <span data-i18n="network.state.label">État</span>
               <strong id="ethernetConnectionState" class="is-unknown"><span class="network-state-dot" aria-hidden="true"></span><span data-i18n="network.state.checking">Vérification...</span></strong>
             </div>
+            <div class="network-connection-state network-connection-state-bottom" aria-live="polite">
+              <span data-i18n="network.ip.label">Adresse IP</span>
+              <strong id="ethernetIpAddress">—</strong>
+            </div>
           </div>
 
           <div class="card network-config-card">
@@ -454,6 +458,10 @@
             <div class="network-connection-state network-connection-state-bottom" aria-live="polite">
               <span data-i18n="network.state.label">État</span>
               <strong id="wifiConnectionState" class="is-unknown"><span class="network-state-dot" aria-hidden="true"></span><span data-i18n="network.state.checking">Vérification...</span></strong>
+            </div>
+            <div class="network-connection-state network-connection-state-bottom" aria-live="polite">
+              <span data-i18n="network.ip.label">Adresse IP</span>
+              <strong id="wifiIpAddress">—</strong>
             </div>
           </div>
 
@@ -525,10 +533,7 @@
           <h1 class="ui-heading-inline"><span class="ui-msr" aria-hidden="true">manage_accounts</span><span>Utilisateurs</span></h1>
         </div>
         <div class="card users-card">
-          <div class="users-status-line"><span>Session courante</span><strong id="usersSessionStatus">Vérification…</strong></div>
-          <p id="usersSessionHelp">La configuration sensible nécessite une session administrateur.</p>
           <div class="btn-row">
-            <a id="usersLoginBtn" class="btn-primary" href="/webinterface?page=page-users&amp;auth=1">Se connecter comme administrateur</a>
             <a class="btn-tonal" href="/rescue">Gérer les identifiants</a>
           </div>
           <p class="note">La modification des identifiants nécessite le mode de récupération physique par appui long sur BOOT.</p>

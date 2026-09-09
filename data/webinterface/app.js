@@ -15,9 +15,6 @@
     const headerSecurityStatus = document.getElementById('headerSecurityStatus');
     const headerClockLabel = document.getElementById('headerClockLabel');
     const headerClockStatus = document.getElementById('headerClockStatus');
-    const usersSessionStatus = document.getElementById('usersSessionStatus');
-    const usersSessionHelp = document.getElementById('usersSessionHelp');
-    const usersLoginBtn = document.getElementById('usersLoginBtn');
     const themeToggle = document.getElementById('themeToggle');
     const flowWebAssetVersionStorageKey = 'flow_web_asset_version';
     const flowWebThemeStorageKey = 'flow_web_theme';
@@ -46,6 +43,109 @@
       'icon-info': 'info',
       'icon-users': 'manage_accounts'
     };
+    // Maps each Material Symbols icon name used in this app to the direct
+    // Private-Use-Area codepoint baked into the locally bundled, subsetted
+    // "msr-icons.woff2" font (see app-core.css @font-face). Using direct
+    // codepoints (rather than the ligature text + 'liga'/'rlig' OpenType
+    // feature the full Google Fonts file relies on) means icons render
+    // correctly from a small ~75KB local file with no font-shaping
+    // dependency and, crucially, no need for any internet access.
+    const localIconGlyphs = {
+ac_unit: '\u{eb3b}',
+      account_tree: '\u{e97a}',
+      arrow_forward: '\u{e5c8}',
+      auto_fix_high: '\u{e662}',
+      bolt: '\u{ea0b}',
+      bubble_chart: '\u{e6dd}',
+      calculate: '\u{ea5f}',
+      category: '\u{e574}',
+      check: '\u{e5ca}',
+      check_circle: '\u{e86c}',
+      chevron_left: '\u{e408}',
+      chevron_right: '\u{e409}',
+      close: '\u{e14c}',
+      date_range: '\u{e916}',
+      developer_board: '\u{e30d}',
+      display_settings: '\u{eb97}',
+      done: '\u{e876}',
+      done_all: '\u{e877}',
+      electric_bolt: '\u{ec1c}',
+      electrical_services: '\u{f102}',
+      error: '\u{e000}',
+      event_busy: '\u{e615}',
+      faucet: '\u{e278}',
+      health_and_safety: '\u{e1d5}',
+      history: '\u{e28e}',
+      hub: '\u{e9f4}',
+      info: '\u{e88e}',
+      lan: '\u{eb2f}',
+      layers: '\u{e53b}',
+      lightbulb: '\u{e0f0}',
+      list_alt: '\u{e0ee}',
+      local_fire_department: '\u{ea05}',
+      manage_accounts: '\u{f02e}',
+      memory: '\u{e322}',
+      menu: '\u{e5d2}',
+      monitoring: '\u{f190}',
+      notification_important: '\u{e004}',
+      notifications_active: '\u{e7f7}',
+      pool: '\u{eb48}',
+      progress_activity: '\u{e9d0}',
+      radio_button_unchecked: '\u{e836}',
+      receipt_long: '\u{ef6e}',
+      refresh: '\u{e5d5}',
+      schedule: '\u{e192}',
+      science: '\u{ea4b}',
+      sensors: '\u{e51e}',
+      settings: '\u{e8b8}',
+      settings_ethernet: '\u{e8be}',
+      settings_input_component: '\u{e8c0}',
+      shield_person: '\u{f650}',
+      smart_toy: '\u{f06c}',
+      speed: '\u{e9e4}',
+      system_update_alt: '\u{e8d7}',
+      table_chart: '\u{e265}',
+      terminal: '\u{eb8e}',
+      thermostat: '\u{f076}',
+      toggle_on: '\u{e9f6}',
+      touch_app: '\u{e913}',
+      tune: '\u{e429}',
+      verified: '\u{e031}',
+      warning: '\u{e002}',
+      water: '\u{f084}',
+      water_damage: '\u{f203}',
+      water_drop: '\u{e798}',
+      waves: '\u{e176}',
+      wifi: '\u{e63e}'
+    };
+
+    function localizeIconGlyphs(root) {
+      const scope = root && typeof root.querySelectorAll === 'function' ? root : document;
+      const nodes = scope.querySelectorAll('.ui-msr');
+      nodes.forEach((node) => {
+        const raw = (node.textContent || '').trim();
+        if (!raw) return;
+        const glyph = localIconGlyphs[raw];
+        if (glyph) node.textContent = glyph;
+      });
+    }
+
+    let localizeIconGlyphsPending = false;
+    function scheduleLocalizeIconGlyphs() {
+      if (localizeIconGlyphsPending) return;
+      localizeIconGlyphsPending = true;
+      requestAnimationFrame(() => {
+        localizeIconGlyphsPending = false;
+        localizeIconGlyphs(document);
+      });
+    }
+
+    function startIconGlyphObserver() {
+      localizeIconGlyphs(document);
+      if (typeof MutationObserver === 'undefined') return;
+      const observer = new MutationObserver(() => scheduleLocalizeIconGlyphs());
+      observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+    }
     const cfgI18nDebugEnabled = false;
     const flowStatusDebugEnabled = true;
     let webAssetVersion = '';
@@ -1013,7 +1113,6 @@
         webAdminAuthenticated = data.admin_authenticated === true;
         webPhysicalRecoveryActive = data.physical_recovery_active === true;
         webPhysicalRecoveryRemainingSeconds = Math.max(0, Number(data.physical_recovery_remaining_s) || 0);
-        refreshUsersSessionUi();
 
         if (typeof data.web_asset_version === 'string') {
           const announcedVersion = data.web_asset_version.trim();
@@ -1154,50 +1253,6 @@
       if (normalizeNetworkType(networkTransport)) return true;
       const mode = normalizeNetworkMode(networkMode);
       return mode === 'station' || mode === 'ethernet';
-    }
-
-    function refreshUsersSessionUi() {
-      if (!usersSessionStatus) return;
-      usersSessionStatus.classList.remove('is-ok', 'is-alert');
-      if (webAdminAuthenticated) {
-        usersSessionStatus.textContent = tr('header.security.admin', 'Administrateur connecté');
-        usersSessionStatus.classList.add('is-ok');
-        if (usersSessionHelp) usersSessionHelp.textContent = 'Les opérations protégées sont autorisées pour cette session.';
-        if (usersLoginBtn) usersLoginBtn.hidden = true;
-        return;
-      }
-      usersSessionStatus.classList.add('is-alert');
-      if (usersLoginBtn) usersLoginBtn.hidden = false;
-      if (webPhysicalRecoveryActive) {
-        const minutes = Math.max(1, Math.ceil(webPhysicalRecoveryRemainingSeconds / 60));
-        usersSessionStatus.textContent = 'Mode récupération · ' + minutes + ' min';
-        if (usersSessionHelp) usersSessionHelp.textContent = 'Accès physique temporaire obtenu par le bouton BOOT. Une connexion administrateur reste recommandée.';
-      } else {
-        usersSessionStatus.textContent = tr('header.security.unauthenticated', 'Accès non authentifié');
-        if (usersSessionHelp) usersSessionHelp.textContent = 'Connectez-vous comme administrateur pour étalonner, mettre à jour et modifier le réseau.';
-      }
-    }
-
-    async function refreshAdminSession() {
-      try {
-        const response = await fetch('/api/wifi/config', { cache: 'no-store', credentials: 'same-origin' });
-        if (!response.ok) throw new Error('auth');
-        await response.json();
-        webAdminAuthenticated = true;
-      } catch (err) {
-        webAdminAuthenticated = false;
-      }
-      refreshUsersSessionUi();
-      refreshAppHeader(getActivePageId());
-      return webAdminAuthenticated;
-    }
-
-    function hasAdminAuthReturnFlag() {
-      try {
-        return new URLSearchParams(window.location.search || '').get('auth') === '1';
-      } catch (err) {
-        return false;
-      }
     }
 
     function refreshAppHeader(pageId) {
@@ -1835,10 +1890,7 @@
           createIntervalRunner,
           createRuntimeDomainState,
           bindClickAction,
-          getRuntimeMeasureDomainKeys: () => runtimeMeasureDomainKeys,
-          isAdminAuthenticated: () => webAdminAuthenticated,
-          isPhysicalRecoveryActive: () => webPhysicalRecoveryActive,
-          getPhysicalRecoveryRemainingSeconds: () => webPhysicalRecoveryRemainingSeconds
+          getRuntimeMeasureDomainKeys: () => runtimeMeasureDomainKeys
         });
         return poolPage;
       })().finally(() => {
@@ -1966,14 +2018,6 @@
                          pageToken,
                          deferredHeavyMs > 0 ? (deferredHeavyMs + 120) : 0,
                          () => onInfoPageShown());
-      }
-      if (pageId === 'page-users') {
-        refreshUsersSessionUi();
-        schedulePageTask(pageId, pageToken, 0, async () => {
-          const verifyAdmin = hasAdminAuthReturnFlag() || webAdminAuthenticated;
-          await loadWebMeta();
-          if (verifyAdmin) await refreshAdminSession();
-        });
       }
       if (pageId !== 'page-system') {
         if (updatesPage) updatesPage.hide();
@@ -3445,6 +3489,7 @@
     applyThemePreference(currentThemePreference(), false);
     applyWebUiLocale(webUiLocale);
     syncMenuIconFallbacks();
+    startIconGlyphObserver();
     refreshWebUiLocale(true).catch(() => {});
     startAppHeaderClock();
     startHeaderReachabilityProbe();

@@ -391,14 +391,21 @@
         [tr('info.row.deviceName', 'Nom de l’appareil'), deviceName],
         [tr('info.row.firmwareVersion', 'Version firmware'), firmwareParts.version],
         [tr('info.row.buildVersion', 'Version build'), firmwareParts.build],
-        [tr('info.row.uptime', 'Uptime'), systemDomain ? formatInfoUptime(systemDomain.upms) : formatInfoUptime(deps.getSupervisorUptimeMs())],
-        [tr('info.row.ip', 'Adresse IP'), wifiDomain ? normalizeIpValue(wifi.ip) : '-'],
+        [tr('info.row.uptime', 'Uptime'), systemDomain ? formatInfoUptime(systemDomain.upms) : formatInfoUptime(deps.getSupervisorUptimeMs())]
+      ];
+      if (ethernetRuntime && ethernetRuntime.connected && ethernetRuntime.runtime_ip) {
+        infoRows.push([tr('info.row.ethernetIp', 'Adresse IP Ethernet'), normalizeIpValue(ethernetRuntime.runtime_ip)]);
+      }
+      if (wifiRuntime && wifiRuntime.connected && wifiRuntime.ip) {
+        infoRows.push([tr('info.row.wifiIp', 'Adresse IP Wi-Fi'), normalizeIpValue(wifiRuntime.ip)]);
+      }
+      infoRows.push(
         [tr('info.row.mac', 'Adresse MAC'), mac],
         [tr('info.row.ethernet', 'Ethernet'), ethernetState],
         [tr('info.row.wifi', 'Wi-Fi'), wifiStateWithSignal],
         [tr('info.row.mqtt', 'MQTT'), mqttDomain ? formatInfoBoolean(!!mqtt.rdy, tr('info.state.connected', 'Connecté'), tr('info.state.disconnected', 'Déconnecté')) : '-'],
         [tr('info.row.time', 'Heure'), time ? flowTimeStatusLabel(time) : '-']
-      ];
+      );
       if (systemDomain) {
         infoRows.push([tr('info.row.heapFree', 'Heap libre'), formatInfoBytes(flowHeap.free)]);
       }

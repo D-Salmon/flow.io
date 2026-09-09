@@ -71,7 +71,10 @@ actions, résultats et journaux attendus.
 - contrôler les deux démarrages Web : immédiat après un échec MQTT précédent,
   ou différé au maximum de 30 secondes après une connexion antérieure valide ;
 - suivre la mémoire interne minimale, le plus grand bloc, la PSRAM, les files
-  MQTT et les redémarrages du watchdog ;
+  MQTT et les redémarrages du watchdog (la capture de core dump en flash est
+  activée depuis la 3.2.1 : un résumé — tâche et adresse fautives — apparaît
+  désormais dans le journal de démarrage suivant un tel redémarrage, à
+  extraire avec `espcoredump.py` pour une trace complète) ;
 - tester les coupures pendant une écriture de configuration.
 
 Critère de fin : aucun épuisement progressif, blocage ou défaut durable de

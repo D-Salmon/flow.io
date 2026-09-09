@@ -5,7 +5,7 @@ est actuellement la carte **Waveshare ESP32-S3-POE-ETH-8DI-8RO N16R8**, utilisé
 façon autonome : un seul ESP32-S3 exécute les entrées/sorties, les automatismes,
 les sécurités, le réseau, l’interface Web, MQTT et l’intégration Home Assistant.
 
-La version déclarée pour cette cible est **3.2.0**. L’environnement PlatformIO à
+La version déclarée pour cette cible est **3.2.1**. L’environnement PlatformIO à
 utiliser est `Waveshare-ESP32-S3`, également défini comme environnement par
 défaut dans `platformio.ini`.
 
@@ -14,6 +14,22 @@ Supervisor, FlowConnectDisplay et Micronova, leurs cartes et leurs modules exclu
 ont été retirés. Le Nextion local et le TFT S3 sont conservés ; le transport HMI UDP
 de FlowConnectDisplay est supprimé. Les anciens documents multi-profils ci-dessous
 sont des références historiques, pas des instructions de compilation de cette branche.
+
+## État de validation 3.2.1 — 6 septembre 2026
+
+Cette version corrige la perte de connexion MQTT selon la combinaison
+Ethernet/Wi-Fi active au démarrage ou lors d'une bascule à chaud, rend
+l'interface Web utilisable sans accès Internet (police d'icônes
+auto-hébergée) et affiche séparément les adresses IP Ethernet et Wi-Fi. Voir
+les [notes de version 3.2.1](docs/release-3.2.1.md) pour le détail des
+correctifs et de leur validation.
+
+Firmware et SPIFFS ont été flashés et testés sur la carte réelle dans les
+combinaisons suivantes : Ethernet seul, Wi-Fi seul, les deux puis
+débranchement d'Ethernet à chaud, et Wi-Fi seul puis branchement/débranchement
+d'Ethernet — MQTT reste connecté dans tous les cas. Cette validation reste
+ponctuelle et ne remplace pas un essai d'endurance prolongé (voir
+[RESTANT_A_FAIRE.md](RESTANT_A_FAIRE.md), priorité 1).
 
 ## État de validation 3.2.0 — 2 septembre 2026
 
@@ -198,6 +214,14 @@ Home Assistant ; le firmware n’envoie pas directement de SMS ou de courriel.
 - adresse habituelle : `http://flowio.local/webinterface` ;
 - accès de secours par l’adresse IP affichée dans le moniteur série ;
 - publication mDNS du service HTTP sur Ethernet et Wi-Fi ;
+- reconnexion MQTT forcée lors d’une bascule Ethernet/Wi-Fi à chaud, et route
+  réseau par défaut réévaluée à chaque changement d’interface active pour que
+  la résolution DNS reste correcte quelle que soit la combinaison ;
+- adresses IP Ethernet et Wi-Fi affichées indépendamment sur le tableau de
+  bord, la page Réseau et la page Informations, chacune masquée lorsque
+  l’interface correspondante n’est pas connectée ;
+- icônes de l’interface Web servies par une police auto-hébergée : aucune
+  dépendance à un accès Internet ;
 - interface complète depuis SPIFFS et page minimale de récupération intégrée au
   firmware ;
 - réglages de l’onglet Piscine préparés localement dans chaque carte, avec
@@ -206,7 +230,7 @@ Home Assistant ; le firmware n’envoie pas directement de SMS ou de courriel.
 - tableau de bord avec changement de mode, page Piscine réorganisée et panneau
   de commandes directes limité aux équipements réellement configurés ;
 - navigation latérale réordonnée, avec `Entrées/Sorties` placé après
-  `Configuration`.
+  `Configuration` et `Mises à Jour` placé après `Utilisateurs`.
 
 Lorsque MQTT était valide au démarrage précédent, le serveur Web en mode station
 peut attendre jusqu’à 30 secondes la connexion MQTT TLS afin de préserver assez
@@ -347,6 +371,7 @@ déduire le câblage de la cible autonome actuelle.
 ## Références utiles
 
 - [État des améliorations restantes](RESTANT_A_FAIRE.md)
+- [Notes de version 3.2.1](docs/release-3.2.1.md)
 - [Notes de version 3.1.5](docs/release-3.1.5.md)
 - [Audit technique du socle 3.1.3](AUDIT_2026-08-16.md)
 - [Raccordement Waveshare](docs/integration/schema-raccordement-waveshare.md)

@@ -95,6 +95,8 @@ if src_dir.exists():
     # Legacy 3.2.0 development artifact. The shorter config.js filename is
     # required by SPIFFS, whose object names are limited to 31 characters.
     generated_outputs.add(Path("webinterface/configuration.js.gz"))
+    generated_outputs.add(Path("webinterface/calibration.css.gz"))
+    generated_outputs.add(Path("webinterface/calibration.js.gz"))
 
     for path in src_dir.rglob("*"):
         if not path.is_file():

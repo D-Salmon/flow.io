@@ -25,7 +25,8 @@ public:
     BaseType_t taskCore() const override { return 0; }
     uint16_t taskStackSize() const override { return 3072; }
     UBaseType_t taskStackCaps() const override {
-        return MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT;
+        // Core dump inspection reads flash with caches disabled; the stack must be internal.
+        return MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT;
     }
     uint8_t taskCount() const override { return 1; }
     const ModuleTaskSpec* taskSpecs() const override { return singleLoopTaskSpec(); }

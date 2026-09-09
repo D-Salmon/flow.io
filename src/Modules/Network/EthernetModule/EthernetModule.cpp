@@ -12,8 +12,10 @@
 #include <WiFi.h>
 #include <ctype.h>
 #include <esp_err.h>
+#include <esp_netif.h>
 #include <esp_netif_ip_addr.h>
 #include <string.h>
+
 
 namespace {
 const char* stateName(EthernetState s)
@@ -220,6 +222,7 @@ void EthernetModule::onNetworkEvent_(arduino_event_t* event)
             linkUp_ = true;
             linkDirty_ = true;
             linkInfoDirty_ = true;
+            dhcpConfigDirty_ = true;
             LOGI("ETH link up");
             break;
 
@@ -384,12 +387,20 @@ bool EthernetModule::parseIp_(const char* text, IPAddress& out, bool required) c
 bool EthernetModule::applyIpConfig_()
 {
     if (cfgData_.dhcp) {
-        const IPAddress zero;
-        if (!ETH.config(zero, zero, zero, zero, zero)) {
-            LOGE("Failed to enable DHCP on Ethernet");
-            return false;
-        }
-        LOGI("Ethernet IPv4 configuration: DHCP");
+        // Do NOT call ETH.config() here. Arduino-ESP32 already defaults a
+        // freshly-begun interface to DHCP, and calling ETH.config() with
+        // all-zero addresses on an interface that has no physical link
+        // yet (this driver is started even without a cable - see the
+        // recovery-fallback handling in onConfigLoaded) touches that
+        // netif's DNS configuration immediately, before it has ever
+        // resolved anything. On boots with Wi-Fi as the only usable
+        // interface, this raced with Wi-Fi's own just-assigned DHCP DNS
+        // servers and left MQTT permanently unable to resolve its broker
+        // hostname (ESP_ERR_ESP_TLS_CANNOT_RESOLVE_HOSTNAME), even though
+        // Wi-Fi itself was fully connected. The actual DHCP request is
+        // now issued from applyDhcpConfigOnLinkUp_(), triggered only once
+        // a real PHY link is detected (ARDUINO_EVENT_ETH_CONNECTED).
+        LOGI("Ethernet IPv4 configuration: DHCP (deferred until link up)");
         return true;
     }
 
@@ -424,6 +435,17 @@ bool EthernetModule::applyIpConfig_()
          cfgData_.dns1[0] ? cfgData_.dns1 : cfgData_.gateway,
          cfgData_.dns2[0] ? cfgData_.dns2 : "0.0.0.0");
     return true;
+}
+
+void EthernetModule::applyDhcpConfigOnLinkUp_()
+{
+    if (!cfgData_.dhcp) return;
+    const IPAddress zero;
+    if (!ETH.config(zero, zero, zero, zero, zero)) {
+        LOGW("Failed to (re)confirm DHCP on Ethernet after link up");
+        return;
+    }
+    LOGI("Ethernet DHCP request issued (link up)");
 }
 
 void EthernetModule::restartFromConfig_()
@@ -566,6 +588,11 @@ void EthernetModule::handleDeferredDriverActions_()
         mdnsStartDirty_ = false;
         startMdns_();
     }
+
+    if (dhcpConfigDirty_) {
+        dhcpConfigDirty_ = false;
+        applyDhcpConfigOnLinkUp_();
+    }
 }
 
 void EthernetModule::startMdns_()
@@ -649,7 +676,63 @@ void EthernetModule::syncRuntimeState_()
     if (linkDirty_) {
         linkDirty_ = false;
     }
-    setNetworkReady(*dataStore_, gotIp_ || wifiStaConnected_());
+
+    const bool ethUp = gotIp_;
+    const bool wifiUp = wifiStaConnected_();
+    syncDefaultNetif_(ethUp, wifiUp);
+
+    setNetworkReady(*dataStore_, ethUp || wifiUp);
+}
+
+void EthernetModule::syncDefaultNetif_(bool ethUp, bool wifiUp)
+{
+    const ActiveNetIf activeIf = ethUp ? ActiveNetIf::Eth
+                                : (wifiUp ? ActiveNetIf::Wifi : ActiveNetIf::None);
+    if (activeIf == lastActiveIf_) return;
+
+    // Explicitly steer the system's default esp-netif. This governs not
+    // just outbound packet routing but, critically, which interface's OWN
+    // DNS server list getaddrinfo()/lwip's resolver consults - each
+    // esp_netif keeps its own DNS config (see NetworkInterface::config()
+    // in arduino-esp32), and hostname resolution reads it from whichever
+    // netif is currently "default". The core's automatic route_prio
+    // arbitration (STA=100 > ETH=50) only re-evaluates default-netif
+    // selection when an interface's IP status actually transitions; the
+    // Ethernet interface here is started even with no cable plugged in
+    // (see the recovery-fallback handling in onConfigLoaded) and, having
+    // never gained an IP, never triggers that arbitration - so on a
+    // Wi-Fi-only boot the resolver could be left pointed at Ethernet's
+    // still-blank DNS config even though Wi-Fi is fully connected and
+    // routing correctly. Forcing it here after every interface change
+    // fixes that regardless of arbitration timing.
+    esp_netif_t* target = (activeIf == ActiveNetIf::Eth) ? ETH.netif()
+                         : (activeIf == ActiveNetIf::Wifi) ? WiFi.STA.netif()
+                         : nullptr;
+    if (target && esp_netif_get_default_netif() != target) {
+        const esp_err_t err = esp_netif_set_default_netif(target);
+        if (err == ESP_OK) {
+            LOGI("default network route -> %s", activeIf == ActiveNetIf::Eth ? "eth" : "wifi");
+        } else {
+            LOGW("esp_netif_set_default_netif failed: %s", esp_err_to_name(err));
+        }
+    }
+
+    if (lastActiveIf_ != ActiveNetIf::None && activeIf != ActiveNetIf::None && dataStore_) {
+        // Direct handover between physical interfaces (e.g. the Ethernet
+        // cable is pulled while Wi-Fi stays associated, or vice versa).
+        // The combined "network ready" flag never flips false in this
+        // case, so nothing normally tells consumers such as the MQTT
+        // module that their socket/DNS state is bound to a dead route.
+        // Pulse the flag so they tear down and reconnect via the (now
+        // automatically updated) default interface.
+        LOGI("network interface handover: %s -> %s, pulsing networkReady",
+             lastActiveIf_ == ActiveNetIf::Eth ? "eth" : "wifi",
+             activeIf == ActiveNetIf::Eth ? "eth" : "wifi");
+        setNetworkReady(*dataStore_, false);
+        setNetworkReady(*dataStore_, true);
+    }
+
+    lastActiveIf_ = activeIf;
 }
 
 bool EthernetModule::wifiStaConnected_() const

@@ -42,6 +42,8 @@
     var ethernetDns2 = document.getElementById('ethernetDns2');
     var ethernetConnectionState = document.getElementById('ethernetConnectionState');
     var wifiConnectionState = document.getElementById('wifiConnectionState');
+    var ethernetIpAddress = document.getElementById('ethernetIpAddress');
+    var wifiIpAddress = document.getElementById('wifiIpAddress');
     var mqttEnabled = document.getElementById('mqttEnabled');
     var mqttConfigFields = document.getElementById('mqttConfigFields');
     var mqttConnectionState = document.getElementById('mqttConnectionState');
@@ -306,6 +308,16 @@
         ? mqttDomain.mqtt
         : null;
       setNetworkConnectionState(mqttConnectionState, mqtt ? (mqtt.rdy ? 'connected' : 'disconnected') : 'unavailable');
+
+      var ethernetIp = runtimeConfig && runtimeConfig.ethernet && runtimeConfig.ethernet.runtime_ip
+        ? String(runtimeConfig.ethernet.runtime_ip)
+        : '';
+      if (ethernetIpAddress) ethernetIpAddress.textContent = ethernetIp || '—';
+
+      var wifiIp = runtimeConfig && runtimeConfig.runtime && runtimeConfig.runtime.ip
+        ? String(runtimeConfig.runtime.ip)
+        : '';
+      if (wifiIpAddress) wifiIpAddress.textContent = wifiIp || '—';
     }
 
     async function loadWifiConfig() {
