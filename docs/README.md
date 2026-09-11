@@ -1,4 +1,4 @@
-# Documentation Flow.io Waveshare 3.1.5
+# Documentation Flow.io Waveshare 3.2.2
 
 Cette documentation concerne la cible autonome
 `Waveshare-ESP32-S3` : une seule carte Waveshare
@@ -8,7 +8,7 @@ la RTC et les interfaces locales.
 
 Le document d’entrée principal du projet est le [README général](../README.md).
 Les changements propres à cette livraison sont détaillés dans les
-[notes de version 3.1.5](release-3.1.5.md).
+[notes de version 3.2.2](release-3.2.2.md).
 Les travaux encore ouverts sont regroupés dans
 [RESTANT_A_FAIRE.md](../RESTANT_A_FAIRE.md).
 
@@ -144,6 +144,12 @@ L’interface Web complète est stockée dans SPIFFS. Une page de récupération
 minimale reste disponible depuis le firmware lorsque SPIFFS est absent ou
 endommagé.
 
+Après un appui de cinq secondes sur BOOT, cette page regroupe la création ou le
+remplacement du compte Web, le Wi-Fi, Ethernet et MQTT. Les changements restent
+en attente jusqu'au bouton d'enregistrement final, qui provoque alors un seul
+redémarrage. La fenêtre dure cinq minutes et est réservée à l'adresse IP du
+premier appareil qui ouvre explicitement Rescue.
+
 La 3.1.5 réorganise le tableau de bord, la page Piscine et la navigation
 latérale. Le panneau `Contrôle des équipements` permet de commander directement
 la filtration, le traitement, l’éclairage, le robot, le chauffage et le
@@ -207,8 +213,8 @@ le raccordement courant avant usage. Leur mise à niveau est recensée dans
 
 ## Livraison courante
 
-- [Notes de version 3.1.5](release-3.1.5.md)
-- Firmware : [`binary/flowios3-3.1.5.bin`](../binary/flowios3-3.1.5.bin)
+- [Notes de version 3.2.2](release-3.2.2.md)
+- Firmware : [`binary/flowios3-3.2.2.bin`](../binary/flowios3-3.2.2.bin)
 - Interface SPIFFS :
-  [`binary/flowios3-spiffs-3.1.5.bin`](../binary/flowios3-spiffs-3.1.5.bin)
+  [`binary/flowios3-spiffs-3.2.2.bin`](../binary/flowios3-spiffs-3.2.2.bin)
 - Environnement PlatformIO : `Waveshare-ESP32-S3`

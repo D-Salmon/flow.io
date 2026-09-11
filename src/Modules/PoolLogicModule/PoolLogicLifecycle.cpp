@@ -201,6 +201,8 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
     phLevelIdVar_.moduleName = kCfgModuleSensors;
     chlorineLevelIdVar_.moduleName = kCfgModuleSensors;
     pressureMonitoringEnabledVar_.moduleName = kCfgModuleSensors;
+    flowSwitchEnabledVar_.moduleName = kCfgModuleSensors;
+    flowSwitchIoIdVar_.moduleName = kCfgModuleSensors;
     filtrationContactorFeedbackIoIdVar_.moduleName = kCfgModuleSensors;
     swgContactorFeedbackIoIdVar_.moduleName = kCfgModuleSensors;
     filtrationContactorFeedbackActiveHighVar_.moduleName = kCfgModuleSensors;
@@ -226,6 +228,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
     pidSampleMsVar_.moduleName = kCfgModuleRegulation;
 
     psiDelayVar_.moduleName = kCfgModuleSafety;
+    flowSwitchDelayVar_.moduleName = kCfgModuleSafety;
     delayPidsVar_.moduleName = kCfgModuleRegulation;
     delayElectroVar_.moduleName = kCfgModuleSwg;
     robotDelayVar_.moduleName = kCfgModuleRobot;
@@ -251,6 +254,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
     fillingDeviceVar_.moduleName = kCfgModuleDevices;
     phPumpDeviceVar_.moduleName = kCfgModuleDevices;
     orpPumpDeviceVar_.moduleName = kCfgModuleDevices;
+    lightsDeviceVar_.moduleName = kCfgModuleDevices;
     heaterDeviceVar_.moduleName = kCfgModuleDevices;
 
     // Registration order mirrors the published config branches so init remains
@@ -280,6 +284,14 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
     cfg.registerVar(phLevelIdVar_, kCfgModuleId, kCfgBranchSensors);
     cfg.registerVar(chlorineLevelIdVar_, kCfgModuleId, kCfgBranchSensors);
     cfg.registerVar(pressureMonitoringEnabledVar_, kCfgModuleId, kCfgBranchSensors);
+    cfg.registerVar(flowSwitchEnabledVar_, kCfgModuleId, kCfgBranchSensors);
+    cfg.registerVar(flowSwitchIoIdVar_, kCfgModuleId, kCfgBranchSensors);
+    if (!flowSwitchEnabled_) {
+        // The input assignment is the single user-facing enable control.
+        // Normalize legacy configurations where DIN5 was stored while the
+        // former, separate monitoring switch was disabled.
+        flowSwitchIoId_ = IO_ID_INVALID;
+    }
     cfg.registerVar(filtrationContactorFeedbackIoIdVar_, kCfgModuleId, kCfgBranchSensors);
     cfg.registerVar(swgContactorFeedbackIoIdVar_, kCfgModuleId, kCfgBranchSensors);
     cfg.registerVar(filtrationContactorFeedbackActiveHighVar_, kCfgModuleId, kCfgBranchSensors);
@@ -289,6 +301,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
     cfg.registerVar(psiHighVar_, kCfgModuleId, kCfgBranchSafety);
     cfg.registerVar(winterStartVar_, kCfgModuleId, kCfgBranchSafety);
     cfg.registerVar(freezeHoldVar_, kCfgModuleId, kCfgBranchSafety);
+    cfg.registerVar(sensorHoldWaterTempVar_, kCfgModuleId, kCfgBranchSafety);
     cfg.registerVar(secureElectroVar_, kCfgModuleId, kCfgBranchSwg);
     cfg.registerVar(phSetpointVar_, kCfgModuleId, kCfgBranchPh);
     cfg.registerVar(orpSetpointVar_, kCfgModuleId, kCfgBranchChlorine);
@@ -305,6 +318,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
     cfg.registerVar(pidSampleMsVar_, kCfgModuleId, kCfgBranchRegulation);
 
     cfg.registerVar(psiDelayVar_, kCfgModuleId, kCfgBranchSafety);
+    cfg.registerVar(flowSwitchDelayVar_, kCfgModuleId, kCfgBranchSafety);
     cfg.registerVar(delayPidsVar_, kCfgModuleId, kCfgBranchRegulation);
     cfg.registerVar(delayElectroVar_, kCfgModuleId, kCfgBranchSwg);
     cfg.registerVar(robotDelayVar_, kCfgModuleId, kCfgBranchRobot);
@@ -330,6 +344,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
     cfg.registerVar(fillingDeviceVar_, kCfgModuleId, kCfgBranchDevices);
     cfg.registerVar(phPumpDeviceVar_, kCfgModuleId, kCfgBranchDevices);
     cfg.registerVar(orpPumpDeviceVar_, kCfgModuleId, kCfgBranchDevices);
+    cfg.registerVar(lightsDeviceVar_, kCfgModuleId, kCfgBranchDevices);
     cfg.registerVar(heaterDeviceVar_, kCfgModuleId, kCfgBranchDevices);
 
     const EventBusService* ebSvc = services.get<EventBusService>(ServiceId::EventBus);
@@ -1130,6 +1145,21 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
                                       this)) {
             LOGW("PoolLogic failed to register AlarmId::PoolChlorineGeneratorContactorMismatch");
         }
+
+        const AlarmRegistration noFlowAlarm{
+            AlarmId::PoolNoFlow,
+            AlarmSeverity::Critical,
+            true,
+            2000,
+            1000,
+            60000,
+            "no_flow",
+            "No filtration flow",
+            "poollogic"
+        };
+        if (!alarmSvc_->registerAlarm(alarmSvc_->ctx, &noFlowAlarm, &PoolLogicModule::condNoFlowStatic_, this)) {
+            LOGW("PoolLogic failed to register AlarmId::PoolNoFlow");
+        }
     } else {
         LOGW("PoolLogic running without alarm service");
     }
@@ -1352,6 +1382,20 @@ void PoolLogicModule::onEvent_(const Event& e)
             return;
         }
         if (p->moduleId == (uint8_t)ConfigModuleId::PoolLogic &&
+            p->localBranchId == kCfgBranchSensors) {
+            // Sensor roles can be rebound at runtime. Reapply hold ownership to
+            // the new pH, ORP and water-temperature endpoints on the next tick.
+            sensorHoldBindingsReady_ = false;
+            return;
+        }
+        if (p->moduleId == (uint8_t)ConfigModuleId::PoolLogic &&
+            p->localBranchId == kCfgBranchSafety &&
+            p->nvsKey &&
+            strcmp(p->nvsKey, NvsKeys::PoolLogic::SensorHoldWaterTemp) == 0) {
+            sensorHoldBindingsReady_ = false;
+            return;
+        }
+        if (p->moduleId == (uint8_t)ConfigModuleId::PoolLogic &&
             p->localBranchId == kCfgBranchModes &&
             p->nvsKey) {
             if (strcmp(p->nvsKey, NvsKeys::PoolLogic::AutoMode) == 0 && autoMode_) {
@@ -1481,6 +1525,7 @@ void PoolLogicModule::normalizeDeviceSlots_()
     normalize(fillingDeviceSlot_, PoolIds::DeviceFillPump, fillingDeviceVar_, "filling");
     normalize(phPumpDeviceSlot_, PoolIds::DevicePhPump, phPumpDeviceVar_, "ph_pump");
     normalize(orpPumpDeviceSlot_, PoolIds::DeviceChlorinePump, orpPumpDeviceVar_, "dis_pump");
+    normalize(lightsDeviceSlot_, PoolIds::DeviceLights, lightsDeviceVar_, "lights");
 #if defined(FLOW_BOARD_WAVESHARE_ESP32_S3)
     if (swgDeviceSlot_ != orpPumpDeviceSlot_) {
         LOGI("PoolLogic Waveshare shares disinfection slot: swg %u -> %u",
@@ -1497,13 +1542,14 @@ void PoolLogicModule::normalizeDeviceSlots_()
 
 void PoolLogicModule::logDeviceSlotConfig_() const
 {
-    LOGI("PoolLogic slots filtr=%u swg=%u robot=%u fill=%u ph=%u dis=%u heater=%u shared_dis=%u",
+    LOGI("PoolLogic slots filtr=%u swg=%u robot=%u fill=%u ph=%u dis=%u lights=%u heater=%u shared_dis=%u",
          (unsigned)filtrationDeviceSlot_,
          (unsigned)swgDeviceSlot_,
          (unsigned)robotDeviceSlot_,
          (unsigned)fillingDeviceSlot_,
          (unsigned)phPumpDeviceSlot_,
          (unsigned)orpPumpDeviceSlot_,
+         (unsigned)lightsDeviceSlot_,
          (unsigned)heaterDeviceSlot_,
          sharedDisinfectionDevice_() ? 1U : 0U);
 
@@ -1513,6 +1559,7 @@ void PoolLogicModule::logDeviceSlotConfig_() const
     logDeviceSlotBinding_("filling", fillingDeviceSlot_, -1);
     logDeviceSlotBinding_("ph_pump", phPumpDeviceSlot_, 1);
     logDeviceSlotBinding_(sharedDisinfectionDevice_() ? "disinfection" : "dis_pump", orpPumpDeviceSlot_, 1);
+    logDeviceSlotBinding_("lights", lightsDeviceSlot_, -1);
     logDeviceSlotBinding_("heater", heaterDeviceSlot_, -1);
 }
 

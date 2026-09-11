@@ -75,7 +75,8 @@ enum IoCap : uint8_t {
 /** Typed runtime value snapshot used by generic readers. */
 struct IoValue {
     uint8_t valid = 0;
-    uint8_t reserved = 0;
+    /** Last reliable circulating-water value, held while the line is idle. */
+    uint8_t held = 0;
     uint8_t type = IO_VAL_FLOAT;
     uint32_t tsMs = 0;
     IoSeq cycleSeq = 0;
@@ -163,6 +164,13 @@ struct IOServiceV2 {
     IoStatus (*sensorStatus)(void* ctx, IoId id, IoSensorStatus* outStatus);
     /** List enabled sensor endpoints that are currently invalid. */
     IoStatus (*listInvalidSensors)(void* ctx, IoId* outIds, uint8_t maxIds, uint8_t* outCount);
+
+    /** Mark an analog endpoint as held whenever water is not circulating. */
+    IoStatus (*setAnalogHold)(void* ctx, IoId id, uint8_t hold);
+    /** Publish circulation state and the delay before fresh readings are released. */
+    IoStatus (*setCirculating)(void* ctx, uint8_t circulating, uint16_t settleSec);
+    /** Select how far before pump stop the retained reference must have been acquired. */
+    IoStatus (*setAnalogHoldRefAge)(void* ctx, uint16_t seconds);
 
     /** Opaque implementation context. */
     void* ctx;

@@ -191,6 +191,7 @@ bool unauthenticatedWebRouteAllowed(bool credentialsReady,
         }
         return isPost &&
                (strcmp(path, "/api/recovery/web-credentials") == 0 ||
+                strcmp(path, "/api/recovery/apply") == 0 ||
                 strcmp(path, "/api/wifi/config") == 0 ||
                 strcmp(path, "/api/wifi/scan") == 0 ||
                 strcmp(path, "/api/mqtt/config") == 0);
@@ -209,7 +210,8 @@ bool unauthenticatedWebRouteAllowed(bool credentialsReady,
         return isRootOrRecoveryPage ||
                isCaptivePortalProbe ||
                isWebInterfaceEntry ||
-               isWebInterfaceAsset;
+               isWebInterfaceAsset ||
+               isPublicBootstrapApi;
     }
 
     return false;

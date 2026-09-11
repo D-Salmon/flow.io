@@ -275,6 +275,7 @@ const char* waveshareDigitalInputNameForDomainSlot(DomainSlotId domainSlot)
         case PoolIds::SensorPhLevel: return "DIN0";
         case PoolIds::SensorChlorineLevel: return "DIN1";
         case PoolIds::SensorWaterCounter: return "DIN3";
+        case PoolIds::SensorFlowSwitch: return "DIN4";
         default: return nullptr;
     }
 }

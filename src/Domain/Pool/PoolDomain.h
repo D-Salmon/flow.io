@@ -18,6 +18,7 @@ inline constexpr DomainSlotPreset kDomainSlots[] = {
     {PoolIds::SensorPhLevel, IO_SLOT_DIGITAL_INPUT, "pH Level", "pH Level", 7, true, 0},
     {PoolIds::SensorChlorineLevel, IO_SLOT_DIGITAL_INPUT, "Chlorine Level", "Chlorine Level", 8, true, 0},
     {PoolIds::SensorWaterCounter, IO_SLOT_DIGITAL_INPUT, "Water Counter", "Water Counter", 9, true, 0},
+    {PoolIds::SensorFlowSwitch, IO_SLOT_DIGITAL_INPUT, "Flow Switch", "Flow Switch", 10, true, 0},
     {PoolIds::ActuatorFiltrationPump, IO_SLOT_DIGITAL_OUTPUT, "io_flt_pmp", "Filtration Pump", 0, true, 0},
     {PoolIds::ActuatorPhPump, IO_SLOT_DIGITAL_OUTPUT, "io_ph_pmp", "pH Pump", 1, true, 0},
     {PoolIds::ActuatorChlorinePump, IO_SLOT_DIGITAL_OUTPUT, "io_chl_pmp", "Chlorine Pump", 2, true, 0},
@@ -40,11 +41,13 @@ inline constexpr DomainIoSlotBinding kDomainIoSlots[] = {
     {PoolIds::SensorPhLevel, digitalInputSlot(0)},
     {PoolIds::SensorChlorineLevel, digitalInputSlot(1)},
     {PoolIds::SensorWaterCounter, digitalInputSlot(3)},
+    {PoolIds::SensorFlowSwitch, digitalInputSlot(4)},
 #else
     {PoolIds::SensorPoolLevel, digitalInputSlot(0)},
     {PoolIds::SensorPhLevel, digitalInputSlot(1)},
     {PoolIds::SensorChlorineLevel, digitalInputSlot(2)},
     {PoolIds::SensorWaterCounter, digitalInputSlot(3)},
+    {PoolIds::SensorFlowSwitch, digitalInputSlot(4)},
 #endif
     {PoolIds::ActuatorFiltrationPump, digitalOutputSlot(0)},
     {PoolIds::ActuatorPhPump, digitalOutputSlot(1)},

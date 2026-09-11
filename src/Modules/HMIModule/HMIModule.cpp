@@ -48,7 +48,7 @@ static constexpr const char* kPoolLogicModesModule = "poollogic/modes";
 static constexpr const char* kPoolLogicPhModule = "poollogic/ph";
 static constexpr const char* kPoolLogicChlorineModule = "poollogic/chlorine";
 static constexpr size_t kPoolLogicSensorsJsonBufSize = 480U;
-static constexpr size_t kPoolLogicDeviceJsonBufSize = 192U;
+static constexpr size_t kPoolLogicDeviceJsonBufSize = 224U;
 static constexpr size_t kPoolLogicModeJsonBufSize = 256U;
 static constexpr uint8_t kLedBitMqttConnected = 0;
 static constexpr uint8_t kLedBitPageSelect = 1;
@@ -865,6 +865,7 @@ void HMIModule::refreshHomeBindings_()
         bool foundOrpPumpSlot = false;
         bool foundRobotSlot = false;
         bool foundFillingSlot = false;
+        bool foundLightsSlot = false;
 
         if (cfgSvc_->toJsonModule(cfgSvc_->ctx,
                                   kPoolLogicSensorsModule,
@@ -953,8 +954,13 @@ void HMIModule::refreshHomeBindings_()
             if (foundFillingSlot) {
                 fillingDeviceSlot_ = (uint8_t)slot;
             }
+            slot = lightsDeviceSlot_;
+            foundLightsSlot = findJsonUInt16_(jsonBuf, "lights_slot", slot);
+            if (foundLightsSlot) {
+                lightsDeviceSlot_ = (uint8_t)slot;
+            }
 
-            LOGD("HMI poollogic cfg sensors_trunc=%u device_trunc=%u keys lvl=%u ph=%u orp=%u psi=%u wat=%u air=%u phlvl=%u chllvl=%u wc=%u filtr=%u php=%u orpp=%u robot=%u fill=%u",
+            LOGD("HMI poollogic cfg sensors_trunc=%u device_trunc=%u keys lvl=%u ph=%u orp=%u psi=%u wat=%u air=%u phlvl=%u chllvl=%u wc=%u filtr=%u php=%u orpp=%u robot=%u fill=%u lights=%u",
                  sensorsTruncated ? 1U : 0U,
                  truncated ? 1U : 0U,
                  foundPoolLevel ? 1U : 0U,
@@ -970,7 +976,8 @@ void HMIModule::refreshHomeBindings_()
                  foundPhPumpSlot ? 1U : 0U,
                  foundOrpPumpSlot ? 1U : 0U,
                  foundRobotSlot ? 1U : 0U,
-                 foundFillingSlot ? 1U : 0U);
+                 foundFillingSlot ? 1U : 0U,
+                 foundLightsSlot ? 1U : 0U);
         } else {
             LOGW("HMI poollogic device export failed");
         }

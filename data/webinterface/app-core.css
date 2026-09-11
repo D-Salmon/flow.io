@@ -927,7 +927,7 @@ body.web-icons-disabled .control-field-apply{font-size:15px;font-weight:800;lett
 .pool-setting-control:invalid{border-color:var(--danger);}
 .pool-settings-form.is-disabled .pool-settings-fields,.pool-setting-field.is-disabled{opacity:0.52;}
 .pool-setting-control:disabled{cursor:not-allowed;background:#E9EEF3;color:#647487;border-color:#CDD7E0;}
-.pool-setting-disabled-note{margin:0;padding:10px 12px;border-radius:10px;background:#EEF3F7;color:var(--text-soft);font-size:13px;font-weight:650;line-height:1.4;}
+.pool-setting-disabled-note{margin:0;padding:10px 12px;border-radius:10px;background:#EEF3F7;color:var(--text-muted);font-size:13px;font-weight:650;line-height:1.4;}
 .pool-setting-unit{min-width:28px;color:#536A7E;font-size:13px;font-weight:850;white-space:nowrap;}
 .pool-setting-help{grid-column:1 / -1;margin:0;color:var(--text-muted);font-size:12px;line-height:1.35;}
 .pool-settings-footer{display:flex;align-items:center;justify-content:flex-end;gap:12px;padding-top:2px;}
@@ -1047,6 +1047,8 @@ body.web-icons-disabled .control-field-apply{font-size:15px;font-weight:800;lett
 :root[data-theme="dark"] .pool-metric-control{background:var(--surface);border-color:var(--border);color:var(--text);}
 :root[data-theme="dark"] .pool-chemistry-measure>span,:root[data-theme="dark"] .pool-setting-unit{color:var(--text-muted);}
 :root[data-theme="dark"] .pool-card-icon,:root[data-theme="dark"] .pool-treatment-detail .pool-card-icon,:root[data-theme="dark"] #page-control .cfg-detail-pane > .control-section-title:first-child .ui-msr{background:#173a56;color:var(--primary);}
+:root[data-theme="dark"] .pool-setting-sublabel,:root[data-theme="dark"] .pool-setting-disabled-note{color:var(--text-muted);}
+:root[data-theme="dark"] .pool-setting-disabled-note{background:var(--surface-soft);border:1px solid var(--border);}
 :root[data-theme="dark"] .pool-alarm-card{background:#341722;color:#ffdce4;border-color:rgba(255,123,147,0.34);}
 :root[data-theme="dark"] .pool-alarm-row{background:#24111a;border-color:rgba(255,123,147,0.24);}
 :root[data-theme="dark"] .pool-alarm-title-wrap h3,:root[data-theme="dark"] .pool-alarm-row b{color:#ffdce4;}

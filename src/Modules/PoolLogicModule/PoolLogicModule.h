@@ -148,10 +148,12 @@ private:
     static constexpr IoId IO_ID_LEVEL_DEFAULT = ioIdFromSlot(digitalInputSlot(2));
     static constexpr IoId IO_ID_PH_LEVEL_DEFAULT = ioIdFromSlot(digitalInputSlot(0));
     static constexpr IoId IO_ID_CHLORINE_LEVEL_DEFAULT = ioIdFromSlot(digitalInputSlot(1));
+    static constexpr IoId IO_ID_FLOW_SWITCH_DEFAULT = ioIdFromSlot(digitalInputSlot(4));
 #else
     static constexpr IoId IO_ID_LEVEL_DEFAULT = ioIdFromSlot(digitalInputSlot(0));
     static constexpr IoId IO_ID_PH_LEVEL_DEFAULT = ioIdFromSlot(digitalInputSlot(1));
     static constexpr IoId IO_ID_CHLORINE_LEVEL_DEFAULT = ioIdFromSlot(digitalInputSlot(2));
+    static constexpr IoId IO_ID_FLOW_SWITCH_DEFAULT = ioIdFromSlot(digitalInputSlot(4));
 #endif
 
     // State and configuration storage
@@ -166,6 +168,7 @@ private:
     bool robotAutoMode_ = false;
     bool phDosePlus_ = false;
     bool pressureMonitoringEnabled_ = false;
+    bool flowSwitchEnabled_ = false;
     uint8_t disinfectionType_ = DisinfectionChlorineBromine;
     uint8_t swgControlMode_ = SwgControlContinuous;
 
@@ -173,6 +176,8 @@ private:
     uint16_t filtrationCalcStartMinute_ = 22U * 60U;
     uint16_t filtrationCalcStopMinute_ = 0U;
     uint16_t filtrationCalcDurationMinute_ = 120U;
+    bool filtrationRecalcWhenWaterTempFresh_ = false;
+    uint32_t filtrationFreshRecalcRetryMs_ = 0U;
 
     // Sensor IO ids for IOServiceV2 reads.
     IoId phIoId_ = IO_ID_PH_DEFAULT;
@@ -183,6 +188,7 @@ private:
     IoId levelIoId_ = IO_ID_LEVEL_DEFAULT;
     IoId phLevelIoId_ = IO_ID_PH_LEVEL_DEFAULT;
     IoId chlorineLevelIoId_ = IO_ID_CHLORINE_LEVEL_DEFAULT;
+    IoId flowSwitchIoId_ = IO_ID_FLOW_SWITCH_DEFAULT;
     IoId filtrationContactorFeedbackIoId_ = IO_ID_INVALID;
     IoId swgContactorFeedbackIoId_ = IO_ID_INVALID;
     bool filtrationContactorFeedbackActiveHigh_ = true;
@@ -208,8 +214,17 @@ private:
     int32_t pidMinOnMs_ = PoolDefaults::PidMinOnMs;
     int32_t pidSampleMs_ = PoolDefaults::PidSampleMs;
     uint8_t psiStartupDelaySec_ = 60;
+    uint8_t flowSwitchStartupDelaySec_ = 60;
     uint8_t delayPidsMin_ = 5;
     uint8_t delayElectroMin_ = 10;
+    static constexpr uint16_t SENSOR_SETTLE_SEC = 90;
+    static constexpr uint16_t SENSOR_HOLD_REF_AGE_SEC = 30;
+    static constexpr uint8_t SENSOR_HOLD_COUNT = 3;
+    IoId sensorHoldIds_[SENSOR_HOLD_COUNT] = {IO_ID_INVALID, IO_ID_INVALID, IO_ID_INVALID};
+    bool sensorHoldBindingsReady_ = false;
+    bool circulationStateKnown_ = false;
+    bool circulationState_ = true;
+    bool sensorHoldWaterTemp_ = true;
     uint8_t robotDelayMin_ = 30;
     uint8_t robotDurationMin_ = 120;
     bool fillingEnabled_ = false;
@@ -245,6 +260,7 @@ private:
     uint8_t fillingDeviceSlot_ = PoolIds::DeviceFillPump;
     uint8_t phPumpDeviceSlot_ = PoolIds::DevicePhPump;
     uint8_t orpPumpDeviceSlot_ = PoolIds::DeviceChlorinePump;
+    uint8_t lightsDeviceSlot_ = PoolIds::DeviceLights;
     uint8_t heaterDeviceSlot_ = PoolIds::DeviceWaterHeater;
 
     // Runtime flags
@@ -270,6 +286,7 @@ private:
     uint32_t startupActivitySinceMs_ = 0;
 
     bool psiError_ = false;
+    bool flowError_ = false;
     bool phTankLowError_ = false;
     bool chlorineTankLowError_ = false;
     bool cleaningDone_ = false;
@@ -327,6 +344,10 @@ private:
                                                   &chlorineLevelIoId_, ConfigPersistence::Persistent, 0};
     ConfigVariable<bool,0> pressureMonitoringEnabledVar_{NVS_KEY(NvsKeys::PoolLogic::PressureMonitoringEnabled), "psi_monitoring", "poollogic/sensors", ConfigType::Bool,
                                                          &pressureMonitoringEnabled_, ConfigPersistence::Persistent, 0};
+    ConfigVariable<bool,0> flowSwitchEnabledVar_{NVS_KEY(NvsKeys::PoolLogic::FlowSwitchEnabled), "flow_switch_enabled", "poollogic/sensors", ConfigType::Bool,
+                                                 &flowSwitchEnabled_, ConfigPersistence::Persistent, 0};
+    ConfigVariable<IoId,0> flowSwitchIoIdVar_{NVS_KEY(NvsKeys::PoolLogic::FlowSwitchIoId), "flow_switch_io_id", "poollogic/sensors", ConfigType::UInt16,
+                                              &flowSwitchIoId_, ConfigPersistence::Persistent, 0};
     ConfigVariable<IoId,0> filtrationContactorFeedbackIoIdVar_{
         NVS_KEY(NvsKeys::PoolLogic::FiltrationContactorFeedbackIoId), "filtr_fb_io_id", "poollogic/sensors", ConfigType::UInt16,
         &filtrationContactorFeedbackIoId_, ConfigPersistence::Persistent, 0};
@@ -379,10 +400,14 @@ private:
 
     ConfigVariable<uint8_t,0> psiDelayVar_{NVS_KEY(NvsKeys::PoolLogic::PsiDelay), "psi_start_dly_s", "poollogic/safety", ConfigType::UInt8,
                                            &psiStartupDelaySec_, ConfigPersistence::Persistent, 0};
+    ConfigVariable<uint8_t,0> flowSwitchDelayVar_{NVS_KEY(NvsKeys::PoolLogic::FlowSwitchDelay), "flow_start_dly_s", "poollogic/safety", ConfigType::UInt8,
+                                                  &flowSwitchStartupDelaySec_, ConfigPersistence::Persistent, 0};
     ConfigVariable<uint8_t,0> delayPidsVar_{NVS_KEY(NvsKeys::PoolLogic::DelayPids), "dly_pid_min", "poollogic/regulation", ConfigType::UInt8,
                                             &delayPidsMin_, ConfigPersistence::Persistent, 0};
     ConfigVariable<uint8_t,0> delayElectroVar_{NVS_KEY(NvsKeys::PoolLogic::DelayElectro), "dly_electro_min", "poollogic/swg", ConfigType::UInt8,
                                                &delayElectroMin_, ConfigPersistence::Persistent, 0};
+    ConfigVariable<bool,0> sensorHoldWaterTempVar_{NVS_KEY(NvsKeys::PoolLogic::SensorHoldWaterTemp), "sensor_hold_wat", "poollogic/safety", ConfigType::Bool,
+                                                  &sensorHoldWaterTemp_, ConfigPersistence::Persistent, 0};
     ConfigVariable<uint8_t,0> robotDelayVar_{NVS_KEY(NvsKeys::PoolLogic::RobotDelay), "robot_delay_min", "poollogic/robot", ConfigType::UInt8,
                                              &robotDelayMin_, ConfigPersistence::Persistent, 0};
     ConfigVariable<uint8_t,0> robotDurationVar_{NVS_KEY(NvsKeys::PoolLogic::RobotDuration), "robot_dur_min", "poollogic/robot", ConfigType::UInt8,
@@ -427,6 +452,8 @@ private:
                                                &phPumpDeviceSlot_, ConfigPersistence::Persistent, 0};
     ConfigVariable<uint8_t,0> orpPumpDeviceVar_{NVS_KEY(NvsKeys::PoolLogic::OrpPumpSlot), "dis_pump_slot", "poollogic/devices", ConfigType::UInt8,
                                                 &orpPumpDeviceSlot_, ConfigPersistence::Persistent, 0};
+    ConfigVariable<uint8_t,0> lightsDeviceVar_{NVS_KEY(NvsKeys::PoolLogic::LightsSlot), "lights_slot", "poollogic/devices", ConfigType::UInt8,
+                                               &lightsDeviceSlot_, ConfigPersistence::Persistent, 0};
     ConfigVariable<uint8_t,0> heaterDeviceVar_{NVS_KEY(NvsKeys::PoolLogic::HeaterSlot), "heater_slot", "poollogic/devices", ConfigType::UInt8,
                                                &heaterDeviceSlot_, ConfigPersistence::Persistent, 0};
 
@@ -466,11 +493,13 @@ private:
                                   uint16_t& durationMinutesOut);
     bool recalcAndApplyFiltrationWindow_(uint16_t* startMinuteOut = nullptr,
                                          uint16_t* stopMinuteOut = nullptr,
-                                         uint16_t* durationMinutesOut = nullptr);
+                                         uint16_t* durationMinutesOut = nullptr,
+                                         bool keepCurrentStart = false);
 
     // Control
     static AlarmCondState condPsiLowStatic_(void* ctx, uint32_t nowMs);
     static AlarmCondState condPsiHighStatic_(void* ctx, uint32_t nowMs);
+    static AlarmCondState condNoFlowStatic_(void* ctx, uint32_t nowMs);
     static AlarmCondState condPhTankLowStatic_(void* ctx, uint32_t nowMs);
     static AlarmCondState condChlorineTankLowStatic_(void* ctx, uint32_t nowMs);
     static AlarmCondState condWaterLevelLowStatic_(void* ctx, uint32_t nowMs);
@@ -491,8 +520,12 @@ private:
     void syncAllDeviceStates_(uint32_t nowMs);
     void adoptBootDeviceState_(uint32_t nowMs);
     uint32_t stateUptimeSec_(const DeviceFsm& fsm, uint32_t nowMs) const;
-    bool loadAnalogSensor_(IoId ioId, float& out, uint32_t* tsMsOut = nullptr) const;
+    bool loadAnalogSensor_(IoId ioId,
+                           float& out,
+                           uint32_t* tsMsOut = nullptr,
+                           bool* heldOut = nullptr) const;
     bool loadDigitalSensor_(IoId ioId, bool& out) const;
+    void updateSensorHold_();
     void resetTemporalPidState_(TemporalPidState& st, uint32_t nowMs);
     bool stepTemporalPid_(TemporalPidState& st,
                           float input,

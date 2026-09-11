@@ -189,6 +189,10 @@
     const poolAnalogIoOptions = Object.freeze(Array.from({ length: 16 }, (_, index) => (
       Object.freeze({ value: 192 + index, label: 'Entrée analogique A' + String(index + 1).padStart(2, '0') })
     )));
+    const poolOptionalAnalogIoOptions = Object.freeze([
+      Object.freeze({ value: 65535, label: 'Désactivé / non câblé' }),
+      ...poolAnalogIoOptions
+    ]);
     const poolDigitalIoOptions = Object.freeze(Array.from({ length: 16 }, (_, index) => (
       Object.freeze({ value: 64 + index, label: 'Entrée numérique D' + String(index + 1).padStart(2, '0') })
     )));
@@ -277,6 +281,7 @@
         Object.freeze({ key: 'psi_low_th', type: 'number', label: 'Seuil de pression basse', min: 0, max: 5, step: 0.01, unit: 'bar' }),
         Object.freeze({ key: 'psi_high_th', type: 'number', label: 'Seuil de pression haute', min: 0, max: 5, step: 0.01, unit: 'bar' }),
         Object.freeze({ key: 'psi_start_dly_s', type: 'number', label: 'Délai de contrôle pression', min: 0, max: 600, step: 1, unit: 's' }),
+        Object.freeze({ key: 'flow_start_dly_s', type: 'number', label: 'Délai de contrôle du débit', min: 0, max: 255, step: 1, unit: 's' }),
         Object.freeze({ key: 'winter_start_t', type: 'number', label: 'Seuil de démarrage hors gel', min: -20, max: 10, step: 0.1, unit: '°C' }),
         Object.freeze({ key: 'freeze_hold_t', type: 'number', label: 'Température de maintien hors gel', min: -10, max: 15, step: 0.1, unit: '°C' })
       ]),
@@ -285,37 +290,41 @@
         Object.freeze({ key: 'robot_dur_min', type: 'number', label: 'Durée de nettoyage', min: 1, max: 255, step: 1, unit: 'min' })
       ]),
       'poollogic/sensors': Object.freeze([
-        Object.freeze({ key: 'ph_io_id', type: 'enum', label: 'Sonde pH', options: poolAnalogIoOptions }),
-        Object.freeze({ key: 'dis_io_id', type: 'enum', label: 'Sonde ORP', options: poolAnalogIoOptions }),
-        Object.freeze({ key: 'psi_io_id', type: 'enum', label: 'Sonde de pression', options: poolAnalogIoOptions }),
-        Object.freeze({ key: 'wat_temp_io_id', type: 'enum', label: 'Température eau', options: poolAnalogIoOptions }),
-        Object.freeze({ key: 'air_temp_io_id', type: 'enum', label: 'Température air', options: poolAnalogIoOptions }),
-        Object.freeze({ key: 'pool_lvl_io_id', type: 'enum', label: 'Niveau du bassin', options: poolOptionalDigitalIoOptions }),
-        Object.freeze({ key: 'ph_lvl_io_id', type: 'enum', label: 'Niveau produit pH', options: poolOptionalDigitalIoOptions }),
-        Object.freeze({ key: 'chl_lvl_io_id', type: 'enum', label: 'Niveau désinfectant', options: poolOptionalDigitalIoOptions }),
+        Object.freeze({ key: 'ph_io_id', type: 'enum', label: 'Sonde pH', options: poolOptionalAnalogIoOptions, ioAssignmentGroup: 'analog' }),
+        Object.freeze({ key: 'dis_io_id', type: 'enum', label: 'Sonde ORP', options: poolOptionalAnalogIoOptions, ioAssignmentGroup: 'analog' }),
+        Object.freeze({ key: 'psi_io_id', type: 'enum', label: 'Sonde de pression', options: poolOptionalAnalogIoOptions, ioAssignmentGroup: 'analog' }),
+        Object.freeze({ key: 'wat_temp_io_id', type: 'enum', label: 'Température eau', options: poolOptionalAnalogIoOptions, ioAssignmentGroup: 'analog' }),
+        Object.freeze({ key: 'air_temp_io_id', type: 'enum', label: 'Température air', options: poolOptionalAnalogIoOptions, ioAssignmentGroup: 'analog' }),
+        Object.freeze({ key: 'pool_lvl_io_id', type: 'enum', label: 'Niveau du bassin', options: poolOptionalDigitalIoOptions, ioAssignmentGroup: 'digital' }),
+        Object.freeze({ key: 'ph_lvl_io_id', type: 'enum', label: 'Niveau produit pH', options: poolOptionalDigitalIoOptions, ioAssignmentGroup: 'digital' }),
+        Object.freeze({ key: 'chl_lvl_io_id', type: 'enum', label: 'Niveau désinfectant', options: poolOptionalDigitalIoOptions, ioAssignmentGroup: 'digital' }),
+        Object.freeze({ key: 'flow_switch_io_id', type: 'enum', label: 'Sonde de débit', options: poolOptionalDigitalIoOptions, ioAssignmentGroup: 'digital' }),
         Object.freeze({
           key: 'filtr_fb_io_id',
           activeHighKey: 'filtr_fb_active_high',
           type: 'feedback',
           label: 'Retour contacteur filtration',
-          options: poolDigitalIoOptions
+          options: poolDigitalIoOptions,
+          ioAssignmentGroup: 'digital'
         }),
         Object.freeze({
           key: 'swg_fb_io_id',
           activeHighKey: 'swg_fb_active_high',
           type: 'feedback',
           label: 'Retour contacteur électrolyseur',
-          options: poolDigitalIoOptions
+          options: poolDigitalIoOptions,
+          ioAssignmentGroup: 'digital'
         }),
         Object.freeze({ key: 'psi_monitoring', type: 'bool', label: 'Surveillance de pression' })
       ]),
       'poollogic/devices': Object.freeze([
-        Object.freeze({ key: 'filtr_slot', type: 'enum', label: 'Pompe de filtration', options: poolDeviceSlotOptions }),
-        Object.freeze({ key: 'robot_slot', type: 'enum', label: 'Robot', options: poolDeviceSlotOptions }),
-        Object.freeze({ key: 'fill_slot', type: 'enum', label: 'Pompe de remplissage', options: poolDeviceSlotOptions }),
-        Object.freeze({ key: 'ph_pump_slot', type: 'enum', label: 'Pompe pH', options: poolDeviceSlotOptions }),
-        Object.freeze({ key: 'dis_pump_slot', type: 'enum', label: 'Désinfection (relais unique)', options: poolDeviceSlotOptions }),
-        Object.freeze({ key: 'heater_slot', type: 'enum', label: 'Chauffage', options: poolDeviceSlotOptions })
+        Object.freeze({ key: 'filtr_slot', type: 'enum', label: 'Pompe de filtration', options: poolDeviceSlotOptions, ioAssignmentGroup: 'relay' }),
+        Object.freeze({ key: 'dis_pump_slot', type: 'enum', label: 'Désinfection', options: poolDeviceSlotOptions, ioAssignmentGroup: 'relay' }),
+        Object.freeze({ key: 'ph_pump_slot', type: 'enum', label: 'Pompe pH', options: poolDeviceSlotOptions, ioAssignmentGroup: 'relay' }),
+        Object.freeze({ key: 'lights_slot', type: 'enum', label: 'Éclairage', options: poolDeviceSlotOptions, ioAssignmentGroup: 'relay' }),
+        Object.freeze({ key: 'heater_slot', type: 'enum', label: 'Chauffage', options: poolDeviceSlotOptions, ioAssignmentGroup: 'relay' }),
+        Object.freeze({ key: 'fill_slot', type: 'enum', label: 'Pompe de remplissage', options: poolDeviceSlotOptions, ioAssignmentGroup: 'relay' }),
+        Object.freeze({ key: 'robot_slot', type: 'enum', label: 'Robot', options: poolDeviceSlotOptions, ioAssignmentGroup: 'relay' })
       ]),
       'hmi/buzzer': Object.freeze([
         Object.freeze({ key: 'alarm_sound', type: 'bool', label: 'Son des alarmes' })
@@ -2677,23 +2686,29 @@
 
     async function poolConfigApplyEditor(moduleName, data, entries, form, status) {
       if (poolConfigFieldApplyBusy || !form.reportValidity()) return;
-      const changes = {};
+      const changesByModule = {};
       entries.forEach((entry) => {
+        const entryModule = entry.moduleName || moduleName;
+        const entryData = entry.data || (entryModule === moduleName ? data : (poolConfigModulesCache[entryModule] || {}));
         const nextValue = typeof entry.read === 'function'
           ? entry.read()
           : poolConfigEditorStoredValue(entry.spec, entry.input);
-        if (!poolConfigValuesEqual(nextValue, data[entry.spec.key])) {
-          changes[entry.spec.key] = nextValue;
+        if (!poolConfigValuesEqual(nextValue, entryData[entry.spec.key])) {
+          if (!changesByModule[entryModule]) changesByModule[entryModule] = {};
+          changesByModule[entryModule][entry.spec.key] = nextValue;
         }
       });
-      const changedKeys = Object.keys(changes);
-      if (!changedKeys.length) {
+      if (!Object.keys(changesByModule).length) {
         status.className = 'pool-settings-status is-ok';
         status.textContent = 'Aucune modification à enregistrer.';
         return;
       }
       const changedLabels = Array.from(new Set(entries
-        .filter((entry) => Object.prototype.hasOwnProperty.call(changes, entry.spec.key))
+        .filter((entry) => {
+          const entryModule = entry.moduleName || moduleName;
+          return changesByModule[entryModule]
+            && Object.prototype.hasOwnProperty.call(changesByModule[entryModule], entry.spec.key);
+        })
         .map((entry) => entry.spec.label || poolConfigFieldLabel(moduleName, entry.spec.key))));
       if (!window.confirm('Enregistrer ces réglages ?\n\n• ' + changedLabels.join('\n• '))) return;
 
@@ -2703,11 +2718,9 @@
       status.className = 'pool-settings-status';
       status.textContent = 'Enregistrement en cours…';
       try {
-        const patch = {};
-        patch[moduleName] = changes;
         await fetchOkJson(
           '/api/flowcfg/apply',
-          createFormPostOptions({ patch: JSON.stringify(patch) }),
+          createFormPostOptions({ patch: JSON.stringify(changesByModule) }),
           'Enregistrement des réglages refusé',
           fetchFlowRemoteQueued
         );
@@ -2739,6 +2752,12 @@
 
       specs.forEach((spec, index) => {
         if (!spec) return;
+        if (moduleName === 'poollogic/sensors' && spec.key === 'chl_lvl_io_id') {
+          const disinfectionType = Number((poolConfigModulesCache['poollogic/modes'] || {}).disinfection_type);
+          // The low-level input belongs to a liquid-treatment tank. It is not
+          // relevant for electrolysis or when water treatment is disabled.
+          if (disinfectionType !== 0 && disinfectionType !== 2) return;
+        }
         if (spec.type === 'pool_mode') {
           if (!spec.enabledKey || !spec.autoModeKey
               || !Object.prototype.hasOwnProperty.call(data, spec.enabledKey)
@@ -2794,12 +2813,14 @@
           });
           return;
         }
-        if (!Object.prototype.hasOwnProperty.call(data, spec.key)) return;
+        const fieldModuleName = spec.sourceModule || moduleName;
+        const fieldData = fieldModuleName === moduleName ? data : (poolConfigModulesCache[fieldModuleName] || {});
+        if (!Object.prototype.hasOwnProperty.call(fieldData, spec.key)) return;
         if (spec.type === 'feedback') {
           if (!spec.activeHighKey || !Object.prototype.hasOwnProperty.call(data, spec.activeHighKey)) return;
 
           const field = document.createElement('div');
-          field.className = 'pool-setting-field pool-setting-feedback';
+          field.className = 'pool-setting-field';
           const heading = document.createElement('div');
           heading.className = 'pool-setting-label';
           heading.textContent = spec.label;
@@ -2885,7 +2906,7 @@
 
           fields.appendChild(field);
           entries.push({
-            spec: { key: spec.key, label: spec.label },
+            spec: { key: spec.key, label: spec.label, ioAssignmentGroup: spec.ioAssignmentGroup },
             input,
             read: () => Number(input.value)
           });
@@ -2919,7 +2940,7 @@
             option.textContent = entry.label;
             control.appendChild(option);
           });
-          control.value = toBool(data[spec.key]) ? 'true' : 'false';
+          control.value = toBool(fieldData[spec.key]) ? 'true' : 'false';
         } else if (spec.type === 'enum') {
           (spec.options || []).forEach((entry) => {
             const option = document.createElement('option');
@@ -2927,14 +2948,14 @@
             option.textContent = entry.label;
             control.appendChild(option);
           });
-          control.value = String(data[spec.key]);
+          control.value = String(fieldData[spec.key]);
         } else if (spec.type === 'time') {
           // Do not use the browser's native time control here: its rendering
           // follows the operating-system locale and may expose an AM/PM UI.
           // PoolLogic schedules must always be displayed as French 24-hour
           // values, independently of the browser running the interface.
           control.type = 'text';
-          control.value = String(poolConfigEditorDisplayValue(spec, data[spec.key]));
+          control.value = String(poolConfigEditorDisplayValue(spec, fieldData[spec.key]));
           control.inputMode = 'numeric';
           control.maxLength = 5;
           control.placeholder = 'HH:mm';
@@ -2944,7 +2965,7 @@
           control.required = true;
         } else {
           control.type = 'number';
-          control.value = String(poolConfigEditorDisplayValue(spec, data[spec.key]));
+          control.value = String(poolConfigEditorDisplayValue(spec, fieldData[spec.key]));
           if (Number.isFinite(Number(spec.min))) control.min = String(spec.min);
           if (Number.isFinite(Number(spec.max))) control.max = String(spec.max);
           control.step = Number.isFinite(Number(spec.step)) ? String(spec.step) : 'any';
@@ -2963,7 +2984,7 @@
         field.appendChild(label);
         field.appendChild(controlWrap);
 
-        const doc = poolConfigDoc(moduleName, spec.key);
+        const doc = poolConfigDoc(fieldModuleName, spec.key);
         if (doc && typeof doc.help === 'string' && doc.help.trim()) {
           const help = document.createElement('p');
           help.className = 'pool-setting-help';
@@ -2971,8 +2992,44 @@
           field.appendChild(help);
         }
         fields.appendChild(field);
-        entries.push({ spec, input: control });
+        entries.push({ spec, input: control, moduleName: fieldModuleName, data: fieldData });
+        if (moduleName === 'poollogic/sensors' && spec.key === 'flow_switch_io_id'
+            && Object.prototype.hasOwnProperty.call(data, 'flow_switch_enabled')) {
+          entries.push({
+            spec: { key: 'flow_switch_enabled', label: 'Sonde de débit' },
+            input: control,
+            moduleName,
+            data,
+            read: () => Number(control.value) !== 65535
+          });
+        }
       });
+      const ioAssignmentEntries = entries.filter((entry) => (
+        entry.spec
+        && entry.spec.ioAssignmentGroup
+        && entry.input
+        && entry.input.tagName === 'SELECT'
+      ));
+      const refreshIoAssignmentOptions = () => {
+        ioAssignmentEntries.forEach((entry) => {
+          const currentValue = String(entry.input.value);
+          const usedByOthers = new Set(ioAssignmentEntries
+            .filter((other) => other !== entry && other.spec.ioAssignmentGroup === entry.spec.ioAssignmentGroup)
+            .map((other) => String(other.input.value))
+            .filter((value) => value !== '65535'));
+          Array.from(entry.input.options).forEach((option) => {
+            const unavailable = option.value !== '65535'
+              && option.value !== currentValue
+              && usedByOthers.has(option.value);
+            option.hidden = unavailable;
+            option.disabled = unavailable;
+          });
+        });
+      };
+      ioAssignmentEntries.forEach((entry) => {
+        entry.input.addEventListener('change', refreshIoAssignmentOptions);
+      });
+      refreshIoAssignmentOptions();
       if (moduleName === 'poollogic/refill') {
         const enabledEntry = entries.find((entry) => entry.spec && entry.spec.key === 'fill_enabled');
         const dependentEntries = entries.filter((entry) => entry.spec && entry.spec.key === 'fill_min_on_s');
@@ -2988,6 +3045,18 @@
           };
           enabledEntry.input.addEventListener('change', syncRefillFields);
           syncRefillFields();
+        }
+      }
+      if (moduleName === 'poollogic/safety') {
+        const flowDelayEntry = entries.find((entry) => entry.spec && entry.spec.key === 'flow_start_dly_s');
+        if (flowDelayEntry) {
+          const sensors = poolConfigModulesCache['poollogic/sensors'] || {};
+          const enabled = toBool(sensors.flow_switch_enabled)
+            && Number(sensors.flow_switch_io_id) !== 65535;
+          const field = flowDelayEntry.input.closest('.pool-setting-field');
+          if (field) field.hidden = !enabled;
+          flowDelayEntry.input.disabled = !enabled;
+          flowDelayEntry.input.required = enabled;
         }
       }
       form.appendChild(fields);
@@ -3018,10 +3087,12 @@
       const editorHasChanges = () => {
         try {
           return entries.some((entry) => {
+            const entryModule = entry.moduleName || moduleName;
+            const entryData = entry.data || (entryModule === moduleName ? data : (poolConfigModulesCache[entryModule] || {}));
             const nextValue = typeof entry.read === 'function'
               ? entry.read()
               : poolConfigEditorStoredValue(entry.spec, entry.input);
-            return !poolConfigValuesEqual(nextValue, data[entry.spec.key]);
+            return !poolConfigValuesEqual(nextValue, entryData[entry.spec.key]);
           });
         } catch (err) {
           return true;
@@ -3523,9 +3594,21 @@
       const orpAvailable = live.orp !== null && typeof live.orp !== 'undefined' && Number.isFinite(Number(live.orp));
       const waterAvailable = live.wat !== null && typeof live.wat !== 'undefined' && Number.isFinite(Number(live.wat));
       const pressureAvailable = live.psi !== null && typeof live.psi !== 'undefined' && Number.isFinite(Number(live.psi));
-      const phState = poolConfigChemistryTargetState(live.ph, ph.ph_setpoint, 0.1, '');
+      const heldState = {
+        kind: 'neutral',
+        label: tr('pool.chemistry.sensorHeld', 'Mesure figée'),
+        note: tr(
+          'pool.chemistry.sensorHeldNote',
+          'Dernière valeur fiable avant l’arrêt de la circulation. Toute régulation est suspendue jusqu’à une nouvelle mesure stabilisée.'
+        )
+      };
+      const phState = toBool(live.phh)
+        ? heldState
+        : poolConfigChemistryTargetState(live.ph, ph.ph_setpoint, 0.1, '');
       const orpUsesSetpoint = !swgSelected || Number(swg.swg_control_mode) === 0;
-      const orpState = orpUsesSetpoint
+      const orpState = toBool(live.orph)
+        ? heldState
+        : orpUsesSetpoint
         ? poolConfigChemistryTargetState(live.orp, chlorine.dis_setpoint, 25, 'mV')
         : {
             kind: orpAvailable ? 'neutral' : 'unavailable',
@@ -3534,7 +3617,7 @@
               ? tr('pool.chemistry.orpContinuous', 'Mesure informative : l’électrolyse fonctionne en mode continu pendant la filtration.')
               : tr('pool.chemistry.comparisonUnavailable', 'Comparaison à la consigne impossible.')
           };
-      const temperatureState = {
+      const temperatureState = toBool(live.wath) ? heldState : {
         kind: waterAvailable ? 'ok' : 'unavailable',
         label: waterAvailable ? tr('pool.chemistry.sensorAvailable', 'Sonde active') : tr('pool.chemistry.sensorUnavailable', 'Sonde indisponible'),
         note: waterAvailable
@@ -3892,9 +3975,22 @@
       poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.lowPressure', 'Seuil pression basse'), poolConfigFormatValue('poollogic/safety', 'psi_low_th', safety.psi_low_th));
       poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.highPressure', 'Seuil pression haute'), poolConfigFormatValue('poollogic/safety', 'psi_high_th', safety.psi_high_th));
       poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.pressureDelay', 'Validation après démarrage'), poolConfigFormatValue('poollogic/safety', 'psi_start_dly_s', safety.psi_start_dly_s));
+      const flowMonitoringEnabled = toBool(sensors.flow_switch_enabled)
+        && Number(sensors.flow_switch_io_id) !== 65535;
+      poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.flowMonitoring', 'Surveillance débit'), poolConfigBoolLabel(flowMonitoringEnabled, tr('pool.state.active', 'Active'), tr('pool.state.disabled', 'Désactivée')), flowMonitoringEnabled ? 'active' : 'inactive');
+      if (flowMonitoringEnabled) {
+        poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.flowDelay', 'Validation absence de débit'), poolConfigFormatValue('poollogic/safety', 'flow_start_dly_s', safety.flow_start_dly_s));
+      }
       poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.filtrationFeedback', 'Retour contacteur filtration'), poolConfigSummaryConfigured(sensors.filtr_fb_io_id) ? tr('pool.protectionSummary.monitored', 'Surveillé') : tr('pool.protectionSummary.notWired', 'Non câblé'));
       poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.freezeStart', 'Déclenchement hors gel'), poolConfigFormatValue('poollogic/safety', 'winter_start_t', safety.winter_start_t));
       poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.freezeHold', 'Maintien hors gel jusqu’à'), poolConfigFormatValue('poollogic/safety', 'freeze_hold_t', safety.freeze_hold_t));
+      poolConfigAppendProtectionRow(
+        protections,
+        tr('pool.protectionSummary.waterProbeLocation', 'Sonde température d’eau'),
+        toBool(safety.sensor_hold_wat)
+          ? tr('pool.protectionSummary.waterProbeInline', 'Montée en ligne')
+          : tr('pool.protectionSummary.waterProbeImmersed', 'Immergée dans le bassin')
+      );
       grid.appendChild(protections);
 
       const timings = poolConfigCreateProtectionGroup(

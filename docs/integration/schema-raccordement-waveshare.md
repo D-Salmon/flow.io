@@ -84,7 +84,7 @@ réellement installé.
 | DI2 / i01 | GPIO5 | Niveau désinfectant |
 | DI3 / i02 | GPIO6 | Niveau piscine |
 | DI4 / i03 | GPIO7 | Compteur d'eau, impulsions |
-| DI5 / i04 | GPIO8 | Libre / retour contacteur |
+| DI5 / i04 | GPIO8 | Détecteur de débit (contact sec, optionnel) |
 | DI6 / i05 | GPIO9 | Libre / retour contacteur |
 | DI7 / i06 | GPIO10 | Libre |
 | DI8 / i07 | GPIO11 | Libre |

@@ -19,6 +19,7 @@ constexpr uint16_t kMinutesPerDay = 24U * 60U;
 // 12 °C maps to PoolLogic's minimum filtration policy: 2 hours in the
 // off-peak window, from 22:00 to 00:00.
 constexpr float kMissingWaterTemperatureFallbackC = 12.0f;
+constexpr uint32_t kHeldWaterTemperatureMaxAgeMs = 24UL * 60UL * 60UL * 1000UL;
 }
 
 void PoolLogicModule::ensureDailySlot_()
@@ -158,7 +159,8 @@ bool PoolLogicModule::applyFiltrationWindowSlot_(uint16_t startMinute,
 
 bool PoolLogicModule::recalcAndApplyFiltrationWindow_(uint16_t* startMinuteOut,
                                                       uint16_t* stopMinuteOut,
-                                                      uint16_t* durationMinutesOut)
+                                                      uint16_t* durationMinutesOut,
+                                                      bool keepCurrentStart)
 {
     if (!schedSvc_ || !schedSvc_->setSlot) {
         LOGW("No time.scheduler service available");
@@ -167,14 +169,27 @@ bool PoolLogicModule::recalcAndApplyFiltrationWindow_(uint16_t* startMinuteOut,
 
     float waterTemp = NAN;
     bool hasWaterTemp = false;
-    if (ioSvc_ && ioSvc_->readAnalog) {
-        hasWaterTemp = loadAnalogSensor_(waterTempIoId_, waterTemp);
+    bool waterTempHeld = false;
+    uint32_t waterTempTsMs = 0U;
+    if (ioSvc_ && ioSvc_->readValue) {
+        hasWaterTemp = loadAnalogSensor_(waterTempIoId_,
+                                         waterTemp,
+                                         &waterTempTsMs,
+                                         &waterTempHeld);
+    }
+    const bool heldTemperatureExpired =
+        hasWaterTemp && waterTempHeld &&
+        (waterTempTsMs == 0U ||
+         (uint32_t)(millis() - waterTempTsMs) > kHeldWaterTemperatureMaxAgeMs);
+    if (heldTemperatureExpired) {
+        hasWaterTemp = false;
+        LOGW("Held water temperature is older than 24h; applying minimum filtration fallback");
     }
     const bool usingTemperatureFallback = !hasWaterTemp;
     const float calculationTemp = usingTemperatureFallback
         ? kMissingWaterTemperatureFallbackC
         : waterTemp;
-    if (!ioSvc_ || !ioSvc_->readAnalog) {
+    if (!ioSvc_ || !ioSvc_->readValue) {
         LOGW("No IOServiceV2 available for water temperature; applying minimum filtration fallback");
     } else if (!hasWaterTemp) {
         LOGW("Water temperature unavailable on ioId=%u; applying minimum filtration fallback",
@@ -189,9 +204,16 @@ bool PoolLogicModule::recalcAndApplyFiltrationWindow_(uint16_t* startMinuteOut,
         return false;
     }
 
+    if (keepCurrentStart && !usingTemperatureFallback) {
+        startMinute = filtrationCalcStartMinute_;
+        stopMinute = (uint16_t)(((uint32_t)startMinute + durationMinutes) % (24U * 60U));
+    }
+
     // PoolLogic stores the computed window back into the shared scheduler so
     // filtration state changes continue to arrive as regular scheduler events.
     if (!applyFiltrationWindowSlot_(startMinute, stopMinute, durationMinutes)) return false;
+    filtrationRecalcWhenWaterTempFresh_ = usingTemperatureFallback;
+    filtrationFreshRecalcRetryMs_ = 0U;
 
     bool startStored = false;
     bool stopStored = false;

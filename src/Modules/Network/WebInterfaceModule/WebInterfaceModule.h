@@ -96,7 +96,8 @@ private:
     bool webAuthRateLimited_(AsyncWebServerRequest* request, uint32_t& retryAfterSeconds);
     void noteWebAuthFailure_(AsyncWebServerRequest* request);
     void noteWebAuthSuccess_(AsyncWebServerRequest* request);
-    bool allowUnauthenticatedRequest_(AsyncWebServerRequest* request) const;
+    bool allowUnauthenticatedRequest_(AsyncWebServerRequest* request);
+    bool physicalRecoveryAllowedForRequest_(AsyncWebServerRequest* request, bool allowClaim);
     bool physicalRecoveryActive_() const;
     uint32_t physicalRecoveryRemainingMs_() const;
     void pollBootRecoveryButton_();
@@ -186,6 +187,7 @@ private:
     portMUX_TYPE webAuthThrottleMux_ = portMUX_INITIALIZER_UNLOCKED;
     uint32_t bootButtonPressedAtMs_ = 0U;
     uint32_t physicalRecoveryDeadlineMs_ = 0U;
+    uint32_t physicalRecoveryClientIp_ = 0U;
     bool bootRecoveryLatched_ = false;
     static constexpr int kBootRecoveryPin = 0;
     static constexpr uint32_t kBootRecoveryHoldMs = 5000U;

@@ -922,6 +922,9 @@ bool sendFlowStatusCompactResponse_(AsyncWebServerRequest* request, const FlowCf
             appendJsonFieldValue_(*response, "air", poolIn["air"]);
             appendJsonFieldValue_(*response, "ph", poolIn["ph"]);
             appendJsonFieldValue_(*response, "orp", poolIn["orp"]);
+            appendJsonFieldValue_(*response, "wath", poolIn["wath"]);
+            appendJsonFieldValue_(*response, "phh", poolIn["phh"]);
+            appendJsonFieldValue_(*response, "orph", poolIn["orph"]);
             appendJsonFieldValue_(*response, "fil", poolIn["fil"]);
             appendJsonFieldValue_(*response, "php", poolIn["php"]);
             appendJsonFieldValue_(*response, "clp", poolIn["clp"]);
@@ -2028,6 +2031,14 @@ bool waveshareBuildStatusDomainJson_(FlowStatusDomain domain,
         setFloat("air", 5, 1U);
         setFloat("ph", 1, 2U);
         setFloat("orp", 0, 0U);
+        auto setHeld = [&](const char* key, uint8_t runtimeIndex) {
+            pool[key] = dataStore && runtimeIndex < IO_MAX_ENDPOINTS
+                ? dataStore->data().io.endpoints[runtimeIndex].held
+                : false;
+        };
+        setHeld("wath", 4);
+        setHeld("phh", 1);
+        setHeld("orph", 0);
 
         uint8_t filtrationSlot = PoolIds::DeviceFiltrationPump;
         uint8_t phPumpSlot = PoolIds::DevicePhPump;
@@ -2035,6 +2046,7 @@ bool waveshareBuildStatusDomainJson_(FlowStatusDomain domain,
         uint8_t swgSlot = PoolIds::DeviceChlorineGenerator;
         uint8_t robotSlot = PoolIds::DeviceRobot;
         uint8_t fillingSlot = PoolIds::DeviceFillPump;
+        uint8_t lightsSlot = PoolIds::DeviceLights;
         uint8_t heaterSlot = PoolIds::DeviceWaterHeater;
         if (cfgStore) {
             char devicesJson[384] = {0};
@@ -2056,6 +2068,7 @@ bool waveshareBuildStatusDomainJson_(FlowStatusDomain domain,
                     loadDeviceSlot("swg_slot", swgSlot);
                     loadDeviceSlot("robot_slot", robotSlot);
                     loadDeviceSlot("fill_slot", fillingSlot);
+                    loadDeviceSlot("lights_slot", lightsSlot);
                     loadDeviceSlot("heater_slot", heaterSlot);
                 }
             }
@@ -2089,7 +2102,7 @@ bool waveshareBuildStatusDomainJson_(FlowStatusDomain domain,
         }
         setDevice("rbt", robotSlot);
         setDevice("fill", fillingSlot);
-        setDevice("lgt", PoolIds::DeviceLights);
+        setDevice("lgt", lightsSlot);
         setDevice("htr", heaterSlot);
         return serializeJson(doc, out, outLen) > 0U;
     }
@@ -3639,15 +3652,12 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
     <input id="adminPass" type="password" minlength="12" maxlength="32" autocomplete="new-password" />
     <label for="adminConfirm">Confirmation</label>
     <input id="adminConfirm" type="password" minlength="12" maxlength="32" autocomplete="new-password" />
-    <div class="row">
-      <button id="saveCredentials" type="button" disabled>Enregistrer les acces Web</button>
-    </div>
     <div class="status note" id="securityMsg">Verification de la recuperation BOOT...</div>
   </section>
 
   <div class="grid" id="serviceGrid">
     <section id="networkSection" hidden>
-      <h2>Réseau Waveshare</h2>
+      <h2>Wi-Fi</h2>
       <label><input id="wifiEnabled" type="checkbox" checked />Activer le réseau station</label>
       <label for="wifiList">Reseaux detectes</label>
       <select id="wifiList"><option value="">Saisie manuelle</option></select>
@@ -3655,10 +3665,26 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
       <input id="ssid" autocomplete="off" />
       <label for="pass">Mot de passe</label>
       <input id="pass" type="password" autocomplete="off" />
-      <div class="row">
-        <button id="saveWifi" type="button">Enregistrer réseau</button>
-      </div>
       <div class="status" id="wifiMsg">-</div>
+    </section>
+
+    <section id="ethernetSection" hidden>
+      <h2>Ethernet</h2>
+      <label><input id="ethEnabled" type="checkbox" checked />Activer Ethernet</label>
+      <label><input id="ethDhcp" type="checkbox" checked />Obtenir automatiquement l'adresse réseau (DHCP)</label>
+      <div id="ethStatic" hidden>
+        <label for="ethIp">Adresse IP</label>
+        <input id="ethIp" inputmode="decimal" placeholder="192.168.1.50" autocomplete="off" />
+        <label for="ethSubnet">Masque de sous-réseau</label>
+        <input id="ethSubnet" inputmode="decimal" value="255.255.255.0" autocomplete="off" />
+        <label for="ethGateway">Passerelle</label>
+        <input id="ethGateway" inputmode="decimal" placeholder="192.168.1.1" autocomplete="off" />
+        <label for="ethDns1">DNS principal</label>
+        <input id="ethDns1" inputmode="decimal" autocomplete="off" />
+        <label for="ethDns2">DNS secondaire</label>
+        <input id="ethDns2" inputmode="decimal" autocomplete="off" />
+      </div>
+      <div class="status" id="ethernetMsg">Le mode DHCP est recommandé.</div>
     </section>
 
     <section id="mqttSection" hidden>
@@ -3676,9 +3702,6 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
       <input id="mqttBaseTopic" value="flowio" autocomplete="off" />
       <label for="mqttDeviceName">Nom d'appareil MQTT</label>
       <input id="mqttDeviceName" autocomplete="off" />
-      <div class="row">
-        <button id="saveMqtt" type="button">Enregistrer MQTT</button>
-      </div>
       <div class="status" id="mqttMsg">-</div>
     </section>
 
@@ -3709,6 +3732,15 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
       <div class="status" id="updateMsg">-</div>
     </section>
   </div>
+  <section class="wide" id="rescueActions" hidden>
+    <h2>Validation</h2>
+    <p>Les modifications seront appliquees ensemble. Le Waveshare redemarrera seulement apres validation.</p>
+    <div class="row">
+      <button class="secondary" id="cancelRescue" type="button">Annuler</button>
+      <button id="saveRescue" type="button">Enregistrer et redemarrer</button>
+    </div>
+    <div class="status" id="saveMsg">-</div>
+  </section>
 </main>
 <script>
 (() => {
@@ -3717,19 +3749,21 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
   const wifiMsg = $("wifiMsg");
   const mqttMsg = $("mqttMsg");
   const securityMsg = $("securityMsg");
+  const saveMsg = $("saveMsg");
   const fwCfgMsg = $("fwCfgMsg");
   const updateMsg = $("updateMsg");
   const buttons = Array.from(document.querySelectorAll("button"));
   let csrfToken = "";
   let recoveryAllowed = false;
   let adminAuthenticated = false;
+  let sensitiveAllowed = false;
+  let recoveryPollBusy = false;
 
   const setBusy = (busy) => {
     buttons.forEach((b) => { b.disabled = busy; });
-    $("saveCredentials").disabled = busy || !recoveryAllowed;
-    const sensitiveAllowed = recoveryAllowed || adminAuthenticated;
-    $("saveWifi").disabled = busy || !sensitiveAllowed;
-    $("saveMqtt").disabled = busy || !sensitiveAllowed;
+    $("scan").disabled = busy || !sensitiveAllowed;
+    $("saveRescue").disabled = busy || !sensitiveAllowed;
+    $("cancelRescue").disabled = busy || !sensitiveAllowed;
   };
   const formBody = (data) => {
     const body = new URLSearchParams();
@@ -3776,13 +3810,17 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
       if (meta.ok !== false) {
         recoveryAllowed = meta.physical_recovery_active === true;
         adminAuthenticated = meta.admin_authenticated === true;
-        const sensitiveAllowed = recoveryAllowed || adminAuthenticated;
+        sensitiveAllowed = recoveryAllowed || adminAuthenticated;
         $("serviceGrid").hidden = false;
         $("networkSection").hidden = !sensitiveAllowed;
+        $("ethernetSection").hidden = !sensitiveAllowed;
         $("mqttSection").hidden = !sensitiveAllowed;
+        $("rescueActions").hidden = !sensitiveAllowed;
         $("adminFwConfigSection").hidden = !adminAuthenticated;
         $("adminUpdateSection").hidden = !adminAuthenticated;
-        $("saveCredentials").disabled = !recoveryAllowed;
+        $("adminUser").disabled = !recoveryAllowed;
+        $("adminPass").disabled = !recoveryAllowed;
+        $("adminConfirm").disabled = !recoveryAllowed;
         if (recoveryAllowed) {
           put(
             securityMsg,
@@ -3793,7 +3831,7 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
         } else if (adminAuthenticated) {
           put(
             securityMsg,
-            "Administrateur connecte. Les reglages Wi-Fi et MQTT sont modifiables.",
+            "Administrateur connecte. Les reglages Wi-Fi, Ethernet et MQTT sont modifiables.",
             "ok"
           );
         } else if (meta.auth_enabled === true) {
@@ -3827,6 +3865,15 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
         $("pass").placeholder = wifi.password_configured
           ? "Laisser vide pour conserver"
           : "Mot de passe reseau";
+        const ethernet = wifi.ethernet || {};
+        $("ethEnabled").checked = ethernet.enabled !== false;
+        $("ethDhcp").checked = ethernet.dhcp !== false;
+        $("ethIp").value = ethernet.ip || "";
+        $("ethSubnet").value = ethernet.subnet || "255.255.255.0";
+        $("ethGateway").value = ethernet.gateway || "";
+        $("ethDns1").value = ethernet.dns1 || "";
+        $("ethDns2").value = ethernet.dns2 || "";
+        toggleEthernetStatic();
       }
       if (mqtt.ok !== false) {
         $("mqttEnabled").checked = mqtt.enabled === true;
@@ -3852,39 +3899,88 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
     }
   }
 
-  async function saveCredentials() {
+  async function saveRescue() {
     const user = $("adminUser").value.trim();
     const pass = $("adminPass").value;
     const confirmPass = $("adminConfirm").value;
-    if (!recoveryAllowed) {
-      put(securityMsg, "Maintenez d'abord BOOT pendant 5 secondes, puis rafraichissez.", "bad");
+    if (!sensitiveAllowed) {
+      put(saveMsg, "Maintenez d'abord BOOT pendant 5 secondes, puis rafraichissez.", "bad");
       return;
     }
-    if (!user || pass.length < 12 || pass.length > 32 || pass !== confirmPass) {
+    if (recoveryAllowed && (!user || pass.length < 12 || pass.length > 32 || pass !== confirmPass)) {
       put(
-        securityMsg,
+        saveMsg,
         "Utilisateur requis; mot de passe de 12 a 32 caracteres et confirmation identique.",
         "bad"
       );
       return;
     }
-    if (!confirm("Enregistrer les nouveaux acces Web et redemarrer dans 8 secondes ?")) return;
+    if ($("wifiEnabled").checked && !$("ssid").value.trim()) {
+      put(saveMsg, "Choisissez un réseau Wi-Fi ou désactivez le réseau station.", "bad");
+      return;
+    }
+    if (!$("wifiEnabled").checked && !$("ethEnabled").checked) {
+      put(saveMsg, "Le Wi-Fi et Ethernet ne peuvent pas être désactivés simultanément.", "bad");
+      return;
+    }
+    if ($("ethEnabled").checked && !$("ethDhcp").checked &&
+        (!$("ethIp").value.trim() || !$("ethSubnet").value.trim() || !$("ethGateway").value.trim())) {
+      put(saveMsg, "Adresse IP, masque et passerelle Ethernet sont requis en mode statique.", "bad");
+      return;
+    }
+    if ($("mqttEnabled").checked && !$("mqttHost").value.trim()) {
+      put(saveMsg, "Indiquez le broker MQTT ou désactivez MQTT.", "bad");
+      return;
+    }
+    if (!confirm("Enregistrer tous les réglages Rescue et redémarrer le Waveshare ?")) return;
     setBusy(true);
     try {
-      const out = await api("/api/recovery/web-credentials", {
+      const out = await api("/api/recovery/apply", {
         method: "POST",
-        body: formBody({ user, pass, confirm: confirmPass })
+        body: formBody({
+          set_credentials: recoveryAllowed ? "1" : "0",
+          user,
+          admin_pass: pass,
+          admin_confirm: confirmPass,
+          wifi_enabled: $("wifiEnabled").checked ? "1" : "0",
+          wifi_ssid: $("ssid").value.trim(),
+          wifi_pass: $("pass").value,
+          eth_enabled: $("ethEnabled").checked ? "1" : "0",
+          eth_dhcp: $("ethDhcp").checked ? "1" : "0",
+          eth_ip: $("ethIp").value.trim(),
+          eth_subnet: $("ethSubnet").value.trim(),
+          eth_gateway: $("ethGateway").value.trim(),
+          eth_dns1: $("ethDns1").value.trim(),
+          eth_dns2: $("ethDns2").value.trim(),
+          mqtt_enabled: $("mqttEnabled").checked ? "1" : "0",
+          mqtt_host: $("mqttHost").value.trim(),
+          mqtt_port: $("mqttPort").value.trim(),
+          mqtt_user: $("mqttUser").value.trim(),
+          mqtt_pass: $("mqttPass").value,
+          mqtt_base_topic: $("mqttBaseTopic").value.trim() || "flowio",
+          mqtt_device_name: $("mqttDeviceName").value.trim()
+        })
       });
       recoveryAllowed = false;
-      put(
-        securityMsg,
-        `Acces enregistres. Redemarrage dans ${out.reboot_in_s || 8} secondes.`,
-        "ok"
-      );
+      put(saveMsg, `Réglages enregistrés. Redémarrage dans ${out.reboot_in_s || 4} secondes.`, "ok");
     } catch (e) {
-      put(securityMsg, e.message, "bad");
+      put(saveMsg, e.message, "bad");
       setBusy(false);
     }
+  }
+
+  function cancelRescue() {
+    if (!confirm("Abandonner les modifications non enregistrées ?")) return;
+    $("adminPass").value = "";
+    $("adminConfirm").value = "";
+    $("pass").value = "";
+    $("mqttPass").value = "";
+    put(saveMsg, "Modifications annulées.", "note");
+    refreshAll();
+  }
+
+  function toggleEthernetStatic() {
+    $("ethStatic").hidden = $("ethDhcp").checked || !$("ethEnabled").checked;
   }
 
   async function scanWifi() {
@@ -3915,50 +4011,6 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
       if (!scan && lastErr) throw lastErr;
     } catch (e) {
       put(wifiMsg, e.message, "bad");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function saveWifi() {
-    setBusy(true);
-    try {
-      const out = await api("/api/wifi/config", {
-        method: "POST",
-        body: formBody({
-          enabled: $("wifiEnabled").checked ? "1" : "0",
-          ssid: $("ssid").value.trim(),
-          pass: $("pass").value
-        })
-      });
-      put(wifiMsg, out.reboot_scheduled ? "Réseau enregistre. Redemarrage planifie." : "Réseau enregistre.", "ok");
-      await refreshAll();
-    } catch (e) {
-      put(wifiMsg, e.message, "bad");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function saveMqtt() {
-    setBusy(true);
-    try {
-      const out = await api("/api/mqtt/config", {
-        method: "POST",
-        body: formBody({
-          enabled: $("mqttEnabled").checked ? "1" : "0",
-          host: $("mqttHost").value.trim(),
-          port: $("mqttPort").value.trim(),
-          user: $("mqttUser").value.trim(),
-          pass: $("mqttPass").value,
-          baseTopic: $("mqttBaseTopic").value.trim() || "flowio",
-          deviceName: $("mqttDeviceName").value.trim()
-        })
-      });
-      put(mqttMsg, out.reboot_scheduled ? "MQTT enregistre. Redemarrage planifie." : "MQTT enregistre.", "ok");
-      await refreshAll();
-    } catch (e) {
-      put(mqttMsg, e.message, "bad");
     } finally {
       setBusy(false);
     }
@@ -4027,20 +4079,34 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
     }
   }
 
+  async function pollRecovery() {
+    if (recoveryPollBusy) return;
+    recoveryPollBusy = true;
+    try {
+      const recovery = await api("/api/recovery/status");
+      const active = recovery.active === true;
+      if (active !== recoveryAllowed) await refreshAll();
+    } catch (_) {
+    } finally {
+      recoveryPollBusy = false;
+    }
+  }
+
   $("wifiList").addEventListener("change", () => {
     if ($("wifiList").value) $("ssid").value = $("wifiList").value;
   });
+  $("ethEnabled").addEventListener("change", toggleEthernetStatic);
+  $("ethDhcp").addEventListener("change", toggleEthernetStatic);
   $("refresh").addEventListener("click", refreshAll);
   $("scan").addEventListener("click", scanWifi);
-  $("saveCredentials").addEventListener("click", saveCredentials);
-  $("saveWifi").addEventListener("click", saveWifi);
-  $("saveMqtt").addEventListener("click", saveMqtt);
+  $("saveRescue").addEventListener("click", saveRescue);
+  $("cancelRescue").addEventListener("click", cancelRescue);
   $("saveFwCfg").addEventListener("click", saveFwConfig);
   $("checkManifest").addEventListener("click", checkManifest);
   $("updateSpiffs").addEventListener("click", () => startUpdate("spiffs"));
   $("updateWaveshare").addEventListener("click", () => startUpdate("waveshare"));
   refreshAll();
-  pollStatus();
+  setInterval(pollRecovery, 1000);
 })();
 </script>
 </body>
@@ -5773,9 +5839,14 @@ void WebInterfaceModule::startServer_()
         doc["admin_authenticated"] =
             webCredentialsReady_ &&
             (!routeAllowsUnauthenticatedAccess || webRequestAuthorized_(request));
-        doc["physical_recovery_active"] = physicalRecoveryActive_();
+        const bool recoveryAllowedForClient =
+            physicalRecoveryAllowedForRequest_(request, false);
+        doc["physical_recovery_active"] = recoveryAllowedForClient;
         doc["physical_recovery_remaining_s"] =
-            (physicalRecoveryRemainingMs_() + 999U) / 1000U;
+            recoveryAllowedForClient
+                ? (physicalRecoveryRemainingMs_() + 999U) / 1000U
+                : 0U;
+        doc["physical_recovery_client_bound"] = physicalRecoveryClientIp_ != 0U;
         doc["physical_recovery_gpio"] = kBootRecoveryPin;
         doc["physical_recovery_hold_s"] = kBootRecoveryHoldMs / 1000U;
         doc["physical_recovery_method"] = "boot_long_press";
@@ -5828,14 +5899,19 @@ void WebInterfaceModule::startServer_()
     });
     server_.on("/api/recovery/status", HTTP_GET, [this](AsyncWebServerRequest* request) {
         HttpLatencyScope latency(request, "/api/recovery/status");
-        char out[256] = {0};
+        const bool recoveryAllowedForClient =
+            physicalRecoveryAllowedForRequest_(request, false);
+        char out[288] = {0};
         const int n = snprintf(
             out,
             sizeof(out),
-            "{\"ok\":true,\"active\":%s,\"remaining_s\":%lu,"
+            "{\"ok\":true,\"active\":%s,\"remaining_s\":%lu,\"client_bound\":%s,"
             "\"gpio\":%d,\"hold_s\":%lu,\"method\":\"boot_long_press\",\"auth_enabled\":%s}",
-            physicalRecoveryActive_() ? "true" : "false",
-            (unsigned long)((physicalRecoveryRemainingMs_() + 999U) / 1000U),
+            recoveryAllowedForClient ? "true" : "false",
+            (unsigned long)(recoveryAllowedForClient
+                                ? ((physicalRecoveryRemainingMs_() + 999U) / 1000U)
+                                : 0U),
+            physicalRecoveryClientIp_ != 0U ? "true" : "false",
             kBootRecoveryPin,
             (unsigned long)(kBootRecoveryHoldMs / 1000U),
             webCredentialsReady_ ? "true" : "false");
@@ -5846,9 +5922,239 @@ void WebInterfaceModule::startServer_()
                 ? out
                 : "{\"ok\":false,\"err\":{\"code\":\"Failed\",\"where\":\"recovery.status\"}}");
     });
+    server_.on("/api/recovery/apply", HTTP_POST, [this](AsyncWebServerRequest* request) {
+        HttpLatencyScope latency(request, "/api/recovery/apply");
+        if (!cfgStore_) {
+            request->send(
+                503,
+                "application/json",
+                "{\"ok\":false,\"err\":{\"code\":\"NotReady\",\"where\":\"recovery.apply\"}}");
+            return;
+        }
+
+        char setCredentialsStr[8] = {0};
+        copyRequestParamValue_(request,
+                               "set_credentials",
+                               true,
+                               setCredentialsStr,
+                               sizeof(setCredentialsStr),
+                               "0");
+        const bool setCredentials = parseBoolParam_(setCredentialsStr, false);
+        if (setCredentials && !physicalRecoveryAllowedForRequest_(request, false)) {
+            request->send(
+                403,
+                "application/json",
+                "{\"ok\":false,\"err\":{\"code\":\"RecoveryInactive\",\"where\":\"recovery.apply.credentials\"}}");
+            return;
+        }
+
+        WebSecurityConfig replacement{};
+        if (setCredentials) {
+            char confirm[sizeof(replacement.pass)] = {0};
+            copyRequestParamValue_(request, "user", true, replacement.user, sizeof(replacement.user), "");
+            copyRequestParamValue_(request, "admin_pass", true, replacement.pass, sizeof(replacement.pass), "");
+            copyRequestParamValue_(request, "admin_confirm", true, confirm, sizeof(confirm), "");
+            const size_t userLen = strnlen(replacement.user, sizeof(replacement.user));
+            const size_t passLen = strnlen(replacement.pass, sizeof(replacement.pass));
+            if (userLen == 0U || userLen > 32U ||
+                passLen < 12U || passLen > 32U ||
+                strcmp(replacement.pass, confirm) != 0 ||
+                strchr(replacement.user, '\r') || strchr(replacement.user, '\n') ||
+                strchr(replacement.pass, '\r') || strchr(replacement.pass, '\n')) {
+                request->send(
+                    400,
+                    "application/json",
+                    "{\"ok\":false,\"err\":{\"code\":\"InvalidCredentials\",\"where\":\"recovery.apply.credentials\",\"msg\":\"Utilisateur 1-32 caracteres; mot de passe 12-32 caracteres identique a la confirmation.\"}}");
+                return;
+            }
+        }
+
+        char wifiEnabledStr[8] = {0};
+        char wifiSsid[96] = {0};
+        char wifiPass[96] = {0};
+        char previousWifiPass[96] = {0};
+        copyRequestParamValue_(request, "wifi_enabled", true, wifiEnabledStr, sizeof(wifiEnabledStr), "1");
+        copyRequestParamValue_(request, "wifi_ssid", true, wifiSsid, sizeof(wifiSsid), "");
+        copyRequestParamValue_(request, "wifi_pass", true, wifiPass, sizeof(wifiPass), "");
+        const bool wifiEnabled = parseBoolParam_(wifiEnabledStr, true);
+        if (wifiEnabled && wifiSsid[0] == '\0') {
+            request->send(
+                400,
+                "application/json",
+                "{\"ok\":false,\"err\":{\"code\":\"InvalidArgument\",\"where\":\"recovery.apply.wifi\",\"msg\":\"SSID Wi-Fi requis.\"}}");
+            return;
+        }
+        if (wifiPass[0] == '\0') {
+            char previousWifiJson[320] = {0};
+            if (cfgStore_->toJsonModule("wifi", previousWifiJson, sizeof(previousWifiJson), nullptr, false)) {
+                JsonDocument previousDoc;
+                if (deserializeJson(previousDoc, previousWifiJson) == DeserializationError::Ok &&
+                    previousDoc.is<JsonObjectConst>()) {
+                    snprintf(previousWifiPass,
+                             sizeof(previousWifiPass),
+                             "%s",
+                             previousDoc.as<JsonObjectConst>()["pass"] | "");
+                }
+            }
+        }
+        const char* effectiveWifiPass = wifiPass[0] != '\0' ? wifiPass : previousWifiPass;
+
+        char ethEnabledStr[8] = {0};
+        char ethDhcpStr[8] = {0};
+        char ethIp[16] = {0};
+        char ethSubnet[16] = {0};
+        char ethGateway[16] = {0};
+        char ethDns1[16] = {0};
+        char ethDns2[16] = {0};
+        copyRequestParamValue_(request, "eth_enabled", true, ethEnabledStr, sizeof(ethEnabledStr), "1");
+        copyRequestParamValue_(request, "eth_dhcp", true, ethDhcpStr, sizeof(ethDhcpStr), "1");
+        copyRequestParamValue_(request, "eth_ip", true, ethIp, sizeof(ethIp), "");
+        copyRequestParamValue_(request, "eth_subnet", true, ethSubnet, sizeof(ethSubnet), "255.255.255.0");
+        copyRequestParamValue_(request, "eth_gateway", true, ethGateway, sizeof(ethGateway), "");
+        copyRequestParamValue_(request, "eth_dns1", true, ethDns1, sizeof(ethDns1), "");
+        copyRequestParamValue_(request, "eth_dns2", true, ethDns2, sizeof(ethDns2), "");
+        const bool ethEnabled = parseBoolParam_(ethEnabledStr, true);
+        const bool ethDhcp = parseBoolParam_(ethDhcpStr, true);
+        if (!wifiEnabled && !ethEnabled) {
+            request->send(
+                400,
+                "application/json",
+                "{\"ok\":false,\"err\":{\"code\":\"InvalidArgument\",\"where\":\"recovery.apply.last_interface\",\"msg\":\"Ethernet et Wi-Fi ne peuvent pas etre desactives simultanement.\"}}");
+            return;
+        }
+        if (ethEnabled && !ethDhcp &&
+            (!validIpv4Param_(ethIp, true) ||
+             !validIpv4Param_(ethSubnet, true) ||
+             !validIpv4Param_(ethGateway, true) ||
+             !validIpv4Param_(ethDns1, false) ||
+             !validIpv4Param_(ethDns2, false))) {
+            request->send(
+                400,
+                "application/json",
+                "{\"ok\":false,\"err\":{\"code\":\"InvalidArgument\",\"where\":\"recovery.apply.ethernet\",\"msg\":\"Configuration IPv4 Ethernet invalide.\"}}");
+            return;
+        }
+
+        char mqttEnabledStr[8] = {0};
+        char mqttHost[96] = {0};
+        char mqttPortStr[12] = {0};
+        char mqttUser[64] = {0};
+        char mqttPass[64] = {0};
+        char previousMqttPass[64] = {0};
+        char mqttBaseTopic[48] = {0};
+        char mqttDeviceName[48] = {0};
+        copyRequestParamValue_(request, "mqtt_enabled", true, mqttEnabledStr, sizeof(mqttEnabledStr), "0");
+        copyRequestParamValue_(request, "mqtt_host", true, mqttHost, sizeof(mqttHost), "");
+        copyRequestParamValue_(request, "mqtt_port", true, mqttPortStr, sizeof(mqttPortStr), "8883");
+        copyRequestParamValue_(request, "mqtt_user", true, mqttUser, sizeof(mqttUser), "");
+        copyRequestParamValue_(request, "mqtt_pass", true, mqttPass, sizeof(mqttPass), "");
+        copyRequestParamValue_(request, "mqtt_base_topic", true, mqttBaseTopic, sizeof(mqttBaseTopic), "flowio");
+        copyRequestParamValue_(request, "mqtt_device_name", true, mqttDeviceName, sizeof(mqttDeviceName), "");
+        const bool mqttEnabled = parseBoolParam_(mqttEnabledStr, false);
+        int32_t mqttPort = (int32_t)atoi(mqttPortStr);
+        if (mqttPort <= 0 || mqttPort > 65535) mqttPort = Limits::Mqtt::Defaults::Port;
+        if (mqttEnabled && mqttHost[0] == '\0') {
+            request->send(
+                400,
+                "application/json",
+                "{\"ok\":false,\"err\":{\"code\":\"InvalidArgument\",\"where\":\"recovery.apply.mqtt\",\"msg\":\"Broker MQTT requis.\"}}");
+            return;
+        }
+        if (mqttPass[0] == '\0') {
+            char previousMqttJson[640] = {0};
+            if (cfgStore_->toJsonModule("mqtt", previousMqttJson, sizeof(previousMqttJson), nullptr, false)) {
+                JsonDocument previousDoc;
+                if (deserializeJson(previousDoc, previousMqttJson) == DeserializationError::Ok &&
+                    previousDoc.is<JsonObjectConst>()) {
+                    snprintf(previousMqttPass,
+                             sizeof(previousMqttPass),
+                             "%s",
+                             previousDoc.as<JsonObjectConst>()["pass"] | "");
+                }
+            }
+        }
+        const char* effectiveMqttPass = mqttPass[0] != '\0' ? mqttPass : previousMqttPass;
+
+        JsonDocument patch;
+        JsonObject root = patch.to<JsonObject>();
+        JsonObject wifi = root["wifi"].to<JsonObject>();
+        wifi["enabled"] = wifiEnabled;
+        wifi["ssid"] = wifiSsid;
+        wifi["pass"] = effectiveWifiPass;
+        JsonObject ethernet = root["ethernet"].to<JsonObject>();
+        ethernet["enabled"] = ethEnabled;
+        ethernet["dhcp"] = ethDhcp;
+        ethernet["ip"] = ethIp;
+        ethernet["subnet"] = ethSubnet;
+        ethernet["gateway"] = ethGateway;
+        ethernet["dns1"] = ethDns1;
+        ethernet["dns2"] = ethDns2;
+        JsonObject mqtt = root["mqtt"].to<JsonObject>();
+        mqtt["enabled"] = mqttEnabled;
+        mqtt["host"] = mqttHost;
+        mqtt["port"] = mqttPort;
+        mqtt["user"] = mqttUser;
+        mqtt["pass"] = effectiveMqttPass;
+        mqtt["baseTopic"] = mqttBaseTopic[0] != '\0' ? mqttBaseTopic : "flowio";
+        mqtt["deviceName"] = mqttDeviceName;
+
+        char patchJson[1024] = {0};
+        const size_t patchLen = serializeJson(patch, patchJson, sizeof(patchJson));
+        if (patchLen == 0U || patchLen >= sizeof(patchJson) || !cfgStore_->applyJson(patchJson)) {
+            request->send(
+                500,
+                "application/json",
+                "{\"ok\":false,\"err\":{\"code\":\"Failed\",\"where\":\"recovery.apply.config\"}}");
+            return;
+        }
+
+        if (setCredentials &&
+            !cfgStore_->writeRuntimeBlob(
+                NvsKeys::WebSecurity::Credentials,
+                &replacement,
+                sizeof(replacement))) {
+            request->send(
+                500,
+                "application/json",
+                "{\"ok\":false,\"err\":{\"code\":\"Failed\",\"where\":\"recovery.apply.credentials\"}}");
+            return;
+        }
+
+        emitConfigPatchActivity_("Rescue", patchJson);
+        if (setCredentials) {
+            webSecurity_ = replacement;
+            webCredentialsReady_ = true;
+        }
+        portENTER_CRITICAL(&webAuthThrottleMux_);
+        webAuthThrottleState_ = Security::WebAuthThrottleState{};
+        portEXIT_CRITICAL(&webAuthThrottleMux_);
+
+        if (!flowCfgSvc_ && services_) {
+            flowCfgSvc_ = services_->get<FlowCfgRemoteService>(ServiceId::FlowCfg);
+        }
+        if (flowCfgSvc_ && flowCfgSvc_->applyPatchJson) {
+            char flowAck[Limits::Mqtt::Buffers::Ack] = {0};
+            if (!flowCfgSvc_->applyPatchJson(flowCfgSvc_->ctx,
+                                             patchJson,
+                                             flowAck,
+                                             sizeof(flowAck))) {
+                LOGW("Rescue config sync to flow.io failed before reboot");
+            }
+        }
+
+        physicalRecoveryDeadlineMs_ = 0U;
+        physicalRecoveryClientIp_ = 0U;
+        scheduleReboot_(4000U, "recovery.apply");
+        LOGW("Rescue configuration saved; reboot scheduled");
+        request->send(
+            200,
+            "application/json",
+            "{\"ok\":true,\"reboot_scheduled\":true,\"reboot_in_s\":4}");
+    });
+
     server_.on("/api/recovery/web-credentials", HTTP_POST, [this](AsyncWebServerRequest* request) {
         HttpLatencyScope latency(request, "/api/recovery/web-credentials");
-        if (!physicalRecoveryActive_()) {
+        if (!physicalRecoveryAllowedForRequest_(request, false)) {
             request->send(
                 403,
                 "application/json",
@@ -5905,14 +6211,11 @@ void WebInterfaceModule::startServer_()
         portENTER_CRITICAL(&webAuthThrottleMux_);
         webAuthThrottleState_ = Security::WebAuthThrottleState{};
         portEXIT_CRITICAL(&webAuthThrottleMux_);
-        physicalRecoveryDeadlineMs_ = 0U;
-
-        scheduleReboot_(8000U, "recovery.web_credentials");
         LOGW("Physical BOOT recovery replaced web administrator credentials");
         request->send(
             200,
             "application/json",
-            "{\"ok\":true,\"reboot_scheduled\":true,\"reboot_in_s\":8}");
+            "{\"ok\":true,\"reboot_scheduled\":false}");
     });
     server_.on("/webinterface", HTTP_GET, [this,
                                            beginSpiffsAssetResponse,
@@ -7903,7 +8206,31 @@ void WebInterfaceModule::noteWebAuthSuccess_(AsyncWebServerRequest* request)
     portEXIT_CRITICAL(&webAuthThrottleMux_);
 }
 
-bool WebInterfaceModule::allowUnauthenticatedRequest_(AsyncWebServerRequest* request) const
+bool WebInterfaceModule::physicalRecoveryAllowedForRequest_(AsyncWebServerRequest* request,
+                                                             bool allowClaim)
+{
+    if (!physicalRecoveryActive_() || !request || !request->client()) return false;
+    const uint32_t remoteIp = (uint32_t)request->client()->remoteIP();
+    if (remoteIp == 0U) return false;
+
+    if (physicalRecoveryClientIp_ == 0U && allowClaim && request->method() == HTTP_GET) {
+        const String& path = request->url();
+        const bool claimRoute =
+            path == "/" ||
+            path == "/rescue" ||
+            path == "/webinterface/rescue" ||
+            path == "/api/recovery/status";
+        if (claimRoute) {
+            physicalRecoveryClientIp_ = remoteIp;
+            LOGW("Web physical recovery claimed by client_ip=0x%08lx",
+                 (unsigned long)remoteIp);
+        }
+    }
+    return physicalRecoveryClientIp_ != 0U &&
+           physicalRecoveryClientIp_ == remoteIp;
+}
+
+bool WebInterfaceModule::allowUnauthenticatedRequest_(AsyncWebServerRequest* request)
 {
     if (!request) return false;
     Security::WebRouteMethod method = Security::WebRouteMethod::Other;
@@ -7911,7 +8238,7 @@ bool WebInterfaceModule::allowUnauthenticatedRequest_(AsyncWebServerRequest* req
     else if (request->method() == HTTP_POST) method = Security::WebRouteMethod::Post;
     return Security::unauthenticatedWebRouteAllowed(
         webCredentialsReady_,
-        physicalRecoveryActive_(),
+        physicalRecoveryAllowedForRequest_(request, true),
         provisioningOnly_,
         method,
         request->url().c_str());

@@ -184,11 +184,13 @@ inline constexpr DigitalInputRoleDefault kDigitalInputRoleDefaults[] = {
     {PoolIds::SensorPhLevel, PortDin0, IO_DIGITAL_INPUT_STATE, IO_EDGE_RISING, 0U}, // Capteur niveau pH (GPIO4).
     {PoolIds::SensorChlorineLevel, PortDin1, IO_DIGITAL_INPUT_STATE, IO_EDGE_RISING, 0U}, // Capteur niveau desinfectant (GPIO5).
     {PoolIds::SensorWaterCounter, PortDin3, IO_DIGITAL_INPUT_COUNTER, IO_EDGE_RISING, 100000U}, // Compteur impulsions eau (GPIO7, 100 ms debounce).
+    {PoolIds::SensorFlowSwitch, PortDin4, IO_DIGITAL_INPUT_STATE, IO_EDGE_RISING, 0U}, // Détecteur de débit DI5 (GPIO8); validation par l'alarme.
 #else
     {PoolIds::SensorPoolLevel, PortDin0, IO_DIGITAL_INPUT_STATE, IO_EDGE_RISING, 0U}, // Capteur niveau piscine.
     {PoolIds::SensorPhLevel, PortDin1, IO_DIGITAL_INPUT_STATE, IO_EDGE_RISING, 0U}, // Capteur niveau pH.
     {PoolIds::SensorChlorineLevel, PortDin2, IO_DIGITAL_INPUT_STATE, IO_EDGE_RISING, 0U}, // Capteur niveau chlore.
     {PoolIds::SensorWaterCounter, PortDin3, IO_DIGITAL_INPUT_COUNTER, IO_EDGE_RISING, 100000U}, // Compteur impulsions eau (100 ms debounce).
+    {PoolIds::SensorFlowSwitch, PortDin4, IO_DIGITAL_INPUT_STATE, IO_EDGE_RISING, 0U}, // Détecteur de débit DI5; validation par l'alarme.
 #endif
 };
 

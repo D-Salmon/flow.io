@@ -22,7 +22,8 @@ enum DomainSlot : DomainSlotId {
     ActuatorFillPump = 15,
     ActuatorChlorineGenerator = 16,
     ActuatorLights = 17,
-    ActuatorWaterHeater = 18
+    ActuatorWaterHeater = 18,
+    SensorFlowSwitch = 19
 };
 
 enum Device : PoolDeviceId {
@@ -37,7 +38,7 @@ enum Device : PoolDeviceId {
 };
 
 constexpr uint8_t DeviceCount = 8;
-constexpr uint8_t SensorCount = 10;
-constexpr uint8_t DomainSlotCount = 18;
+constexpr uint8_t SensorCount = 11;
+constexpr uint8_t DomainSlotCount = 19;
 
 }  // namespace PoolIds

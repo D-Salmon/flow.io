@@ -27,16 +27,18 @@ configuration import, reboot, reset and update routes remain protected.
 ## Physical access recovery
 
 After a normal boot, hold the Waveshare `BOOT` button (`GPIO0`) for five
-seconds. This opens a ten-minute recovery window on the controller's existing
+seconds. This opens a five-minute recovery window on the controller's existing
 Ethernet or Wi-Fi address. Do not hold BOOT while resetting or powering on the
 ESP32-S3, because that selects the ROM download/flashing mode.
 
 During the window, the embedded `/rescue` page, `/api/web/meta`, the recovery
-status endpoint and the credential replacement endpoint are reachable without
-the previous Digest credentials. CSRF validation remains mandatory. Firmware
-update, diagnostics, reset, configuration and operational control routes remain
-protected. Saving new credentials closes the window immediately and schedules
-a reboot after eight seconds.
+status endpoint and the combined Rescue endpoint are reachable without the
+previous Digest credentials. The first client to open Rescue claims the window
+for its IP address; other clients remain subject to Digest authentication. CSRF
+validation remains mandatory. Firmware update, diagnostics, reset,
+configuration and operational control routes remain protected. Credentials,
+Wi-Fi, Ethernet and MQTT are applied together, then a single reboot is
+scheduled.
 
 `GPIO21` must never be connected to GND for recovery: on this Waveshare profile
 it drives the TFT backlight. Physical access to BOOT plus access to the trusted

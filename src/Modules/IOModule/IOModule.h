@@ -184,6 +184,11 @@ private:
     bool analogSlotPublished_(uint8_t idx) const;
     bool analogSlotUsesUndefinedInvalidValue_(uint8_t idx) const;
     void invalidateAnalogSlot_(AnalogSlot& slot, uint32_t nowMs);
+    IoStatus ioSetAnalogHold_(IoId id, uint8_t hold);
+    IoStatus ioSetCirculating_(uint8_t circulating, uint16_t settleSec);
+    IoStatus ioSetAnalogHoldRefAge_(uint16_t seconds);
+    bool analogHoldActive_(uint32_t nowMs) const;
+    void updateHoldReference_(AnalogSlot& slot, float rounded, uint32_t nowMs);
     bool processAnalogDefinition_(uint8_t idx, uint32_t nowMs);
     bool processDigitalInputDefinition_(uint8_t slotIdx, uint32_t nowMs);
     int32_t sanitizeAnalogPrecision_(int32_t precision) const;
@@ -271,6 +276,15 @@ private:
         uint32_t lastSampleSeq = 0;
         bool lastRoundedValid = false;
         float lastRounded = 0.0f;
+        bool holdWhenIdle = false;
+        bool held = false;
+        bool heldValid = false;
+        float heldValue = 0.0f;
+        uint32_t heldTimestampMs = 0;
+        bool heldPendingValid = false;
+        float heldPending = 0.0f;
+        uint32_t heldPendingTimestampMs = 0;
+        uint32_t heldRotateMs = 0;
     };
     enum DigitalSlotKind : uint8_t {
         DIGITAL_SLOT_INPUT = 0,
@@ -351,8 +365,15 @@ private:
         ServiceBinding::bind<&IOModule::ioLastCycle_>,
         ServiceBinding::bind<&IOModule::ioSensorStatus_>,
         ServiceBinding::bind<&IOModule::ioListInvalidSensors_>,
+        ServiceBinding::bind<&IOModule::ioSetAnalogHold_>,
+        ServiceBinding::bind<&IOModule::ioSetCirculating_>,
+        ServiceBinding::bind<&IOModule::ioSetAnalogHoldRefAge_>,
         this
     };
+    bool circulating_ = true;
+    bool circulationKnown_ = false;
+    uint32_t holdSettleUntilMs_ = 0;
+    uint32_t holdRefAgeMs_ = 0;
     StatusLedsService statusLedsSvc_{
         ServiceBinding::bind<&IOModule::setLedMask_>,
         ServiceBinding::bind<&IOModule::getLedMaskSvc_>,

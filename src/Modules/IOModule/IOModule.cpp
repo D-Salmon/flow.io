@@ -1020,7 +1020,14 @@ bool IOModule::buildEndpointSnapshot_(IOEndpoint* ep, char* out, size_t len, uin
     if (wrote < 0 || (size_t)wrote >= (len - used)) return false;
     used += (size_t)wrote;
 
-    wrote = snprintf(out + used, len - used, ",\"ts\":%lu}", (unsigned long)millis());
+    if (v.held) {
+        wrote = snprintf(out + used, len - used, ",\"held\":true");
+        if (wrote < 0 || (size_t)wrote >= (len - used)) return false;
+        used += (size_t)wrote;
+    }
+
+    const uint32_t snapshotTs = v.held ? v.timestampMs : millis();
+    wrote = snprintf(out + used, len - used, ",\"ts\":%lu}", (unsigned long)snapshotTs);
     if (wrote < 0 || (size_t)wrote >= (len - used)) return false;
 
     // Ensure one initial publish even if endpoint timestamp has not been set yet.
@@ -1351,6 +1358,87 @@ void IOModule::invalidateAnalogSlot_(AnalogSlot& slot, uint32_t nowMs)
     markIoCycleChanged_(slot.ioId);
 }
 
+bool IOModule::analogHoldActive_(uint32_t nowMs) const
+{
+    if (!circulating_) return true;
+    return (int32_t)(nowMs - holdSettleUntilMs_) < 0;
+}
+
+IoStatus IOModule::ioSetAnalogHold_(IoId id, uint8_t hold)
+{
+    if (id < IO_ID_AI_BASE || id >= IO_ID_AI_MAX || !analogSlots_) return IO_ERR_UNKNOWN_ID;
+    AnalogSlot& slot = analogSlots_[(uint8_t)(id - IO_ID_AI_BASE)];
+    if (!slot.used || !slot.endpoint) return IO_ERR_NOT_READY;
+    slot.holdWhenIdle = (hold != 0U);
+    if (!slot.holdWhenIdle) {
+        const bool wasHeld = slot.held;
+        slot.held = false;
+        slot.heldValid = false;
+        slot.heldTimestampMs = 0U;
+        slot.heldPendingValid = false;
+        slot.heldPendingTimestampMs = 0U;
+        if (wasHeld && dataStore_) {
+            uint8_t rtIdx = 0;
+            if (endpointIndexFromId_(slot.def.id, rtIdx)) {
+                (void)setIoEndpointHeld(*dataStore_, rtIdx, false);
+            }
+        }
+    }
+    return IO_OK;
+}
+
+IoStatus IOModule::ioSetAnalogHoldRefAge_(uint16_t seconds)
+{
+    holdRefAgeMs_ = (uint32_t)seconds * 1000UL;
+    return IO_OK;
+}
+
+void IOModule::updateHoldReference_(AnalogSlot& slot, float rounded, uint32_t nowMs)
+{
+    if (holdRefAgeMs_ == 0U || !slot.heldPendingValid) {
+        slot.heldValue = rounded;
+        slot.heldValid = true;
+        slot.heldTimestampMs = nowMs;
+        slot.heldPending = rounded;
+        slot.heldPendingValid = true;
+        slot.heldPendingTimestampMs = nowMs;
+        slot.heldRotateMs = nowMs;
+        return;
+    }
+    if ((uint32_t)(nowMs - slot.heldRotateMs) < holdRefAgeMs_) return;
+    slot.heldValue = slot.heldPending;
+    slot.heldValid = true;
+    slot.heldTimestampMs = slot.heldPendingTimestampMs;
+    slot.heldPending = rounded;
+    slot.heldPendingTimestampMs = nowMs;
+    slot.heldRotateMs = nowMs;
+}
+
+IoStatus IOModule::ioSetCirculating_(uint8_t circulating, uint16_t settleSec)
+{
+    const bool on = (circulating != 0U);
+    if (circulationKnown_ && on == circulating_) return IO_OK;
+    const uint32_t nowMs = millis();
+    circulationKnown_ = true;
+    circulating_ = on;
+    if (!on) {
+        holdSettleUntilMs_ = nowMs;
+        return IO_OK;
+    }
+    if (analogSlots_) {
+        for (uint8_t i = 0; i < MAX_ANALOG_ENDPOINTS; ++i) {
+            AnalogSlot& slot = analogSlots_[i];
+            if (!slot.used || !slot.holdWhenIdle) continue;
+            slot.median.clear();
+            slot.lastSampleSeqValid = false;
+            slot.heldPendingValid = false;
+            slot.heldPendingTimestampMs = 0U;
+        }
+    }
+    holdSettleUntilMs_ = nowMs + ((uint32_t)settleSec * 1000UL);
+    return IO_OK;
+}
+
 bool IOModule::processAnalogDefinition_(uint8_t idx, uint32_t nowMs)
 {
     if (idx >= MAX_ANALOG_ENDPOINTS) return false;
@@ -1408,7 +1496,42 @@ bool IOModule::processAnalogDefinition_(uint8_t idx, uint32_t nowMs)
         }
     }
 
-    slot.endpoint->update(rounded, true, nowMs);
+    const bool holdWindow = analogHoldActive_(nowMs);
+    if (slot.holdWhenIdle && holdWindow) {
+        const float displayed = slot.heldValid ? slot.heldValue : rounded;
+        const uint32_t displayedTs = slot.heldValid ? slot.heldTimestampMs : nowMs;
+        slot.endpoint->update(displayed, slot.heldValid, displayedTs, true);
+        if (!slot.held) {
+            slot.held = true;
+            if (dataStore_) {
+                uint8_t rtIdx = 0;
+                if (endpointIndexFromId_(slot.def.id, rtIdx)) {
+                    if (slot.heldValid) {
+                        (void)setIoEndpointFloat(*dataStore_, rtIdx, displayed, displayedTs);
+                    } else {
+                        (void)setIoEndpointInvalid(*dataStore_, rtIdx, IO_VALUE_FLOAT, nowMs);
+                    }
+                    (void)setIoEndpointHeld(*dataStore_, rtIdx, true);
+                }
+            }
+            markIoCycleChanged_(slot.ioId);
+        }
+        return true;
+    }
+
+    const bool leavingHold = slot.held;
+    slot.held = false;
+    if (leavingHold && dataStore_) {
+        uint8_t rtIdx = 0;
+        if (endpointIndexFromId_(slot.def.id, rtIdx)) {
+            (void)setIoEndpointFloat(*dataStore_, rtIdx, rounded, nowMs);
+            (void)setIoEndpointHeld(*dataStore_, rtIdx, false);
+        }
+    }
+    slot.endpoint->update(rounded, true, nowMs, false);
+    if (slot.holdWhenIdle && !holdWindow) {
+        updateHoldReference_(slot, rounded, nowMs);
+    }
 
     if (!slot.lastRoundedValid || rounded != slot.lastRounded) {
         slot.lastRounded = rounded;
@@ -1423,6 +1546,8 @@ bool IOModule::processAnalogDefinition_(uint8_t idx, uint32_t nowMs)
         if (slot.def.onValueChanged) {
             slot.def.onValueChanged(slot.def.onValueCtx, rounded);
         }
+    } else if (leavingHold) {
+        markIoCycleChanged_(slot.ioId);
     }
 
     return true;
@@ -1590,9 +1715,10 @@ void IOModule::forceAnalogSnapshotPublish_(uint8_t analogIdx, uint32_t nowMs)
     if (!slot.endpoint->read(v) || !v.valid || v.valueType != IO_EP_VALUE_FLOAT) return;
 
     float republished = ioRoundToPrecision(v.v.f, slot.def.precision);
-    slot.endpoint->update(republished, true, nowMs);
+    const uint32_t republishedTs = slot.held ? v.timestampMs : nowMs;
+    slot.endpoint->update(republished, true, republishedTs, slot.held);
     if (dataStore_) {
-        (void)setIoEndpointFloat(*dataStore_, analogIdx, republished, nowMs);
+        (void)setIoEndpointFloat(*dataStore_, analogIdx, republished, republishedTs);
     }
 }
 
@@ -1808,6 +1934,7 @@ IoStatus IOModule::ioReadValue_(IoId id, IoValue* outValue) const
         if (!s.endpoint->read(v) || !v.valid || v.valueType != IO_EP_VALUE_FLOAT) return IO_ERR_NOT_READY;
 
         outValue->valid = 1U;
+        outValue->held = v.held ? 1U : 0U;
         outValue->type = IO_VAL_FLOAT;
         outValue->tsMs = v.timestampMs;
         outValue->cycleSeq = lastCycle_ ? lastCycle_->seq : 0U;

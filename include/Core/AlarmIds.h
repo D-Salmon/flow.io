@@ -21,6 +21,7 @@ enum class AlarmId : uint16_t {
     PoolFiltrationContactorMismatch = 1007,
     PoolChlorineGeneratorContactorMismatch = 1008,
     PoolWaterTemperatureUnavailable = 1009,
+    PoolNoFlow = 1010,
 
     // Log pipeline domain
     LogWarningSeen = 1100,

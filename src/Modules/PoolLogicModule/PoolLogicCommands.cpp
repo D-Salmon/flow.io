@@ -551,10 +551,10 @@ bool PoolLogicModule::cmdMqttControl_(const CommandRequest& req, char* reply, si
                                        sharedDisinfectionDevice_() ? "dis_auto_mode" : "disinfection_type");
     }
     if (strcmp(cmdName, "poollogic.light.write") == 0 || strcmp(cmdName, "poollogic.lights.write") == 0) {
-        return writeDeviceFromArgs("poollogic.lights.write", PoolIds::DeviceLights, false, nullptr);
+        return writeDeviceFromArgs("poollogic.lights.write", lightsDeviceSlot_, false, nullptr);
     }
     if (strcmp(cmdName, "poollogic.light.toggle") == 0 || strcmp(cmdName, "poollogic.lights.toggle") == 0) {
-        return toggleDeviceValue("poollogic.lights.toggle", PoolIds::DeviceLights, false, nullptr);
+        return toggleDeviceValue("poollogic.lights.toggle", lightsDeviceSlot_, false, nullptr);
     }
     if (strcmp(cmdName, "poollogic.robot.write") == 0) {
         return queueRobotManualFromArgs("poollogic.robot.write");

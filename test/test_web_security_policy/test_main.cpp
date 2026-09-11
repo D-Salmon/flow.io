@@ -58,6 +58,8 @@ void test_boot_recovery_only_opens_network_and_credentials()
         true, true, true, WebRouteMethod::Post, "/api/mqtt/config"));
     TEST_ASSERT_TRUE(unauthenticatedWebRouteAllowed(
         true, true, true, WebRouteMethod::Post, "/api/recovery/web-credentials"));
+    TEST_ASSERT_TRUE(unauthenticatedWebRouteAllowed(
+        true, true, true, WebRouteMethod::Post, "/api/recovery/apply"));
     TEST_ASSERT_FALSE(unauthenticatedWebRouteAllowed(
         true, true, true, WebRouteMethod::Post, "/api/fwupdate/config"));
     TEST_ASSERT_FALSE(unauthenticatedWebRouteAllowed(
@@ -70,10 +72,16 @@ void test_provisioning_with_admin_keeps_configuration_protected()
 {
     TEST_ASSERT_TRUE(unauthenticatedWebRouteAllowed(
         true, false, true, WebRouteMethod::Get, "/webinterface/prov.js"));
+    TEST_ASSERT_TRUE(unauthenticatedWebRouteAllowed(
+        true, false, true, WebRouteMethod::Get, "/api/web/meta"));
+    TEST_ASSERT_TRUE(unauthenticatedWebRouteAllowed(
+        true, false, true, WebRouteMethod::Get, "/api/recovery/status"));
     TEST_ASSERT_FALSE(unauthenticatedWebRouteAllowed(
         true, false, true, WebRouteMethod::Get, "/api/wifi/config"));
     TEST_ASSERT_FALSE(unauthenticatedWebRouteAllowed(
         true, false, true, WebRouteMethod::Post, "/api/mqtt/config"));
+    TEST_ASSERT_FALSE(unauthenticatedWebRouteAllowed(
+        true, false, true, WebRouteMethod::Post, "/api/recovery/apply"));
     TEST_ASSERT_FALSE(unauthenticatedWebRouteAllowed(
         true, false, false, WebRouteMethod::Get, "/api/web/meta"));
     TEST_ASSERT_FALSE(unauthenticatedWebRouteAllowed(

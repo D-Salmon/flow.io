@@ -31,6 +31,7 @@ void WebInterfaceModule::pollBootRecoveryButton_()
     if (physicalRecoveryDeadlineMs_ != 0U &&
         (int32_t)(physicalRecoveryDeadlineMs_ - now) <= 0) {
         physicalRecoveryDeadlineMs_ = 0U;
+        physicalRecoveryClientIp_ = 0U;
         LOGW("Web physical recovery window closed");
     }
 
@@ -48,6 +49,7 @@ void WebInterfaceModule::pollBootRecoveryButton_()
     if (!bootRecoveryLatched_ &&
         (uint32_t)(now - bootButtonPressedAtMs_) >= kBootRecoveryHoldMs) {
         physicalRecoveryDeadlineMs_ = now + kPhysicalRecoveryWindowMs;
+        physicalRecoveryClientIp_ = 0U;
         bootRecoveryLatched_ = true;
         LOGW("Web physical recovery enabled by BOOT long press for %lu seconds",
              (unsigned long)(kPhysicalRecoveryWindowMs / 1000U));

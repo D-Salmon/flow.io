@@ -5,7 +5,7 @@ est actuellement la carte **Waveshare ESP32-S3-POE-ETH-8DI-8RO N16R8**, utilisé
 façon autonome : un seul ESP32-S3 exécute les entrées/sorties, les automatismes,
 les sécurités, le réseau, l’interface Web, MQTT et l’intégration Home Assistant.
 
-La version déclarée pour cette cible est **3.2.1**. L’environnement PlatformIO à
+La version déclarée pour cette cible est **3.2.2**. L’environnement PlatformIO à
 utiliser est `Waveshare-ESP32-S3`, également défini comme environnement par
 défaut dans `platformio.ini`.
 
@@ -14,6 +14,26 @@ Supervisor, FlowConnectDisplay et Micronova, leurs cartes et leurs modules exclu
 ont été retirés. Le Nextion local et le TFT S3 sont conservés ; le transport HMI UDP
 de FlowConnectDisplay est supprimé. Les anciens documents multi-profils ci-dessous
 sont des références historiques, pas des instructions de compilation de cette branche.
+
+## État de validation 3.2.2 — 11 septembre 2026
+
+Cette version distingue les mesures pH, ORP et de température figées lorsque la
+circulation est arrêtée. Les automatismes attendent 90 secondes de mesures
+stabilisées après le redémarrage, et une température figée de plus de 24 heures
+entraîne temporairement un cycle minimal de deux heures, recalculé dès qu'une
+nouvelle température fiable est disponible. Voir les
+[notes de version 3.2.2](docs/release-3.2.2.md) pour le détail.
+
+La récupération réseau a également été regroupée dans une seule page : après
+un appui de cinq secondes sur BOOT, elle permet de préparer le compte Web, le
+Wi-Fi, Ethernet et MQTT, puis ne redémarre la carte qu'au moment de
+l'enregistrement final. Le premier appareil qui ouvre explicitement la page
+réserve cette fenêtre de récupération de cinq minutes à son adresse IP.
+
+Le firmware et la SPIFFS ont été compilés et flashés sur la carte réelle. Le
+démarrage, le montage de la SPIFFS et le lancement du serveur Web ont été
+contrôlés sur le port série. Le comportement lors d'un cycle réel d'arrêt et de
+redémarrage de la filtration reste à observer.
 
 ## État de validation 3.2.1 — 6 septembre 2026
 
@@ -224,6 +244,14 @@ Home Assistant ; le firmware n’envoie pas directement de SMS ou de courriel.
   dépendance à un accès Internet ;
 - interface complète depuis SPIFFS et page minimale de récupération intégrée au
   firmware ;
+- récupération par appui de cinq secondes sur BOOT : depuis le point d'accès
+  `flow.io-xxxxxx`, ouvrir `http://192.168.4.1/rescue` ; depuis Ethernet, ouvrir
+  `http://flowio.local/rescue` ou l'adresse DHCP de la carte ;
+- page Rescue unique pour préparer le compte Web, le Wi-Fi, Ethernet (DHCP ou
+  IPv4 fixe) et MQTT, avec annulation ou enregistrement global suivi d'un seul
+  redémarrage ;
+- fenêtre Rescue physique limitée à cinq minutes et réservée à l'adresse IP du
+  premier appareil qui ouvre la page ;
 - réglages de l’onglet Piscine préparés localement dans chaque carte, avec
   indication des modifications en attente et choix explicite entre annulation
   et enregistrement ;
@@ -371,6 +399,7 @@ déduire le câblage de la cible autonome actuelle.
 ## Références utiles
 
 - [État des améliorations restantes](RESTANT_A_FAIRE.md)
+- [Notes de version 3.2.2](docs/release-3.2.2.md)
 - [Notes de version 3.2.1](docs/release-3.2.1.md)
 - [Notes de version 3.1.5](docs/release-3.1.5.md)
 - [Audit technique du socle 3.1.3](AUDIT_2026-08-16.md)
