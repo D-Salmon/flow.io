@@ -423,6 +423,7 @@ private:
     bool runtimeInitAttempted_ = false;
     int32_t boardDefaultI2cSda_ = FLOW_WIRDEF_IO_SDA;
     int32_t boardDefaultI2cScl_ = FLOW_WIRDEF_IO_SCL;
+    uint32_t boardDefaultI2cFrequencyHz_ = 100000U;
     const char* boardProfileName_ = "unknown";
     bool pcfEnableNeedsReinitWarned_ = false;
     uint32_t counterTraceLastMs_ = 0;

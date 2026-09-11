@@ -30,6 +30,7 @@ void IOModule::applyBoardDefaults_(const BoardSpec& board)
     if (!ioBus) return;
     boardDefaultI2cSda_ = ioBus->sdaPin;
     boardDefaultI2cScl_ = ioBus->sclPin;
+    boardDefaultI2cFrequencyHz_ = ioBus->frequencyHz ? ioBus->frequencyHz : 100000U;
     cfgData_.i2cSda = boardDefaultI2cSda_;
     cfgData_.i2cScl = boardDefaultI2cScl_;
 }
@@ -65,11 +66,12 @@ void IOModule::logI2cConfigTrace_(const char* stage) const
 
     const bool sdaValid = (cfgData_.i2cSda >= 0) && digitalPinIsValid((uint8_t)cfgData_.i2cSda);
     const bool sclValid = (cfgData_.i2cScl >= 0) && digitalPinIsValid((uint8_t)cfgData_.i2cScl);
-    LOGI("io.i2c trace stage=%s board=%s defaults=(%ld,%ld) active_keys=(%s,%s) cfg=(%ld,%ld) valid=(%s,%s)",
+    LOGI("io.i2c trace stage=%s board=%s defaults=(%ld,%ld,%luHz) active_keys=(%s,%s) cfg=(%ld,%ld) valid=(%s,%s)",
          stage ? stage : "?",
          boardProfileName_ ? boardProfileName_ : "unknown",
          (long)boardDefaultI2cSda_,
          (long)boardDefaultI2cScl_,
+         (unsigned long)boardDefaultI2cFrequencyHz_,
          sdaKeyActive,
          sclKeyActive,
          (long)cfgData_.i2cSda,
@@ -2651,7 +2653,7 @@ bool IOModule::configureRuntime_()
 
     if (needI2c) {
         // Concrete bus/driver assembly is centralized here so the rest of the module can stay on kernel types.
-        i2cBus_.begin(cfgData_.i2cSda, cfgData_.i2cScl);
+        i2cBus_.begin(cfgData_.i2cSda, cfgData_.i2cScl, boardDefaultI2cFrequencyHz_);
         if (!i2cBus_.beginOk()) {
             LOGW("i2c.begin failed sda=%d scl=%d freq=%lu",
                  i2cBus_.beginSda(),

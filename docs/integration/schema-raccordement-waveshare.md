@@ -63,6 +63,9 @@ capteurs I²C continuent d'utiliser GPIO42/GPIO41.
 
 ## Bus Qwiic / I²C
 
+Le profil Waveshare utilise ce bus à `400 kHz` sur `GPIO42` (SDA) et `GPIO41`
+(SCL).
+
 | Composant | Adresse prévue | Fonction |
 |---|---:|---|
 | DS2484 | 0x18 | Températures, seulement en mode Qwiic |

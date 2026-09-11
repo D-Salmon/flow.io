@@ -195,7 +195,7 @@ commande la pompe à chlore/oxygène actif **ou** l’électrolyseur selon le ty
 traitement choisi. Le relais 6 (`EXIO6`) est désormais libre ; les deux appareils
 ne peuvent donc pas être commandés simultanément par erreur.
 
-Le bus Qwiic/I²C utilise `GPIO42` pour SDA et `GPIO41` pour SCL. Il peut aussi
+Le bus Qwiic/I²C utilise `GPIO42` pour SDA et `GPIO41` pour SCL à `400 kHz`. Il peut aussi
 accueillir les capteurs optionnels INA226, SHT40, BMP280 et BME680.
 
 Les deux sondes DS18B20 sont sélectionnables dans

@@ -87,6 +87,11 @@ adresse IP. Les autres appareils du réseau restent soumis à l'authentification
 administrateur. La réservation est supprimée à l'expiration, à la prochaine
 activation de BOOT ou lors de l'enregistrement final.
 
+Le bus Qwiic utilise maintenant réellement la fréquence de `400 kHz` déclarée
+par le profil Waveshare. Auparavant, ses broches provenaient bien du profil,
+mais l'initialisation conservait implicitement la valeur par défaut de
+`100 kHz`.
+
 ## Compatibilité et mise à jour
 
 La configuration existante reste compatible avec la version 3.2.1. Les nouvelles
