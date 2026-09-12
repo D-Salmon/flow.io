@@ -3231,6 +3231,24 @@
           && entry.spec
           && entry.spec.key === 'address'
         ));
+        const pressureEntry = entries.find((entry) => (
+          entry.moduleName === 'poollogic/sensors'
+          && entry.spec
+          && entry.spec.key === 'psi_io_id'
+        ));
+        if (addressEntry && pressureEntry) {
+          const syncPressureAdsAddress = () => {
+            const externalAddress = Number(addressEntry.input.value) === 72 ? '0x49' : '0x48';
+            Array.from(pressureEntry.input.options).forEach((option) => {
+              if (!String(option.value).startsWith('ads1115_ext:')) return;
+              const channel = Number(String(option.value).slice(12));
+              option.textContent = 'I²C ' + externalAddress
+                + ' - ADS1115 externe, canal A' + String(channel);
+            });
+          };
+          addressEntry.input.addEventListener('change', syncPressureAdsAddress);
+          syncPressureAdsAddress();
+        }
         if (addressEntry) {
           entries.push({
             spec: { key: 'ph_io_id', label: 'Sonde pH fixe' },
