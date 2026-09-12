@@ -142,6 +142,9 @@
     }
   },
   "meta": {
+    "cfg_tree_hidden_paths": [
+      "io/drivers/ds18b20/transport"
+    ],
     "cfg_tree_aliases": [
       {
         "display": "io/input/analog/a00",

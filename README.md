@@ -15,7 +15,7 @@ ont été retirés. Le Nextion local et le TFT S3 sont conservés ; le transport
 de FlowConnectDisplay est supprimé. Les anciens documents multi-profils ci-dessous
 sont des références historiques, pas des instructions de compilation de cette branche.
 
-## État de validation 3.2.2 — 11 septembre 2026
+## État de validation 3.2.2 — 12 septembre 2026
 
 Cette version distingue les mesures pH, ORP et de température figées lorsque la
 circulation est arrêtée. Les automatismes attendent 90 secondes de mesures
@@ -198,13 +198,13 @@ ne peuvent donc pas être commandés simultanément par erreur.
 Le bus Qwiic/I²C utilise `GPIO42` pour SDA et `GPIO41` pour SCL à `400 kHz`. Il peut aussi
 accueillir les capteurs optionnels INA226, SHT40, BMP280 et BME680.
 
-Les deux sondes DS18B20 sont sélectionnables dans
-`Configuration > io > drivers > ds18b20` :
+Le raccordement commun des deux sondes DS18B20 se choisit dans
+`Piscine > Affectation des sondes` :
 
 | Mode | Température eau | Température air | Bus Qwiic restant |
 |---|---|---|---|
-| `Qwiic / DS2484` | bus 1-Wire via DS2484 `0x18` | même bus, ROM distincte | actif |
-| `GPIO direct` | GPIO20 | GPIO19 | actif pour les autres composants |
+| `I²C / Qwiic — DS2484, adresse 0x18` | bus 1-Wire via l'unique DS2484 `0x18` | même bus, ROM distincte | actif |
+| `Entrées directes Axx` | GPIO20 | GPIO19 | actif pour les autres composants |
 
 Le changement de transport DS18B20 prend effet après redémarrage.
 

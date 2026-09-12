@@ -126,6 +126,7 @@
     ]);
     const poolConfigModuleDefs = Object.freeze([
       Object.freeze({ module: 'poollogic/modes', hidden: true }),
+      Object.freeze({ module: 'io/drivers/ds18b20', hidden: true }),
       Object.freeze({ module: 'hmi/buzzer', titleKey: 'pool.card.alarmSound.title', title: 'Signal sonore', icon: 'notifications_active', noteKey: 'pool.card.alarmSound.note', note: 'Le son des alarmes peut être coupé sans masquer les alarmes affichées.' }),
       Object.freeze({ module: 'poollogic/filtration', titleKey: 'pool.card.filtration.title', title: 'Filtration', icon: 'waves', noteKey: 'pool.card.filtration.note', note: 'La plage de filtration combine contraintes horaires et température d’eau pour protéger le bassin.' }),
       Object.freeze({ module: 'poollogic/ph', titleKey: 'pool.card.ph.title', title: 'Régulation pH', icon: 'science', noteKey: 'pool.card.ph.note', note: 'Consigne, sens de dosage et fenêtre de régulation de la pompe pH.' }),
@@ -293,6 +294,16 @@
         Object.freeze({ key: 'ph_io_id', type: 'enum', label: 'Sonde pH', options: poolOptionalAnalogIoOptions, ioAssignmentGroup: 'analog' }),
         Object.freeze({ key: 'dis_io_id', type: 'enum', label: 'Sonde ORP', options: poolOptionalAnalogIoOptions, ioAssignmentGroup: 'analog' }),
         Object.freeze({ key: 'psi_io_id', type: 'enum', label: 'Sonde de pression', options: poolOptionalAnalogIoOptions, ioAssignmentGroup: 'analog' }),
+        Object.freeze({
+          key: 'transport',
+          sourceModule: 'io/drivers/ds18b20',
+          type: 'enum',
+          label: 'Raccordement des sondes de température',
+          options: Object.freeze([
+            Object.freeze({ value: 1, label: 'Entrées directes Axx — eau GPIO20, air GPIO19' }),
+            Object.freeze({ value: 0, label: 'I²C / Qwiic — DS2484, adresse 0x18' })
+          ])
+        }),
         Object.freeze({ key: 'wat_temp_io_id', type: 'enum', label: 'Température eau', options: poolOptionalAnalogIoOptions, ioAssignmentGroup: 'analog' }),
         Object.freeze({ key: 'air_temp_io_id', type: 'enum', label: 'Température air', options: poolOptionalAnalogIoOptions, ioAssignmentGroup: 'analog' }),
         Object.freeze({ key: 'pool_lvl_io_id', type: 'enum', label: 'Niveau du bassin', options: poolOptionalDigitalIoOptions, ioAssignmentGroup: 'digital' }),

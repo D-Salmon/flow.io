@@ -7512,6 +7512,7 @@ void WebInterfaceModule::startServer_()
             "poollogic/regulation",
             "poollogic/robot",
             "poollogic/sensors",
+            "io/drivers/ds18b20",
             "poollogic/devices",
             "poollogic/chlorine",
             "poollogic/swg",

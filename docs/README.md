@@ -83,10 +83,11 @@ Les sondes DS18B20 peuvent fonctionner :
 - par le pont Qwiic DS2484 à l’adresse `0x18` ;
 - directement sur GPIO20 pour l’eau et GPIO19 pour l’air.
 
-Ce choix se trouve dans
-`Configuration > io > drivers > ds18b20 > Raccordement des températures` et
-prend effet après redémarrage. Le bus Qwiic reste actif pour les autres
-composants dans les deux modes.
+Ce choix commun aux deux sondes se trouve dans
+`Piscine > Affectation des sondes > Raccordement des sondes de température` et
+prend effet après redémarrage. Le mode Qwiic utilise un seul DS2484 à l'adresse
+fixe `0x18`. Le bus Qwiic reste actif pour les autres composants dans les deux
+modes.
 
 ## Automatismes piscine
 
