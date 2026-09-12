@@ -279,8 +279,10 @@
         if (!key) return driver;
         const address = Number(i2cAddresses[key]);
         if (address !== 72 && address !== 73) return driver;
-        const role = key === 'ads1115_int' ? 'ADS1115 pH/ORP' : 'ADS1115 externe';
-        return 'I²C 0x' + address.toString(16).toUpperCase() + ' - ' + role;
+        const role = key === 'ads1115_int' ? 'ADS1115 carte pH/ORP' : 'ADS1115 externe';
+        const channel = Number(row && row.channel);
+        return 'I²C 0x' + address.toString(16).toUpperCase() + ' - ' + role
+          + (Number.isInteger(channel) && channel >= 0 && channel <= 3 ? ', canal A' + String(channel) : '');
       };
 
       if (ioSummaryCards) {
