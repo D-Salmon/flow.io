@@ -267,11 +267,21 @@
 
     function renderIoSummary(data) {
       const summary = data && typeof data.summary === 'object' ? data.summary : {};
+      const i2cAddresses = data && typeof data.i2c_addresses === 'object' ? data.i2c_addresses : {};
       const drivers = Array.isArray(data && data.drivers) ? data.drivers : [];
       const bindingPorts = Array.isArray(data && data.binding_ports) ? data.binding_ports : [];
       const ioSlots = Array.isArray(data && data.io_slots) ? data.io_slots : [];
       const domainSlots = Array.isArray(data && data.domain_slots) ? data.domain_slots : [];
       const errors = Array.isArray(data && data.error_slots) ? data.error_slots : [];
+      const driverLabel = (row) => {
+        const driver = ioSummaryText(row && row.driver, '-');
+        const key = driver === 'ADS1115 int' ? 'ads1115_int' : (driver === 'ADS1115 ext' ? 'ads1115_ext' : '');
+        if (!key) return driver;
+        const address = Number(i2cAddresses[key]);
+        if (address !== 72 && address !== 73) return driver;
+        const role = key === 'ads1115_int' ? 'ADS1115 pH/ORP' : 'ADS1115 externe';
+        return 'I²C 0x' + address.toString(16).toUpperCase() + ' - ' + role;
+      };
 
       if (ioSummaryCards) {
         ioSummaryCards.innerHTML = '';
@@ -306,7 +316,7 @@
         ioSummaryTables.appendChild(createIoCompactTable(
           tr('io.table.drivers', 'Affectations par driver'),
           [
-            { key: 'driver', label: tr('io.col.driver', 'Driver') },
+            { key: 'driver', label: tr('io.col.driver', 'Driver'), render: driverLabel },
             { key: 'active_slots', label: tr('io.col.active', 'Actifs') },
             { key: 'error_slots', label: tr('io.col.errors', 'Erreurs') }
           ],
@@ -316,7 +326,7 @@
           tr('io.table.bindingPorts', 'BindingPorts'),
           [
             { key: 'port_id', label: tr('io.col.port', 'Port') },
-            { key: 'driver', label: tr('io.col.driver', 'Driver') },
+            { key: 'driver', label: tr('io.col.driver', 'Driver'), render: driverLabel },
             { key: 'channel', label: tr('io.col.channel', 'Canal') },
             { key: 'state', label: tr('io.col.state', 'Etat'), render: (row) => createIoStateBadge(row.state) },
             { key: 'last_value', label: tr('io.col.lastValue', 'Dernière valeur') },
@@ -330,7 +340,7 @@
             { key: 'io_slot', label: tr('io.col.slot', 'Slot'), render: (row) => ioSummarySlotLabel(row) },
             { key: 'config_name', label: tr('io.col.configName', 'Nom config'), render: (row) => ioSummaryText(row.config_name, '-') },
             { key: 'kind', label: tr('io.col.kind', 'Type') },
-            { key: 'driver', label: tr('io.col.driver', 'Driver') },
+            { key: 'driver', label: tr('io.col.driver', 'Driver'), render: driverLabel },
             { key: 'state', label: tr('io.col.state', 'Etat'), render: (row) => createIoStateBadge(row.state) },
             { key: 'last_value', label: tr('io.col.lastValue', 'Dernière valeur') },
             { key: 'error', label: tr('io.col.error', 'Erreur') }

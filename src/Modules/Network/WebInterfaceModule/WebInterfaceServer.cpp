@@ -3099,11 +3099,26 @@ void wavesharePrintIoSlotJson_(AsyncResponseStream& response,
     response.print("}");
 }
 
+uint8_t waveshareLoadAdsAddress_(ConfigStore* cfgStore, const char* moduleName, uint8_t fallback)
+{
+    if (!cfgStore || !moduleName) return fallback;
+    char moduleJson[160] = {0};
+    if (!cfgStore->toJsonModule(moduleName, moduleJson, sizeof(moduleJson), nullptr, false)) return fallback;
+
+    JsonDocument doc;
+    if (deserializeJson(doc, moduleJson) || !doc.is<JsonObjectConst>()) return fallback;
+    const uint8_t address = doc.as<JsonObjectConst>()["address"] | fallback;
+    return (address == 0x48U || address == 0x49U) ? address : fallback;
+}
+
 void sendWaveshareIoSummaryResponse_(AsyncResponseStream& response,
                                      const IOServiceV2* ioSvc,
-                                     const PoolDeviceService* poolSvc)
+                                     const PoolDeviceService* poolSvc,
+                                     ConfigStore* cfgStore)
 {
     using namespace Profiles::Waveshare::IoLayout;
+    const uint8_t adsInternalAddress = waveshareLoadAdsAddress_(cfgStore, "io/drivers/ads1115_int", 0x48U);
+    const uint8_t adsExternalAddress = waveshareLoadAdsAddress_(cfgStore, "io/drivers/ads1115_ext", 0x49U);
     uint16_t bindingActive = 0U;
     uint16_t bindingError = 0U;
     uint16_t ioActive = 0U;
@@ -3140,7 +3155,11 @@ void sendWaveshareIoSummaryResponse_(AsyncResponseStream& response,
         }
     }
 
-    response.print("{\"ok\":true,\"summary\":{");
+    response.print("{\"ok\":true,\"i2c_addresses\":{\"ads1115_int\":");
+    response.print((unsigned)adsInternalAddress);
+    response.print(",\"ads1115_ext\":");
+    response.print((unsigned)adsExternalAddress);
+    response.print("},\"summary\":{");
     response.print("\"binding_ports_total\":");
     response.print((unsigned)(sizeof(kBindingPorts) / sizeof(kBindingPorts[0])));
     response.print(",\"binding_ports_active\":");
@@ -7176,7 +7195,7 @@ void WebInterfaceModule::startServer_()
         const PoolDeviceService* poolSvc = services_ ? services_->get<PoolDeviceService>(ServiceId::PoolDevice) : nullptr;
         AsyncResponseStream* response = request->beginResponseStream("application/json");
         addNoCacheHeaders_(response);
-        sendWaveshareIoSummaryResponse_(*response, ioSvc_, poolSvc);
+        sendWaveshareIoSummaryResponse_(*response, ioSvc_, poolSvc, cfgStore_);
         request->send(response);
     });
 
