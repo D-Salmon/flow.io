@@ -60,6 +60,12 @@ choix « Désactivé / non câblé » désactive sa surveillance, sans interrupt
 séparé. Les listes d'affectation masquent les entrées déjà utilisées par une
 autre sonde ou un autre contact de la même famille.
 
+Lorsqu'il est câblé, ce contact sec complète la surveillance de pression. Une
+absence de débit après le délai de validation configuré arrête la filtration et
+les équipements qui en dépendent. La surveillance apparaît dans les cartes
+**Protections générales** et **Protections** ; son délai reste masqué lorsque le
+détecteur est désactivé.
+
 La carte **Affectation des relais** masque de la même façon les relais déjà
 attribués. Elle permet maintenant d'affecter l'éclairage et présente les
 fonctions dans l'ordre suivant : pompe de filtration, désinfection, pompe pH,
@@ -82,13 +88,20 @@ Les sondes pH et ORP ne proposent plus une liste d'entrées analogiques dans
 cette carte. Elles utilisent les canaux fixes A1 et A0 de la carte pH/ORP
 obligatoire. L'interface permet seulement de choisir son adresse I²C `0x48` ou
 `0x49`; le second ADS1115 reçoit automatiquement l'autre adresse afin d'éviter
-toute collision sur le bus. Les entrées logiques pH et ORP sont ramenées à leurs
-affectations fixes lors de l'enregistrement de la carte.
+toute collision sur le bus. Les choix indiquent explicitement « ORP canal A0,
+pH canal A1 ». Les entrées logiques pH et ORP sont ramenées à leurs affectations
+fixes lors de l'enregistrement de la carte.
 
 La sonde de pression peut, elle, utiliser une entrée Axx disponible ou un canal
 A0, A1, A2 ou A3 de l'ADS1115 externe sur Qwiic. Le canal choisi est mesuré par
 rapport à la masse commune. L'ADS1115 externe conserve l'autre adresse entre
-`0x48` et `0x49`.
+`0x48` et `0x49`. La liste affiche directement cette adresse disponible et est
+actualisée lorsque l'adresse de la carte pH/ORP change.
+
+La page **Entrées/Sorties** affiche également l'adresse I²C réellement utilisée
+pour chacun des deux convertisseurs : « ADS1115 pH/ORP » et « ADS1115 externe ».
+Les noms Axx restent des identifiants logiques ; le raccordement physique est
+déterminé par l'affectation du canal correspondant.
 
 La page Rescue suit désormais un parcours unique. Après la connexion au point
 d'accès `flow.io-xxxxxx` et un appui de cinq secondes sur BOOT, elle permet de

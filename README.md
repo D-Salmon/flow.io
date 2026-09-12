@@ -153,6 +153,9 @@ Les fonctions actuellement implémentées comprennent :
 - mode hiver et protection antigel ;
 - surveillance des pressions basse et haute, désactivable lorsqu’aucun capteur
   de pression n’est installé ;
+- surveillance optionnelle du débit par contact sec, avec arrêt de la filtration
+  et des équipements dépendants lorsque le débit reste absent après le délai de
+  validation ;
 - régulation temporelle PID du pH et de la désinfection chlore/brome ;
 - électrolyseur piloté par consigne ORP ou en continu avec la filtration ;
 - dosage d’oxygène actif par volume calculé, calendrier hebdomadaire et
@@ -187,7 +190,7 @@ Le profil Waveshare affecte par défaut :
 | DI1 à DI4 | niveau pH, niveau désinfectant, niveau piscine, compteur d’eau |
 | DI5 à DI8 | libres ou retours de contacteurs configurables |
 | ADS1115 pH/ORP `0x48` ou `0x49` | ORP sur A0 et pH sur A1 |
-| Second ADS1115, autre adresse | pression et réserve analogique |
+| Second ADS1115, autre adresse | pression sur un canal A0 à A3 au choix |
 | RTC PCF85063 | horloge locale et planification |
 
 Sur Waveshare, le relais 3 (`EXIO3`) est l’unique sortie de désinfection : il
@@ -205,7 +208,16 @@ automatiquement l'autre adresse.
 
 La pression peut être affectée à une entrée Axx disponible ou à l'un des quatre
 canaux A0 à A3 de l'ADS1115 externe sur Qwiic. Chaque canal est lu séparément
-par rapport à la masse commune.
+par rapport à la masse commune. L'interface affiche uniquement l'adresse I²C
+libre, `0x48` ou `0x49`, selon l'adresse retenue pour la carte pH/ORP. La page
+`Entrées/Sorties` rappelle les adresses réellement attribuées aux deux ADS1115.
+
+Les désignations Axx sont des identifiants d'entrées analogiques logiques. Dans
+la configuration Piscine actuelle, l'ORP et le pH occupent A0 et A1 de leur
+carte ADS1115, la pression peut utiliser un canal du second ADS1115, et les
+températures DS18B20 passent par un GPIO direct ou par le pont DS2484. Les
+contacts de niveau, le détecteur de débit et les retours de contacteurs restent
+des entrées numériques.
 
 Le raccordement des deux sondes DS18B20 se choisit séparément dans
 `Piscine > Affectation des sondes` :
@@ -228,6 +240,7 @@ Le moteur d’alarmes gère notamment :
 - temps de marche maximal des pompes doseuses ;
 - niveau d’eau bas ;
 - incohérence des retours de contacteurs de filtration ou d’électrolyseur ;
+- absence de débit après démarrage lorsque le détecteur est configuré ;
 - température d’eau indisponible ;
 - avertissements et erreurs internes ;
 - échecs répétés de signature OTA.
