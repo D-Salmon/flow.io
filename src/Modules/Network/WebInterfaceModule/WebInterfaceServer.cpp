@@ -3134,14 +3134,22 @@ void sendWaveshareIoSummaryResponse_(AsyncResponseStream& response,
     const uint8_t airTemperatureTransport = waveshareLoadDs18Transport_(cfgStore, "air_transport");
     uint16_t bindingActive = 0U;
     uint16_t bindingError = 0U;
+    uint16_t ioTotal = 0U;
     uint16_t ioActive = 0U;
     uint16_t ioError = 0U;
+    uint16_t domainTotal = 0U;
     uint16_t domainActive = 0U;
     uint16_t domainError = 0U;
     uint8_t driverActive[11] = {0};
     uint8_t driverError[11] = {0};
 
     for (const DomainIoSlotBinding& binding : PoolDomain::kDomainIoSlots) {
+        // The historical chlorine-generator slot is deliberately left unbound:
+        // disinfection now uses the single configurable relay. Keep it out of
+        // diagnostics so it is not mistaken for the free physical EXIO6 port.
+        if (binding.domainSlot == PoolIds::ActuatorChlorineGenerator) continue;
+        ++ioTotal;
+        ++domainTotal;
         const WaveshareIoSummaryState state = waveshareIoSummaryStateForSlot_(ioSvc, poolSvc, binding.ioSlot, binding.domainSlot);
         if (state.active) {
             ++ioActive;
@@ -3184,13 +3192,13 @@ void sendWaveshareIoSummaryResponse_(AsyncResponseStream& response,
     response.print(",\"binding_ports_error\":");
     response.print((unsigned)bindingError);
     response.print(",\"io_slots_total\":");
-    response.print((unsigned)(sizeof(PoolDomain::kDomainIoSlots) / sizeof(PoolDomain::kDomainIoSlots[0])));
+    response.print((unsigned)ioTotal);
     response.print(",\"io_slots_active\":");
     response.print((unsigned)ioActive);
     response.print(",\"io_slots_error\":");
     response.print((unsigned)ioError);
     response.print(",\"domain_slots_total\":");
-    response.print((unsigned)(sizeof(PoolDomain::kDomainSlots) / sizeof(PoolDomain::kDomainSlots[0])));
+    response.print((unsigned)domainTotal);
     response.print(",\"domain_slots_active\":");
     response.print((unsigned)domainActive);
     response.print(",\"domain_slots_error\":");
@@ -3254,6 +3262,7 @@ void sendWaveshareIoSummaryResponse_(AsyncResponseStream& response,
     response.print("],\"io_slots\":[");
     first = true;
     for (const DomainIoSlotBinding& binding : PoolDomain::kDomainIoSlots) {
+        if (binding.domainSlot == PoolIds::ActuatorChlorineGenerator) continue;
         if (!first) response.print(',');
         wavesharePrintIoSlotJson_(response,
                                   ioSvc,
@@ -3267,6 +3276,7 @@ void sendWaveshareIoSummaryResponse_(AsyncResponseStream& response,
     response.print("],\"domain_slots\":[");
     first = true;
     for (const DomainSlotPreset& preset : PoolDomain::kDomainSlots) {
+        if (preset.id == PoolIds::ActuatorChlorineGenerator) continue;
         const DomainIoSlotBinding* binding = waveshareFindDomainBinding_(preset.id);
         if (!first) response.print(',');
         const IoSlotId ioSlot = binding ? binding->ioSlot : IO_SLOT_INVALID;
@@ -3303,6 +3313,7 @@ void sendWaveshareIoSummaryResponse_(AsyncResponseStream& response,
     response.print("],\"error_slots\":[");
     first = true;
     for (const DomainSlotPreset& preset : PoolDomain::kDomainSlots) {
+        if (preset.id == PoolIds::ActuatorChlorineGenerator) continue;
         const DomainIoSlotBinding* binding = waveshareFindDomainBinding_(preset.id);
         const IoSlotId ioSlot = binding ? binding->ioSlot : IO_SLOT_INVALID;
         const WaveshareIoSummaryState state = waveshareIoSummaryStateForSlot_(ioSvc, poolSvc, ioSlot, preset.id);

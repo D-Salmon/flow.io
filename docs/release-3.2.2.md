@@ -108,6 +108,11 @@ pour chacun des deux convertisseurs : « ADS1115 pH/ORP » et « ADS1115 externe
 Les noms Axx restent des identifiants logiques ; le raccordement physique est
 déterminé par l'affectation du canal correspondant.
 
+Les ports physiques de cette page portent maintenant leur désignation `DIx` ou
+`EXIOx`. L'ancien slot logique non raccordé `io_chl_gen` n'est plus affiché ni
+compté : la désinfection passe uniquement par son relais configurable et
+`EXIO6` reste disponible.
+
 Pour les températures, ce diagnostic distingue maintenant une DS18B20 directe
 sur GPIO20 (eau) ou GPIO19 (air) d'une DS18B20 raccordée au pont DS2484 à
 l'adresse I²C `0x18`.

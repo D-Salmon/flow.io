@@ -273,6 +273,7 @@
       const bindingPorts = Array.isArray(data && data.binding_ports) ? data.binding_ports : [];
       const ioSlots = Array.isArray(data && data.io_slots) ? data.io_slots : [];
       const domainSlots = Array.isArray(data && data.domain_slots) ? data.domain_slots : [];
+      const visibleIoSlots = ioSlots.filter((row) => row && row.config_name !== 'io_chl_gen');
       const visibleDomainSlots = domainSlots.filter((row) => row && row.endpoint_id !== 'io_chl_gen');
       const errors = Array.isArray(data && data.error_slots) ? data.error_slots : [];
       const configuredNameLabel = (row, key) => {
@@ -285,6 +286,12 @@
           ? tr('pool.relay.disinfection', 'Désinfection')
           : ioSummaryText(row && row.display_name, '-')
       );
+      const bindingPortLabel = (row) => {
+        const port = Number(row && row.port_id);
+        if (port >= 200 && port <= 207) return 'DI' + String(port - 199);
+        if (port >= 300 && port <= 307) return 'EXIO' + String(port - 299);
+        return ioSummaryText(row && row.port_id, '-');
+      };
       const driverLabel = (row) => {
         const driver = ioSummaryText(row && row.driver, '-');
         if (driver === 'DS18B20') {
@@ -353,7 +360,7 @@
         ioSummaryTables.appendChild(createIoCompactTable(
           tr('io.table.bindingPorts', 'BindingPorts'),
           [
-            { key: 'port_id', label: tr('io.col.port', 'Port') },
+            { key: 'port_id', label: tr('io.col.port', 'Port'), render: bindingPortLabel },
             { key: 'driver', label: tr('io.col.driver', 'Driver'), render: driverLabel },
             { key: 'channel', label: tr('io.col.channel', 'Canal') },
             { key: 'state', label: tr('io.col.state', 'Etat'), render: (row) => createIoStateBadge(row.state) },
@@ -373,7 +380,7 @@
             { key: 'last_value', label: tr('io.col.lastValue', 'Dernière valeur') },
             { key: 'error', label: tr('io.col.error', 'Erreur') }
           ],
-          ioSlots
+          visibleIoSlots
         ));
         ioSummaryTables.appendChild(createIoCompactTable(
           tr('io.table.domainSlots', 'DomainSlots'),
