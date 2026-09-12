@@ -129,7 +129,10 @@
       Object.freeze({ module: 'io/drivers/ds18b20', hidden: true }),
       Object.freeze({ module: 'io/drivers/ads1115_int', hidden: true }),
       Object.freeze({ module: 'io/drivers/ads1115_ext', hidden: true }),
-      Object.freeze({ module: 'io/input/a02', hidden: true }),
+      ...Array.from({ length: 16 }, (_, index) => Object.freeze({
+        module: 'io/input/a' + String(index).padStart(2, '0'),
+        hidden: true
+      })),
       Object.freeze({ module: 'hmi/buzzer', titleKey: 'pool.card.alarmSound.title', title: 'Signal sonore', icon: 'notifications_active', noteKey: 'pool.card.alarmSound.note', note: 'Le son des alarmes peut être coupé sans masquer les alarmes affichées.' }),
       Object.freeze({ module: 'poollogic/filtration', titleKey: 'pool.card.filtration.title', title: 'Filtration', icon: 'waves', noteKey: 'pool.card.filtration.note', note: 'La plage de filtration combine contraintes horaires et température d’eau pour protéger le bassin.' }),
       Object.freeze({ module: 'poollogic/ph', titleKey: 'pool.card.ph.title', title: 'Régulation pH', icon: 'science', noteKey: 'pool.card.ph.note', note: 'Consigne, sens de dosage et fenêtre de régulation de la pompe pH.' }),
@@ -196,6 +199,14 @@
     const poolOptionalAnalogIoOptions = Object.freeze([
       Object.freeze({ value: 65535, label: 'Désactivé / non câblé' }),
       ...poolAnalogIoOptions
+    ]);
+    const poolTemperatureIoOptions = (gpio) => Object.freeze([
+      Object.freeze({ value: 65535, label: 'Désactivé / non câblé' }),
+      Object.freeze({ value: 'ds2484', label: 'I²C / Qwiic — DS2484, adresse 0x18' }),
+      ...poolAnalogIoOptions.map((entry) => Object.freeze({
+        value: 'direct:' + String(entry.value),
+        label: entry.label + ' — raccordement direct GPIO' + String(gpio)
+      }))
     ]);
     const poolDigitalIoOptions = Object.freeze(Array.from({ length: 16 }, (_, index) => (
       Object.freeze({ value: 64 + index, label: 'Entrée numérique D' + String(index + 1).padStart(2, '0') })
@@ -311,31 +322,66 @@
           label: 'Sonde de pression',
           options: Object.freeze([
             ...poolOptionalAnalogIoOptions,
-            Object.freeze({ value: 'ads1115_ext', label: 'I²C / Qwiic — second ADS1115, paire A0–A1' })
+            Object.freeze({ value: 'ads1115_ext:0', label: 'I²C / Qwiic — ADS1115 externe, canal A0' }),
+            Object.freeze({ value: 'ads1115_ext:1', label: 'I²C / Qwiic — ADS1115 externe, canal A1' }),
+            Object.freeze({ value: 'ads1115_ext:2', label: 'I²C / Qwiic — ADS1115 externe, canal A2' }),
+            Object.freeze({ value: 'ads1115_ext:3', label: 'I²C / Qwiic — ADS1115 externe, canal A3' })
           ]),
           ioAssignmentGroup: 'analog',
-          assignmentValue: (value) => String(value) === 'ads1115_ext' ? 194 : value,
-          initialValue: (fieldData, modules) => (
-            Number(fieldData.psi_io_id) === 194
-            && Number((modules['io/input/a02'] || {}).binding_port) === 110
-              ? 'ads1115_ext'
-              : fieldData.psi_io_id
-          ),
-          read: (value) => String(value) === 'ads1115_ext' ? 194 : Number(value),
+          assignmentValue: (value) => String(value).startsWith('ads1115_ext:') ? 194 : value,
+          initialValue: (fieldData, modules) => {
+            const bindingPort = Number((modules['io/input/a02'] || {}).binding_port);
+            return Number(fieldData.psi_io_id) === 194 && bindingPort >= 110 && bindingPort <= 113
+              ? 'ads1115_ext:' + String(bindingPort - 110)
+              : fieldData.psi_io_id;
+          },
+          read: (value) => String(value).startsWith('ads1115_ext:') ? 194 : Number(value),
           pressureBindingModule: 'io/input/a02'
         }),
         Object.freeze({
-          key: 'transport',
-          sourceModule: 'io/drivers/ds18b20',
+          key: 'wat_temp_io_id',
           type: 'enum',
-          label: 'Raccordement des sondes de température',
-          options: Object.freeze([
-            Object.freeze({ value: 1, label: 'Entrées directes Axx — eau GPIO20, air GPIO19' }),
-            Object.freeze({ value: 0, label: 'I²C / Qwiic — DS2484, adresse 0x18' })
-          ])
+          label: 'Température eau',
+          options: poolTemperatureIoOptions(20),
+          ioAssignmentGroup: 'analog',
+          assignmentValue: (value) => {
+            if (String(value) === 'ds2484') return 196;
+            if (String(value).startsWith('direct:')) return Number(String(value).slice(7));
+            return Number(value);
+          },
+          initialValue: (fieldData, modules) => {
+            const ioId = Number(fieldData.wat_temp_io_id);
+            if (ioId === 65535) return 65535;
+            const transport = Number((modules['io/drivers/ds18b20'] || {}).water_transport);
+            return transport === 0 ? 'ds2484' : 'direct:' + String(ioId);
+          },
+          read: (value) => String(value) === 'ds2484' ? 196 : (
+            String(value).startsWith('direct:') ? Number(String(value).slice(7)) : 65535
+          ),
+          temperatureTransportKey: 'water_transport'
         }),
-        Object.freeze({ key: 'wat_temp_io_id', type: 'enum', label: 'Température eau', options: poolOptionalAnalogIoOptions, ioAssignmentGroup: 'analog' }),
-        Object.freeze({ key: 'air_temp_io_id', type: 'enum', label: 'Température air', options: poolOptionalAnalogIoOptions, ioAssignmentGroup: 'analog' }),
+        Object.freeze({
+          key: 'air_temp_io_id',
+          type: 'enum',
+          label: 'Température air',
+          options: poolTemperatureIoOptions(19),
+          ioAssignmentGroup: 'analog',
+          assignmentValue: (value) => {
+            if (String(value) === 'ds2484') return 197;
+            if (String(value).startsWith('direct:')) return Number(String(value).slice(7));
+            return Number(value);
+          },
+          initialValue: (fieldData, modules) => {
+            const ioId = Number(fieldData.air_temp_io_id);
+            if (ioId === 65535) return 65535;
+            const transport = Number((modules['io/drivers/ds18b20'] || {}).air_transport);
+            return transport === 0 ? 'ds2484' : 'direct:' + String(ioId);
+          },
+          read: (value) => String(value) === 'ds2484' ? 197 : (
+            String(value).startsWith('direct:') ? Number(String(value).slice(7)) : 65535
+          ),
+          temperatureTransportKey: 'air_transport'
+        }),
         Object.freeze({ key: 'pool_lvl_io_id', type: 'enum', label: 'Niveau du bassin', options: poolOptionalDigitalIoOptions, ioAssignmentGroup: 'digital' }),
         Object.freeze({ key: 'ph_lvl_io_id', type: 'enum', label: 'Niveau produit pH', options: poolOptionalDigitalIoOptions, ioAssignmentGroup: 'digital' }),
         Object.freeze({ key: 'chl_lvl_io_id', type: 'enum', label: 'Niveau désinfectant', options: poolOptionalDigitalIoOptions, ioAssignmentGroup: 'digital' }),
@@ -3045,6 +3091,22 @@
             ? () => spec.read(control.value, fieldData, poolConfigModulesCache)
             : undefined
         });
+        if (spec.temperatureTransportKey) {
+          const transportData = poolConfigModulesCache['io/drivers/ds18b20'] || {};
+          if (Object.prototype.hasOwnProperty.call(transportData, spec.temperatureTransportKey)) {
+            entries.push({
+              spec: { key: spec.temperatureTransportKey, label: spec.label + ' — raccordement' },
+              input: control,
+              moduleName: 'io/drivers/ds18b20',
+              data: transportData,
+              read: () => {
+                if (String(control.value) === 'ds2484') return 0;
+                if (String(control.value).startsWith('direct:')) return 1;
+                return Number(transportData[spec.temperatureTransportKey]) === 1 ? 1 : 0;
+              }
+            });
+          }
+        }
         if (spec.pressureBindingModule) {
           const bindingData = poolConfigModulesCache[spec.pressureBindingModule] || {};
           if (Object.prototype.hasOwnProperty.call(bindingData, 'binding_port')) {
@@ -3054,7 +3116,12 @@
               moduleName: spec.pressureBindingModule,
               data: bindingData,
               read: () => {
-                if (String(control.value) === 'ads1115_ext') return 110;
+                if (String(control.value).startsWith('ads1115_ext:')) {
+                  const channel = Number(String(control.value).slice(12));
+                  return Number.isInteger(channel) && channel >= 0 && channel <= 3
+                    ? 110 + channel
+                    : 110;
+                }
                 if (Number(control.value) === 194) return 102;
                 return Number(bindingData.binding_port);
               }
@@ -3084,6 +3151,34 @@
           });
         }
       });
+      if (moduleName === 'poollogic/sensors') {
+        const waterEntry = entries.find((entry) => entry.spec && entry.spec.key === 'wat_temp_io_id');
+        const airEntry = entries.find((entry) => entry.spec && entry.spec.key === 'air_temp_io_id');
+        if (waterEntry && airEntry) {
+          const oldWaterIoId = Number(data.wat_temp_io_id);
+          const oldAirIoId = Number(data.air_temp_io_id);
+          Array.from({ length: 16 }, (_, index) => index).forEach((index) => {
+            const ioId = 192 + index;
+            const bindingModule = 'io/input/a' + String(index).padStart(2, '0');
+            const bindingData = poolConfigModulesCache[bindingModule] || {};
+            if (!Object.prototype.hasOwnProperty.call(bindingData, 'binding_port')) return;
+            entries.push({
+              spec: { key: 'binding_port', label: 'Raccordement physique des températures' },
+              input: waterEntry.input,
+              moduleName: bindingModule,
+              data: bindingData,
+              read: () => {
+                const waterIoId = Number(waterEntry.spec.assignmentValue(waterEntry.input.value));
+                const airIoId = Number(airEntry.spec.assignmentValue(airEntry.input.value));
+                if (waterIoId !== 65535 && ioId === waterIoId) return 120;
+                if (airIoId !== 65535 && ioId === airIoId) return 121;
+                if (ioId === oldWaterIoId || ioId === oldAirIoId) return 65535;
+                return Number(bindingData.binding_port);
+              }
+            });
+          });
+        }
+      }
       const ioAssignmentEntries = entries.filter((entry) => (
         entry.spec
         && entry.spec.ioAssignmentGroup

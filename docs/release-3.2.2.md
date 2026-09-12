@@ -71,10 +71,12 @@ uniquement avec un traitement liquide par pompe (chlore/brome ou oxygène actif)
 elle est masquée avec l'électrolyse et lorsque le traitement est désactivé.
 
 Le raccordement des deux sondes de température se choisit maintenant dans
-**Piscine > Affectation des sondes**. Un seul réglage sélectionne soit les
-entrées directes Axx (eau sur GPIO20 et air sur GPIO19), soit le bus Qwiic par
-un unique pont DS2484 à l'adresse I²C fixe `0x18`. Ce réglage, qui nécessite un
-redémarrage, n'est plus proposé dans l'arborescence technique Configuration.
+**Piscine > Affectation des sondes**. L'eau et l'air disposent chacun de leur
+propre réglage : une entrée Axx disponible reliée à GPIO20 pour l'eau ou GPIO19
+pour l'air, le bus Qwiic par un pont DS2484 à l'adresse I²C fixe `0x18`, ou
+`Désactivé / non câblé`. Les raccordements peuvent être combinés. Un changement
+de raccordement nécessite un redémarrage et ces réglages ne sont plus proposés
+dans l'arborescence technique Configuration.
 
 Les sondes pH et ORP ne proposent plus une liste d'entrées analogiques dans
 cette carte. Elles utilisent les canaux fixes A1 et A0 de la carte pH/ORP
@@ -83,10 +85,10 @@ obligatoire. L'interface permet seulement de choisir son adresse I²C `0x48` ou
 toute collision sur le bus. Les entrées logiques pH et ORP sont ramenées à leurs
 affectations fixes lors de l'enregistrement de la carte.
 
-La sonde de pression peut, elle, utiliser une entrée analogique Axx disponible
-ou le second ADS1115 sur Qwiic. Le choix I²C affecte automatiquement la pression
-à la paire différentielle A0–A1 de ce convertisseur et conserve l'autre adresse
-entre `0x48` et `0x49`.
+La sonde de pression peut, elle, utiliser une entrée Axx disponible ou un canal
+A0, A1, A2 ou A3 de l'ADS1115 externe sur Qwiic. Le canal choisi est mesuré par
+rapport à la masse commune. L'ADS1115 externe conserve l'autre adresse entre
+`0x48` et `0x49`.
 
 La page Rescue suit désormais un parcours unique. Après la connexion au point
 d'accès `flow.io-xxxxxx` et un appui de cinq secondes sur BOOT, elle permet de

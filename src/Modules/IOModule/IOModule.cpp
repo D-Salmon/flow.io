@@ -2528,26 +2528,27 @@ bool IOModule::configureRuntime_()
     if (runtimeReady_) return true;
     if (!cfgData_.enabled) return false;
 
+    bool waterUsesDs2484 = useDs2484_;
+    bool airUsesDs2484 = useDs2484_;
     if (selectableTemperatureBuses_) {
-        if (cfgData_.ds18Transport == 1U) {
-            useDs2484_ = false;
-            oneWireWater_ = directOneWireWater_;
-            oneWireAir_ = directOneWireAir_;
-            oneWireWaterIndex_ = 0U;
-            oneWireAirIndex_ = 0U;
-            LOGI("DS18B20 transport: direct GPIO (water=%d air=%d)",
-                 oneWireWater_ ? oneWireWater_->pin() : -1,
-                 oneWireAir_ ? oneWireAir_->pin() : -1);
-        } else {
-            if (cfgData_.ds18Transport != 0U) {
-                LOGW("Invalid DS18B20 transport=%u, using Qwiic DS2484", (unsigned)cfgData_.ds18Transport);
-                cfgData_.ds18Transport = 0U;
-            }
-            useDs2484_ = true;
+        waterUsesDs2484 = cfgData_.ds18WaterTransport == 0U;
+        airUsesDs2484 = cfgData_.ds18AirTransport == 0U;
+        useDs2484_ = waterUsesDs2484 || airUsesDs2484;
+
+        if (waterUsesDs2484) {
             oneWireWater_ = nullptr;
-            oneWireAir_ = nullptr;
-            LOGI("DS18B20 transport: Qwiic DS2484 (0x%02X)", ds2484Address_);
+        } else {
+            oneWireWater_ = directOneWireWater_;
+            oneWireWaterIndex_ = 0U;
         }
+        if (airUsesDs2484) {
+            oneWireAir_ = nullptr;
+        } else {
+            oneWireAir_ = directOneWireAir_;
+            oneWireAirIndex_ = 0U;
+        }
+        LOGI("DS18B20 water transport: %s", waterUsesDs2484 ? "Qwiic DS2484 0x18" : "direct GPIO20");
+        LOGI("DS18B20 air transport: %s", airUsesDs2484 ? "Qwiic DS2484 0x18" : "direct GPIO19");
     }
 
     bool needAnalogSource[IO_SRC_COUNT] = {false};
@@ -2633,8 +2634,8 @@ bool IOModule::configureRuntime_()
     }
 
     const bool needDs2484 =
-        useDs2484_ &&
-        (needAnalogSource[IO_SRC_DS18_WATER] || needAnalogSource[IO_SRC_DS18_AIR]);
+        (waterUsesDs2484 && needAnalogSource[IO_SRC_DS18_WATER]) ||
+        (airUsesDs2484 && needAnalogSource[IO_SRC_DS18_AIR]);
     const bool needI2c =
         needDs2484 ||
         needAnalogSource[IO_SRC_ADS_INTERNAL_SINGLE] ||
@@ -2670,8 +2671,15 @@ bool IOModule::configureRuntime_()
                  ds2484Address_,
                  ds2484Present ? "found" : "not found");
             ds2484Bus_.configure(&i2cBus_, ds2484Address_);
-            oneWireWater_ = &ds2484Bus_;
-            oneWireAir_ = &ds2484Bus_;
+            if (waterUsesDs2484) {
+                oneWireWater_ = &ds2484Bus_;
+                oneWireWaterIndex_ = 0U;
+            }
+            if (airUsesDs2484) {
+                oneWireAir_ = &ds2484Bus_;
+                // In a mixed setup, air can be the only sensor on the DS2484 bus.
+                oneWireAirIndex_ = (waterUsesDs2484 && needAnalogSource[IO_SRC_DS18_WATER]) ? 1U : 0U;
+            }
         }
     }
 
@@ -2946,7 +2954,7 @@ bool IOModule::configureRuntime_()
 
     Ads1115DriverConfig adsExternalCfg = adsInternalCfg;
     adsExternalCfg.address = cfgData_.adsExternalAddr;
-    adsExternalCfg.differentialPairs = true;
+    adsExternalCfg.differentialPairs = false;
 
     if (needAnalogSource[IO_SRC_SHT40] || cfgData_.sht40Enabled) {
         const bool present = i2cBus_.probe(cfgData_.sht40Address);
@@ -3463,6 +3471,8 @@ void IOModule::init(ConfigStore& cfg, ServiceRegistry& services)
     cfg.registerVar(dsPollVar_, kCfgModuleId, kCfgBranchIoDs18b20);
     if (selectableTemperatureBuses_) {
         cfg.registerVar(dsTransportVar_, kCfgModuleId, kCfgBranchIoDs18b20);
+        cfg.registerVar(dsWaterTransportVar_, kCfgModuleId, kCfgBranchIoDs18b20);
+        cfg.registerVar(dsAirTransportVar_, kCfgModuleId, kCfgBranchIoDs18b20);
     }
     cfg.registerVar(digitalPollVar_, kCfgModuleId, kCfgBranchIoGpio);
     cfg.registerVar(adsInternalAddrVar_, kCfgModuleId, kCfgBranchIoAdsInt);
@@ -3546,6 +3556,11 @@ void IOModule::onConfigLoaded(ConfigStore& cfg, ServiceRegistry& services)
 {
     cfgStore_ = &cfg;
     cfgSvc_ = services.get<ConfigStoreService>(ServiceId::ConfigStore);
+    if (selectableTemperatureBuses_) {
+        const uint8_t legacyTransport = cfgData_.ds18Transport == 1U ? 1U : 0U;
+        if (cfgData_.ds18WaterTransport > 1U) cfgData_.ds18WaterTransport = legacyTransport;
+        if (cfgData_.ds18AirTransport > 1U) cfgData_.ds18AirTransport = legacyTransport;
+    }
     for (uint8_t i = 0; i < ANALOG_CFG_SLOTS; ++i) {
         analogCfg_[i].bindingPort = normalizeConfiguredBindingPort(analogCfg_[i].bindingPort);
     }

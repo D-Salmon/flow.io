@@ -21,6 +21,8 @@ struct IOModuleConfig {
     int32_t adsPollMs = FLOW_MODDEF_IO_ADS;
     int32_t dsPollMs = FLOW_MODDEF_IO_DS;
     uint8_t ds18Transport = 0;
+    uint8_t ds18WaterTransport = 0xFF;
+    uint8_t ds18AirTransport = 0xFF;
     int32_t digitalPollMs = FLOW_MODDEF_IO_DIN;
     uint8_t adsInternalAddr = FLOW_WIRDEF_IO_AIAD;
     uint8_t adsExternalAddr = FLOW_WIRDEF_IO_AEAD;

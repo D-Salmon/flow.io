@@ -78,23 +78,21 @@ Le câblage fonctionnel courant utilise notamment :
 - [Description du domaine piscine](integration/flowio-poollogic-business.md).
 - [Adaptation du domaine](integration/adaptation-domaine.md).
 
-Les sondes DS18B20 peuvent fonctionner :
-
-- par le pont Qwiic DS2484 à l’adresse `0x18` ;
-- directement sur GPIO20 pour l’eau et GPIO19 pour l’air.
-
-Ce choix commun aux deux sondes se trouve dans
-`Piscine > Affectation des sondes > Raccordement des sondes de température` et
-prend effet après redémarrage. Le mode Qwiic utilise un seul DS2484 à l'adresse
-fixe `0x18`. Le bus Qwiic reste actif pour les autres composants dans les deux
-modes.
+Le raccordement de chaque sonde DS18B20 se choisit séparément dans
+`Piscine > Affectation des sondes`. La température d'eau peut utiliser une
+entrée Axx disponible reliée physiquement à GPIO20 ou le pont Qwiic DS2484 à
+l'adresse `0x18`. La température d'air offre le même choix, avec GPIO19 pour le
+raccordement direct. Les deux choix peuvent être combinés et prennent effet
+après redémarrage. Un seul DS2484 à l'adresse fixe `0x18` dessert les sondes qui
+l'utilisent ; le bus Qwiic reste disponible pour les autres composants.
 
 La carte pH/ORP obligatoire utilise des canaux fixes : ORP sur A0 et pH sur A1.
 Dans **Piscine > Affectation des sondes**, on choisit uniquement son adresse
 I²C `0x48` ou `0x49`; le second ADS1115 prend automatiquement l'autre adresse.
 
-La pression se raccorde soit à une entrée analogique Axx disponible, soit à la
-paire différentielle A0–A1 du second ADS1115 sur Qwiic.
+La pression se raccorde soit à une entrée Axx disponible, soit à un canal A0,
+A1, A2 ou A3 de l'ADS1115 externe sur Qwiic. Le canal choisi est mesuré par
+rapport à la masse commune.
 
 ## Automatismes piscine
 

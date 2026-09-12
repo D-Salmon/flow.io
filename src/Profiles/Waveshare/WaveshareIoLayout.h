@@ -13,8 +13,10 @@ enum : PhysicalPortId {
     PortAdsInternal1 = 101, // ADS1115 interne, entree single-ended A1.
     PortAdsInternal2 = 102, // ADS1115 interne, entree single-ended A2.
     PortAdsInternal3 = 103, // ADS1115 interne, entree single-ended A3.
-    PortAdsExternal0 = 110, // ADS1115 externe, paire differentielle 0.
-    PortAdsExternal1 = 111, // ADS1115 externe, paire differentielle 1.
+    PortAdsExternal0 = 110, // ADS1115 externe, entree single-ended A0.
+    PortAdsExternal1 = 111, // ADS1115 externe, entree single-ended A1.
+    PortAdsExternal2 = 112, // ADS1115 externe, entree single-ended A2.
+    PortAdsExternal3 = 113, // ADS1115 externe, entree single-ended A3.
     PortOneWire1 = 120, // First DS18B20 discovered through the Qwiic DS2484.
     PortOneWire2 = 121, // Second DS18B20 discovered through the Qwiic DS2484.
     PortSht40Temp = 130, // SHT40: temperature.
@@ -70,8 +72,8 @@ inline constexpr IOBindingPortSpec kBindingPorts[] = {
     {PortAdsInternal1, IO_PORT_KIND_ADS_INTERNAL_SINGLE, 1, 0}, // ADS1115 interne canal 1.
     {PortAdsInternal2, IO_PORT_KIND_ADS_INTERNAL_SINGLE, 2, 0}, // ADS1115 interne canal 2.
     {PortAdsInternal3, IO_PORT_KIND_ADS_INTERNAL_SINGLE, 3, 0}, // ADS1115 interne canal 3.
-    {PortAdsExternal0, IO_PORT_KIND_ADS_EXTERNAL_DIFF, 0, 0}, // ADS1115 externe paire 0.
-    {PortAdsExternal1, IO_PORT_KIND_ADS_EXTERNAL_DIFF, 1, 0}, // ADS1115 externe paire 1.
+    {PortAdsExternal0, IO_PORT_KIND_ADS_EXTERNAL_DIFF, 0, 0}, // ADS1115 externe canal A0.
+    {PortAdsExternal1, IO_PORT_KIND_ADS_EXTERNAL_DIFF, 1, 0}, // ADS1115 externe canal A1.
     {PortOneWire1, IO_PORT_KIND_DS18_WATER, 0, 0}, // DS2484 ROM index 0: water probe.
     {PortOneWire2, IO_PORT_KIND_DS18_AIR, 1, 0}, // DS2484 ROM index 1: air probe.
     {PortSht40Temp, IO_PORT_KIND_SHT40, 0, 0}, // SHT40 temperature.
@@ -130,6 +132,8 @@ inline constexpr IOBindingPortSpec kBindingPorts[] = {
     {PortMcpOut14, IO_PORT_KIND_MCP23017_OUTPUT, 13, 0}, // MCP23017 bit 13.
     {PortMcpOut15, IO_PORT_KIND_MCP23017_OUTPUT, 14, 0}, // MCP23017 bit 14.
     {PortMcpOut16, IO_PORT_KIND_MCP23017_OUTPUT, 15, 0}, // MCP23017 bit 15.
+    {PortAdsExternal2, IO_PORT_KIND_ADS_EXTERNAL_DIFF, 2, 0}, // ADS1115 externe canal A2.
+    {PortAdsExternal3, IO_PORT_KIND_ADS_EXTERNAL_DIFF, 3, 0}, // ADS1115 externe canal A3.
 };
 
 constexpr PhysicalPortId analogPortFromLegacy(uint8_t source, uint8_t channel)
@@ -141,7 +145,10 @@ constexpr PhysicalPortId analogPortFromLegacy(uint8_t source, uint8_t channel)
                    (channel == 2U) ? PortAdsInternal2 :
                                      PortAdsInternal3;
         case IO_SRC_ADS_EXTERNAL_DIFF:
-            return (channel == 0U) ? PortAdsExternal0 : PortAdsExternal1;
+            return (channel == 0U) ? PortAdsExternal0 :
+                   (channel == 1U) ? PortAdsExternal1 :
+                   (channel == 2U) ? PortAdsExternal2 :
+                                     PortAdsExternal3;
         case IO_SRC_DS18_WATER:
             return PortOneWire1;
         case IO_SRC_DS18_AIR:

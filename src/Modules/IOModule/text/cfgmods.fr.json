@@ -29,6 +29,12 @@
     "io/drivers/ds18b20/transport": {
       "enum_set": "ds18b20_transport"
     },
+    "io/drivers/ds18b20/water_transport": {
+      "enum_set": "ds18b20_transport"
+    },
+    "io/drivers/ds18b20/air_transport": {
+      "enum_set": "ds18b20_transport"
+    },
     "io/input": {
       "label_t": "cfgmods.io.input.label"
     },
@@ -144,9 +150,26 @@
   "meta": {
     "cfg_tree_hidden_paths": [
       "io/drivers/ds18b20/transport",
+      "io/drivers/ds18b20/water_transport",
+      "io/drivers/ds18b20/air_transport",
       "io/drivers/ads1115_int/address",
       "io/drivers/ads1115_ext/address",
-      "io/input/a02/binding_port"
+      "io/input/a00/binding_port",
+      "io/input/a01/binding_port",
+      "io/input/a02/binding_port",
+      "io/input/a03/binding_port",
+      "io/input/a04/binding_port",
+      "io/input/a05/binding_port",
+      "io/input/a06/binding_port",
+      "io/input/a07/binding_port",
+      "io/input/a08/binding_port",
+      "io/input/a09/binding_port",
+      "io/input/a10/binding_port",
+      "io/input/a11/binding_port",
+      "io/input/a12/binding_port",
+      "io/input/a13/binding_port",
+      "io/input/a14/binding_port",
+      "io/input/a15/binding_port"
     ],
     "cfg_tree_aliases": [
       {
@@ -514,6 +537,14 @@
         {
           "value": 142,
           "label_t": "cfgmods_meta.iomodule.enum_sets.flowio_binding_port_analog.21.label"
+        },
+        {
+          "value": 112,
+          "label_t": "cfgmods_meta.iomodule.enum_sets.flowio_binding_port_analog.22.label"
+        },
+        {
+          "value": 113,
+          "label_t": "cfgmods_meta.iomodule.enum_sets.flowio_binding_port_analog.23.label"
         }
       ],
       "flowio_binding_port_digital_input": [

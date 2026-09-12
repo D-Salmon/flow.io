@@ -445,6 +445,8 @@ private:
     ConfigVariable<int32_t,0> adsPollVar_ { NVS_KEY(NvsKeys::Io::IO_ADS),"poll_ms","io/drivers/ads1115",ConfigType::Int32,&cfgData_.adsPollMs,ConfigPersistence::Persistent,0 };
     ConfigVariable<int32_t,0> dsPollVar_ { NVS_KEY(NvsKeys::Io::IO_DS),"poll_ms","io/drivers/ds18b20",ConfigType::Int32,&cfgData_.dsPollMs,ConfigPersistence::Persistent,0 };
     ConfigVariable<uint8_t,0> dsTransportVar_ { NVS_KEY(NvsKeys::Io::IO_DSSRC),"transport","io/drivers/ds18b20",ConfigType::UInt8,&cfgData_.ds18Transport,ConfigPersistence::Persistent,0 };
+    ConfigVariable<uint8_t,0> dsWaterTransportVar_ { NVS_KEY(NvsKeys::Io::IO_DSWTR),"water_transport","io/drivers/ds18b20",ConfigType::UInt8,&cfgData_.ds18WaterTransport,ConfigPersistence::Persistent,0 };
+    ConfigVariable<uint8_t,0> dsAirTransportVar_ { NVS_KEY(NvsKeys::Io::IO_DSATR),"air_transport","io/drivers/ds18b20",ConfigType::UInt8,&cfgData_.ds18AirTransport,ConfigPersistence::Persistent,0 };
     ConfigVariable<int32_t,0> digitalPollVar_ { NVS_KEY(NvsKeys::Io::IO_DIN),"poll_ms","io/drivers/gpio",ConfigType::Int32,&cfgData_.digitalPollMs,ConfigPersistence::Persistent,0 };
     ConfigVariable<uint8_t,0> adsInternalAddrVar_ { NVS_KEY(NvsKeys::Io::IO_AIAD),"address","io/drivers/ads1115_int",ConfigType::UInt8,&cfgData_.adsInternalAddr,ConfigPersistence::Persistent,0 };
     ConfigVariable<uint8_t,0> adsExternalAddrVar_ { NVS_KEY(NvsKeys::Io::IO_AEAD),"address","io/drivers/ads1115_ext",ConfigType::UInt8,&cfgData_.adsExternalAddr,ConfigPersistence::Persistent,0 };

@@ -203,18 +203,21 @@ d'entrée analogique interchangeable. Ses canaux sont fixes ; seul le choix de
 son adresse I²C `0x48` ou `0x49` est affiché. Le second ADS1115 reçoit
 automatiquement l'autre adresse.
 
-La pression peut être affectée à une entrée analogique Axx disponible ou à la
-paire différentielle A0–A1 du second ADS1115 sur Qwiic.
+La pression peut être affectée à une entrée Axx disponible ou à l'un des quatre
+canaux A0 à A3 de l'ADS1115 externe sur Qwiic. Chaque canal est lu séparément
+par rapport à la masse commune.
 
-Le raccordement commun des deux sondes DS18B20 se choisit dans
+Le raccordement des deux sondes DS18B20 se choisit séparément dans
 `Piscine > Affectation des sondes` :
 
-| Mode | Température eau | Température air | Bus Qwiic restant |
-|---|---|---|---|
-| `I²C / Qwiic — DS2484, adresse 0x18` | bus 1-Wire via l'unique DS2484 `0x18` | même bus, ROM distincte | actif |
-| `Entrées directes Axx` | GPIO20 | GPIO19 | actif pour les autres composants |
+| Sonde | Raccordement direct | Raccordement I²C / Qwiic |
+|---|---|---|
+| Température eau | entrée Axx disponible, physiquement reliée à GPIO20 | bus 1-Wire via le DS2484 `0x18` |
+| Température air | entrée Axx disponible, physiquement reliée à GPIO19 | bus 1-Wire via le DS2484 `0x18` |
 
-Le changement de transport DS18B20 prend effet après redémarrage.
+Les deux modes peuvent être combinés. Deux sondes placées sur le DS2484
+partagent le même bus et sont distinguées par leur adresse ROM. Un changement
+de raccordement prend effet après redémarrage.
 
 ### Alarmes
 
