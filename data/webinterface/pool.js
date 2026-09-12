@@ -202,7 +202,7 @@
     ]);
     const poolTemperatureIoOptions = (gpio) => Object.freeze([
       Object.freeze({ value: 65535, label: 'Désactivé / non câblé' }),
-      Object.freeze({ value: 'ds2484', label: 'I²C / Qwiic — DS2484, adresse 0x18' }),
+      Object.freeze({ value: 'ds2484', label: 'I²C 0x18 - DS2484' }),
       ...poolAnalogIoOptions.map((entry) => Object.freeze({
         value: 'direct:' + String(entry.value),
         label: entry.label + ' — raccordement direct GPIO' + String(gpio)
@@ -312,8 +312,8 @@
           type: 'enum',
           label: 'Carte pH / ORP — adresse I²C',
           options: Object.freeze([
-            Object.freeze({ value: 72, label: '0x48 — ORP canal A0, pH canal A1' }),
-            Object.freeze({ value: 73, label: '0x49 — ORP canal A0, pH canal A1' })
+            Object.freeze({ value: 72, label: 'I²C 0x48 - ORP canal A0, pH canal A1' }),
+            Object.freeze({ value: 73, label: 'I²C 0x49 - ORP canal A0, pH canal A1' })
           ])
         }),
         Object.freeze({
@@ -322,10 +322,10 @@
           label: 'Sonde de pression',
           options: Object.freeze([
             ...poolOptionalAnalogIoOptions,
-            Object.freeze({ value: 'ads1115_ext:0', label: 'I²C / Qwiic — ADS1115 externe, canal A0' }),
-            Object.freeze({ value: 'ads1115_ext:1', label: 'I²C / Qwiic — ADS1115 externe, canal A1' }),
-            Object.freeze({ value: 'ads1115_ext:2', label: 'I²C / Qwiic — ADS1115 externe, canal A2' }),
-            Object.freeze({ value: 'ads1115_ext:3', label: 'I²C / Qwiic — ADS1115 externe, canal A3' })
+            Object.freeze({ value: 'ads1115_ext:0', label: 'I²C 0x48 ou 0x49 (selon disponibilité) - ADS1115 externe, canal A0' }),
+            Object.freeze({ value: 'ads1115_ext:1', label: 'I²C 0x48 ou 0x49 (selon disponibilité) - ADS1115 externe, canal A1' }),
+            Object.freeze({ value: 'ads1115_ext:2', label: 'I²C 0x48 ou 0x49 (selon disponibilité) - ADS1115 externe, canal A2' }),
+            Object.freeze({ value: 'ads1115_ext:3', label: 'I²C 0x48 ou 0x49 (selon disponibilité) - ADS1115 externe, canal A3' })
           ]),
           ioAssignmentGroup: 'analog',
           assignmentValue: (value) => String(value).startsWith('ads1115_ext:') ? 194 : value,

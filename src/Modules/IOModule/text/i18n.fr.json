@@ -38,7 +38,7 @@
     "cfgdocs.io.drivers.ds18b20.water_transport.label": "Raccordement température eau",
     "cfgdocs.io.drivers.ds18b20.air_transport.help": "Raccordement de la sonde d'air : GPIO19 direct ou pont DS2484 à l'adresse I²C fixe 0x18. Redémarrage requis.",
     "cfgdocs.io.drivers.ds18b20.air_transport.label": "Raccordement température air",
-    "cfgmods_meta.iomodule.enum_sets.ds18b20_transport.0.label": "I²C / Qwiic — DS2484, adresse 0x18",
+    "cfgmods_meta.iomodule.enum_sets.ds18b20_transport.0.label": "I²C 0x18 - DS2484",
     "cfgmods_meta.iomodule.enum_sets.ds18b20_transport.1.label": "Raccordement direct",
     "cfgdocs.io.drivers.gpio.poll_ms.help": "Intervalle de rafraîchissement des entrées digitales.",
     "cfgdocs.io.drivers.gpio.poll_ms.label": "Période lecture digitales (ms)",

@@ -38,7 +38,7 @@
     "cfgdocs.io.drivers.ds18b20.water_transport.label": "Water temperature connection",
     "cfgdocs.io.drivers.ds18b20.air_transport.help": "Air probe connection: direct GPIO19 or DS2484 bridge at fixed I2C address 0x18. Restart required.",
     "cfgdocs.io.drivers.ds18b20.air_transport.label": "Air temperature connection",
-    "cfgmods_meta.iomodule.enum_sets.ds18b20_transport.0.label": "I2C / Qwiic — DS2484, address 0x18",
+    "cfgmods_meta.iomodule.enum_sets.ds18b20_transport.0.label": "I2C 0x18 - DS2484",
     "cfgmods_meta.iomodule.enum_sets.ds18b20_transport.1.label": "Direct connection",
     "cfgdocs.io.drivers.gpio.poll_ms.help": "Refresh interval of inputs digitales.",
     "cfgdocs.io.drivers.gpio.poll_ms.label": "Period read digitales (ms)",
