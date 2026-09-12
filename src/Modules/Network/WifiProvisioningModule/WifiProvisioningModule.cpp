@@ -174,6 +174,16 @@ void WifiProvisioningModule::onStart(ConfigStore&, ServiceRegistry&)
 void WifiProvisioningModule::loop()
 {
     uint32_t now = millis();
+    if (!rescueCredentialsReported_) {
+        rescueCredentialsReported_ = true;
+        // Dedicated USB-only record consumed by the PlatformIO post-upload
+        // helper. It deliberately bypasses LogHub so the secret never enters
+        // the activity log, MQTT or the Web interface.
+        Serial.printf("[FLOWIO_RESCUE_CREDENTIALS] ssid=%s password=%s\r\n",
+                      apSsid_,
+                      apPass_);
+        Serial.flush();
+    }
     if (apStartDuringStartEventPending_) {
         apStartDuringStartEventPending_ = false;
         LOGD("Provisioning AP start event during setup mode=%s", wifiModeName_(WiFi.getMode()));

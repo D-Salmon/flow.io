@@ -170,6 +170,7 @@ private:
     volatile uint32_t apProbeEventCount_ = 0;
     volatile int apProbeLastRssi_ = 0;
     bool apClientEverSeen_ = false;
+    bool rescueCredentialsReported_ = false;
     uint8_t apClientCount_ = 0;
     uint32_t lastApClientSeenMs_ = 0;
     uint32_t lastApClientPollMs_ = 0;

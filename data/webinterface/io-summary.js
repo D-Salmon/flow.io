@@ -272,7 +272,18 @@
       const bindingPorts = Array.isArray(data && data.binding_ports) ? data.binding_ports : [];
       const ioSlots = Array.isArray(data && data.io_slots) ? data.io_slots : [];
       const domainSlots = Array.isArray(data && data.domain_slots) ? data.domain_slots : [];
+      const visibleDomainSlots = domainSlots.filter((row) => row && row.endpoint_id !== 'io_chl_gen');
       const errors = Array.isArray(data && data.error_slots) ? data.error_slots : [];
+      const configuredNameLabel = (row, key) => {
+        const bindingPort = Number(row && row.binding_port);
+        if (bindingPort >= 200 && bindingPort <= 207) return 'DI' + String(bindingPort - 199);
+        return ioSummaryText(row && row[key], '-');
+      };
+      const domainDisplayLabel = (row) => (
+        row && row.endpoint_id === 'io_chl_pmp'
+          ? tr('pool.relay.disinfection', 'Désinfection')
+          : ioSummaryText(row && row.display_name, '-')
+      );
       const driverLabel = (row) => {
         const driver = ioSummaryText(row && row.driver, '-');
         const key = driver === 'ADS1115 int' ? 'ads1115_int' : (driver === 'ADS1115 ext' ? 'ads1115_ext' : '');
@@ -340,7 +351,7 @@
           tr('io.table.ioSlots', 'IOSlots'),
           [
             { key: 'io_slot', label: tr('io.col.slot', 'Slot'), render: (row) => ioSummarySlotLabel(row) },
-            { key: 'config_name', label: tr('io.col.configName', 'Nom config'), render: (row) => ioSummaryText(row.config_name, '-') },
+            { key: 'config_name', label: tr('io.col.configName', 'Nom config'), render: (row) => configuredNameLabel(row, 'config_name') },
             { key: 'kind', label: tr('io.col.kind', 'Type') },
             { key: 'driver', label: tr('io.col.driver', 'Driver'), render: driverLabel },
             { key: 'state', label: tr('io.col.state', 'Etat'), render: (row) => createIoStateBadge(row.state) },
@@ -352,13 +363,13 @@
         ioSummaryTables.appendChild(createIoCompactTable(
           tr('io.table.domainSlots', 'DomainSlots'),
           [
-            { key: 'display_name', label: tr('io.col.domainSlot', 'Domaine') },
-            { key: 'io_name', label: tr('io.col.ioName', 'IONAME'), render: (row) => ioSummaryText(row.io_name, '-') },
+            { key: 'display_name', label: tr('io.col.domainSlot', 'Domaine'), render: domainDisplayLabel },
+            { key: 'io_name', label: tr('io.col.ioName', 'IONAME'), render: (row) => configuredNameLabel(row, 'io_name') },
             { key: 'io_slot', label: tr('io.col.ioSlot', 'IOSlot'), render: (row) => ioSummarySlotLabel(row) },
             { key: 'state', label: tr('io.col.state', 'Etat'), render: (row) => createIoStateBadge(row.state) },
             { key: 'last_value', label: tr('io.col.lastValue', 'Dernière valeur') }
           ],
-          domainSlots
+          visibleDomainSlots
         ));
       }
     }

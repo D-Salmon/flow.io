@@ -2,6 +2,7 @@
 .cache
 .dummy
 .local-backup
+local-device/
 .pioenvs
 .piolibdeps
 .pio-core

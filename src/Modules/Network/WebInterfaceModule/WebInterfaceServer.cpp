@@ -3262,6 +3262,9 @@ void sendWaveshareIoSummaryResponse_(AsyncResponseStream& response,
         printJsonEscaped_(response, preset.endpointId ? preset.endpointId : "");
         response.print(",\"io_name\":");
         printJsonEscaped_(response, state.hasMeta ? state.meta.name : "");
+        response.print(",\"binding_port\":");
+        const IOBindingPortSpec* port = state.hasMeta ? waveshareFindPortForMeta_(state.meta) : nullptr;
+        response.print(port ? (unsigned)port->portId : 0U);
         response.print(",\"display_name\":");
         printJsonEscaped_(response, preset.displayName ? preset.displayName : "");
         response.print(",\"slot_kind\":");

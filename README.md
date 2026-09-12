@@ -369,7 +369,10 @@ fenêtre, les réglages Wi-Fi et MQTT exigent l’administrateur Web.
 
 Le point d’accès de secours reçoit un mot de passe aléatoire propre à la carte,
 conservé en NVS et affiché uniquement sur le moniteur série USB lorsqu’il
-démarre. Les API Web ne renvoient plus les mots de passe Wi-Fi ou MQTT
+démarre. Après un flash du firmware par PlatformIO, les mêmes identifiants sont
+aussi récupérés directement par l'USB dans `local-device/rescue-access.txt`.
+Ce fichier local est exclu de Git et contient le mot de passe en clair. Les API
+Web ne renvoient plus les mots de passe Wi-Fi ou MQTT
 enregistrés ; un champ vide lors d’une modification conserve le secret existant.
 L’interface indique explicitement si l’utilisateur est administrateur, si la
 récupération physique est active ou si l’accès n’est pas authentifié.
