@@ -143,7 +143,10 @@
   },
   "meta": {
     "cfg_tree_hidden_paths": [
-      "io/drivers/ds18b20/transport"
+      "io/drivers/ds18b20/transport",
+      "io/drivers/ads1115_int/address",
+      "io/drivers/ads1115_ext/address",
+      "io/input/a02/binding_port"
     ],
     "cfg_tree_aliases": [
       {

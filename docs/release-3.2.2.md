@@ -76,6 +76,18 @@ entrées directes Axx (eau sur GPIO20 et air sur GPIO19), soit le bus Qwiic par
 un unique pont DS2484 à l'adresse I²C fixe `0x18`. Ce réglage, qui nécessite un
 redémarrage, n'est plus proposé dans l'arborescence technique Configuration.
 
+Les sondes pH et ORP ne proposent plus une liste d'entrées analogiques dans
+cette carte. Elles utilisent les canaux fixes A1 et A0 de la carte pH/ORP
+obligatoire. L'interface permet seulement de choisir son adresse I²C `0x48` ou
+`0x49`; le second ADS1115 reçoit automatiquement l'autre adresse afin d'éviter
+toute collision sur le bus. Les entrées logiques pH et ORP sont ramenées à leurs
+affectations fixes lors de l'enregistrement de la carte.
+
+La sonde de pression peut, elle, utiliser une entrée analogique Axx disponible
+ou le second ADS1115 sur Qwiic. Le choix I²C affecte automatiquement la pression
+à la paire différentielle A0–A1 de ce convertisseur et conserve l'autre adresse
+entre `0x48` et `0x49`.
+
 La page Rescue suit désormais un parcours unique. Après la connexion au point
 d'accès `flow.io-xxxxxx` et un appui de cinq secondes sur BOOT, elle permet de
 préparer les accès Web, le Wi-Fi et, si nécessaire, MQTT. Les boutons placés en

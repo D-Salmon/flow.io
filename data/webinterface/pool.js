@@ -127,6 +127,9 @@
     const poolConfigModuleDefs = Object.freeze([
       Object.freeze({ module: 'poollogic/modes', hidden: true }),
       Object.freeze({ module: 'io/drivers/ds18b20', hidden: true }),
+      Object.freeze({ module: 'io/drivers/ads1115_int', hidden: true }),
+      Object.freeze({ module: 'io/drivers/ads1115_ext', hidden: true }),
+      Object.freeze({ module: 'io/input/a02', hidden: true }),
       Object.freeze({ module: 'hmi/buzzer', titleKey: 'pool.card.alarmSound.title', title: 'Signal sonore', icon: 'notifications_active', noteKey: 'pool.card.alarmSound.note', note: 'Le son des alarmes peut être coupé sans masquer les alarmes affichées.' }),
       Object.freeze({ module: 'poollogic/filtration', titleKey: 'pool.card.filtration.title', title: 'Filtration', icon: 'waves', noteKey: 'pool.card.filtration.note', note: 'La plage de filtration combine contraintes horaires et température d’eau pour protéger le bassin.' }),
       Object.freeze({ module: 'poollogic/ph', titleKey: 'pool.card.ph.title', title: 'Régulation pH', icon: 'science', noteKey: 'pool.card.ph.note', note: 'Consigne, sens de dosage et fenêtre de régulation de la pompe pH.' }),
@@ -291,9 +294,36 @@
         Object.freeze({ key: 'robot_dur_min', type: 'number', label: 'Durée de nettoyage', min: 1, max: 255, step: 1, unit: 'min' })
       ]),
       'poollogic/sensors': Object.freeze([
-        Object.freeze({ key: 'ph_io_id', type: 'enum', label: 'Sonde pH', options: poolOptionalAnalogIoOptions, ioAssignmentGroup: 'analog' }),
-        Object.freeze({ key: 'dis_io_id', type: 'enum', label: 'Sonde ORP', options: poolOptionalAnalogIoOptions, ioAssignmentGroup: 'analog' }),
-        Object.freeze({ key: 'psi_io_id', type: 'enum', label: 'Sonde de pression', options: poolOptionalAnalogIoOptions, ioAssignmentGroup: 'analog' }),
+        Object.freeze({
+          key: 'address',
+          sourceModule: 'io/drivers/ads1115_int',
+          pairedModule: 'io/drivers/ads1115_ext',
+          type: 'enum',
+          label: 'Carte pH / ORP — adresse I²C',
+          options: Object.freeze([
+            Object.freeze({ value: 72, label: '0x48 — ORP canal A0, pH canal A1' }),
+            Object.freeze({ value: 73, label: '0x49 — ORP canal A0, pH canal A1' })
+          ])
+        }),
+        Object.freeze({
+          key: 'psi_io_id',
+          type: 'enum',
+          label: 'Sonde de pression',
+          options: Object.freeze([
+            ...poolOptionalAnalogIoOptions,
+            Object.freeze({ value: 'ads1115_ext', label: 'I²C / Qwiic — second ADS1115, paire A0–A1' })
+          ]),
+          ioAssignmentGroup: 'analog',
+          assignmentValue: (value) => String(value) === 'ads1115_ext' ? 194 : value,
+          initialValue: (fieldData, modules) => (
+            Number(fieldData.psi_io_id) === 194
+            && Number((modules['io/input/a02'] || {}).binding_port) === 110
+              ? 'ads1115_ext'
+              : fieldData.psi_io_id
+          ),
+          read: (value) => String(value) === 'ads1115_ext' ? 194 : Number(value),
+          pressureBindingModule: 'io/input/a02'
+        }),
         Object.freeze({
           key: 'transport',
           sourceModule: 'io/drivers/ds18b20',
@@ -2959,7 +2989,10 @@
             option.textContent = entry.label;
             control.appendChild(option);
           });
-          control.value = String(fieldData[spec.key]);
+          const initialValue = typeof spec.initialValue === 'function'
+            ? spec.initialValue(fieldData, poolConfigModulesCache)
+            : fieldData[spec.key];
+          control.value = String(initialValue);
         } else if (spec.type === 'time') {
           // Do not use the browser's native time control here: its rendering
           // follows the operating-system locale and may expose an AM/PM UI.
@@ -3003,7 +3036,43 @@
           field.appendChild(help);
         }
         fields.appendChild(field);
-        entries.push({ spec, input: control, moduleName: fieldModuleName, data: fieldData });
+        entries.push({
+          spec,
+          input: control,
+          moduleName: fieldModuleName,
+          data: fieldData,
+          read: typeof spec.read === 'function'
+            ? () => spec.read(control.value, fieldData, poolConfigModulesCache)
+            : undefined
+        });
+        if (spec.pressureBindingModule) {
+          const bindingData = poolConfigModulesCache[spec.pressureBindingModule] || {};
+          if (Object.prototype.hasOwnProperty.call(bindingData, 'binding_port')) {
+            entries.push({
+              spec: { key: 'binding_port', label: 'Source physique de la pression' },
+              input: control,
+              moduleName: spec.pressureBindingModule,
+              data: bindingData,
+              read: () => {
+                if (String(control.value) === 'ads1115_ext') return 110;
+                if (Number(control.value) === 194) return 102;
+                return Number(bindingData.binding_port);
+              }
+            });
+          }
+        }
+        if (spec.pairedModule) {
+          const pairedData = poolConfigModulesCache[spec.pairedModule] || {};
+          if (Object.prototype.hasOwnProperty.call(pairedData, spec.key)) {
+            entries.push({
+              spec: { key: spec.key, label: 'Adresse du second ADS1115' },
+              input: control,
+              moduleName: spec.pairedModule,
+              data: pairedData,
+              read: () => Number(control.value) === 72 ? 73 : 72
+            });
+          }
+        }
         if (moduleName === 'poollogic/sensors' && spec.key === 'flow_switch_io_id'
             && Object.prototype.hasOwnProperty.call(data, 'flow_switch_enabled')) {
           entries.push({
@@ -3024,14 +3093,34 @@
       const refreshIoAssignmentOptions = () => {
         ioAssignmentEntries.forEach((entry) => {
           const currentValue = String(entry.input.value);
+          const currentAssignmentValue = String(
+            typeof entry.spec.assignmentValue === 'function'
+              ? entry.spec.assignmentValue(currentValue)
+              : currentValue
+          );
           const usedByOthers = new Set(ioAssignmentEntries
             .filter((other) => other !== entry && other.spec.ioAssignmentGroup === entry.spec.ioAssignmentGroup)
-            .map((other) => String(other.input.value))
+            .map((other) => String(
+              typeof other.spec.assignmentValue === 'function'
+                ? other.spec.assignmentValue(other.input.value)
+                : other.input.value
+            ))
             .filter((value) => value !== '65535'));
+          if (moduleName === 'poollogic/sensors' && entry.spec.ioAssignmentGroup === 'analog') {
+            ['ph_io_id', 'dis_io_id'].forEach((key) => {
+              const fixedValue = String(data[key]);
+              if (fixedValue !== '65535') usedByOthers.add(fixedValue);
+            });
+          }
           Array.from(entry.input.options).forEach((option) => {
+            const optionAssignmentValue = String(
+              typeof entry.spec.assignmentValue === 'function'
+                ? entry.spec.assignmentValue(option.value)
+                : option.value
+            );
             const unavailable = option.value !== '65535'
-              && option.value !== currentValue
-              && usedByOthers.has(option.value);
+              && optionAssignmentValue !== currentAssignmentValue
+              && usedByOthers.has(optionAssignmentValue);
             option.hidden = unavailable;
             option.disabled = unavailable;
           });
@@ -3041,6 +3130,29 @@
         entry.input.addEventListener('change', refreshIoAssignmentOptions);
       });
       refreshIoAssignmentOptions();
+      if (moduleName === 'poollogic/sensors') {
+        const addressEntry = entries.find((entry) => (
+          entry.moduleName === 'io/drivers/ads1115_int'
+          && entry.spec
+          && entry.spec.key === 'address'
+        ));
+        if (addressEntry) {
+          entries.push({
+            spec: { key: 'ph_io_id', label: 'Sonde pH fixe' },
+            input: addressEntry.input,
+            moduleName,
+            data,
+            read: () => 193
+          });
+          entries.push({
+            spec: { key: 'dis_io_id', label: 'Sonde ORP fixe' },
+            input: addressEntry.input,
+            moduleName,
+            data,
+            read: () => 192
+          });
+        }
+      }
       if (moduleName === 'poollogic/refill') {
         const enabledEntry = entries.find((entry) => entry.spec && entry.spec.key === 'fill_enabled');
         const dependentEntries = entries.filter((entry) => entry.spec && entry.spec.key === 'fill_min_on_s');

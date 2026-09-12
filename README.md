@@ -186,8 +186,8 @@ Le profil Waveshare affecte par défaut :
 | Relais 1 à 8 | filtration, pH, désinfection unique, robot, remplissage, libre, éclairage, chauffage |
 | DI1 à DI4 | niveau pH, niveau désinfectant, niveau piscine, compteur d’eau |
 | DI5 à DI8 | libres ou retours de contacteurs configurables |
-| ADS1115 `0x48` | ORP et pH |
-| ADS1115 `0x49` | pression et réserve analogique |
+| ADS1115 pH/ORP `0x48` ou `0x49` | ORP sur A0 et pH sur A1 |
+| Second ADS1115, autre adresse | pression et réserve analogique |
 | RTC PCF85063 | horloge locale et planification |
 
 Sur Waveshare, le relais 3 (`EXIO3`) est l’unique sortie de désinfection : il
@@ -197,6 +197,14 @@ ne peuvent donc pas être commandés simultanément par erreur.
 
 Le bus Qwiic/I²C utilise `GPIO42` pour SDA et `GPIO41` pour SCL à `400 kHz`. Il peut aussi
 accueillir les capteurs optionnels INA226, SHT40, BMP280 et BME680.
+
+Dans `Piscine > Affectation des sondes`, la carte pH/ORP ne propose pas
+d'entrée analogique interchangeable. Ses canaux sont fixes ; seul le choix de
+son adresse I²C `0x48` ou `0x49` est affiché. Le second ADS1115 reçoit
+automatiquement l'autre adresse.
+
+La pression peut être affectée à une entrée analogique Axx disponible ou à la
+paire différentielle A0–A1 du second ADS1115 sur Qwiic.
 
 Le raccordement commun des deux sondes DS18B20 se choisit dans
 `Piscine > Affectation des sondes` :

@@ -89,6 +89,13 @@ prend effet après redémarrage. Le mode Qwiic utilise un seul DS2484 à l'adres
 fixe `0x18`. Le bus Qwiic reste actif pour les autres composants dans les deux
 modes.
 
+La carte pH/ORP obligatoire utilise des canaux fixes : ORP sur A0 et pH sur A1.
+Dans **Piscine > Affectation des sondes**, on choisit uniquement son adresse
+I²C `0x48` ou `0x49`; le second ADS1115 prend automatiquement l'autre adresse.
+
+La pression se raccorde soit à une entrée analogique Axx disponible, soit à la
+paire différentielle A0–A1 du second ADS1115 sur Qwiic.
+
 ## Automatismes piscine
 
 - [PoolLogicModule](modules/PoolLogicModule.md) : modes de fonctionnement,
