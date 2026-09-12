@@ -98,10 +98,19 @@ rapport à la masse commune. L'ADS1115 externe conserve l'autre adresse entre
 `0x48` et `0x49`. La liste affiche directement cette adresse disponible et est
 actualisée lorsque l'adresse de la carte pH/ORP change.
 
+Le raccordement par défaut de la pression est désormais le canal A0 de cet
+ADS1115 externe. Une configuration 3.2.2 ayant encore l'ancien défaut sur le
+canal A2 de la carte pH/ORP est migrée une seule fois vers ce second
+convertisseur.
+
 La page **Entrées/Sorties** affiche également l'adresse I²C réellement utilisée
 pour chacun des deux convertisseurs : « ADS1115 pH/ORP » et « ADS1115 externe ».
 Les noms Axx restent des identifiants logiques ; le raccordement physique est
 déterminé par l'affectation du canal correspondant.
+
+Pour les températures, ce diagnostic distingue maintenant une DS18B20 directe
+sur GPIO20 (eau) ou GPIO19 (air) d'une DS18B20 raccordée au pont DS2484 à
+l'adresse I²C `0x18`.
 
 La page Rescue suit désormais un parcours unique. Après la connexion au point
 d'accès `flow.io-xxxxxx` et un appui de cinq secondes sur BOOT, elle permet de

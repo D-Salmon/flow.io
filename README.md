@@ -210,7 +210,8 @@ La pression peut être affectée à une entrée Axx disponible ou à l'un des qu
 canaux A0 à A3 de l'ADS1115 externe sur Qwiic. Chaque canal est lu séparément
 par rapport à la masse commune. L'interface affiche uniquement l'adresse I²C
 libre, `0x48` ou `0x49`, selon l'adresse retenue pour la carte pH/ORP. La page
-`Entrées/Sorties` rappelle les adresses réellement attribuées aux deux ADS1115.
+`Entrées/Sorties` rappelle les adresses et canaux réellement attribués aux deux
+ADS1115. Par défaut, la pression utilise le canal A0 du second ADS1115.
 
 Les désignations Axx sont des identifiants d'entrées analogiques logiques. Dans
 la configuration Piscine actuelle, l'ORP et le pH occupent A0 et A1 de leur

@@ -268,6 +268,7 @@
     function renderIoSummary(data) {
       const summary = data && typeof data.summary === 'object' ? data.summary : {};
       const i2cAddresses = data && typeof data.i2c_addresses === 'object' ? data.i2c_addresses : {};
+      const temperatureTransports = data && typeof data.temperature_transports === 'object' ? data.temperature_transports : {};
       const drivers = Array.isArray(data && data.drivers) ? data.drivers : [];
       const bindingPorts = Array.isArray(data && data.binding_ports) ? data.binding_ports : [];
       const ioSlots = Array.isArray(data && data.io_slots) ? data.io_slots : [];
@@ -286,12 +287,26 @@
       );
       const driverLabel = (row) => {
         const driver = ioSummaryText(row && row.driver, '-');
+        if (driver === 'DS18B20') {
+          const bindingPort = Number(row && row.binding_port);
+          const slotIndex = Number(row && row.io_slot_index);
+          const isWater = bindingPort === 120 || (row && row.io_slot === 'analog_in' && slotIndex === 4);
+          const isAir = bindingPort === 121 || (row && row.io_slot === 'analog_in' && slotIndex === 5);
+          if (!isWater && !isAir) return driver;
+          const role = isWater ? 'eau' : 'air';
+          const transport = Number(temperatureTransports[isWater ? 'water' : 'air']);
+          return transport === 1
+            ? 'DS18B20 directe - GPIO' + (isWater ? '20' : '19') + ' (' + role + ')'
+            : 'I²C 0x18 - DS2484 / DS18B20 (' + role + ')';
+        }
         const key = driver === 'ADS1115 int' ? 'ads1115_int' : (driver === 'ADS1115 ext' ? 'ads1115_ext' : '');
         if (!key) return driver;
         const address = Number(i2cAddresses[key]);
         if (address !== 72 && address !== 73) return driver;
-        const role = key === 'ads1115_int' ? 'ADS1115 carte pH/ORP' : 'ADS1115 externe';
         const channel = Number(row && row.channel);
+        const role = key === 'ads1115_int' && Number.isInteger(channel) && channel >= 2
+          ? 'ADS1115 interne'
+          : (key === 'ads1115_int' ? 'ADS1115 carte pH/ORP' : 'ADS1115 externe');
         return 'I²C 0x' + address.toString(16).toUpperCase() + ' - ' + role
           + (Number.isInteger(channel) && channel >= 0 && channel <= 3 ? ', canal A' + String(channel) : '');
       };

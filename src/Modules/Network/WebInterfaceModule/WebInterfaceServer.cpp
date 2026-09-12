@@ -3111,6 +3111,17 @@ uint8_t waveshareLoadAdsAddress_(ConfigStore* cfgStore, const char* moduleName, 
     return (address == 0x48U || address == 0x49U) ? address : fallback;
 }
 
+uint8_t waveshareLoadDs18Transport_(ConfigStore* cfgStore, const char* key)
+{
+    if (!cfgStore || !key) return 0U;
+    char moduleJson[192] = {0};
+    if (!cfgStore->toJsonModule("io/drivers/ds18b20", moduleJson, sizeof(moduleJson), nullptr, false)) return 0U;
+
+    JsonDocument doc;
+    if (deserializeJson(doc, moduleJson) || !doc.is<JsonObjectConst>()) return 0U;
+    return (doc.as<JsonObjectConst>()[key] | 0U) == 1U ? 1U : 0U;
+}
+
 void sendWaveshareIoSummaryResponse_(AsyncResponseStream& response,
                                      const IOServiceV2* ioSvc,
                                      const PoolDeviceService* poolSvc,
@@ -3119,6 +3130,8 @@ void sendWaveshareIoSummaryResponse_(AsyncResponseStream& response,
     using namespace Profiles::Waveshare::IoLayout;
     const uint8_t adsInternalAddress = waveshareLoadAdsAddress_(cfgStore, "io/drivers/ads1115_int", 0x48U);
     const uint8_t adsExternalAddress = waveshareLoadAdsAddress_(cfgStore, "io/drivers/ads1115_ext", 0x49U);
+    const uint8_t waterTemperatureTransport = waveshareLoadDs18Transport_(cfgStore, "water_transport");
+    const uint8_t airTemperatureTransport = waveshareLoadDs18Transport_(cfgStore, "air_transport");
     uint16_t bindingActive = 0U;
     uint16_t bindingError = 0U;
     uint16_t ioActive = 0U;
@@ -3159,6 +3172,10 @@ void sendWaveshareIoSummaryResponse_(AsyncResponseStream& response,
     response.print((unsigned)adsInternalAddress);
     response.print(",\"ads1115_ext\":");
     response.print((unsigned)adsExternalAddress);
+    response.print("},\"temperature_transports\":{\"water\":");
+    response.print((unsigned)waterTemperatureTransport);
+    response.print(",\"air\":");
+    response.print((unsigned)airTemperatureTransport);
     response.print("},\"summary\":{");
     response.print("\"binding_ports_total\":");
     response.print((unsigned)(sizeof(kBindingPorts) / sizeof(kBindingPorts[0])));

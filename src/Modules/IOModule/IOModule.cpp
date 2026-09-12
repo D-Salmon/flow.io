@@ -3564,6 +3564,41 @@ void IOModule::onConfigLoaded(ConfigStore& cfg, ServiceRegistry& services)
     for (uint8_t i = 0; i < ANALOG_CFG_SLOTS; ++i) {
         analogCfg_[i].bindingPort = normalizeConfiguredBindingPort(analogCfg_[i].bindingPort);
     }
+#if defined(FLOW_BOARD_WAVESHARE_ESP32_S3)
+    // 3.2.2 originally left the pressure role on channel A2 of the pH/ORP
+    // converter. Move that exact legacy default once to channel A0 of the
+    // second ADS1115; subsequent user selections remain untouched.
+    constexpr char kPressureAdsMigrationKey[] = "io_psiext322";
+    constexpr PhysicalPortId kLegacyPressurePort = 102U;
+    constexpr PhysicalPortId kExternalPressurePort = 110U;
+    uint8_t pressureAdsMigrated = 0U;
+    size_t pressureAdsMigrationLen = 0U;
+    const bool pressureAdsMigrationKnown = cfg.readRuntimeBlob(
+        kPressureAdsMigrationKey,
+        &pressureAdsMigrated,
+        sizeof(pressureAdsMigrated),
+        &pressureAdsMigrationLen) &&
+        pressureAdsMigrationLen == sizeof(pressureAdsMigrated) &&
+        pressureAdsMigrated == 1U;
+    if (!pressureAdsMigrationKnown) {
+        bool pressureAdsMigrationComplete = true;
+        if (ANALOG_CFG_SLOTS > 2U && analogCfg_[2].bindingPort == kLegacyPressurePort) {
+            if (cfg.set(configDescriptors_->analog[2].bindingVar, kExternalPressurePort)) {
+                LOGI("Pressure input migrated to external ADS1115 channel A0");
+            } else {
+                LOGE("Pressure input migration to external ADS1115 failed");
+                pressureAdsMigrationComplete = false;
+            }
+        }
+        if (pressureAdsMigrationComplete) {
+            pressureAdsMigrated = 1U;
+            (void)cfg.writeRuntimeBlob(
+                kPressureAdsMigrationKey,
+                &pressureAdsMigrated,
+                sizeof(pressureAdsMigrated));
+        }
+    }
+#endif
     for (uint8_t i = 0; i < DIGITAL_INPUT_CFG_SLOTS; ++i) {
         digitalInCfg_[i].bindingPort = normalizeConfiguredBindingPort(digitalInCfg_[i].bindingPort);
     }
