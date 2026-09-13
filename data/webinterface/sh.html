@@ -633,13 +633,16 @@
                 </div>
               </div>
 
-              <div class="btn-row calibration-main-actions">
-                <button id="calibrationComputeBtn" class="btn-tonal"><span class="ui-msr btn-msr" aria-hidden="true">calculate</span><span data-i18n="calibration.compute">Calculer C0/C1</span></button>
-                <button id="calibrationApplyBtn" class="btn-primary" disabled><span class="ui-msr btn-msr" aria-hidden="true">done</span><span data-i18n="calibration.applyFlow">Appliquer sur flow.io</span></button>
+              <div class="calibration-footer-grid">
+                <div class="btn-row calibration-main-actions">
+                  <button id="calibrationComputeBtn" class="btn-tonal"><span class="ui-msr btn-msr" aria-hidden="true">calculate</span><span data-i18n="calibration.compute">Calculer C0/C1</span></button>
+                  <button id="calibrationApplyBtn" class="btn-primary" disabled><span class="ui-msr btn-msr" aria-hidden="true">done</span><span data-i18n="calibration.applyFlow">Appliquer sur flow.io</span></button>
+                </div>
+                <div class="calibration-result-stack">
+                  <div id="calibrationPreview" class="calibration-preview" hidden></div>
+                  <div id="calibrationChecks" class="calibration-checks" hidden></div>
+                </div>
               </div>
-
-              <div id="calibrationPreview" class="calibration-preview" hidden></div>
-              <div id="calibrationChecks" class="calibration-checks" hidden></div>
               <div id="calibrationStatus" class="config-status" data-i18n="calibration.ready">Étalonnage prêt.</div>
             </section>
           </div>

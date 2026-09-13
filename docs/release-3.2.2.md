@@ -53,7 +53,9 @@ dans le bassin.
 
 La page **Étalonnage** conserve maintenant des fonds et des contrastes adaptés
 au mode sombre pour ses indications d'état, ses mesures automatiques en lecture
-seule et son bouton d'application désactivé.
+seule et son bouton d'application désactivé. Sur grand écran, sa présentation
+large regroupe les informations sur une même ligne et place les deux points en
+deux colonnes ; elle reste verticale sur téléphone.
 
 Le réglage `poollogic/safety/sensor_hold_wat`, activé par défaut, correspond à
 une sonde montée en ligne. Il doit être désactivé lorsque la sonde reste immergée

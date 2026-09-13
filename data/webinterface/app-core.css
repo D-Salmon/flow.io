@@ -1172,18 +1172,6 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .app-header-title h1,.topbar h1{font-size:22px;}
 }
 
-/* Calibration assistant: keep the reference presentation single-column on
-   desktop as well as mobile. These scoped rules intentionally override the
-   generic two-column form grid used elsewhere in the application. */
-#page-calibration .calibration-shell{max-width:760px;margin-inline:auto;}
-#page-calibration .calibration-grid{grid-template-columns:minmax(0,1fr);}
-#page-calibration .calibration-actions-field>label{display:none;}
-#page-calibration .calibration-actions-row,
-#page-calibration .calibration-actions-row>button{width:100%;}
-#page-calibration .calibration-summary-grid{grid-template-columns:minmax(0,1fr);}
-#page-calibration .calibration-main-actions{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;}
-#page-calibration .calibration-main-actions>button{width:100%;}
-
 /* Dashboard overview */
 .dashboard-shell{display:grid;gap:18px;}
 .dashboard-hero{
