@@ -43,6 +43,13 @@
 :root[data-theme="dark"] .calibration-summary-label,:root[data-theme="dark"] .calibration-fields-title,:root[data-theme="dark"] .calibration-preview-col-head,:root[data-theme="dark"] .calibration-preview-note{color:var(--text-muted);}
 :root[data-theme="dark"] .calibration-summary-value,:root[data-theme="dark"] .calibration-preview-head,:root[data-theme="dark"] .calibration-preview-row-label,:root[data-theme="dark"] .calibration-preview-value-current,:root[data-theme="dark"] .calibration-preview-value-new{color:var(--text);}
 :root[data-theme="dark"] .calibration-preview{background:#10283f;border-color:#315e86;color:var(--text);}
+:root[data-theme="dark"] #page-calibration .config-status-muted{background:#142235;border-color:var(--border);color:#c3d2e5;}
+:root[data-theme="dark"] #page-calibration .config-status.is-ok{background:rgba(94,224,143,0.14);border-color:rgba(94,224,143,0.38);color:#8ce9af;}
+:root[data-theme="dark"] #page-calibration .config-status.is-error{background:rgba(255,123,147,0.14);border-color:rgba(255,123,147,0.38);color:#ff9aad;}
+:root[data-theme="dark"] #page-calibration .config-status.is-busy{background:rgba(103,198,255,0.14);border-color:rgba(103,198,255,0.38);color:#9edcff;}
+:root[data-theme="dark"] .calibration-measured-input-row input[readonly]{background:#0b1524;border-color:#3a506c;color:var(--text);cursor:default;opacity:1;-webkit-text-fill-color:var(--text);}
+:root[data-theme="dark"] .calibration-measured-input-row input[readonly]::placeholder{color:#a9b9cf;opacity:1;-webkit-text-fill-color:#a9b9cf;}
+:root[data-theme="dark"] .calibration-main-actions button:disabled{opacity:.68;}
 @media (max-width:900px){
   .calibration-grid,.calibration-summary-grid{grid-template-columns:1fr;}
   .calibration-main-actions{justify-content:stretch;}

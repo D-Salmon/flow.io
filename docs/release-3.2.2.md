@@ -51,6 +51,10 @@ concernées au lieu de les comparer à une consigne. La carte des protections
 indique aussi si la sonde de température d'eau est montée en ligne ou immergée
 dans le bassin.
 
+La page **Étalonnage** conserve maintenant des fonds et des contrastes adaptés
+au mode sombre pour ses indications d'état, ses mesures automatiques en lecture
+seule et son bouton d'application désactivé.
+
 Le réglage `poollogic/safety/sensor_hold_wat`, activé par défaut, correspond à
 une sonde montée en ligne. Il doit être désactivé lorsque la sonde reste immergée
 dans le bassin.
