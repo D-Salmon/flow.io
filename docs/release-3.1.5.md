@@ -43,9 +43,9 @@ l’étalonnage](integration/interface-web-3.1.5.md) présentent cette organisat
 
 ## Relais unique de désinfection
 
-- Sur la cible Waveshare, `EXIO3` commande désormais la désinfection choisie :
+- Sur la cible Waveshare, `CH3` commande désormais la désinfection choisie :
   pompe à chlore/oxygène actif ou électrolyseur.
-- `EXIO6`, auparavant réservé à l’électrolyseur, est libéré.
+- `CH6`, auparavant réservé à l’électrolyseur, est libéré.
 - L’interface n’affiche et n’autorise que l’équipement correspondant au type de
   désinfection configuré ; une commande de démarrage incompatible est refusée.
 

@@ -651,7 +651,7 @@ Rôle: couche IO Waveshare, drivers, endpoints, registry, snapshots runtime.
 Points forts:
 
 - board Waveshare très détaillée: bus I2C GPIO42/41, OneWire GPIO47/48,
-  TCA9554 sorties EXIO, entrées digitales, capteurs ADS/BME/BMP/SHT/INA/DS18B20
+  TCA9554 sorties CH, entrées digitales, capteurs ADS/BME/BMP/SHT/INA/DS18B20
 - service `IOServiceV2`
 - Runtime UI et runtime snapshot MQTT
 - drivers et endpoints séparés

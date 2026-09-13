@@ -1520,24 +1520,39 @@ void PoolLogicModule::normalizeDeviceSlots_()
         }
     };
 
+#if defined(FLOW_BOARD_WAVESHARE_ESP32_S3)
+    // Device slots carry the safety policy and device type. Keep those roles
+    // fixed on Waveshare and move only each logical output's physical EXIO
+    // binding. This prevents assigning, for example, the generic spare slot to
+    // the filtration role and silently losing filtration-specific safeguards.
+    auto fixRole = [this](uint8_t& slot,
+                          uint8_t fixedSlot,
+                          ConfigVariable<uint8_t,0>& var,
+                          const char* role) {
+        if (slot == fixedSlot) return;
+        LOGI("PoolLogic Waveshare fixes device role=%s slot %u -> %u",
+             role ? role : "?", (unsigned)slot, (unsigned)fixedSlot);
+        slot = fixedSlot;
+        if (cfgStore_) (void)cfgStore_->set(var, slot);
+    };
+    fixRole(filtrationDeviceSlot_, PoolIds::DeviceFiltrationPump, filtrationDeviceVar_, "filtration");
+    fixRole(robotDeviceSlot_, PoolIds::DeviceRobot, robotDeviceVar_, "robot");
+    fixRole(fillingDeviceSlot_, PoolIds::DeviceFillPump, fillingDeviceVar_, "filling");
+    fixRole(phPumpDeviceSlot_, PoolIds::DevicePhPump, phPumpDeviceVar_, "ph_pump");
+    fixRole(orpPumpDeviceSlot_, PoolIds::DeviceChlorinePump, orpPumpDeviceVar_, "dis_pump");
+    fixRole(lightsDeviceSlot_, PoolIds::DeviceLights, lightsDeviceVar_, "lights");
+    fixRole(heaterDeviceSlot_, PoolIds::DeviceWaterHeater, heaterDeviceVar_, "heater");
+    fixRole(swgDeviceSlot_, PoolIds::DeviceChlorinePump, swgDeviceVar_, "swg_shared_disinfection");
+#else
     normalize(filtrationDeviceSlot_, PoolIds::DeviceFiltrationPump, filtrationDeviceVar_, "filtration");
     normalize(robotDeviceSlot_, PoolIds::DeviceRobot, robotDeviceVar_, "robot");
     normalize(fillingDeviceSlot_, PoolIds::DeviceFillPump, fillingDeviceVar_, "filling");
     normalize(phPumpDeviceSlot_, PoolIds::DevicePhPump, phPumpDeviceVar_, "ph_pump");
     normalize(orpPumpDeviceSlot_, PoolIds::DeviceChlorinePump, orpPumpDeviceVar_, "dis_pump");
     normalize(lightsDeviceSlot_, PoolIds::DeviceLights, lightsDeviceVar_, "lights");
-#if defined(FLOW_BOARD_WAVESHARE_ESP32_S3)
-    if (swgDeviceSlot_ != orpPumpDeviceSlot_) {
-        LOGI("PoolLogic Waveshare shares disinfection slot: swg %u -> %u",
-             (unsigned)swgDeviceSlot_,
-             (unsigned)orpPumpDeviceSlot_);
-        swgDeviceSlot_ = orpPumpDeviceSlot_;
-        if (cfgStore_) (void)cfgStore_->set(swgDeviceVar_, swgDeviceSlot_);
-    }
-#else
     normalize(swgDeviceSlot_, PoolIds::DeviceChlorineGenerator, swgDeviceVar_, "swg");
-#endif
     normalize(heaterDeviceSlot_, PoolIds::DeviceWaterHeater, heaterDeviceVar_, "heater");
+#endif
 }
 
 void PoolLogicModule::logDeviceSlotConfig_() const

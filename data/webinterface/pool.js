@@ -142,7 +142,7 @@
       Object.freeze({ module: 'poollogic/regulation', titleKey: 'pool.card.regulation.title', title: 'Régulation', icon: 'speed', noteKey: 'pool.card.regulation.note', note: 'Temporisations communes aux régulateurs pH et désinfection.' }),
       Object.freeze({ module: 'poollogic/robot', titleKey: 'pool.card.robot.title', title: 'Robot', icon: 'smart_toy', noteKey: 'pool.card.robot.note', note: 'Fenêtre de lancement et durée du nettoyage automatique.' }),
       Object.freeze({ module: 'poollogic/sensors', titleKey: 'pool.card.sensors.title', title: 'Affectation des sondes', icon: 'sensors', noteKey: 'pool.card.sensors.note', note: 'Entrées logiques utilisées pour les mesures et détecteurs de niveau.' }),
-      Object.freeze({ module: 'poollogic/devices', titleKey: 'pool.card.devices.title', title: 'Affectation des relais', icon: 'electrical_services', noteKey: 'pool.card.devices.note', note: 'Relais affectés aux pompes, à la filtration, au robot et au chauffage.' })
+      Object.freeze({ module: 'poollogic/devices', titleKey: 'pool.card.devices.title', title: 'Affectation des relais', icon: 'electrical_services', noteKey: 'pool.card.devices.note', note: 'Choisissez la sortie relais CH commandée par chaque fonction. Une sortie ne peut être affectée qu’une fois.' })
     ]);
     const poolDisinfectionModeDefs = Object.freeze([
       Object.freeze({
@@ -190,8 +190,8 @@
         note: 'Pour un traitement manuel, par exemple avec des galets de chlore. Aucune pompe de désinfection ni aucun électrolyseur ne sera commandé.'
       })
     ]);
-    const poolDeviceSlotOptions = Object.freeze(Array.from({ length: 8 }, (_, index) => (
-      Object.freeze({ value: index, label: 'Relais ' + String(index + 1) })
+    const poolRelayBindingOptions = Object.freeze(Array.from({ length: 8 }, (_, index) => (
+      Object.freeze({ value: 300 + index, label: 'CH' + String(index + 1) })
     )));
     const poolAnalogIoOptions = Object.freeze(Array.from({ length: 16 }, (_, index) => (
       Object.freeze({ value: 192 + index, label: 'Entrée analogique A' + String(index + 1).padStart(2, '0') })
@@ -405,13 +405,13 @@
         Object.freeze({ key: 'psi_monitoring', type: 'bool', label: 'Surveillance de pression' })
       ]),
       'poollogic/devices': Object.freeze([
-        Object.freeze({ key: 'filtr_slot', type: 'enum', label: 'Pompe de filtration', options: poolDeviceSlotOptions, ioAssignmentGroup: 'relay' }),
-        Object.freeze({ key: 'dis_pump_slot', type: 'enum', label: 'Désinfection', options: poolDeviceSlotOptions, ioAssignmentGroup: 'relay' }),
-        Object.freeze({ key: 'ph_pump_slot', type: 'enum', label: 'Pompe pH', options: poolDeviceSlotOptions, ioAssignmentGroup: 'relay' }),
-        Object.freeze({ key: 'lights_slot', type: 'enum', label: 'Éclairage', options: poolDeviceSlotOptions, ioAssignmentGroup: 'relay' }),
-        Object.freeze({ key: 'heater_slot', type: 'enum', label: 'Chauffage', options: poolDeviceSlotOptions, ioAssignmentGroup: 'relay' }),
-        Object.freeze({ key: 'fill_slot', type: 'enum', label: 'Pompe de remplissage', options: poolDeviceSlotOptions, ioAssignmentGroup: 'relay' }),
-        Object.freeze({ key: 'robot_slot', type: 'enum', label: 'Robot', options: poolDeviceSlotOptions, ioAssignmentGroup: 'relay' })
+        Object.freeze({ key: 'binding_port', sourceModule: 'io/output/d00', type: 'enum', label: 'Pompe de filtration', options: poolRelayBindingOptions, ioAssignmentGroup: 'relay' }),
+        Object.freeze({ key: 'binding_port', sourceModule: 'io/output/d02', type: 'enum', label: 'Désinfection', options: poolRelayBindingOptions, ioAssignmentGroup: 'relay' }),
+        Object.freeze({ key: 'binding_port', sourceModule: 'io/output/d01', type: 'enum', label: 'Pompe pH', options: poolRelayBindingOptions, ioAssignmentGroup: 'relay' }),
+        Object.freeze({ key: 'binding_port', sourceModule: 'io/output/d06', type: 'enum', label: 'Éclairage', options: poolRelayBindingOptions, ioAssignmentGroup: 'relay' }),
+        Object.freeze({ key: 'binding_port', sourceModule: 'io/output/d07', type: 'enum', label: 'Chauffage', options: poolRelayBindingOptions, ioAssignmentGroup: 'relay' }),
+        Object.freeze({ key: 'binding_port', sourceModule: 'io/output/d04', type: 'enum', label: 'Pompe de remplissage', options: poolRelayBindingOptions, ioAssignmentGroup: 'relay' }),
+        Object.freeze({ key: 'binding_port', sourceModule: 'io/output/d03', type: 'enum', label: 'Robot', options: poolRelayBindingOptions, ioAssignmentGroup: 'relay' })
       ]),
       'hmi/buzzer': Object.freeze([
         Object.freeze({ key: 'alarm_sound', type: 'bool', label: 'Son des alarmes' })
@@ -2797,7 +2797,15 @@
             && Object.prototype.hasOwnProperty.call(changesByModule[entryModule], entry.spec.key);
         })
         .map((entry) => entry.spec.label || poolConfigFieldLabel(moduleName, entry.spec.key))));
-      if (!window.confirm('Enregistrer ces réglages ?\n\n• ' + changedLabels.join('\n• '))) return;
+      const hardwareRestartRequired = isWaveshareProfile() && Object.keys(changesByModule).some((changedModule) => (
+        changedModule.startsWith('io/drivers/')
+          || changedModule.startsWith('io/input/')
+          || changedModule.startsWith('io/output/')
+      ));
+      const restartNotice = hardwareRestartRequired
+        ? '\n\nLe Waveshare redémarrera pour appliquer le nouveau raccordement matériel.'
+        : '';
+      if (!window.confirm('Enregistrer ces réglages ?\n\n• ' + changedLabels.join('\n• ') + restartNotice)) return;
 
       poolConfigFieldApplyBusy = true;
       form.setAttribute('aria-busy', 'true');
@@ -2811,6 +2819,16 @@
           'Enregistrement des réglages refusé',
           fetchFlowRemoteQueued
         );
+        if (hardwareRestartRequired) {
+          status.className = 'pool-settings-status is-ok';
+          status.textContent = 'Réglages enregistrés. Redémarrage du Waveshare…';
+          await fetchOkJson(
+            '/api/system/reboot',
+            { method: 'POST' },
+            'Réglages enregistrés, mais le redémarrage a échoué'
+          );
+          return;
+        }
         status.className = 'pool-settings-status is-ok';
         status.textContent = 'Réglages enregistrés.';
         poolConfigLoadedOnce = false;
@@ -3075,10 +3093,13 @@
         field.appendChild(controlWrap);
 
         const doc = poolConfigDoc(fieldModuleName, spec.key);
-        if (doc && typeof doc.help === 'string' && doc.help.trim()) {
+        const helpText = typeof spec.help === 'string' && spec.help.trim()
+          ? spec.help.trim()
+          : (doc && typeof doc.help === 'string' ? doc.help.trim() : '');
+        if (helpText) {
           const help = document.createElement('p');
           help.className = 'pool-setting-help';
-          help.textContent = doc.help.trim();
+          help.textContent = helpText;
           field.appendChild(help);
         }
         fields.appendChild(field);

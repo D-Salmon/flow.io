@@ -88,14 +88,14 @@
     let supCfgExpandedNodes = new Set();
     let supCfgRootExpanded = true;
     const ioOutputPdmLabels = Object.freeze({
-      0: 'Filtration',
-      1: 'Pompe pH',
-      2: 'Pompe chlore',
-      3: 'Robot',
-      4: 'Pompe remplissage',
-      5: 'Electrolyse',
-      6: 'Eclairage',
-      7: 'Chauffage eau',
+      0: 'CH1',
+      1: 'CH2',
+      2: 'CH3',
+      3: 'CH4',
+      4: 'CH5',
+      5: 'CH6 libre',
+      6: 'CH7',
+      7: 'CH8',
       8: 'COMP01',
       9: 'COMP02',
       10: 'COMP03',
@@ -1190,6 +1190,9 @@
       const cache = poolLogicDeviceIoOutputNames[src] || {};
       const ioName = typeof cache[n] === 'string' ? cache[n].trim() : '';
       const baseName = ioName || String(ioOutputPdmLabels[n] || '').trim();
+      if (isWaveshareProfile() && n >= 0 && n <= 7) {
+        return 'CH' + String(n + 1) + (n === 5 ? ' — libre par défaut' : '');
+      }
       const suffix = baseName ? (' [' + baseName + ']') : '';
       return 'pd' + String(n) + ' - ' + ref + suffix;
     }
@@ -1204,7 +1207,8 @@
         });
       }
       const out = [];
-      for (let slot = 0; slot <= 15; slot += 1) {
+      const lastSlot = isWaveshareProfile() ? 7 : 15;
+      for (let slot = 0; slot <= lastSlot; slot += 1) {
         const base = byValue[slot] ? Object.assign({}, byValue[slot]) : { value: slot };
         base.value = slot;
         base.label = poolLogicDeviceSlotLabel(source, slot, base.label);
@@ -1238,6 +1242,17 @@
       }
       const options = (doc && Array.isArray(doc._enumOptions)) ? doc._enumOptions : null;
       if (!options) return null;
+      if (isWaveshareProfile()
+          && configIsBindingPortField(moduleName, key)
+          && /^io\/output\/d\d{2}$/i.test(nettoyerNomFlowCfg(moduleName))) {
+        return options.map((option) => {
+          const value = Number(option && option.value);
+          if (!Number.isInteger(value) || value < 300 || value > 307) return option;
+          return Object.assign({}, option, {
+            label: 'CH' + String(value - 299) + ' — sortie relais'
+          });
+        });
+      }
       if (isWaveshareProfile() && isPoolLogicDeviceSlotField(moduleName, key, doc)) {
         return dynamicPoolLogicDeviceSlotOptions(source, options);
       }
@@ -1651,6 +1666,12 @@
 
     function isConfigPathHidden(pathValue, source) {
       const cleanPath = nettoyerNomFlowCfg(pathValue);
+      // On Waveshare, relay assignment is the physical binding of the fixed
+      // semantic outputs D00..D07. The legacy PoolDevice slot selectors are
+      // internal implementation details and would duplicate that setting.
+      if (isWaveshareProfile() && cfgPathHasPrefix(cleanPath, 'poollogic/devices')) {
+        return true;
+      }
       if (cfgTreeHiddenPaths.some((hiddenPath) => cfgPathHasPrefix(cleanPath, hiddenPath))) {
         return true;
       }
@@ -1896,11 +1917,26 @@
         'swg_fb_active_high',
         'psi_monitoring'
       ];
+      const poolDeviceFieldOrder = [
+        'filtr_slot',
+        'dis_pump_slot',
+        'ph_pump_slot',
+        'lights_slot',
+        'heater_slot',
+        'fill_slot',
+        'robot_slot'
+      ];
       const cleanModuleName = nettoyerNomFlowCfg(moduleName).toLowerCase();
       const preferredFieldOrder = cleanModuleName === 'mqtt'
         ? mqttFieldOrder
-        : (cleanModuleName === 'poollogic/sensors' ? poolSensorFieldOrder : null);
-      const keys = Object.keys(data).sort((left, right) => {
+        : (cleanModuleName === 'poollogic/sensors'
+            ? poolSensorFieldOrder
+            : (cleanModuleName === 'poollogic/devices' ? poolDeviceFieldOrder : null));
+      const keys = Object.keys(data).filter((key) => !(
+        isWaveshareProfile()
+        && cleanModuleName === 'poollogic/devices'
+        && String(key).toLowerCase() === 'swg_slot'
+      )).sort((left, right) => {
         if (!preferredFieldOrder) return left.localeCompare(right);
         const leftIndex = preferredFieldOrder.indexOf(left);
         const rightIndex = preferredFieldOrder.indexOf(right);

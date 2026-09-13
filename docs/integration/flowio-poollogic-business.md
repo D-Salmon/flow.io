@@ -158,7 +158,7 @@ Conditions d’autorisation:
 
 `disinfection_type=3` (`Désactivé`) coupe la désinfection. Un démarrage manuel
 conserve le type configuré mais désactive la régulation automatique concernée.
-Sur Waveshare, la pompe chlore/O2 et l’électrolyseur partagent le relais `EXIO3` :
+Sur Waveshare, la pompe chlore/O2 et l’électrolyseur partagent le relais `CH3` :
 seule la commande correspondant au type sélectionné peut démarrer la sortie.
 
 ## 5.4 Électrolyseur

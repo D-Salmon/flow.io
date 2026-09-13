@@ -109,9 +109,30 @@ Les noms Axx restent des identifiants logiques ; le raccordement physique est
 déterminé par l'affectation du canal correspondant.
 
 Les ports physiques de cette page portent maintenant leur désignation `DIx` ou
-`EXIOx`. L'ancien slot logique non raccordé `io_chl_gen` n'est plus affiché ni
-compté : la désinfection passe uniquement par son relais configurable et
-`EXIO6` reste disponible.
+`CHx`. `CH1` à `CH8` reprend la sérigraphie des sorties relais du Waveshare ;
+les anciens noms visibles `EXIO1` à `EXIO8` sont migrés automatiquement sans
+modifier les identifiants techniques internes. L'ancien slot logique
+`io_chl_gen` est migré vers un relais `CH6`
+ordinaire et réellement affectable. La désinfection continue d'utiliser un
+seul relais configurable, quel que soit le traitement sélectionné.
+
+Le tableau des affectations fonctionnelles résout désormais les entrées depuis
+`poollogic/sensors` et le raccordement réel des sorties depuis
+`io/output/d00` à `io/output/d07`. Les changements faits dans `Piscine`
+apparaissent donc dans `Entrées/Sorties`, y compris les retours des contacteurs
+et le relais CH réellement utilisé. `Configuration` présente ces mêmes
+raccordements dans `io/output`. La branche interne `poollogic/devices` est
+masquée sur Waveshare afin qu'elle ne fasse pas doublon.
+
+Dans `Piscine > Affectation des relais`, les fonctions gardent leur slot
+PoolDevice fixe, donc leur type, leurs dépendances et leurs sécurités. Le choix
+porte uniquement sur le relais physique `CH1` à `CH8`. Les listes écartent
+les relais déjà affectés et `CH6` est libre par défaut.
+
+Les changements qui reconstruisent un pilote matériel — adresse ADS1115,
+canal, source analogique, transport DS2484 ou raccordement physique d'une
+entrée ou d'un relais — annoncent puis déclenchent un redémarrage après
+enregistrement.
 
 Pour les températures, ce diagnostic distingue maintenant une DS18B20 directe
 sur GPIO20 (eau) ou GPIO19 (air) d'une DS18B20 raccordée au pont DS2484 à

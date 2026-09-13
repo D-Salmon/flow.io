@@ -279,6 +279,7 @@
       const configuredNameLabel = (row, key) => {
         const bindingPort = Number(row && row.binding_port);
         if (bindingPort >= 200 && bindingPort <= 207) return 'DI' + String(bindingPort - 199);
+        if (bindingPort >= 300 && bindingPort <= 307) return 'CH' + String(bindingPort - 299);
         return ioSummaryText(row && row[key], '-');
       };
       const domainDisplayLabel = (row) => (
@@ -289,7 +290,7 @@
       const bindingPortLabel = (row) => {
         const port = Number(row && row.port_id);
         if (port >= 200 && port <= 207) return 'DI' + String(port - 199);
-        if (port >= 300 && port <= 307) return 'EXIO' + String(port - 299);
+        if (port >= 300 && port <= 307) return 'CH' + String(port - 299);
         return ioSummaryText(row && row.port_id, '-');
       };
       const driverLabel = (row) => {

@@ -2917,6 +2917,140 @@ const PoolDevicePreset* waveshareFindPoolDeviceForCommandSlot_(DomainSlotId doma
     return nullptr;
 }
 
+const PoolDevicePreset* waveshareFindPoolDeviceById_(uint8_t deviceId)
+{
+    for (const PoolDevicePreset& preset : PoolDomain::kPoolDevices) {
+        if (preset.id == deviceId) return &preset;
+    }
+    return nullptr;
+}
+
+IoSlotId waveshareIoSlotFromIoId_(IoId ioId)
+{
+    if (ioId >= IO_ID_AI_BASE && ioId < (IoId)(IO_ID_AI_BASE + Limits::Io::MaxAnalogEndpoints)) {
+        return analogInputSlot((uint8_t)(ioId - IO_ID_AI_BASE));
+    }
+    if (ioId >= IO_ID_DI_BASE && ioId < (IoId)(IO_ID_DI_BASE + Limits::Io::MaxDigitalInputs)) {
+        return digitalInputSlot((uint8_t)(ioId - IO_ID_DI_BASE));
+    }
+    if (ioId >= IO_ID_DO_BASE && ioId < (IoId)(IO_ID_DO_BASE + Limits::Io::MaxDigitalOutputs)) {
+        return digitalOutputSlot((uint8_t)(ioId - IO_ID_DO_BASE));
+    }
+    return IO_SLOT_INVALID;
+}
+
+struct WavesharePoolAssignments {
+    IoId ph = ioIdFromSlot(analogInputSlot(1));
+    IoId orp = ioIdFromSlot(analogInputSlot(0));
+    IoId pressure = ioIdFromSlot(analogInputSlot(2));
+    IoId waterTemperature = ioIdFromSlot(analogInputSlot(4));
+    IoId airTemperature = ioIdFromSlot(analogInputSlot(5));
+    IoId poolLevel = ioIdFromSlot(digitalInputSlot(2));
+    IoId phLevel = ioIdFromSlot(digitalInputSlot(0));
+    IoId disinfectantLevel = ioIdFromSlot(digitalInputSlot(1));
+    IoId flowSwitch = ioIdFromSlot(digitalInputSlot(4));
+    IoId filtrationFeedback = IO_ID_INVALID;
+    IoId electrolysisFeedback = IO_ID_INVALID;
+    uint8_t filtration = PoolIds::DeviceFiltrationPump;
+    uint8_t phPump = PoolIds::DevicePhPump;
+    uint8_t disinfection = PoolIds::DeviceChlorinePump;
+    uint8_t robot = PoolIds::DeviceRobot;
+    uint8_t fill = PoolIds::DeviceFillPump;
+    uint8_t lights = PoolIds::DeviceLights;
+    uint8_t heater = PoolIds::DeviceWaterHeater;
+};
+
+void waveshareLoadPoolAssignments_(ConfigStore* cfgStore, WavesharePoolAssignments& out)
+{
+    if (!cfgStore) return;
+    char json[1024] = {0};
+    bool truncated = false;
+    if (cfgStore->toJsonModule("poollogic/sensors", json, sizeof(json), &truncated, false) && !truncated) {
+        JsonDocument doc;
+        if (!deserializeJson(doc, json) && doc.is<JsonObjectConst>()) {
+            const JsonObjectConst sensors = doc.as<JsonObjectConst>();
+            auto loadIo = [&](const char* key, IoId& target) {
+                const JsonVariantConst value = sensors[key];
+                if (value.is<uint16_t>()) target = (IoId)value.as<uint16_t>();
+            };
+            loadIo("ph_io_id", out.ph);
+            loadIo("dis_io_id", out.orp);
+            loadIo("psi_io_id", out.pressure);
+            loadIo("wat_temp_io_id", out.waterTemperature);
+            loadIo("air_temp_io_id", out.airTemperature);
+            loadIo("pool_lvl_io_id", out.poolLevel);
+            loadIo("ph_lvl_io_id", out.phLevel);
+            loadIo("chl_lvl_io_id", out.disinfectantLevel);
+            loadIo("flow_switch_io_id", out.flowSwitch);
+            loadIo("filtr_fb_io_id", out.filtrationFeedback);
+            loadIo("swg_fb_io_id", out.electrolysisFeedback);
+        }
+    }
+
+    memset(json, 0, sizeof(json));
+    truncated = false;
+    if (cfgStore->toJsonModule("poollogic/devices", json, sizeof(json), &truncated, false) && !truncated) {
+        JsonDocument doc;
+        if (!deserializeJson(doc, json) && doc.is<JsonObjectConst>()) {
+            const JsonObjectConst devices = doc.as<JsonObjectConst>();
+            auto loadDevice = [&](const char* key, uint8_t& target) {
+                const JsonVariantConst value = devices[key];
+                if (!value.is<uint16_t>()) return;
+                const uint16_t slot = value.as<uint16_t>();
+                if (slot < POOL_DEVICE_MAX) target = (uint8_t)slot;
+            };
+            loadDevice("filtr_slot", out.filtration);
+            loadDevice("ph_pump_slot", out.phPump);
+            loadDevice("dis_pump_slot", out.disinfection);
+            loadDevice("robot_slot", out.robot);
+            loadDevice("fill_slot", out.fill);
+            loadDevice("lights_slot", out.lights);
+            loadDevice("heater_slot", out.heater);
+        }
+    }
+}
+
+uint8_t waveshareAssignedDeviceForDomain_(const WavesharePoolAssignments& assignments,
+                                          DomainSlotId domainSlot)
+{
+    switch (domainSlot) {
+        case PoolIds::ActuatorFiltrationPump: return assignments.filtration;
+        case PoolIds::ActuatorPhPump: return assignments.phPump;
+        case PoolIds::ActuatorChlorinePump: return assignments.disinfection;
+        case PoolIds::ActuatorRobot: return assignments.robot;
+        case PoolIds::ActuatorFillPump: return assignments.fill;
+        case PoolIds::ActuatorLights: return assignments.lights;
+        case PoolIds::ActuatorWaterHeater: return assignments.heater;
+        default: return POOL_DEVICE_INVALID;
+    }
+}
+
+IoSlotId waveshareAssignedIoSlotForDomain_(const WavesharePoolAssignments& assignments,
+                                           DomainSlotId domainSlot)
+{
+    switch (domainSlot) {
+        case PoolIds::SensorPh: return waveshareIoSlotFromIoId_(assignments.ph);
+        case PoolIds::SensorOrp: return waveshareIoSlotFromIoId_(assignments.orp);
+        case PoolIds::SensorPsi: return waveshareIoSlotFromIoId_(assignments.pressure);
+        case PoolIds::SensorWaterTemp: return waveshareIoSlotFromIoId_(assignments.waterTemperature);
+        case PoolIds::SensorAirTemp: return waveshareIoSlotFromIoId_(assignments.airTemperature);
+        case PoolIds::SensorPoolLevel: return waveshareIoSlotFromIoId_(assignments.poolLevel);
+        case PoolIds::SensorPhLevel: return waveshareIoSlotFromIoId_(assignments.phLevel);
+        case PoolIds::SensorChlorineLevel: return waveshareIoSlotFromIoId_(assignments.disinfectantLevel);
+        case PoolIds::SensorFlowSwitch: return waveshareIoSlotFromIoId_(assignments.flowSwitch);
+        default: break;
+    }
+
+    const uint8_t deviceId = waveshareAssignedDeviceForDomain_(assignments, domainSlot);
+    if (deviceId != POOL_DEVICE_INVALID) {
+        const PoolDevicePreset* device = waveshareFindPoolDeviceById_(deviceId);
+        const DomainIoSlotBinding* binding = device ? waveshareFindDomainBinding_(device->commandSlot) : nullptr;
+        return binding ? binding->ioSlot : IO_SLOT_INVALID;
+    }
+    const DomainIoSlotBinding* binding = waveshareFindDomainBinding_(domainSlot);
+    return binding ? binding->ioSlot : IO_SLOT_INVALID;
+}
+
 void waveshareFormatIoValue_(const IoEndpointMeta& meta, const IoValue& value, char* out, size_t outLen)
 {
     if (!out || outLen == 0U) return;
@@ -2959,7 +3093,8 @@ struct WaveshareIoSummaryState {
 WaveshareIoSummaryState waveshareIoSummaryStateForSlot_(const IOServiceV2* ioSvc,
                                                         const PoolDeviceService* poolSvc,
                                                         IoSlotId ioSlot,
-                                                        DomainSlotId domainSlot)
+                                                        DomainSlotId domainSlot,
+                                                        uint8_t assignedDeviceId = POOL_DEVICE_INVALID)
 {
     WaveshareIoSummaryState out{};
     if (ioSlot == IO_SLOT_INVALID) {
@@ -2974,7 +3109,9 @@ WaveshareIoSummaryState waveshareIoSummaryStateForSlot_(const IOServiceV2* ioSvc
     out.hasMeta = true;
     out.hasBindingPort = waveshareFindPortForMeta_(out.meta) != nullptr;
 
-    const PoolDevicePreset* devicePreset = waveshareFindPoolDeviceForCommandSlot_(domainSlot);
+    const PoolDevicePreset* devicePreset = assignedDeviceId != POOL_DEVICE_INVALID
+        ? waveshareFindPoolDeviceById_(assignedDeviceId)
+        : waveshareFindPoolDeviceForCommandSlot_(domainSlot);
     if (devicePreset && poolSvc && poolSvc->meta) {
         PoolDeviceSvcMeta meta{};
         if (poolSvc->meta(poolSvc->ctx, devicePreset->id, &meta) == POOLDEV_SVC_OK && meta.used) {
@@ -3051,6 +3188,46 @@ void wavesharePrintPoolDeviceJson_(AsyncResponseStream& response, const Waveshar
     response.print(state.poolActualOn ? "true" : "false");
     response.print(",\"block_reason\":");
     printJsonEscaped_(response, wavesharePoolDeviceBlockReasonLabel_(state.poolMeta.blockReason));
+    response.print("}");
+}
+
+void wavesharePrintDomainAssignmentJson_(AsyncResponseStream& response,
+                                         const IOServiceV2* ioSvc,
+                                         const PoolDeviceService* poolSvc,
+                                         uint16_t domainSlotId,
+                                         const char* endpointId,
+                                         const char* displayName,
+                                         uint8_t slotKind,
+                                         IoSlotId ioSlot,
+                                         uint8_t assignedDeviceId = POOL_DEVICE_INVALID)
+{
+    const WaveshareIoSummaryState state = waveshareIoSummaryStateForSlot_(
+        ioSvc, poolSvc, ioSlot, (DomainSlotId)domainSlotId, assignedDeviceId);
+    char valueText[32] = {0};
+    if (state.hasValue) waveshareFormatIoValue_(state.meta, state.value, valueText, sizeof(valueText));
+    response.print("{\"domain_slot_id\":");
+    response.print((unsigned)domainSlotId);
+    response.print(",\"endpoint_id\":");
+    printJsonEscaped_(response, endpointId ? endpointId : "");
+    response.print(",\"io_name\":");
+    printJsonEscaped_(response, state.hasMeta ? state.meta.name : "");
+    response.print(",\"binding_port\":");
+    const IOBindingPortSpec* port = state.hasMeta ? waveshareFindPortForMeta_(state.meta) : nullptr;
+    response.print(port ? (unsigned)port->portId : 0U);
+    response.print(",\"display_name\":");
+    printJsonEscaped_(response, displayName ? displayName : "");
+    response.print(",\"slot_kind\":");
+    printJsonEscaped_(response, waveshareIoSlotKindLabel_(slotKind));
+    response.print(",\"io_slot\":");
+    printJsonEscaped_(response, ioSlot == IO_SLOT_INVALID ? "" : waveshareIoSlotKindLabel_(ioSlotKind(ioSlot)));
+    response.print(",\"io_slot_index\":");
+    response.print(ioSlot == IO_SLOT_INVALID ? 0U : (unsigned)ioSlotIndex(ioSlot));
+    response.print(",\"state\":");
+    printJsonEscaped_(response, state.state);
+    response.print(",\"last_value\":");
+    printJsonEscaped_(response, valueText[0] != '\0' ? valueText : "-");
+    response.print(",\"pool_device\":");
+    wavesharePrintPoolDeviceJson_(response, state);
     response.print("}");
 }
 
@@ -3132,6 +3309,8 @@ void sendWaveshareIoSummaryResponse_(AsyncResponseStream& response,
     const uint8_t adsExternalAddress = waveshareLoadAdsAddress_(cfgStore, "io/drivers/ads1115_ext", 0x49U);
     const uint8_t waterTemperatureTransport = waveshareLoadDs18Transport_(cfgStore, "water_transport");
     const uint8_t airTemperatureTransport = waveshareLoadDs18Transport_(cfgStore, "air_transport");
+    WavesharePoolAssignments assignments{};
+    waveshareLoadPoolAssignments_(cfgStore, assignments);
     uint16_t bindingActive = 0U;
     uint16_t bindingError = 0U;
     uint16_t ioTotal = 0U;
@@ -3144,24 +3323,40 @@ void sendWaveshareIoSummaryResponse_(AsyncResponseStream& response,
     uint8_t driverError[11] = {0};
 
     for (const DomainIoSlotBinding& binding : PoolDomain::kDomainIoSlots) {
-        // The historical chlorine-generator slot is deliberately left unbound:
-        // disinfection now uses the single configurable relay. Keep it out of
-        // diagnostics so it is not mistaken for the free physical EXIO6 port.
-        if (binding.domainSlot == PoolIds::ActuatorChlorineGenerator) continue;
         ++ioTotal;
-        ++domainTotal;
         const WaveshareIoSummaryState state = waveshareIoSummaryStateForSlot_(ioSvc, poolSvc, binding.ioSlot, binding.domainSlot);
         if (state.active) {
             ++ioActive;
-            ++domainActive;
             if (state.hasMeta && state.meta.backend < 11U) ++driverActive[state.meta.backend];
         }
         if (state.errorState) {
             ++ioError;
-            ++domainError;
             if (state.hasMeta && state.meta.backend < 11U) ++driverError[state.meta.backend];
         }
     }
+
+    for (const DomainSlotPreset& preset : PoolDomain::kDomainSlots) {
+        // On Waveshare slot 5 is the spare physical EXIO6 slot, not a second
+        // disinfection role. It remains visible in IOSlots and BindingPorts.
+        if (preset.id == PoolIds::ActuatorChlorineGenerator) continue;
+        ++domainTotal;
+        const IoSlotId ioSlot = waveshareAssignedIoSlotForDomain_(assignments, preset.id);
+        const uint8_t deviceId = waveshareAssignedDeviceForDomain_(assignments, preset.id);
+        const WaveshareIoSummaryState state = waveshareIoSummaryStateForSlot_(ioSvc, poolSvc, ioSlot, preset.id, deviceId);
+        if (state.active) ++domainActive;
+        if (state.errorState) ++domainError;
+    }
+    const IoSlotId filtrationFeedbackSlot = waveshareIoSlotFromIoId_(assignments.filtrationFeedback);
+    const IoSlotId electrolysisFeedbackSlot = waveshareIoSlotFromIoId_(assignments.electrolysisFeedback);
+    const WaveshareIoSummaryState filtrationFeedbackState = waveshareIoSummaryStateForSlot_(
+        ioSvc, poolSvc, filtrationFeedbackSlot, DOMAIN_SLOT_INVALID);
+    const WaveshareIoSummaryState electrolysisFeedbackState = waveshareIoSummaryStateForSlot_(
+        ioSvc, poolSvc, electrolysisFeedbackSlot, DOMAIN_SLOT_INVALID);
+    domainTotal += 2U;
+    if (filtrationFeedbackState.active) ++domainActive;
+    if (filtrationFeedbackState.errorState) ++domainError;
+    if (electrolysisFeedbackState.active) ++domainActive;
+    if (electrolysisFeedbackState.errorState) ++domainError;
 
     for (const IOBindingPortSpec& spec : kBindingPorts) {
         IoId ioId = IO_ID_INVALID;
@@ -3262,7 +3457,6 @@ void sendWaveshareIoSummaryResponse_(AsyncResponseStream& response,
     response.print("],\"io_slots\":[");
     first = true;
     for (const DomainIoSlotBinding& binding : PoolDomain::kDomainIoSlots) {
-        if (binding.domainSlot == PoolIds::ActuatorChlorineGenerator) continue;
         if (!first) response.print(',');
         wavesharePrintIoSlotJson_(response,
                                   ioSvc,
@@ -3277,46 +3471,46 @@ void sendWaveshareIoSummaryResponse_(AsyncResponseStream& response,
     first = true;
     for (const DomainSlotPreset& preset : PoolDomain::kDomainSlots) {
         if (preset.id == PoolIds::ActuatorChlorineGenerator) continue;
-        const DomainIoSlotBinding* binding = waveshareFindDomainBinding_(preset.id);
+        const IoSlotId ioSlot = waveshareAssignedIoSlotForDomain_(assignments, preset.id);
+        const uint8_t deviceId = waveshareAssignedDeviceForDomain_(assignments, preset.id);
         if (!first) response.print(',');
-        const IoSlotId ioSlot = binding ? binding->ioSlot : IO_SLOT_INVALID;
-        const WaveshareIoSummaryState state = waveshareIoSummaryStateForSlot_(ioSvc, poolSvc, ioSlot, preset.id);
-        char valueText[32] = {0};
-        if (state.hasValue) waveshareFormatIoValue_(state.meta, state.value, valueText, sizeof(valueText));
-        response.print("{\"domain_slot_id\":");
-        response.print((unsigned)preset.id);
-        response.print(",\"endpoint_id\":");
-        printJsonEscaped_(response, preset.endpointId ? preset.endpointId : "");
-        response.print(",\"io_name\":");
-        printJsonEscaped_(response, state.hasMeta ? state.meta.name : "");
-        response.print(",\"binding_port\":");
-        const IOBindingPortSpec* port = state.hasMeta ? waveshareFindPortForMeta_(state.meta) : nullptr;
-        response.print(port ? (unsigned)port->portId : 0U);
-        response.print(",\"display_name\":");
-        printJsonEscaped_(response, preset.displayName ? preset.displayName : "");
-        response.print(",\"slot_kind\":");
-        printJsonEscaped_(response, waveshareIoSlotKindLabel_(preset.slotKind));
-        response.print(",\"io_slot\":");
-        printJsonEscaped_(response, ioSlot == IO_SLOT_INVALID ? "" : waveshareIoSlotKindLabel_(ioSlotKind(ioSlot)));
-        response.print(",\"io_slot_index\":");
-        response.print(ioSlot == IO_SLOT_INVALID ? 0U : (unsigned)ioSlotIndex(ioSlot));
-        response.print(",\"state\":");
-        printJsonEscaped_(response, state.state);
-        response.print(",\"last_value\":");
-        printJsonEscaped_(response, valueText[0] != '\0' ? valueText : "-");
-        response.print(",\"pool_device\":");
-        wavesharePrintPoolDeviceJson_(response, state);
-        response.print("}");
+        wavesharePrintDomainAssignmentJson_(response,
+                                            ioSvc,
+                                            poolSvc,
+                                            preset.id,
+                                            preset.endpointId,
+                                            preset.displayName,
+                                            preset.slotKind,
+                                            ioSlot,
+                                            deviceId);
         first = false;
     }
+    if (!first) response.print(',');
+    wavesharePrintDomainAssignmentJson_(response,
+                                        ioSvc,
+                                        poolSvc,
+                                        1001U,
+                                        "filtration_feedback",
+                                        "Retour contacteur filtration",
+                                        IO_SLOT_DIGITAL_INPUT,
+                                        filtrationFeedbackSlot);
+    response.print(',');
+    wavesharePrintDomainAssignmentJson_(response,
+                                        ioSvc,
+                                        poolSvc,
+                                        1002U,
+                                        "electrolysis_feedback",
+                                        "Retour contacteur électrolyseur",
+                                        IO_SLOT_DIGITAL_INPUT,
+                                        electrolysisFeedbackSlot);
 
     response.print("],\"error_slots\":[");
     first = true;
     for (const DomainSlotPreset& preset : PoolDomain::kDomainSlots) {
         if (preset.id == PoolIds::ActuatorChlorineGenerator) continue;
-        const DomainIoSlotBinding* binding = waveshareFindDomainBinding_(preset.id);
-        const IoSlotId ioSlot = binding ? binding->ioSlot : IO_SLOT_INVALID;
-        const WaveshareIoSummaryState state = waveshareIoSummaryStateForSlot_(ioSvc, poolSvc, ioSlot, preset.id);
+        const IoSlotId ioSlot = waveshareAssignedIoSlotForDomain_(assignments, preset.id);
+        const uint8_t deviceId = waveshareAssignedDeviceForDomain_(assignments, preset.id);
+        const WaveshareIoSummaryState state = waveshareIoSummaryStateForSlot_(ioSvc, poolSvc, ioSlot, preset.id, deviceId);
         if (!state.errorState) continue;
         if (!first) response.print(',');
         response.print("{\"domain_slot_id\":");
@@ -3330,6 +3524,25 @@ void sendWaveshareIoSummaryResponse_(AsyncResponseStream& response,
         response.print("}");
         first = false;
     }
+    auto printFeedbackError = [&](uint16_t id,
+                                  const char* label,
+                                  IoSlotId ioSlot,
+                                  const WaveshareIoSummaryState& state) {
+        if (!state.errorState) return;
+        if (!first) response.print(',');
+        response.print("{\"domain_slot_id\":");
+        response.print((unsigned)id);
+        response.print(",\"label\":");
+        printJsonEscaped_(response, label);
+        response.print(",\"io_slot\":");
+        printJsonEscaped_(response, ioSlot == IO_SLOT_INVALID ? "" : waveshareIoSlotKindLabel_(ioSlotKind(ioSlot)));
+        response.print(",\"error\":");
+        printJsonEscaped_(response, state.error);
+        response.print("}");
+        first = false;
+    };
+    printFeedbackError(1001U, "Retour contacteur filtration", filtrationFeedbackSlot, filtrationFeedbackState);
+    printFeedbackError(1002U, "Retour contacteur électrolyseur", electrolysisFeedbackSlot, electrolysisFeedbackState);
     response.print("]}");
 }
 
@@ -7581,6 +7794,14 @@ void WebInterfaceModule::startServer_()
             "io/input/a13",
             "io/input/a14",
             "io/input/a15",
+            "io/output/d00",
+            "io/output/d01",
+            "io/output/d02",
+            "io/output/d03",
+            "io/output/d04",
+            "io/output/d05",
+            "io/output/d06",
+            "io/output/d07",
             "poollogic/devices",
             "poollogic/chlorine",
             "poollogic/swg",

@@ -606,7 +606,9 @@ void configureIoModule(const AppContext& ctx, ModuleInstances& modules)
         IODigitalOutputDefinition def{};
         const uint8_t exioOrdinal = exioOrdinalFromPort(spec->bindingPort);
         if (exioOrdinal != 0U) {
-            snprintf(def.id, sizeof(def.id), "EXIO%u", (unsigned)exioOrdinal);
+            // CH1..CH8 matches the relay labels printed on the Waveshare board.
+            // The PortExio* constants remain the stable internal identifiers.
+            snprintf(def.id, sizeof(def.id), "CH%u", (unsigned)exioOrdinal);
         } else {
             snprintf(def.id, sizeof(def.id), "%s", preset.endpointId ? preset.endpointId : "output");
         }

@@ -99,17 +99,17 @@ Waveshare, pas les GPIO bruts pour des signaux industriels.
 
 | Relais | Fonction par défaut |
 |---|---|
-| Relais 1 / EXIO1 | Pompe de filtration |
-| Relais 2 / EXIO2 | Pompe pH |
-| Relais 3 / EXIO3 | Désinfection sélectionnée : pompe chlore/O2 **ou** électrolyseur |
-| Relais 4 / EXIO4 | Robot |
-| Relais 5 / EXIO5 | Remplissage |
-| Relais 6 / EXIO6 | Libre |
-| Relais 7 / EXIO7 | Éclairage |
-| Relais 8 / EXIO8 | Chauffage |
+| Relais 1 / CH1 | Pompe de filtration |
+| Relais 2 / CH2 | Pompe pH |
+| Relais 3 / CH3 | Désinfection sélectionnée : pompe chlore/O2 **ou** électrolyseur |
+| Relais 4 / CH4 | Robot |
+| Relais 5 / CH5 | Remplissage |
+| Relais 6 / CH6 | Libre |
+| Relais 7 / CH7 | Éclairage |
+| Relais 8 / CH8 | Chauffage |
 
 La sélection se fait avec `poollogic/modes.disinfection_type`. Le firmware ne
-commande qu’un seul équipement de désinfection sur `EXIO3` et refuse le
+commande qu’un seul équipement de désinfection sur `CH3` et refuse le
 démarrage manuel de l’autre type. Il ne faut jamais raccorder simultanément une
 pompe doseuse et un électrolyseur à cette sortie.
 

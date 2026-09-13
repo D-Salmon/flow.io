@@ -3565,6 +3565,34 @@ void IOModule::onConfigLoaded(ConfigStore& cfg, ServiceRegistry& services)
         analogCfg_[i].bindingPort = normalizeConfiguredBindingPort(analogCfg_[i].bindingPort);
     }
 #if defined(FLOW_BOARD_WAVESHARE_ESP32_S3)
+    // Convert the former unbound electrolysis output into the regular CH6
+    // relay. Exact matching preserves any later user customization.
+    constexpr PhysicalPortId kWaveshareExio6Port = 305U;
+    if (DIGITAL_CFG_SLOTS > 5U &&
+        digitalCfg_[5].bindingPort == IO_PORT_INVALID &&
+        strcmp(digitalCfg_[5].name, "io_chl_gen") == 0) {
+        const bool nameOk = cfg.set(configDescriptors_->digitalOutputs[5].nameVar, "CH6");
+        const bool bindingOk = cfg.set(configDescriptors_->digitalOutputs[5].bindingVar, kWaveshareExio6Port);
+        if (nameOk && bindingOk) {
+            LOGI("Legacy chlorine-generator output migrated to free relay CH6");
+        } else {
+            LOGE("Failed to migrate legacy chlorine-generator output to CH6");
+        }
+    }
+
+    // Older Waveshare builds exposed the internal EXIO name in the UI. Rename
+    // only untouched defaults so custom output names remain intact.
+    for (uint8_t i = 0U; i < DIGITAL_CFG_SLOTS && i < 8U; ++i) {
+        char oldName[12] = {0};
+        char newName[12] = {0};
+        snprintf(oldName, sizeof(oldName), "EXIO%u", (unsigned)(i + 1U));
+        if (strcmp(digitalCfg_[i].name, oldName) != 0) continue;
+        snprintf(newName, sizeof(newName), "CH%u", (unsigned)(i + 1U));
+        if (cfg.set(configDescriptors_->digitalOutputs[i].nameVar, newName)) {
+            LOGI("Waveshare relay display name migrated %s -> %s", oldName, newName);
+        }
+    }
+
     // 3.2.2 originally left the pressure role on channel A2 of the pH/ORP
     // converter. Move that exact legacy default once to channel A0 of the
     // second ADS1115; subsequent user selections remain untouched.

@@ -193,9 +193,9 @@ Le profil Waveshare affecte par défaut :
 | Second ADS1115, autre adresse | pression sur un canal A0 à A3 au choix |
 | RTC PCF85063 | horloge locale et planification |
 
-Sur Waveshare, le relais 3 (`EXIO3`) est l’unique sortie de désinfection : il
+Sur Waveshare, le relais 3 (`CH3`) est l’unique sortie de désinfection : il
 commande la pompe à chlore/oxygène actif **ou** l’électrolyseur selon le type de
-traitement choisi. Le relais 6 (`EXIO6`) est désormais libre ; les deux appareils
+traitement choisi. Le relais 6 (`CH6`) est désormais libre ; les deux appareils
 ne peuvent donc pas être commandés simultanément par erreur.
 
 Le bus Qwiic/I²C utilise `GPIO42` pour SDA et `GPIO41` pour SCL à `400 kHz`. Il peut aussi
@@ -211,10 +211,27 @@ canaux A0 à A3 de l'ADS1115 externe sur Qwiic. Chaque canal est lu séparément
 par rapport à la masse commune. L'interface affiche uniquement l'adresse I²C
 libre, `0x48` ou `0x49`, selon l'adresse retenue pour la carte pH/ORP. La page
 `Entrées/Sorties` rappelle les adresses et canaux réellement attribués aux deux
-ADS1115. Les ports physiques y sont nommés `DI1` à `DI8` et `EXIO1` à `EXIO8` ;
-`EXIO6` apparaît donc explicitement comme libre. L'ancien slot logiciel
-`io_chl_gen`, désormais sans raccordement, est exclu de ce diagnostic. Par
-défaut, la pression utilise le canal A0 du second ADS1115.
+ADS1115. Les entrées y sont nommées `DI1` à `DI8` et les sorties relais
+`CH1` à `CH8`, conformément à la sérigraphie du Waveshare. Les identifiants
+techniques `PortExio*` restent internes au firmware.
+L'ancien slot `io_chl_gen` devient un relais `CH6` ordinaire, disponible dans
+les affectations. L'électrolyse utilise toujours l'unique relais choisi pour la
+désinfection. Le tableau des affectations fonctionnelles est construit depuis
+la configuration enregistrée et suit donc les changements effectués dans
+`Piscine`. Par défaut, la pression utilise le canal A0 du second ADS1115.
+
+Dans `Piscine > Affectation des relais`, chaque fonction conserve son type de
+périphérique et ses sécurités ; seul son raccordement physique `CH1` à
+`CH8` est modifié. Une sortie ne peut être choisie qu'une fois et `CH6` est
+libre par défaut. Les mêmes raccordements apparaissent dans
+`Configuration > io/output` et dans `Entrées/Sorties` après redémarrage. Les
+anciens sélecteurs internes `poollogic/devices` sont masqués sur Waveshare pour
+éviter deux réglages concurrents.
+
+Une modification de canal ADS1115, d'adresse I²C, de transport DS2484 ou de
+raccordement physique d'une entrée ou d'un relais impose de reconstruire les
+pilotes. Depuis `Piscine`, l'interface annonce ce redémarrage avant
+l'enregistrement puis redémarre le Waveshare automatiquement.
 
 Les désignations Axx sont des identifiants d'entrées analogiques logiques. Dans
 la configuration Piscine actuelle, l'ORP et le pH occupent A0 et A1 de leur

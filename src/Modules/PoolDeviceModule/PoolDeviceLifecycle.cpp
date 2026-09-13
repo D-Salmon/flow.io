@@ -7,6 +7,7 @@
 #include "Core/BufferUsageTracker.h"
 #include "Core/MqttTopics.h"
 #include "Domain/Pool/PoolIds.h"
+#include "Domain/Pool/PoolDefaults.h"
 #include "Domain/Pool/PoolDeviceSlots.h"
 #define LOG_MODULE_ID ((LogModuleId)LogModuleIdValue::PoolDeviceModule)
 #include "Core/ModuleLog.h"
@@ -498,8 +499,24 @@ void PoolDeviceModule::init(ConfigStore& cfg, ServiceRegistry& services)
     (void)logHub_;
 }
 
-void PoolDeviceModule::onConfigLoaded(ConfigStore&, ServiceRegistry& services)
+void PoolDeviceModule::onConfigLoaded(ConfigStore& cfg, ServiceRegistry& services)
 {
+#if defined(FLOW_BOARD_WAVESHARE_ESP32_S3)
+    // Slot 5 used to be the dedicated chlorinator. On Waveshare it is now the
+    // generic EXIO6 relay; migrate only the exact former defaults so later user
+    // choices are left intact.
+    if (slots_[PoolIds::DeviceChlorineGenerator].used) {
+        PoolDeviceSlot& spare = slots_[PoolIds::DeviceChlorineGenerator];
+        const uint8_t legacyDependency = (uint8_t)(1U << PoolIds::DeviceFiltrationPump);
+        if (spare.def.dependsOnMask == legacyDependency &&
+            spare.def.maxUptimeDaySec == PoolDefaults::ChlorineGeneratorMaxUptimeDaySec) {
+            (void)cfg.set(cfgDependsVar_[PoolIds::DeviceChlorineGenerator], (uint8_t)0U);
+            (void)cfg.set(cfgMaxUptimeVar_[PoolIds::DeviceChlorineGenerator], (int32_t)0);
+            LOGI("Legacy chlorinator PDM slot migrated to generic EXIO6 relay");
+        }
+    }
+#endif
+
     static constexpr MqttConfigRouteProducer::Route kPoolDeviceCfgRoutes[] = {
         {kCfgMsgBasePdm,
          {(uint8_t)ConfigModuleId::PoolDevice, ConfigBranchRef::UnknownLocalBranch},

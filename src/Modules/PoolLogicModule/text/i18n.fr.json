@@ -13,7 +13,7 @@
     "cfgdocs.poollogic.chlorine.dis_window_ms.help": "Fenêtre temporelle PWM appliquée a la pompe ORP.",
     "cfgdocs.poollogic.chlorine.dis_window_ms.label": "Fenêtre ORP (ms)",
     "cfgdocs.poollogic.devices.dis_pump_slot.help": "Choisissez le relais qui commande la désinfection : pompe doseuse de chlore ou d'oxygène actif, ou électrolyseur selon le traitement sélectionné.",
-    "cfgdocs.poollogic.devices.dis_pump_slot.label": "Slot pompe chlore liquide",
+    "cfgdocs.poollogic.devices.dis_pump_slot.label": "Désinfection",
     "cfgdocs.poollogic.devices.fill_slot.help": "Choisissez le relais qui commande la pompe ou l'électrovanne de remplissage du bassin.",
     "cfgdocs.poollogic.devices.fill_slot.label": "Slot remplissage",
     "cfgdocs.poollogic.devices.filtr_slot.help": "Choisissez le relais qui commande le contacteur de la pompe de filtration.",
