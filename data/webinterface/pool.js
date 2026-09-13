@@ -297,6 +297,17 @@
         Object.freeze({ key: 'psi_high_th', type: 'number', label: 'Seuil de pression haute', min: 0, max: 5, step: 0.01, unit: 'bar' }),
         Object.freeze({ key: 'psi_start_dly_s', type: 'number', label: 'Délai de contrôle pression', min: 0, max: 600, step: 1, unit: 's' }),
         Object.freeze({ key: 'flow_start_dly_s', type: 'number', label: 'Délai de contrôle du débit', min: 0, max: 255, step: 1, unit: 's' }),
+        Object.freeze({
+          key: 'sensor_hold_wat',
+          type: 'enum',
+          label: 'Emplacement sonde température eau',
+          help: 'Choisissez Canalisation si la sonde mesure l’eau dans la tuyauterie : sa mesure sera figée lorsque la filtration s’arrête. Choisissez Bassin si elle reste immergée et continue à mesurer l’eau du bassin.',
+          options: Object.freeze([
+            Object.freeze({ value: true, label: 'Canalisation — mesure figée à l’arrêt' }),
+            Object.freeze({ value: false, label: 'Bassin — mesure continue' })
+          ]),
+          read: (value) => String(value) === 'true'
+        }),
         Object.freeze({ key: 'winter_start_t', type: 'number', label: 'Seuil de démarrage hors gel', min: -20, max: 10, step: 0.1, unit: '°C' }),
         Object.freeze({ key: 'freeze_hold_t', type: 'number', label: 'Température de maintien hors gel', min: -10, max: 15, step: 0.1, unit: '°C' })
       ]),

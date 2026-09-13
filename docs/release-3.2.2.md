@@ -77,7 +77,9 @@ Dans **Protections générales**, **Surveillance pression** est placée juste av
 établir la pression avant d'autoriser la détection d'une pression trop basse.
 L'emplacement de la sonde d'eau distingue maintenant explicitement la
 canalisation, dont la mesure est figée à l'arrêt, du bassin, où la mesure reste
-continue.
+continue. Ce choix est modifiable directement dans la carte **Protections** par
+une liste **Canalisation — mesure figée à l'arrêt** / **Bassin — mesure
+continue**.
 
 La carte **Affectation des relais** masque de la même façon les relais déjà
 attribués. Elle permet maintenant d'affecter l'éclairage et présente les
