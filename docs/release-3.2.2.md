@@ -71,6 +71,14 @@ l'électrolyseur apparaît désormais dans **Protections générales**, juste ap
 le retour du contacteur de filtration. Il reste affiché uniquement lorsque le
 traitement par électrolyse est sélectionné.
 
+Dans **Protections générales**, **Surveillance pression** est placée juste avant
+**Surveillance débit**. L'ancien libellé « Validation après démarrage » devient
+« Délai avant contrôle pression » : il indique le temps laissé à la pompe pour
+établir la pression avant d'autoriser la détection d'une pression trop basse.
+L'emplacement de la sonde d'eau distingue maintenant explicitement la
+canalisation, dont la mesure est figée à l'arrêt, du bassin, où la mesure reste
+continue.
+
 La carte **Affectation des relais** masque de la même façon les relais déjà
 attribués. Elle permet maintenant d'affecter l'éclairage et présente les
 fonctions dans l'ordre suivant : pompe de filtration, désinfection, pompe pH,

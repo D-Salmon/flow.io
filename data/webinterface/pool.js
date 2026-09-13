@@ -4228,12 +4228,12 @@
         tr('pool.protectionSummary.protections', 'Protections générales'),
         'health_and_safety'
       );
-      poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.pressureMonitoring', 'Surveillance pression'), poolConfigBoolLabel(sensors.psi_monitoring, tr('pool.state.active', 'Active'), tr('pool.state.disabled', 'Désactivée')), toBool(sensors.psi_monitoring) ? 'active' : 'inactive');
       poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.lowPressure', 'Seuil pression basse'), poolConfigFormatValue('poollogic/safety', 'psi_low_th', safety.psi_low_th));
       poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.highPressure', 'Seuil pression haute'), poolConfigFormatValue('poollogic/safety', 'psi_high_th', safety.psi_high_th));
-      poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.pressureDelay', 'Validation après démarrage'), poolConfigFormatValue('poollogic/safety', 'psi_start_dly_s', safety.psi_start_dly_s));
+      poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.pressureDelay', 'Délai avant contrôle pression'), poolConfigFormatValue('poollogic/safety', 'psi_start_dly_s', safety.psi_start_dly_s));
       const flowMonitoringEnabled = toBool(sensors.flow_switch_enabled)
         && Number(sensors.flow_switch_io_id) !== 65535;
+      poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.pressureMonitoring', 'Surveillance pression'), poolConfigBoolLabel(sensors.psi_monitoring, tr('pool.state.active', 'Active'), tr('pool.state.disabled', 'Désactivée')), toBool(sensors.psi_monitoring) ? 'active' : 'inactive');
       poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.flowMonitoring', 'Surveillance débit'), poolConfigBoolLabel(flowMonitoringEnabled, tr('pool.state.active', 'Active'), tr('pool.state.disabled', 'Désactivée')), flowMonitoringEnabled ? 'active' : 'inactive');
       if (flowMonitoringEnabled) {
         poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.flowDelay', 'Validation absence de débit'), poolConfigFormatValue('poollogic/safety', 'flow_start_dly_s', safety.flow_start_dly_s));
@@ -4246,10 +4246,10 @@
       poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.freezeHold', 'Maintien hors gel jusqu’à'), poolConfigFormatValue('poollogic/safety', 'freeze_hold_t', safety.freeze_hold_t));
       poolConfigAppendProtectionRow(
         protections,
-        tr('pool.protectionSummary.waterProbeLocation', 'Sonde température d’eau'),
+        tr('pool.protectionSummary.waterProbeLocation', 'Emplacement sonde température eau'),
         toBool(safety.sensor_hold_wat)
-          ? tr('pool.protectionSummary.waterProbeInline', 'Montée en ligne')
-          : tr('pool.protectionSummary.waterProbeImmersed', 'Immergée dans le bassin')
+          ? tr('pool.protectionSummary.waterProbeInline', 'Canalisation — mesure figée à l’arrêt')
+          : tr('pool.protectionSummary.waterProbeImmersed', 'Bassin — mesure continue')
       );
       grid.appendChild(protections);
 
