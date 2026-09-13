@@ -1,4 +1,62 @@
-# Historique des correctifs de securite
+# Historique des correctifs de sécurité
+
+## Version 3.2.2 — 2026-09-13
+
+### Récupération des accès réseau et Web
+
+- le point d'accès Rescue utilise un mot de passe aléatoire propre à chaque
+  carte, généré une fois puis conservé en NVS ;
+- l'ouverture sans anciens identifiants exige un appui physique de cinq
+  secondes sur BOOT et expire après cinq minutes ;
+- le premier client qui ouvre explicitement Rescue réserve la fenêtre à son
+  adresse IP ; les autres clients restent soumis à l'authentification Digest ;
+- seules les routes nécessaires à Rescue sont ouvertes. Les commandes,
+  diagnostics, mises à jour, réinitialisations et réglages généraux restent
+  protégés ;
+- les accès Web, le Wi-Fi, Ethernet et MQTT sont appliqués par une seule requête
+  et le contrôleur ne redémarre qu'après l'enregistrement final ;
+- les API indiquent qu'un mot de passe existe sans restituer le secret ; une
+  valeur vide conserve le mot de passe enregistré ;
+- après un flash USB, le script local
+  `scripts/capture_rescue_credentials.py` peut enregistrer les identifiants
+  Rescue dans `local-device/rescue-access.txt`. Ce répertoire est exclu de Git.
+
+### Sûreté des automatismes
+
+- les mesures pH et ORP figées, indisponibles ou âgées de plus de cinq minutes
+  sont exclues des régulations ;
+- la température figée ou âgée de plus de dix minutes est exclue des commandes
+  qui exigent une mesure courante ;
+- au retour de la circulation, les filtres médians sont vidés et une
+  stabilisation de 90 secondes précède la réutilisation des sondes ;
+- une température de bassin fiable reste utilisable pendant 24 heures pour
+  préparer le cycle suivant. Au-delà, la filtration démarre sur la durée
+  minimale puis se recalcule une fois après stabilisation ;
+- un détecteur de débit optionnel sur contact sec peut arrêter la filtration et
+  les équipements qui en dépendent après le délai configuré ;
+- l'affectation d'une fonction à `CH1` jusqu'à `CH8` modifie le relais physique
+  sans déplacer son type interne ni ses politiques de sécurité ; les doublons
+  sont exclus des listes de choix ;
+- l'ancien relais distinct d'électrolyse est devenu `CH6` libre. La pompe de
+  désinfection ou l'électrolyseur utilise l'unique relais de désinfection selon
+  le traitement choisi.
+
+### Validation et réserves
+
+- compilation PlatformIO `Waveshare-ESP32-S3` réussie : RAM 33,9 %, flash
+  50,9 % ;
+- construction et flash du firmware et de la SPIFFS réussis, avec vérification
+  de leurs empreintes ;
+- `scripts/verify_release.py` : `release verification: OK` ;
+- accès vérifié après redémarrage par adresse IP et par `flowio.local` ;
+- tests de politique Web présents pour l'amorçage, Rescue, CSRF, limitation des
+  authentifications et fermeture OTA.
+
+Restent à qualifier sur le coffret réel : les cycles complets de mesures
+figées, le recalcul après 90 secondes, le contact de débit et les combinaisons
+de réaffectation des entrées et relais. HTTP, la NVS et la flash ne sont pas
+chiffrés. La clé OTA de production, Secure Boot v2, l'anti-retour et la chaîne
+de compilation reproductible restent à finaliser.
 
 ## Version 3.1.1 - 2026-08-04
 

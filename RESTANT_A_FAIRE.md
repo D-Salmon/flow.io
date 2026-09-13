@@ -1,21 +1,26 @@
-# Flow.io Waveshare 3.1.5 — améliorations restantes
+# Flow.io Waveshare 3.2.2 — améliorations restantes
 
 Ce document présente uniquement les travaux encore ouverts pour la cible
 autonome `Waveshare-ESP32-S3`. L’historique de la livraison se trouve dans les
-[notes de version 3.1.5](docs/release-3.1.5.md).
+[notes de version 3.2.2](docs/release-3.2.2.md).
 
-## État au 26 août 2026
+## État au 13 septembre 2026
 
-La branche `flow.io-waveshare-3.1.5` est publiée et définie comme branche par
-défaut du dépôt. Le firmware a été compilé, flashé et démarré sur la carte
-réelle. Wi-Fi, MQTT TLS, mDNS, serveur Web, authentification administrateur et
-commandes d’équipements ont été essayés sur cette carte.
+La branche `flow.io-waveshare-3.2.2` est publiée sur GitHub au commit `9553ab2`.
+Le firmware et la SPIFFS ont été compilés, flashés et démarrés sur la carte
+réelle. L'adresse IP et `flowio.local` répondent correctement après le dernier
+flash. La compilation occupe 33,9 % de la RAM et 50,9 % du slot applicatif.
 
 Les images courantes sont présentes dans `binary` et référencées par le
 manifeste :
 
-- `flowios3-3.1.5.bin` ;
-- `flowios3-spiffs-3.1.5.bin`.
+- `flowios3-3.2.2.bin` ;
+- `flowios3-spiffs-3.2.2.bin`.
+
+Le vérificateur de release réussit. Le parcours Rescue utilise un mot de passe
+propre à la carte, une présence physique par BOOT et une fenêtre temporaire
+réservée au premier client. Les affectations de sondes et de relais ont été
+alignées entre Piscine, Configuration et Entrées/Sorties.
 
 La version est utilisable sur banc, mais elle n’est pas encore qualifiée pour
 une installation autonome sans surveillance.
@@ -27,6 +32,8 @@ une installation autonome sans surveillance.
 - tester séparément les huit entrées numériques et leurs polarités ;
 - tester les huit relais sans charge, puis avec les bobines des contacteurs ;
 - contrôler les retours auxiliaires de filtration et d’électrolyse ;
+- vérifier chaque réaffectation de sortie `CH1` à `CH8`, l'exclusion des doublons
+  et la conservation des interverrouillages de la fonction déplacée ;
 - vérifier l’arrêt sûr au démarrage, au redémarrage, après coupure secteur et
   après défaut logiciel ;
 - confirmer le câblage, les protections et les contacteurs avec un électricien
@@ -41,6 +48,10 @@ un résultat reproductible.
 - valider les mêmes sondes en GPIO direct sur GPIO20 et GPIO19 ;
 - tester absence, court-circuit, valeur aberrante et reconnexion des sondes ;
 - confirmer la coexistence RTC, ADS1115 et capteurs I²C optionnels ;
+- tester la carte pH/ORP en `0x48` puis `0x49`, le second ADS1115 à l'adresse
+  libre et chacun de ses canaux A0 à A3 pour la pression ;
+- confirmer l'affichage du pilote, de l'adresse et du canal réels dans
+  Entrées/Sorties après chaque modification faite dans Piscine ;
 - ajouter une indication fiable de l’état de la pile RTC.
 
 Critère de fin : une mesure absente ou périmée ne peut pas provoquer
@@ -56,6 +67,12 @@ Construire et exécuter une matrice couvrant :
 - électrolyseur en manuel sans limite quotidienne et en automatique avec une
   limite au moins égale à la filtration calculée plus 60 minutes ;
 - perte de filtration, retours de contacteurs et limites des pompes doseuses ;
+- contact sec de débit ouvert et fermé, polarité, délai de validation, arrêt de
+  la pompe et arrêt de tous ses équipements dépendants ;
+- arrêt de circulation, valeurs pH/ORP/température figées, purge des filtres
+  médians et retour à des mesures fraîches après 90 secondes ;
+- température fiable âgée de moins puis de plus de 24 heures, durée minimale de
+  deux heures, recalcul unique du cycle et calcul quotidien maintenu à 15 h ;
 - robot, remplissage, éclairage et chauffage ;
 - déclenchement, retour à la normale, acquittement et persistance des alarmes.
 
@@ -75,7 +92,14 @@ actions, résultats et journaux attendus.
   activée depuis la 3.2.1 : un résumé — tâche et adresse fautives — apparaît
   désormais dans le journal de démarrage suivant un tel redémarrage, à
   extraire avec `espcoredump.py` pour une trace complète) ;
-- tester les coupures pendant une écriture de configuration.
+- tester les coupures pendant une écriture de configuration ;
+- répéter l'accès par `flowio.local` après démarrage, perte puis retour du Wi-Fi
+  et bascule entre Ethernet et Wi-Fi ;
+- vérifier le parcours Rescue complet par le point d'accès et par Ethernet :
+  appui BOOT, réservation au premier client, expiration, annulation,
+  enregistrement global et unique redémarrage ;
+- vérifier que `local-device/rescue-access.txt` est régénéré après flash, reste
+  hors Git et correspond au SSID réellement annoncé par la carte.
 
 Critère de fin : aucun épuisement progressif, blocage ou défaut durable de
 reconnexion ne survient pendant la durée d’essai retenue.
@@ -97,8 +121,12 @@ dépendre d’un contenu externe changeant.
 
 ## Priorité 2 — tests automatiques
 
-- tester les machines d’état de filtration, chauffage, oxygène actif, robot et
+- tester les machines d'état de filtration, chauffage, oxygène actif, robot et
   remplissage ;
+- tester la sécurité débit conjointement à la surveillance de pression, y
+  compris disparition et retour du défaut ;
+- tester l'âge maximal, l'état figé et les 90 secondes de stabilisation des
+  mesures pH, ORP et température ;
 - tester les PID temporels et leurs limites ;
 - tester la politique de durée de l’électrolyseur selon le mode ;
 - tester alarmes, acquittements, journal d’activité et publications MQTT ;
@@ -120,6 +148,8 @@ fusionnée sans vérifier ses cas nominaux et ses principaux défauts.
 - ajouter une stratégie anti-retour vers une version vulnérable ;
 - évaluer Secure Boot v2, le chiffrement flash/NVS et la programmation eFuse ;
 - formaliser sauvegarde, restauration et récupération physique ;
+- définir le stockage sûr du fichier local contenant les identifiants Rescue et
+  la procédure de rotation en cas de divulgation ;
 - documenter le cloisonnement réseau, les ACL MQTT et l’accès distant par VPN ou
   Home Assistant sans exposer le serveur HTTP.
 
