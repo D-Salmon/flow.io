@@ -122,7 +122,8 @@ dépendre d’un contenu externe changeant.
 ## Priorité 2 — tests automatiques
 
 - tester les machines d'état de filtration, chauffage, oxygène actif, robot et
-  remplissage ;
+  remplissage, notamment l'absence de cycle de sondage du chauffage lorsque la
+  sonde de température d'eau est placée dans le bassin ;
 - tester la sécurité débit conjointement à la surveillance de pression, y
   compris disparition et retour du défaut ;
 - tester l'âge maximal, l'état figé et les 90 secondes de stabilisation des

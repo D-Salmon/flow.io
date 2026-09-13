@@ -32,6 +32,9 @@
 - une température de bassin fiable reste utilisable pendant 24 heures pour
   préparer le cycle suivant. Au-delà, la filtration démarre sur la durée
   minimale puis se recalcule une fois après stabilisation ;
+- avec une sonde immergée dans le bassin, le chauffage utilise la mesure
+  continue sans lancer les cycles périodiques de circulation réservés à une
+  sonde en canalisation ; la filtration hors plage ne démarre que pour chauffer ;
 - un détecteur de débit optionnel sur contact sec peut arrêter la filtration et
   les équipements qui en dépendent après le délai configuré ;
 - l'affectation d'une fonction à `CH1` jusqu'à `CH8` modifie le relais physique

@@ -160,8 +160,9 @@ Les fonctions actuellement implémentées comprennent :
 - électrolyseur piloté par consigne ORP ou en continu avec la filtration ;
 - dosage d’oxygène actif par volume calculé, calendrier hebdomadaire et
   compensation de température ;
-- chauffage automatique avec cycle de filtration de sondage lorsque la mesure
-  d’eau nécessite une circulation ;
+- chauffage automatique avec cycle de filtration de sondage pour une sonde en
+  canalisation ; avec une sonde dans le bassin, la température continue évite
+  ces cycles et la filtration ne démarre que si le chauffage est demandé ;
 - robot automatique, remplissage, éclairage et commandes manuelles ;
 - dépendances entre appareils, limites de temps de marche, suivi des volumes
   injectés et niveaux théoriques des bidons.

@@ -1452,7 +1452,35 @@ void PoolLogicModule::runControlLoop_(uint32_t nowMs)
             setHeatAssistReason(HeatAssistReason::ProbeRunning);
         };
 
-        if (hasHeatAssistFlag(kHeatAssistFlagHeatingActive)) {
+        if (!sensorHoldWaterTemp_) {
+            // A probe immersed in the basin remains representative while the
+            // pump is stopped. Use its live value directly and do not start
+            // periodic filtration cycles whose only purpose is to renew the
+            // water around an in-line probe.
+            resetHeatAssistSession();
+            setHeatAssistFlag(kHeatAssistFlagFastCycle, false);
+            setLastProbeEndSec(0U);
+
+            if (!waterTempFresh) {
+                heaterDesired = false;
+                filtrationDesired = filtrationDesiredBase;
+                setHeatAssistReason(HeatAssistReason::TempUnavailable);
+            } else {
+                const bool heatRequested = heaterFsm_.on
+                    ? (waterTemp < heaterStopThreshold)
+                    : (waterTemp <= heaterStartThreshold);
+                setHeatAssistFlag(kHeatAssistFlagHeatingActive, heatRequested);
+                heaterDesired = heatRequested;
+                filtrationDesired = filtrationDesiredBase || heatRequested;
+                if (heatRequested) {
+                    setHeatAssistReason(HeatAssistReason::Heating);
+                } else if (filtrationFsm_.on || filtrationDesiredBase) {
+                    setHeatAssistReason(HeatAssistReason::IdlePumpOn);
+                } else {
+                    setHeatAssistReason(HeatAssistReason::SetpointReached);
+                }
+            }
+        } else if (hasHeatAssistFlag(kHeatAssistFlagHeatingActive)) {
             filtrationDesired = true;
             if (!waterTempFresh) {
                 heaterDesired = false;

@@ -80,6 +80,10 @@ canalisation, dont la mesure est figée à l'arrêt, du bassin, où la mesure re
 continue. Ce choix est modifiable directement dans la carte **Protections** par
 la liste **Sonde température d'eau : Canalisation / Bassin**. Le texte d'aide
 précise l'effet du choix sans allonger les libellés affichés sur smartphone.
+Avec une sonde dans le bassin, le chauffage exploite directement la température
+continue : il ne lance plus les cycles de filtration de cinq minutes destinés à
+renouveler l'eau autour d'une sonde en canalisation. Il ne demande la filtration
+hors plage programmée que lorsqu'un besoin réel de chauffage est détecté.
 
 La carte **Affectation des relais** masque de la même façon les relais déjà
 attribués. Elle permet maintenant d'affecter l'éclairage et présente les
