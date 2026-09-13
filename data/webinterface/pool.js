@@ -4216,7 +4216,7 @@
       headerIcon.textContent = 'shield_with_heart';
       const copy = document.createElement('div');
       const title = document.createElement('h2');
-      title.textContent = tr('pool.protectionSummary.title', 'Protections et temporisations');
+      title.textContent = tr('pool.protectionSummary.title', 'Conditions générales');
       const note = document.createElement('p');
       note.textContent = tr('pool.protectionSummary.note', 'Synthèse des réglages utilisés par les automatismes.');
       copy.appendChild(title);
@@ -4236,7 +4236,7 @@
       grid.className = 'pool-protection-grid';
 
       const protections = poolConfigCreateProtectionGroup(
-        tr('pool.protectionSummary.protections', 'Conditions de sécurité'),
+        tr('pool.protectionSummary.protections', 'Protections générales'),
         'health_and_safety'
       );
       poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.lowPressure', 'Seuil pression basse'), poolConfigFormatValue('poollogic/safety', 'psi_low_th', safety.psi_low_th));
