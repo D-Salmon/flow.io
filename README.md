@@ -86,31 +86,23 @@ Cette vue résume les raccordements exploités par le firmware. Pour les tableau
 d’affectation complets et les précautions électriques, consulter le
 [schéma de raccordement Waveshare](docs/integration/schema-raccordement-waveshare.md).
 
-## Validation matérielle historique (3.1.5)
+## Images de livraison (3.2.2)
 
-La 3.1.5 a été compilée, flashée et démarrée sur la carte réelle. Le contrôle de
-démarrage confirme la PSRAM de 8 Mo, la connexion Wi-Fi, MQTT TLS, le service
-mDNS `flowio.local` et le serveur Web. Les réglages persistants ont été conservés
-lors de la mise à jour. Le parcours de première connexion avait déjà été validé
-avec le point d'accès de secours, la récupération physique BOOT, la création de
-l'administrateur et la configuration du réseau et de MQTT.
+La version 3.2.2 a été compilée, flashée et démarrée sur la carte réelle. Le
+contrôle confirme la PSRAM de 8 Mo, la connexion Wi-Fi, le service mDNS
+`flowio.local` et le serveur Web. Les réglages persistants sont conservés lors
+de la mise à jour.
 
-L’interface 3.1.5 permet désormais de changer le mode de fonctionnement depuis
-le tableau de bord et de commander directement les équipements disponibles dans
-la page Piscine. Les essais réalisés valident ce parcours sur la carte utilisée,
-mais ne constituent pas encore une validation exhaustive de toutes les entrées,
-sorties et séquences de sécurité sur une installation complète.
+Le dossier `binary` contient uniquement les deux images 3.2.2 issues de la même
+révision, ainsi que les deux images d’écran Nextion :
 
-Le dossier `binary` contient les deux images candidates issues de la même
-révision :
+- `binary/flowios3-3.2.2.bin` — `2 209 904` octets — SHA-256
+  `01de8e8cad6853ab5d0b71625aeaa7fb8a6b06ddb49b78c1e42a627ca05926d9` ;
+- `binary/flowios3-spiffs-3.2.2.bin` — `8 257 536` octets — SHA-256
+  `b5e20721b0943b9da5c51d69d99b5a7da7816df12a35913490492a814f54b8ee`.
 
-- `binary/flowios3-3.1.5.bin` — `2 145 984` octets — SHA-256
-  `85da9c1f590d2bdcf1503796798151b581a4163132e02e5e14d450cac83e188b` ;
-- `binary/flowios3-spiffs-3.1.5.bin` — `8 257 536` octets — SHA-256
-  `cd95cf672d0a920765c2151e9a962b9abb2d1938c1eeeefe9c421ed93fbc4907`.
-
-Ces images ne deviennent une livraison validée qu’après un flash complet et la
-campagne de contrôle décrite dans `RESTANT_A_FAIRE.md`.
+Le manifeste `binary/manifest.json` référence seulement ces artefacts utiles à
+la version courante.
 
 ## Architecture exécutée
 
