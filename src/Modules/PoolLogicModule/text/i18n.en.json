@@ -110,7 +110,7 @@
     "cfgdocs.poollogic.safety.psi_start_dly_s.help": "Temps of attente avant vérification pressure après startup.",
     "cfgdocs.poollogic.safety.psi_start_dly_s.label": "Délai startup pressure (s)",
     "cfgdocs.poollogic.safety.sensor_hold_wat.help": "Pipework: the reading is held when filtration stops. Pool: the probe remains immersed and the reading continues.",
-    "cfgdocs.poollogic.safety.sensor_hold_wat.label": "Water-temperature probe location",
+    "cfgdocs.poollogic.safety.sensor_hold_wat.label": "Water-temperature probe",
     "cfgdocs.poollogic.safety.winter_start_t.help": "Temperature de bascule vers the logique hiver.",
     "cfgdocs.poollogic.safety.winter_start_t.label": "Seuil input hiver (C)",
     "cfgdocs.poollogic.sensors.air_temp_io_id.help": "Select an available Axx input for the DS18B20 wired directly to GPIO19, the I2C / Qwiic DS2484 bridge at address 0x18, or Disabled / not wired. Restart required.",

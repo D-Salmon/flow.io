@@ -300,11 +300,11 @@
         Object.freeze({
           key: 'sensor_hold_wat',
           type: 'enum',
-          label: 'Emplacement sonde température eau',
+          label: 'Sonde température d’eau',
           help: 'Choisissez Canalisation si la sonde mesure l’eau dans la tuyauterie : sa mesure sera figée lorsque la filtration s’arrête. Choisissez Bassin si elle reste immergée et continue à mesurer l’eau du bassin.',
           options: Object.freeze([
-            Object.freeze({ value: true, label: 'Canalisation — mesure figée à l’arrêt' }),
-            Object.freeze({ value: false, label: 'Bassin — mesure continue' })
+            Object.freeze({ value: true, label: 'Canalisation' }),
+            Object.freeze({ value: false, label: 'Bassin' })
           ]),
           read: (value) => String(value) === 'true'
         }),
@@ -4236,7 +4236,7 @@
       grid.className = 'pool-protection-grid';
 
       const protections = poolConfigCreateProtectionGroup(
-        tr('pool.protectionSummary.protections', 'Protections générales'),
+        tr('pool.protectionSummary.protections', 'Conditions de sécurité'),
         'health_and_safety'
       );
       poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.lowPressure', 'Seuil pression basse'), poolConfigFormatValue('poollogic/safety', 'psi_low_th', safety.psi_low_th));
@@ -4257,10 +4257,10 @@
       poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.freezeHold', 'Maintien hors gel jusqu’à'), poolConfigFormatValue('poollogic/safety', 'freeze_hold_t', safety.freeze_hold_t));
       poolConfigAppendProtectionRow(
         protections,
-        tr('pool.protectionSummary.waterProbeLocation', 'Emplacement sonde température eau'),
+        tr('pool.protectionSummary.waterProbeLocation', 'Sonde température d’eau'),
         toBool(safety.sensor_hold_wat)
-          ? tr('pool.protectionSummary.waterProbeInline', 'Canalisation — mesure figée à l’arrêt')
-          : tr('pool.protectionSummary.waterProbeImmersed', 'Bassin — mesure continue')
+          ? tr('pool.protectionSummary.waterProbeInline', 'Canalisation')
+          : tr('pool.protectionSummary.waterProbeImmersed', 'Bassin')
       );
       grid.appendChild(protections);
 

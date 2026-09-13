@@ -109,7 +109,7 @@
     "cfgdocs.poollogic.safety.psi_start_dly_s.help": "Temps d'attente avant vérification pression après démarrage.",
     "cfgdocs.poollogic.safety.psi_start_dly_s.label": "Délai démarrage pression (s)",
     "cfgdocs.poollogic.safety.sensor_hold_wat.help": "Canalisation : la mesure est figée lorsque la filtration s'arrête. Bassin : la sonde reste immergée et la mesure continue.",
-    "cfgdocs.poollogic.safety.sensor_hold_wat.label": "Emplacement sonde température eau",
+    "cfgdocs.poollogic.safety.sensor_hold_wat.label": "Sonde température d’eau",
     "cfgdocs.poollogic.safety.winter_start_t.help": "Temperature de bascule vers la logique hiver.",
     "cfgdocs.poollogic.safety.winter_start_t.label": "Seuil entrée hiver (C)",
     "cfgdocs.poollogic.sensors.air_temp_io_id.help": "Choisissez une entrée Axx disponible pour la sonde DS18B20 raccordée directement à GPIO19, le pont I²C / Qwiic DS2484 à l'adresse 0x18, ou Désactivé / non câblé. Redémarrage requis.",

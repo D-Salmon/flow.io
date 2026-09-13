@@ -63,23 +63,23 @@ autre sonde ou un autre contact de la même famille.
 Lorsqu'il est câblé, ce contact sec complète la surveillance de pression. Une
 absence de débit après le délai de validation configuré arrête la filtration et
 les équipements qui en dépendent. La surveillance apparaît dans les cartes
-**Protections générales** et **Protections** ; son délai reste masqué lorsque le
+**Conditions de sécurité** et **Protections** ; son délai reste masqué lorsque le
 détecteur est désactivé.
 
 Dans la synthèse **Protections et temporisations**, le retour du contacteur de
-l'électrolyseur apparaît désormais dans **Protections générales**, juste après
+l'électrolyseur apparaît désormais dans **Conditions de sécurité**, juste après
 le retour du contacteur de filtration. Il reste affiché uniquement lorsque le
 traitement par électrolyse est sélectionné.
 
-Dans **Protections générales**, **Surveillance pression** est placée juste avant
+Dans **Conditions de sécurité**, **Surveillance pression** est placée juste avant
 **Surveillance débit**. L'ancien libellé « Validation après démarrage » devient
 « Délai avant contrôle pression » : il indique le temps laissé à la pompe pour
 établir la pression avant d'autoriser la détection d'une pression trop basse.
 L'emplacement de la sonde d'eau distingue maintenant explicitement la
 canalisation, dont la mesure est figée à l'arrêt, du bassin, où la mesure reste
 continue. Ce choix est modifiable directement dans la carte **Protections** par
-une liste **Canalisation — mesure figée à l'arrêt** / **Bassin — mesure
-continue**.
+la liste **Sonde température d'eau : Canalisation / Bassin**. Le texte d'aide
+précise l'effet du choix sans allonger les libellés affichés sur smartphone.
 
 La carte **Affectation des relais** masque de la même façon les relais déjà
 attribués. Elle permet maintenant d'affecter l'éclairage et présente les
