@@ -66,6 +66,11 @@ les équipements qui en dépendent. La surveillance apparaît dans les cartes
 **Protections générales** et **Protections** ; son délai reste masqué lorsque le
 détecteur est désactivé.
 
+Dans la synthèse **Protections et temporisations**, le retour du contacteur de
+l'électrolyseur apparaît désormais dans **Protections générales**, juste après
+le retour du contacteur de filtration. Il reste affiché uniquement lorsque le
+traitement par électrolyse est sélectionné.
+
 La carte **Affectation des relais** masque de la même façon les relais déjà
 attribués. Elle permet maintenant d'affecter l'éclairage et présente les
 fonctions dans l'ordre suivant : pompe de filtration, désinfection, pompe pH,

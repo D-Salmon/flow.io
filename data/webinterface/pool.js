@@ -4239,6 +4239,9 @@
         poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.flowDelay', 'Validation absence de débit'), poolConfigFormatValue('poollogic/safety', 'flow_start_dly_s', safety.flow_start_dly_s));
       }
       poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.filtrationFeedback', 'Retour contacteur filtration'), poolConfigSummaryConfigured(sensors.filtr_fb_io_id) ? tr('pool.protectionSummary.monitored', 'Surveillé') : tr('pool.protectionSummary.notWired', 'Non câblé'));
+      if (disinfectionType === 1) {
+        poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.electrolysisFeedback', 'Retour contacteur électrolyseur'), poolConfigSummaryConfigured(sensors.swg_fb_io_id) ? tr('pool.protectionSummary.monitored', 'Surveillé') : tr('pool.protectionSummary.notWired', 'Non câblé'));
+      }
       poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.freezeStart', 'Déclenchement hors gel'), poolConfigFormatValue('poollogic/safety', 'winter_start_t', safety.winter_start_t));
       poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.freezeHold', 'Maintien hors gel jusqu’à'), poolConfigFormatValue('poollogic/safety', 'freeze_hold_t', safety.freeze_hold_t));
       poolConfigAppendProtectionRow(
@@ -4285,7 +4288,6 @@
         if (swgOrpMode) {
           poolConfigAppendProtectionRow(electrolysis, tr('pool.protectionSummary.orpSetpoint', 'Consigne ORP'), poolConfigFormatValue('poollogic/chlorine', 'dis_setpoint', chlorine.dis_setpoint));
         }
-        poolConfigAppendProtectionRow(electrolysis, tr('pool.protectionSummary.electrolysisFeedback', 'Retour contacteur électrolyseur'), poolConfigSummaryConfigured(sensors.swg_fb_io_id) ? tr('pool.protectionSummary.monitored', 'Surveillé') : tr('pool.protectionSummary.notWired', 'Non câblé'));
         grid.appendChild(electrolysis);
       }
 
