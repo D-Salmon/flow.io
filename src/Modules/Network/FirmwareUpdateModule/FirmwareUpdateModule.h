@@ -9,6 +9,7 @@
 #include "Core/Services/Services.h"
 #include "Core/ConfigTypes.h"
 #include "Core/CommandRegistry.h"
+#include "FirmwareUpdateReceipt.h"
 
 struct BoardSpec;
 
@@ -57,12 +58,14 @@ private:
     struct UpdateJob {
         bool pending = false;
         FirmwareUpdateTarget target = FirmwareUpdateTarget::Waveshare;
+        uint32_t operationId = 0U;
         char url[kUrlLen] = {0};
     };
 
     struct UpdateStatus {
         UpdateState state = UpdateState::Idle;
         FirmwareUpdateTarget target = FirmwareUpdateTarget::Waveshare;
+        uint32_t operationId = 0U;
         uint8_t progress = 0;
         uint32_t updatedAtMs = 0;
         char msg[kMsgLen] = {0};
@@ -100,11 +103,16 @@ private:
     portMUX_TYPE lock_ = portMUX_INITIALIZER_UNLOCKED;
     UpdateJob queuedJob_{};
     UpdateStatus status_{};
+    FirmwareUpdateReceipt lastReceipt_{};
+    bool hasLastReceipt_ = false;
+    bool updateStartPending_ = false;
     bool nextionRebootQueued_ = false;
     bool busy_ = false;
     bool hmiOtaActive_ = false;
     uint32_t activeTotalBytes_ = 0;
     uint32_t activeSentBytes_ = 0;
+    uint32_t bootId_ = 0U;
+    uint32_t nextOperationId_ = 1U;
 
     static bool cmdStatus_(void* userCtx, const CommandRequest& req, char* reply, size_t replyLen);
     static bool cmdWaveshare_(void* userCtx, const CommandRequest& req, char* reply, size_t replyLen);
@@ -112,7 +120,11 @@ private:
     static bool cmdNextionReboot_(void* userCtx, const CommandRequest& req, char* reply, size_t replyLen);
     static bool cmdSpiffs_(void* userCtx, const CommandRequest& req, char* reply, size_t replyLen);
 
-    bool startUpdate_(FirmwareUpdateTarget target, const char* url, char* errOut, size_t errOutLen);
+    bool startUpdate_(FirmwareUpdateTarget target,
+                      const char* url,
+                      uint32_t* operationIdOut,
+                      char* errOut,
+                      size_t errOutLen);
     bool queueNextionReboot_(char* errOut, size_t errOutLen);
     bool statusJson_(char* out, size_t outLen);
     bool isBusy_();
@@ -124,10 +136,10 @@ private:
                     char* errOut,
                     size_t errOutLen);
     bool runJob_(const UpdateJob& job);
-    bool runWaveshareUpdate_(const char* url, char* errOut, size_t errOutLen);
-    bool runNextionUpdate_(const char* url, char* errOut, size_t errOutLen);
+    bool runWaveshareUpdate_(const char* url, uint32_t operationId, char* errOut, size_t errOutLen);
+    bool runNextionUpdate_(const char* url, uint32_t operationId, char* errOut, size_t errOutLen);
     bool runNextionReboot_(char* errOut, size_t errOutLen);
-    bool runSpiffsUpdate_(const char* url, char* errOut, size_t errOutLen);
+    bool runSpiffsUpdate_(const char* url, uint32_t operationId, char* errOut, size_t errOutLen);
     bool resolveUrl_(FirmwareUpdateTarget target,
                      const char* explicitUrl,
                      char* out,
@@ -140,8 +152,13 @@ private:
                            char* errOut,
                            size_t errOutLen) const;
     bool parseUrlArg_(const CommandRequest& req, char* out, size_t outLen) const;
-    void setStatus_(UpdateState state, FirmwareUpdateTarget target, uint8_t progress, const char* msg);
-    void setError_(FirmwareUpdateTarget target, const char* msg);
+    void setStatus_(UpdateState state, FirmwareUpdateTarget target, uint8_t progress,
+                    const char* msg, uint32_t operationId = 0U);
+    void setError_(FirmwareUpdateTarget target, const char* msg, uint32_t operationId = 0U);
+    bool loadReceipt_();
+    bool persistReceipt_(FirmwareUpdateTarget target,
+                         uint32_t operationId,
+                         FirmwareUpdateReceiptState state);
     void setHmiOtaCondition_(bool active);
     void onProgressChunk_(uint32_t chunkBytes);
     void attachWebInterfaceSvcIfNeeded_();

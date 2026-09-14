@@ -50,6 +50,8 @@ public:
     void setModuleManager(ModuleManager* mm) { moduleManager = mm; }
 
 private:
+    static constexpr size_t kTaskStatusSnapshotCapacity =
+        Limits::Core::Capacity::MaxModuleTasks + 32U;
     static constexpr uint32_t kHeapWatchSamplePeriodMs = 50U;
     static constexpr uint32_t kHeapWatchTripFreeBytes = 2048U;
     static constexpr uint32_t kHeapWatchRecoverFreeBytes = 8192U;
@@ -66,6 +68,9 @@ private:
         uint32_t freeBytes = 0;
         uint32_t minFreeBytes = 0;
         uint32_t largestFreeBlock = 0;
+        uint32_t internalFreeBytes = 0;
+        uint32_t internalMinFreeBytes = 0;
+        uint32_t internalLargestFreeBlock = 0;
     };
 
 #ifdef CONFIG_HEAP_TASK_TRACKING
@@ -98,6 +103,7 @@ private:
     const ConfigStoreService* cfgSvc = nullptr;
     const LogHubService* logHub = nullptr;
     const HAService* haSvc_ = nullptr;
+    TaskStatus_t* taskStatusSnapshot_ = nullptr;
     bool haEntitiesRegistered_ = false;
 
     uint32_t lastJsonDumpMs = 0;
@@ -124,7 +130,7 @@ private:
     bool heapLoggedThisCycle_ = false;
     bool buffersLoggedThisCycle_ = false;
     MqttConfigRouteProducer* cfgMqttPub_ = nullptr;
-    HeapWatchSample heapWatchSamples_[kHeapWatchSampleCount]{};
+    HeapWatchSample* heapWatchSamples_ = nullptr;
     char heapWatchTriggerReason_[20] = {0};
     uint8_t memoryPressureState_ = 0; // 0=normal,1=constrained,2=shedding,3=critical,4=panic
 #ifdef CONFIG_HEAP_TASK_TRACKING

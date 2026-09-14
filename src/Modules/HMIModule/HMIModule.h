@@ -207,6 +207,7 @@ private:
     bool setLedEnabled_(bool enabled);
     bool setLedBrightness_(uint8_t brightness);
     bool getDisplayVersion_(char* out, size_t outLen) const;
+    bool getLocalDisplayIdentity_(HmiDisplayIdentity* out) const;
     bool readRtcSvc_(HmiRtcDateTime* out, uint16_t timeoutMs);
     bool writeRtcSvc_(const HmiRtcDateTime* value);
     bool refreshCurrentModule_();
@@ -286,6 +287,7 @@ private:
         ServiceBinding::bind<&HMIModule::setLedEnabled_>,
         ServiceBinding::bind<&HMIModule::setLedBrightness_>,
         ServiceBinding::bind<&HMIModule::getDisplayVersion_>,
+        ServiceBinding::bind<&HMIModule::getLocalDisplayIdentity_>,
         ServiceBinding::bind<&HMIModule::readRtcSvc_>,
         ServiceBinding::bind<&HMIModule::writeRtcSvc_>,
         ServiceBinding::bind<&HMIModule::isDisplaySleeping_>,

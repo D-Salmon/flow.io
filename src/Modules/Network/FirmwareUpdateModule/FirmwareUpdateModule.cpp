@@ -13,6 +13,7 @@
 #include <Update.h>
 #include <string.h>
 #include <esp_ota_ops.h>
+#include <esp_system.h>
 #include <mbedtls/sha256.h>
 
 #include "App/BuildFlags.h"
@@ -23,6 +24,7 @@
 #include "Core/Security/WebSecurityPolicy.h"
 #include "Core/SystemLimits.h"
 #include "Modules/Network/WebInterfaceModule/OtaSignatureVerifier.h"
+#include "Modules/HMIModule/Drivers/NextionDisplayIdentity.h"
 #include "Security/OtaPublicKey.h"
 
 #include <ESPNexUpload.h>
@@ -83,6 +85,20 @@ const UartSpec& panelUartSpec_(const BoardSpec& board)
     const UartSpec* spec = boardFindUart(board, "panel");
     if (!spec) spec = boardFindUart(board, "hmi");
     return spec ? *spec : kFallback;
+}
+
+bool extractUrlFilename_(const char* url, char* out, size_t outLen)
+{
+    if (!url || !out || outLen == 0U) return false;
+    const char* start = strrchr(url, '/');
+    start = start ? start + 1 : url;
+    const char* end = start;
+    while (*end && *end != '?' && *end != '#') ++end;
+    const size_t len = (size_t)(end - start);
+    if (len == 0U || len >= outLen) return false;
+    memcpy(out, start, len);
+    out[len] = '\0';
+    return true;
 }
 
 }  // namespace
@@ -323,10 +339,12 @@ const char* FirmwareUpdateModule::targetStr_(FirmwareUpdateTarget t)
     }
 }
 
-void FirmwareUpdateModule::setStatus_(UpdateState state, FirmwareUpdateTarget target, uint8_t progress, const char* msg)
+void FirmwareUpdateModule::setStatus_(UpdateState state, FirmwareUpdateTarget target,
+                                      uint8_t progress, const char* msg, uint32_t operationId)
 {
     portENTER_CRITICAL(&lock_);
     status_.state = state;
+    status_.operationId = operationId;
     status_.target = target;
     status_.progress = progress;
     status_.updatedAtMs = millis();
@@ -341,9 +359,56 @@ void FirmwareUpdateModule::setStatus_(UpdateState state, FirmwareUpdateTarget ta
     setHmiOtaCondition_(otaActive);
 }
 
-void FirmwareUpdateModule::setError_(FirmwareUpdateTarget target, const char* msg)
+void FirmwareUpdateModule::setError_(FirmwareUpdateTarget target, const char* msg, uint32_t operationId)
 {
-    setStatus_(UpdateState::Error, target, 0, msg ? msg : "failed");
+    setStatus_(UpdateState::Error, target, 0, msg ? msg : "failed", operationId);
+}
+
+bool FirmwareUpdateModule::loadReceipt_()
+{
+    if (!cfgStore_) return false;
+    FirmwareUpdateReceipt receipt{};
+    size_t actualLen = 0U;
+    if (!cfgStore_->readRuntimeBlob(NvsKeys::FirmwareUpdate::Receipt,
+                                    &receipt, sizeof(receipt), &actualLen)) {
+        if (actualLen != 0U) (void)cfgStore_->eraseKey(NvsKeys::FirmwareUpdate::Receipt);
+        return false;
+    }
+    if (actualLen != sizeof(receipt) || !firmwareUpdateReceiptIsValid(receipt)) {
+        LOGW("Invalid update receipt; removing it");
+        (void)cfgStore_->eraseKey(NvsKeys::FirmwareUpdate::Receipt);
+        return false;
+    }
+    if (finalizeFirmwareUpdateReceiptAfterBoot(&receipt) &&
+        !cfgStore_->writeRuntimeBlob(NvsKeys::FirmwareUpdate::Receipt,
+                                     &receipt, sizeof(receipt))) {
+        LOGE("Failed to finalize update receipt after boot operation_id=%lu",
+             (unsigned long)receipt.operationId);
+    }
+    portENTER_CRITICAL(&lock_);
+    lastReceipt_ = receipt;
+    hasLastReceipt_ = true;
+    portEXIT_CRITICAL(&lock_);
+    return true;
+}
+
+bool FirmwareUpdateModule::persistReceipt_(FirmwareUpdateTarget target,
+                                           uint32_t operationId,
+                                           FirmwareUpdateReceiptState state)
+{
+    if (!cfgStore_ || operationId == 0U) return false;
+    const FirmwareUpdateReceipt receipt = makeFirmwareUpdateReceipt(target, operationId, state);
+    if (!cfgStore_->writeRuntimeBlob(NvsKeys::FirmwareUpdate::Receipt,
+                                     &receipt, sizeof(receipt))) {
+        LOGE("Failed to persist update receipt operation_id=%lu state=%s",
+             (unsigned long)operationId, firmwareUpdateReceiptStateName(state));
+        return false;
+    }
+    portENTER_CRITICAL(&lock_);
+    lastReceipt_ = receipt;
+    hasLastReceipt_ = true;
+    portEXIT_CRITICAL(&lock_);
+    return true;
 }
 
 void FirmwareUpdateModule::setHmiOtaCondition_(bool active)
@@ -489,25 +554,53 @@ bool FirmwareUpdateModule::statusJson_(char* out, size_t outLen)
     UpdateStatus snap{};
     bool busy = false;
     bool pending = false;
+    bool hasLastReceipt = false;
+    FirmwareUpdateReceipt lastReceipt{};
     portENTER_CRITICAL(&lock_);
     snap = status_;
     busy = busy_;
     pending = queuedJob_.pending;
+    hasLastReceipt = hasLastReceipt_;
+    lastReceipt = lastReceipt_;
     portEXIT_CRITICAL(&lock_);
 
     sanitizeJsonString_(snap.msg);
 
-    const int n = snprintf(out,
-                           outLen,
-                           "{\"ok\":true,\"state\":\"%s\",\"target\":\"%s\",\"busy\":%s,"
-                           "\"pending\":%s,\"progress\":%u,\"ts_ms\":%lu,\"msg\":\"%s\"}",
-                           stateStr_(snap.state),
-                           targetStr_(snap.target),
-                           busy ? "true" : "false",
-                           pending ? "true" : "false",
-                           (unsigned)snap.progress,
-                           (unsigned long)snap.updatedAtMs,
-                           snap.msg);
+    int n = 0;
+    if (hasLastReceipt) {
+        n = snprintf(out, outLen,
+                     "{\"ok\":true,\"boot_id\":%lu,\"operation_id\":%lu,"
+                     "\"state\":\"%s\",\"target\":\"%s\",\"busy\":%s,"
+                     "\"pending\":%s,\"progress\":%u,\"ts_ms\":%lu,\"msg\":\"%s\","
+                     "\"last_operation\":{\"operation_id\":%lu,\"target\":\"%s\",\"result\":\"%s\"}}",
+                     (unsigned long)bootId_,
+                     (unsigned long)snap.operationId,
+                     stateStr_(snap.state),
+                     targetStr_(snap.target),
+                     busy ? "true" : "false",
+                     pending ? "true" : "false",
+                     (unsigned)snap.progress,
+                     (unsigned long)snap.updatedAtMs,
+                     snap.msg,
+                     (unsigned long)lastReceipt.operationId,
+                     targetStr_(lastReceipt.target),
+                     firmwareUpdateReceiptStateName(lastReceipt.state));
+    } else {
+        n = snprintf(out, outLen,
+                     "{\"ok\":true,\"boot_id\":%lu,\"operation_id\":%lu,"
+                     "\"state\":\"%s\",\"target\":\"%s\",\"busy\":%s,"
+                     "\"pending\":%s,\"progress\":%u,\"ts_ms\":%lu,\"msg\":\"%s\","
+                     "\"last_operation\":null}",
+                     (unsigned long)bootId_,
+                     (unsigned long)snap.operationId,
+                     stateStr_(snap.state),
+                     targetStr_(snap.target),
+                     busy ? "true" : "false",
+                     pending ? "true" : "false",
+                     (unsigned)snap.progress,
+                     (unsigned long)snap.updatedAtMs,
+                     snap.msg);
+    }
     return n > 0 && (size_t)n < outLen;
 }
 
@@ -516,12 +609,14 @@ bool FirmwareUpdateModule::isBusy_()
     bool busy = false;
     bool pending = false;
     bool nextionReboot = false;
+    bool startPending = false;
     portENTER_CRITICAL(&lock_);
     busy = busy_;
     pending = queuedJob_.pending;
     nextionReboot = nextionRebootQueued_;
+    startPending = updateStartPending_;
     portEXIT_CRITICAL(&lock_);
-    return busy || pending || nextionReboot;
+    return busy || pending || nextionReboot || startPending;
 }
 
 bool FirmwareUpdateModule::configJson_(char* out, size_t outLen) const
@@ -668,27 +763,70 @@ bool FirmwareUpdateModule::setConfig_(const char* updateHost,
 
 bool FirmwareUpdateModule::startUpdate_(FirmwareUpdateTarget target,
                                         const char* url,
+                                        uint32_t* operationIdOut,
                                         char* errOut,
                                         size_t errOutLen)
 {
+    if (operationIdOut) *operationIdOut = 0U;
     UpdateJob job{};
     job.target = target;
     if (!resolveUrl_(target, url, job.url, sizeof(job.url), errOut, errOutLen)) {
         return false;
     }
 
+    if (target == FirmwareUpdateTarget::Nextion) {
+        char filename[128]{};
+        if (extractUrlFilename_(job.url, filename, sizeof(filename)) &&
+            strncmp(filename, "FlowIO_Nextion_", 15U) == 0) {
+            char compatibility[HMI_DISPLAY_MODEL_TEXT_MAX]{};
+            char artifactVersion[HMI_DISPLAY_VERSION_TEXT_MAX]{};
+            if (!parseNextionArtifactFilename(filename,
+                                              compatibility, sizeof(compatibility),
+                                              artifactVersion, sizeof(artifactVersion))) {
+                writeSimpleError_(errOut, errOutLen, "invalid nextion artifact filename");
+                return false;
+            }
+            if (!hmiSvc_ && services_) hmiSvc_ = services_->get<HmiService>(ServiceId::Hmi);
+            HmiDisplayIdentity identity{};
+            const bool detected = hmiSvc_ && hmiSvc_->getLocalDisplayIdentity &&
+                hmiSvc_->getLocalDisplayIdentity(hmiSvc_->ctx, &identity);
+            if (detected && !isNextionDisplayCompatible(identity, compatibility)) {
+                writeSimpleError_(errOut, errOutLen,
+                                  "nextion artifact incompatible with detected display");
+                return false;
+            }
+        }
+    }
+
     portENTER_CRITICAL(&lock_);
-    if (busy_ || queuedJob_.pending) {
+    if (busy_ || queuedJob_.pending || updateStartPending_) {
         portEXIT_CRITICAL(&lock_);
         writeSimpleError_(errOut, errOutLen, "updater busy");
         return false;
     }
-    queuedJob_ = job;
-    queuedJob_.pending = true;
+    updateStartPending_ = true;
+    job.operationId = nextOperationId_++;
+    if (nextOperationId_ == 0U) nextOperationId_ = 1U;
     portEXIT_CRITICAL(&lock_);
 
-    setStatus_(UpdateState::Queued, target, 0, "queued");
-    LOGI("Update queued target=%s url=%s", targetStr_(target), job.url);
+    if (!persistReceipt_(target, job.operationId, FirmwareUpdateReceiptState::Running)) {
+        portENTER_CRITICAL(&lock_);
+        updateStartPending_ = false;
+        portEXIT_CRITICAL(&lock_);
+        writeSimpleError_(errOut, errOutLen, "failed to persist update operation");
+        return false;
+    }
+
+    setStatus_(UpdateState::Queued, target, 0, "queued", job.operationId);
+    portENTER_CRITICAL(&lock_);
+    queuedJob_ = job;
+    queuedJob_.pending = true;
+    updateStartPending_ = false;
+    portEXIT_CRITICAL(&lock_);
+
+    if (operationIdOut) *operationIdOut = job.operationId;
+    LOGI("Update queued operation_id=%lu target=%s url=%s",
+         (unsigned long)job.operationId, targetStr_(target), job.url);
     return true;
 }
 
@@ -712,9 +850,10 @@ bool FirmwareUpdateModule::queueNextionReboot_(char* errOut, size_t errOutLen)
     return true;
 }
 
-bool FirmwareUpdateModule::runWaveshareUpdate_(const char* url, char* errOut, size_t errOutLen)
+bool FirmwareUpdateModule::runWaveshareUpdate_(const char* url, uint32_t operationId,
+                                               char* errOut, size_t errOutLen)
 {
-    setStatus_(UpdateState::Downloading, FirmwareUpdateTarget::Waveshare, 0, "downloading");
+    setStatus_(UpdateState::Downloading, FirmwareUpdateTarget::Waveshare, 0, "downloading", operationId);
 
     char signatureBase64[128] = {0};
     if (!fetchOtaSignature_(url,
@@ -740,7 +879,7 @@ bool FirmwareUpdateModule::runWaveshareUpdate_(const char* url, char* errOut, si
         return false;
     }
 
-    setStatus_(UpdateState::Flashing, FirmwareUpdateTarget::Waveshare, 0, "flashing");
+    setStatus_(UpdateState::Flashing, FirmwareUpdateTarget::Waveshare, 0, "flashing", operationId);
     portENTER_CRITICAL(&lock_);
     activeTotalBytes_ = (contentLength > 0) ? (uint32_t)contentLength : 0U;
     activeSentBytes_ = 0;
@@ -869,20 +1008,26 @@ bool FirmwareUpdateModule::runWaveshareUpdate_(const char* url, char* errOut, si
         return false;
     }
 
-    setStatus_(UpdateState::Rebooting, FirmwareUpdateTarget::Waveshare, 100, "rebooting");
+    if (!persistReceipt_(FirmwareUpdateTarget::Waveshare, operationId,
+                         FirmwareUpdateReceiptState::RebootPending)) {
+        writeSimpleError_(errOut, errOutLen, "failed to persist update completion");
+        return false;
+    }
+    setStatus_(UpdateState::Rebooting, FirmwareUpdateTarget::Waveshare, 100, "rebooting", operationId);
     delay(1800);
     ESP.restart();
     return true;
 }
 
-bool FirmwareUpdateModule::runNextionUpdate_(const char* url, char* errOut, size_t errOutLen)
+bool FirmwareUpdateModule::runNextionUpdate_(const char* url, uint32_t operationId,
+                                             char* errOut, size_t errOutLen)
 {
     if (nextionRxPin_ < 0 || nextionTxPin_ < 0) {
         writeSimpleError_(errOut, errOutLen, "nextion board pins not configured");
         return false;
     }
 
-    setStatus_(UpdateState::Downloading, FirmwareUpdateTarget::Nextion, 0, "downloading");
+    setStatus_(UpdateState::Downloading, FirmwareUpdateTarget::Nextion, 0, "downloading", operationId);
 
 #if FLOW_ALLOW_UNSIGNED_UPDATES == 0
     (void)url;
@@ -934,7 +1079,7 @@ bool FirmwareUpdateModule::runNextionUpdate_(const char* url, char* errOut, size
         return false;
     }
 
-    setStatus_(UpdateState::Flashing, FirmwareUpdateTarget::Nextion, 0, "flashing");
+    setStatus_(UpdateState::Flashing, FirmwareUpdateTarget::Nextion, 0, "flashing", operationId);
     portENTER_CRITICAL(&lock_);
     activeTotalBytes_ = (uint32_t)contentLength;
     activeSentBytes_ = 0;
@@ -966,7 +1111,13 @@ bool FirmwareUpdateModule::runNextionUpdate_(const char* url, char* errOut, size
 
     if (!ok) return false;
 
-    setStatus_(UpdateState::Done, FirmwareUpdateTarget::Nextion, 100, "nextion update complete");
+    if (!persistReceipt_(FirmwareUpdateTarget::Nextion, operationId,
+                         FirmwareUpdateReceiptState::Succeeded)) {
+        writeSimpleError_(errOut, errOutLen, "failed to persist update completion");
+        return false;
+    }
+    setStatus_(UpdateState::Done, FirmwareUpdateTarget::Nextion, 100,
+               "nextion update complete", operationId);
     return true;
 }
 
@@ -990,9 +1141,10 @@ bool FirmwareUpdateModule::runNextionReboot_(char* errOut, size_t errOutLen)
     return true;
 }
 
-bool FirmwareUpdateModule::runSpiffsUpdate_(const char* url, char* errOut, size_t errOutLen)
+bool FirmwareUpdateModule::runSpiffsUpdate_(const char* url, uint32_t operationId,
+                                            char* errOut, size_t errOutLen)
 {
-    setStatus_(UpdateState::Downloading, FirmwareUpdateTarget::Spiffs, 0, "downloading");
+    setStatus_(UpdateState::Downloading, FirmwareUpdateTarget::Spiffs, 0, "downloading", operationId);
 
 #if FLOW_ALLOW_UNSIGNED_UPDATES == 0
     (void)url;
@@ -1017,7 +1169,7 @@ bool FirmwareUpdateModule::runSpiffsUpdate_(const char* url, char* errOut, size_
         return false;
     }
 
-    setStatus_(UpdateState::Flashing, FirmwareUpdateTarget::Spiffs, 0, "flashing spiffs");
+    setStatus_(UpdateState::Flashing, FirmwareUpdateTarget::Spiffs, 0, "flashing spiffs", operationId);
     portENTER_CRITICAL(&lock_);
     activeTotalBytes_ = (contentLength > 0) ? (uint32_t)contentLength : 0U;
     activeSentBytes_ = 0;
@@ -1096,7 +1248,12 @@ bool FirmwareUpdateModule::runSpiffsUpdate_(const char* url, char* errOut, size_
         return false;
     }
 
-    setStatus_(UpdateState::Rebooting, FirmwareUpdateTarget::Spiffs, 100, "rebooting");
+    if (!persistReceipt_(FirmwareUpdateTarget::Spiffs, operationId,
+                         FirmwareUpdateReceiptState::RebootPending)) {
+        writeSimpleError_(errOut, errOutLen, "failed to persist update completion");
+        return false;
+    }
+    setStatus_(UpdateState::Rebooting, FirmwareUpdateTarget::Spiffs, 100, "rebooting", operationId);
     delay(1800);
     ESP.restart();
     return true;
@@ -1114,7 +1271,8 @@ bool FirmwareUpdateModule::runJob_(const UpdateJob& job)
         netReady = wifiSvc_->isConnected(wifiSvc_->ctx);
     }
     if (!netReady) {
-        setError_(job.target, "network not connected");
+        (void)persistReceipt_(job.target, job.operationId, FirmwareUpdateReceiptState::Failed);
+        setError_(job.target, "network not connected", job.operationId);
         return false;
     }
 
@@ -1122,13 +1280,13 @@ bool FirmwareUpdateModule::runJob_(const UpdateJob& job)
     bool ok = false;
     switch (job.target) {
         case FirmwareUpdateTarget::Waveshare:
-            ok = runWaveshareUpdate_(job.url, err, sizeof(err));
+            ok = runWaveshareUpdate_(job.url, job.operationId, err, sizeof(err));
             break;
         case FirmwareUpdateTarget::Nextion:
-            ok = runNextionUpdate_(job.url, err, sizeof(err));
+            ok = runNextionUpdate_(job.url, job.operationId, err, sizeof(err));
             break;
         case FirmwareUpdateTarget::Spiffs:
-            ok = runSpiffsUpdate_(job.url, err, sizeof(err));
+            ok = runSpiffsUpdate_(job.url, job.operationId, err, sizeof(err));
             break;
         default:
             snprintf(err, sizeof(err), "unsupported target");
@@ -1137,7 +1295,8 @@ bool FirmwareUpdateModule::runJob_(const UpdateJob& job)
     }
 
     if (!ok) {
-        setError_(job.target, err[0] ? err : "update failed");
+        (void)persistReceipt_(job.target, job.operationId, FirmwareUpdateReceiptState::Failed);
+        setError_(job.target, err[0] ? err : "update failed", job.operationId);
         LOGE("Update failed target=%s reason=%s", targetStr_(job.target), err[0] ? err : "unknown");
         return false;
     }
@@ -1167,14 +1326,22 @@ bool FirmwareUpdateModule::cmdWaveshare_(void* userCtx, const CommandRequest& re
     char url[kUrlLen] = {0};
     const char* explicitUrl = self->parseUrlArg_(req, url, sizeof(url)) ? url : nullptr;
     char err[120] = {0};
-    if (!self->startUpdate_(FirmwareUpdateTarget::Waveshare, explicitUrl, err, sizeof(err))) {
+    uint32_t operationId = 0U;
+    if (!self->startUpdate_(FirmwareUpdateTarget::Waveshare,
+                            explicitUrl,
+                            &operationId,
+                            err,
+                            sizeof(err))) {
         if (!writeErrorJson(reply, replyLen, ErrorCode::Failed, "fw.update.waveshare")) {
             snprintf(reply, replyLen, "{\"ok\":false}");
         }
         return false;
     }
 
-    snprintf(reply, replyLen, "{\"ok\":true,\"queued\":true,\"target\":\"waveshare\"}");
+    snprintf(reply,
+             replyLen,
+             "{\"ok\":true,\"queued\":true,\"target\":\"waveshare\",\"operation_id\":%lu}",
+             (unsigned long)operationId);
     return true;
 }
 
@@ -1186,14 +1353,22 @@ bool FirmwareUpdateModule::cmdNextion_(void* userCtx, const CommandRequest& req,
     char url[kUrlLen] = {0};
     const char* explicitUrl = self->parseUrlArg_(req, url, sizeof(url)) ? url : nullptr;
     char err[120] = {0};
-    if (!self->startUpdate_(FirmwareUpdateTarget::Nextion, explicitUrl, err, sizeof(err))) {
+    uint32_t operationId = 0U;
+    if (!self->startUpdate_(FirmwareUpdateTarget::Nextion,
+                            explicitUrl,
+                            &operationId,
+                            err,
+                            sizeof(err))) {
         if (!writeErrorJson(reply, replyLen, ErrorCode::Failed, "fw.update.nextion")) {
             snprintf(reply, replyLen, "{\"ok\":false}");
         }
         return false;
     }
 
-    snprintf(reply, replyLen, "{\"ok\":true,\"queued\":true,\"target\":\"nextion\"}");
+    snprintf(reply,
+             replyLen,
+             "{\"ok\":true,\"queued\":true,\"target\":\"nextion\",\"operation_id\":%lu}",
+             (unsigned long)operationId);
     return true;
 }
 
@@ -1224,14 +1399,22 @@ bool FirmwareUpdateModule::cmdSpiffs_(void* userCtx, const CommandRequest& req, 
     char url[kUrlLen] = {0};
     const char* explicitUrl = self->parseUrlArg_(req, url, sizeof(url)) ? url : nullptr;
     char err[120] = {0};
-    if (!self->startUpdate_(FirmwareUpdateTarget::Spiffs, explicitUrl, err, sizeof(err))) {
+    uint32_t operationId = 0U;
+    if (!self->startUpdate_(FirmwareUpdateTarget::Spiffs,
+                            explicitUrl,
+                            &operationId,
+                            err,
+                            sizeof(err))) {
         if (!writeErrorJson(reply, replyLen, ErrorCode::Failed, "fw.update.spiffs")) {
             snprintf(reply, replyLen, "{\"ok\":false}");
         }
         return false;
     }
 
-    snprintf(reply, replyLen, "{\"ok\":true,\"queued\":true,\"target\":\"spiffs\"}");
+    snprintf(reply,
+             replyLen,
+             "{\"ok\":true,\"queued\":true,\"target\":\"spiffs\",\"operation_id\":%lu}",
+             (unsigned long)operationId);
     return true;
 }
 
@@ -1250,6 +1433,16 @@ void FirmwareUpdateModule::init(ConfigStore& cfg, ServiceRegistry& services)
     cfg.registerVar(updateHostVar_);
     cfg.registerVar(updatePathVar_);
 
+    bootId_ = esp_random();
+    if (bootId_ == 0U) bootId_ = 1U;
+    if (loadReceipt_()) {
+        nextOperationId_ = lastReceipt_.operationId + 1U;
+        if (nextOperationId_ == 0U) nextOperationId_ = 1U;
+    } else {
+        nextOperationId_ = esp_random();
+        if (nextOperationId_ == 0U) nextOperationId_ = 1U;
+    }
+
     if (!services.add(ServiceId::FirmwareUpdate, &firmwareUpdateSvc_)) {
         LOGE("service registration failed: %s", toString(ServiceId::FirmwareUpdate));
     }
@@ -1262,7 +1455,7 @@ void FirmwareUpdateModule::init(ConfigStore& cfg, ServiceRegistry& services)
         cmdSvc_->registerHandler(cmdSvc_->ctx, "fw.update.spiffs", &FirmwareUpdateModule::cmdSpiffs_, this);
     }
 
-    setStatus_(UpdateState::Idle, FirmwareUpdateTarget::Waveshare, 0, "idle");
+    setStatus_(UpdateState::Idle, FirmwareUpdateTarget::Waveshare, 0, "idle", 0U);
     LOGI("Firmware updater ready");
 }
 

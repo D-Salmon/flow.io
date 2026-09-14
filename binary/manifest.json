@@ -1,14 +1,14 @@
 {
   "schema": "flowio.firmware-manifest.v2",
-  "generated_at": "2026-09-13T20:02:58+02:00",
-  "release": "2026.09.13",
+  "generated_at": "2026-09-14T20:12:48+02:00",
+  "release": "2026.09.14",
   "artifacts": {
     "nextion": [
       {
         "title": "Flowio_Enhanced_480x320",
         "label": "Flowio_Enhanced_480x320",
         "version": "2.0.0",
-        "build_date": "2026-09-02T22:30:01+02:00",
+        "build_date": "2026-09-13T13:51:26+02:00",
         "target": "nextion",
         "path": "Flowio_Enhanced_480x320-2.0.0.tft",
         "kind": "nextion-tft",
@@ -20,7 +20,7 @@
         "title": "Flowio_Intelligent_800x480",
         "label": "Flowio_Intelligent_800x480",
         "version": "6.0.0",
-        "build_date": "2026-09-02T22:30:01+02:00",
+        "build_date": "2026-09-13T13:51:26+02:00",
         "target": "nextion",
         "path": "Flowio_Intelligent_800x480-6.0.0.tft",
         "kind": "nextion-tft",
@@ -33,24 +33,24 @@
       {
         "title": "flowios3",
         "label": "flowios3",
-        "version": "3.2.2",
-        "build_date": "2026-09-13T19:39:49+02:00",
+        "version": "3.30",
+        "build_date": "2026-09-14T20:12:47+02:00",
         "target": "flowios3",
-        "path": "flowios3-3.2.2.bin",
+        "path": "flowios3-3.30.bin",
         "kind": "esp32-firmware",
         "route": "/fwupdate/waveshare",
-        "size": 2209904,
-        "sha256": "01de8e8cad6853ab5d0b71625aeaa7fb8a6b06ddb49b78c1e42a627ca05926d9"
+        "size": 2217952,
+        "sha256": "413c9ac4f7f094a4499f66fa122debe6812504501d7e77f774fc984dae38345c"
       }
     ],
     "spiffs": [
       {
         "title": "flowios3-spiffs",
         "label": "flowios3-spiffs",
-        "version": "3.2.2",
-        "build_date": "2026-09-13T20:02:58+02:00",
+        "version": "3.30",
+        "build_date": "2026-09-14T20:04:03+02:00",
         "target": "spiffs",
-        "path": "flowios3-spiffs-3.2.2.bin",
+        "path": "flowios3-spiffs-3.30.bin",
         "kind": "esp32-spiffs",
         "route": "/fwupdate/spiffs",
         "size": 8257536,

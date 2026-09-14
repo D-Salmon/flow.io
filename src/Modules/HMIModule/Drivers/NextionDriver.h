@@ -21,6 +21,7 @@ struct NextionDriverConfig {
     uint32_t baud = 115200;
     uint32_t minRenderGapMs = 120;
     uint16_t displayVersionReadTimeoutMs = 180U;
+    uint16_t displayIdentityReadTimeoutMs = 300U;
     uint8_t homePageId = 0U;
     uint8_t configPageId = 10U;
     uint8_t alarmPageId = 11U;
@@ -55,7 +56,10 @@ public:
     bool refreshConfigMenuValues(const ConfigMenuView& view) override;
     bool hasDisplayVersion() const override { return versionDetected_; }
     const char* displayVersion() const override { return displayVersion_; }
+    bool hasDisplayIdentity() const { return identityDetected_; }
+    const HmiDisplayIdentity& displayIdentity() const { return displayIdentity_; }
     bool isLegacyV2() const override;
+    bool detectDisplayIdentity(uint16_t timeoutMs = 0U, bool force = false);
     bool detectDisplayVersion(uint16_t timeoutMs = 0U, bool force = false);
     bool configureSleep(uint16_t noTouchSeconds, bool wakeOnTouch, bool wakeOnSerial);
     bool refreshSleepState(uint16_t timeoutMs = 0U);
@@ -83,7 +87,9 @@ private:
     bool started_ = false;
     bool pageReady_ = false;
     bool versionDetected_ = false;
+    bool identityDetected_ = false;
     char displayVersion_[HMI_DISPLAY_VERSION_TEXT_MAX]{};
+    HmiDisplayIdentity displayIdentity_{};
     uint32_t lastRenderMs_ = 0;
     bool sleeping_ = false;
 
@@ -117,6 +123,7 @@ private:
     bool readNumberResponse_(uint32_t& value, uint16_t timeoutMs);
     bool readText_(const char* expr, char* out, size_t outLen, uint16_t timeoutMs);
     bool readTextResponse_(char* out, size_t outLen, uint16_t timeoutMs);
+    bool readConnectResponse_(char* out, size_t outLen, uint16_t timeoutMs);
     const char* homeTextObjectName_(HmiHomeTextField field) const;
     const char* homeGaugeObjectName_(HmiHomeGaugeField field) const;
     void sanitizeText_(char* out, size_t outLen, const char* in) const;

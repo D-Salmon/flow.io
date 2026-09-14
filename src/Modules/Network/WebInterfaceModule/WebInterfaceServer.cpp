@@ -8376,7 +8376,13 @@ void WebInterfaceModule::handleUpdateRequest_(AsyncWebServerRequest* request, Fi
     const char* url = (urlBuf[0] != '\0') ? urlBuf : nullptr;
 
     char err[144] = {0};
-    if (!fwUpdateSvc_->start(fwUpdateSvc_->ctx, target, url, err, sizeof(err))) {
+    uint32_t operationId = 0U;
+    if (!fwUpdateSvc_->start(fwUpdateSvc_->ctx,
+                             target,
+                             url,
+                             &operationId,
+                             err,
+                             sizeof(err))) {
         sanitizeJsonString_(err);
         char out[336] = {0};
         const int n = snprintf(out,
@@ -8391,7 +8397,16 @@ void WebInterfaceModule::handleUpdateRequest_(AsyncWebServerRequest* request, Fi
         return;
     }
 
-    request->send(202, "application/json", "{\"ok\":true,\"accepted\":true}");
+    char out[96] = {0};
+    const int n = snprintf(out,
+                           sizeof(out),
+                           "{\"ok\":true,\"accepted\":true,\"operation_id\":%lu}",
+                           (unsigned long)operationId);
+    request->send(202,
+                  "application/json",
+                  (n > 0 && (size_t)n < sizeof(out))
+                      ? out
+                      : "{\"ok\":false,\"err\":{\"code\":\"Failed\",\"where\":\"fwupdate.start.response\"}}");
 }
 
 void WebInterfaceModule::ensureCsrfToken_()

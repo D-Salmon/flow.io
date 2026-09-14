@@ -616,6 +616,19 @@ bool HMIModule::getDisplayVersion_(char* out, size_t outLen) const
     return true;
 }
 
+bool HMIModule::getLocalDisplayIdentity_(HmiDisplayIdentity* out) const
+{
+    if (!out || !nextion_.hasDisplayIdentity()) return false;
+    *out = nextion_.displayIdentity();
+    if (nextion_.hasDisplayVersion()) {
+        strncpy(out->applicationVersion,
+                nextion_.displayVersion(),
+                sizeof(out->applicationVersion) - 1U);
+        out->applicationVersion[sizeof(out->applicationVersion) - 1U] = '\0';
+    }
+    return true;
+}
+
 HMIModule::HMIModule(const BoardSpec& board)
 {
     const IoPointSpec* tx433 = boardFindIoPoint(board, BoardSignal::Tx433);
