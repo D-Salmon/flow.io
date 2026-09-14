@@ -62,7 +62,7 @@ jobs:
         run: python scripts/verify_release.py
       - name: Prepare downloadable firmware artifacts
         run: |
-          version="$(python -c 'import re; text=open("platformio.ini", encoding="utf-8").read(); print(re.search(r"waveshare_firmware_version\s*=\s*[^0-9]*([0-9]+\.[0-9]+\.[0-9]+)", text).group(1))')"
+          version="$(python -c 'import re; text=open("platformio.ini", encoding="utf-8").read(); print(re.search(r"waveshare_firmware_version\s*=\s*[^0-9]*([0-9]+(?:\.[0-9]+){1,2})", text).group(1))')"
           echo "WAVESHARE_VERSION=${version}" >> "$GITHUB_ENV"
           sha256sum \
             "binary/flowios3-${version}.bin" \
