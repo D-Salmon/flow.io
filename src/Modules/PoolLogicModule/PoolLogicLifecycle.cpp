@@ -952,6 +952,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
         cmdSvc->registerHandler(cmdSvc->ctx, "poollogic.filtration.write", &PoolLogicModule::cmdFiltrationWriteStatic_, this);
         cmdSvc->registerHandler(cmdSvc->ctx, "poollogic.filtration.recalc", &PoolLogicModule::cmdFiltrationRecalcStatic_, this);
         cmdSvc->registerHandler(cmdSvc->ctx, "poollogic.auto_mode.set", &PoolLogicModule::cmdAutoModeSetStatic_, this);
+        cmdSvc->registerHandler(cmdSvc->ctx, "poollogic.device.write", &PoolLogicModule::cmdDeviceWriteStatic_, this);
         static constexpr const char* kMqttControlCmds[] = {
             "poollogic.auto_mode.toggle",
             "poollogic.ph_auto_mode.set",

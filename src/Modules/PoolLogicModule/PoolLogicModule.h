@@ -592,8 +592,10 @@ private:
     static bool cmdFiltrationRecalcStatic_(void* userCtx, const CommandRequest& req, char* reply, size_t replyLen);
     static bool cmdAutoModeSetStatic_(void* userCtx, const CommandRequest& req, char* reply, size_t replyLen);
     static bool cmdMqttControlStatic_(void* userCtx, const CommandRequest& req, char* reply, size_t replyLen);
+    static bool cmdDeviceWriteStatic_(void* userCtx, const CommandRequest& req, char* reply, size_t replyLen);
     bool cmdFiltrationWrite_(const CommandRequest& req, char* reply, size_t replyLen);
     bool cmdFiltrationRecalc_(const CommandRequest& req, char* reply, size_t replyLen);
     bool cmdAutoModeSet_(const CommandRequest& req, char* reply, size_t replyLen);
     bool cmdMqttControl_(const CommandRequest& req, char* reply, size_t replyLen);
+    bool cmdDeviceWrite_(const CommandRequest& req, char* reply, size_t replyLen);
 };

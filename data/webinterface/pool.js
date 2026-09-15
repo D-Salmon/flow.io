@@ -34,6 +34,8 @@
       const showPage = deps.showPage;
       const createIntervalRunner = deps.createIntervalRunner;
       const createRuntimeDomainState = deps.createRuntimeDomainState;
+      const fetchFlowRemoteQueued = deps.fetchFlowRemoteQueued;
+      const canUseRuntimeEvents = deps.canUseRuntimeEvents || (() => false);
 
       function toBool(value) {
         if (typeof value === 'boolean') return value;
@@ -62,6 +64,7 @@
     const dashboardKpiGrid = document.getElementById('dashboardKpiGrid');
     const dashboardEquipmentCount = document.getElementById('dashboardEquipmentCount');
     const dashboardEquipmentGrid = document.getElementById('dashboardEquipmentGrid');
+    const dashboardEquipmentManage = document.getElementById('dashboardEquipmentManage');
     const dashboardFiltrationState = document.getElementById('dashboardFiltrationState');
     const dashboardFiltrationStart = document.getElementById('dashboardFiltrationStart');
     const dashboardFiltrationStop = document.getElementById('dashboardFiltrationStop');
@@ -69,6 +72,7 @@
     const dashboardFiltrationHint = document.getElementById('dashboardFiltrationHint');
     const dashboardAlarmCount = document.getElementById('dashboardAlarmCount');
     const dashboardAlarmList = document.getElementById('dashboardAlarmList');
+    const dashboardAlarmManage = document.getElementById('dashboardAlarmManage');
     const dashboardLightsShortcut = document.getElementById('dashboardLightsShortcut');
     const dashboardShortcutButtons = Array.from(document.querySelectorAll('[data-dashboard-page]'));
     const poolConfigRefreshBtn = document.getElementById('poolConfigRefresh');
@@ -458,9 +462,18 @@
 
       let poolMeasuresPoller = null;
       let poolConfigPoller = null;
+      let dashboardEventSource = null;
+      let dashboardEventsConnected = false;
+      let dashboardEventsLastMessageAt = 0;
+      let dashboardEventsLastFullRefreshAt = 0;
+      let dashboardEventsPending = 0;
+      let dashboardEventsTimer = null;
+      let runtimeManagementDialog = null;
+      let runtimeManagementType = '';
 
     function stopPoolMeasuresTimer() {
       poolMeasuresPoller.stop();
+      stopDashboardEvents();
     }
 
     function showPoolMeasuresError(err) {
@@ -472,6 +485,300 @@
 
     function startPoolMeasuresTimer() {
       poolMeasuresPoller.start();
+      startDashboardEvents();
+    }
+
+    function dashboardEventsActive() {
+      return getActivePageId() === 'page-pool-measures' && !document.hidden;
+    }
+
+    function stopDashboardEvents() {
+      dashboardEventsConnected = false;
+      if (dashboardEventSource) {
+        dashboardEventSource.close();
+        dashboardEventSource = null;
+      }
+      if (dashboardEventsTimer !== null) clearTimeout(dashboardEventsTimer);
+      dashboardEventsTimer = null;
+      dashboardEventsPending = 0;
+    }
+
+    function scheduleDashboardEventRefresh(domains) {
+      if (!dashboardEventsActive()) return;
+      dashboardEventsPending |= Number(domains) & 15;
+      if (dashboardEventsTimer !== null || !dashboardEventsPending) return;
+      dashboardEventsTimer = setTimeout(async () => {
+        dashboardEventsTimer = null;
+        const pending = dashboardEventsPending;
+        dashboardEventsPending = 0;
+        try {
+          await refreshDashboardLiveDomains(pending);
+        } catch (err) {
+          dashboardEventsPending |= pending;
+        }
+        if (dashboardEventsPending) scheduleDashboardEventRefresh(dashboardEventsPending);
+      }, 80);
+    }
+
+    function startDashboardEvents() {
+      if (!dashboardEventsActive() || !canUseRuntimeEvents() || dashboardEventSource) return;
+      const source = new EventSource('/api/runtime/events');
+      dashboardEventSource = source;
+      source.onopen = () => {
+        if (dashboardEventSource !== source) return;
+        dashboardEventsConnected = true;
+        dashboardEventsLastMessageAt = Date.now();
+        scheduleDashboardEventRefresh(15);
+      };
+      source.addEventListener('runtime', (event) => {
+        if (dashboardEventSource !== source) return;
+        let data = null;
+        try { data = JSON.parse(event.data); } catch (err) { return; }
+        if (!data || !Number.isInteger(data.domains) || data.domains < 0 || data.domains > 15) return;
+        dashboardEventsConnected = true;
+        dashboardEventsLastMessageAt = Date.now();
+        if (data.domains) scheduleDashboardEventRefresh(data.domains);
+      });
+      source.onerror = () => {
+        if (dashboardEventSource !== source) return;
+        dashboardEventsConnected = false;
+        if (source.readyState === 2) {
+          source.close();
+          dashboardEventSource = null;
+          setTimeout(startDashboardEvents, 3000);
+        }
+      };
+    }
+
+    async function pollDashboardLiveUpdates() {
+      if (!dashboardEventsActive()) return;
+      if (dashboardEventsConnected && Date.now() - dashboardEventsLastMessageAt > 35000) {
+        stopDashboardEvents();
+      }
+      startDashboardEvents();
+      if (!dashboardEventsConnected) {
+        await refreshPoolMeasures(false);
+      } else if (Date.now() - dashboardEventsLastFullRefreshAt > 60000) {
+        dashboardEventsLastFullRefreshAt = Date.now();
+        scheduleDashboardEventRefresh(15);
+      } else if (poolMeasureDomainState.sondes && poolMeasureDomainState.sondes.active) {
+        await loadPoolMeasureDomain('sondes', true);
+      }
+    }
+
+    async function refreshDashboardLiveDomains(domains) {
+      const tasks = [refreshDashboardOverview(true)];
+      [['mode', 1], ['equipements', 2], ['alarm', 4], ['sondes', 8]].forEach(([domain, mask]) => {
+        if ((domains & mask) && poolMeasureDomainState[domain] && poolMeasureDomainState[domain].active) {
+          tasks.push(loadPoolMeasureDomain(domain, true));
+        }
+      });
+      if (runtimeManagementDialog && runtimeManagementDialog.open) {
+        if ((runtimeManagementType === 'equipment' && (domains & 2)) ||
+            (runtimeManagementType === 'alarm' && (domains & 4))) {
+          tasks.push(refreshRuntimeManagementDialog());
+        }
+      }
+      await Promise.all(tasks);
+    }
+
+    function formatManagementDuration(seconds) {
+      const total = Math.max(0, Number(seconds) || 0);
+      if (!total) return '—';
+      const days = Math.floor(total / 86400);
+      const hours = Math.floor((total % 86400) / 3600);
+      const minutes = Math.floor((total % 3600) / 60);
+      if (days) return days + ' j ' + hours + ' h';
+      if (hours) return hours + ' h ' + minutes + ' min';
+      return minutes ? minutes + ' min' : Math.floor(total) + ' s';
+    }
+
+    function formatManagementVolume(value) {
+      const ml = Number(value);
+      if (!Number.isFinite(ml) || ml <= 0) return '—';
+      return ml >= 1000 ? (ml / 1000).toFixed(2).replace('.', ',') + ' L' : Math.round(ml) + ' ml';
+    }
+
+    function closeRuntimeManagementDialog() {
+      if (!runtimeManagementDialog) return;
+      if (typeof runtimeManagementDialog.close === 'function') runtimeManagementDialog.close();
+      else runtimeManagementDialog.removeAttribute('open');
+    }
+
+    function ensureRuntimeManagementDialog() {
+      if (runtimeManagementDialog) return runtimeManagementDialog;
+      const dialog = document.createElement('dialog');
+      dialog.className = 'runtime-management-dialog';
+      dialog.addEventListener('click', (event) => {
+        if (event.target === dialog) closeRuntimeManagementDialog();
+      });
+      document.body.appendChild(dialog);
+      runtimeManagementDialog = dialog;
+      return dialog;
+    }
+
+    function managementButton(label, className, handler) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = className || 'btn-tonal';
+      button.textContent = label;
+      button.addEventListener('click', () => Promise.resolve(handler(button)).catch((err) => {
+        const feedback = runtimeManagementDialog && runtimeManagementDialog.querySelector('.runtime-management-feedback');
+        if (feedback) feedback.textContent = String(err);
+      }));
+      return button;
+    }
+
+    async function runManagementCommand(url, values, button) {
+      if (button) button.disabled = true;
+      try {
+        await fetchOkJson(url, createFormPostOptions(values), 'Commande refusée');
+        await refreshRuntimeManagementDialog();
+        await refreshDashboardLiveDomains(runtimeManagementType === 'equipment' ? 2 : 4);
+      } finally {
+        if (button) button.disabled = false;
+      }
+    }
+
+    function renderEquipmentManagement(options, body) {
+      const tableWrap = document.createElement('div');
+      tableWrap.className = 'runtime-management-table-wrap';
+      const table = document.createElement('table');
+      table.className = 'runtime-management-table';
+      table.innerHTML = '<thead><tr><th>Équipement</th><th>État</th><th>Jour</th><th>Semaine</th><th>Mois</th><th>Total</th><th>Actions</th></tr></thead>';
+      const tbody = document.createElement('tbody');
+      (options || []).forEach((device) => {
+        const row = document.createElement('tr');
+        const name = document.createElement('th');
+        name.className = 'runtime-name';
+        name.textContent = String(device.name || device.deviceId || ('Slot ' + device.value));
+        const sub = document.createElement('span');
+        sub.className = 'runtime-subtitle';
+        sub.textContent = String(device.deviceId || '') + ' · slot ' + String(device.value);
+        name.appendChild(sub);
+        row.appendChild(name);
+        const stateCell = document.createElement('td');
+        const state = document.createElement('span');
+        state.className = 'runtime-management-state' + (device.actualOn === true ? ' is-on' : '');
+        state.textContent = device.actualOn === null ? 'Indisponible' : (device.actualOn ? 'Marche' : 'Arrêt');
+        stateCell.appendChild(state);
+        row.appendChild(stateCell);
+        const running = device.running || {};
+        const injected = device.injected || {};
+        [['day_s', 'day_ml'], ['week_s', 'week_ml'], ['month_s', 'month_ml'], ['total_s', 'total_ml']].forEach(([timeKey, volumeKey]) => {
+          const cell = document.createElement('td');
+          cell.textContent = formatManagementDuration(running[timeKey]);
+          const volume = formatManagementVolume(injected[volumeKey]);
+          if (volume !== '—') {
+            const detail = document.createElement('span');
+            detail.className = 'runtime-subtitle';
+            detail.textContent = volume + ' injectés';
+            cell.appendChild(detail);
+          }
+          row.appendChild(cell);
+        });
+        const actions = document.createElement('td');
+        const toggle = managementButton(device.actualOn ? 'Arrêter' : 'Démarrer', 'btn-tonal', (button) =>
+          runManagementCommand('/api/runtime/device_write', { slot: device.value, value: device.actualOn ? 'false' : 'true' }, button));
+        toggle.disabled = !device.controllable || device.actualOn === null;
+        const reset = managementButton('RAZ', 'btn-tonal', (button) =>
+          runManagementCommand('/api/runtime/counter_reset', { slot: device.value }, button));
+        actions.appendChild(toggle);
+        actions.appendChild(document.createTextNode(' '));
+        actions.appendChild(reset);
+        row.appendChild(actions);
+        tbody.appendChild(row);
+      });
+      table.appendChild(tbody);
+      tableWrap.appendChild(table);
+      body.appendChild(tableWrap);
+    }
+
+    function renderAlarmManagement(options, body) {
+      const tableWrap = document.createElement('div');
+      tableWrap.className = 'runtime-management-table-wrap';
+      const table = document.createElement('table');
+      table.className = 'runtime-management-table';
+      table.innerHTML = '<thead><tr><th>Alarme</th><th>État</th><th>Condition</th><th>Déclenchement</th><th>Action</th></tr></thead>';
+      const tbody = document.createElement('tbody');
+      (options || []).forEach((alarm) => {
+        const row = document.createElement('tr');
+        const name = document.createElement('th');
+        name.className = 'runtime-name';
+        name.textContent = String(alarm.label || alarm.code || ('Alarme ' + alarm.value));
+        const sub = document.createElement('span');
+        sub.className = 'runtime-subtitle';
+        sub.textContent = String(alarm.code || '') + (alarm.latched ? ' · mémorisée' : ' · automatique');
+        name.appendChild(sub);
+        row.appendChild(name);
+        const active = document.createElement('td');
+        const state = document.createElement('span');
+        state.className = 'runtime-management-state ' + (alarm.active ? 'is-alert' : 'is-ok');
+        state.textContent = alarm.active ? 'Active' : 'Inactive';
+        active.appendChild(state);
+        row.appendChild(active);
+        const condition = document.createElement('td');
+        condition.textContent = Number(alarm.condition) === 1 ? 'Présente' : (Number(alarm.condition) === 0 ? 'Absente' : 'Inconnue');
+        row.appendChild(condition);
+        const triggered = document.createElement('td');
+        triggered.textContent = alarm.triggeredAt ? new Date(Number(alarm.triggeredAt) * 1000).toLocaleString() : '—';
+        row.appendChild(triggered);
+        const actions = document.createElement('td');
+        const reset = managementButton('Réarmer', 'btn-tonal', (button) =>
+          runManagementCommand('/api/runtime/alarm_reset', { id: alarm.value }, button));
+        reset.disabled = !alarm.resettable;
+        actions.appendChild(reset);
+        row.appendChild(actions);
+        tbody.appendChild(row);
+      });
+      table.appendChild(tbody);
+      tableWrap.appendChild(table);
+      body.appendChild(tableWrap);
+    }
+
+    async function refreshRuntimeManagementDialog() {
+      const dialog = ensureRuntimeManagementDialog();
+      const body = dialog.querySelector('.runtime-management-body');
+      if (!body || !runtimeManagementType) return;
+      const feedback = dialog.querySelector('.runtime-management-feedback');
+      if (feedback) feedback.textContent = 'Actualisation…';
+      const url = runtimeManagementType === 'equipment'
+        ? '/api/runtime/pooldevice_options'
+        : '/api/runtime/alarm_options';
+      const data = await fetchOkJson(url, { cache: 'no-store' }, 'Données de gestion indisponibles');
+      body.innerHTML = '';
+      const nextFeedback = document.createElement('p');
+      nextFeedback.className = 'runtime-management-feedback';
+      nextFeedback.textContent = (Array.isArray(data.options) ? data.options.length : 0) +
+        (runtimeManagementType === 'equipment' ? ' équipement(s)' : ' alarme(s) enregistrée(s)');
+      body.appendChild(nextFeedback);
+      if (runtimeManagementType === 'equipment') renderEquipmentManagement(data.options, body);
+      else renderAlarmManagement(data.options, body);
+    }
+
+    async function openRuntimeManagementDialog(type) {
+      runtimeManagementType = type;
+      const dialog = ensureRuntimeManagementDialog();
+      dialog.innerHTML = '';
+      const header = document.createElement('div');
+      header.className = 'runtime-management-header';
+      const title = document.createElement('h2');
+      title.textContent = type === 'equipment' ? 'Gestion des équipements' : 'Gestion des alarmes';
+      header.appendChild(title);
+      const actions = document.createElement('div');
+      actions.className = 'runtime-management-actions';
+      actions.appendChild(managementButton(type === 'equipment' ? 'RAZ tous les compteurs' : 'Réarmer tout', 'btn-tonal', (button) =>
+        runManagementCommand(type === 'equipment' ? '/api/runtime/counter_reset' : '/api/runtime/alarm_reset', {}, button)));
+      actions.appendChild(managementButton('Fermer', 'btn-primary', () => closeRuntimeManagementDialog()));
+      header.appendChild(actions);
+      dialog.appendChild(header);
+      const body = document.createElement('div');
+      body.className = 'runtime-management-body';
+      body.innerHTML = '<p class="runtime-management-feedback">Chargement…</p>';
+      dialog.appendChild(body);
+      if (typeof dialog.showModal === 'function') dialog.showModal();
+      else dialog.setAttribute('open', '');
+      await refreshRuntimeManagementDialog();
     }
 
 
@@ -1970,7 +2277,7 @@
 
     async function refreshDashboardOverview(forceRefresh) {
       const reqSeq = ++dashboardOverviewReqSeq;
-      if (forceRefresh || !dashboardOverviewLoadedOnce) renderDashboardOverviewSkeleton();
+      if (!dashboardOverviewLoadedOnce) renderDashboardOverviewSkeleton();
       const safe = (promise) => promise.catch(() => null);
       const results = await Promise.all([
         safe(fetchFlowStatusDomain('pool', !!forceRefresh, 'dashboard')),
@@ -4641,7 +4948,7 @@
 
       poolMeasuresPoller = createIntervalRunner(() => {
         if (getActivePageId() !== 'page-pool-measures' || document.hidden) return;
-        return refreshPoolMeasures(false);
+        return pollDashboardLiveUpdates();
       }, 10000);
       poolConfigPoller = createIntervalRunner(() => {
         if (getActivePageId() !== 'page-pool' || document.hidden) return;
@@ -4651,6 +4958,8 @@
       deps.bindClickAction(poolMeasuresRefreshBtn, async () => {
         try { await refreshPoolMeasures(true); } catch (err) { showPoolMeasuresError(err); }
       });
+      deps.bindClickAction(dashboardEquipmentManage, () => openRuntimeManagementDialog('equipment'));
+      deps.bindClickAction(dashboardAlarmManage, () => openRuntimeManagementDialog('alarm'));
       deps.bindClickAction(poolConfigRefreshBtn, () => onPoolConfigPageShown(true));
       const bindOperatingModeControl = (select, applyButton) => {
         if (!select || !applyButton) return;

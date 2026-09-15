@@ -1,4 +1,4 @@
-# Documentation Flow.io Waveshare 3.30
+# Documentation Flow.io Waveshare 3.3.1
 
 Cette documentation concerne la cible autonome
 `Waveshare-ESP32-S3` : une seule carte Waveshare
@@ -8,7 +8,7 @@ la RTC et les interfaces locales.
 
 Le document d’entrée principal du projet est le [README général](../README.md).
 Les changements propres à cette livraison sont détaillés dans les
-[notes de version 3.30](release-3.30.md).
+[notes de version 3.3.1](release-3.3.1.md).
 Les travaux encore ouverts sont regroupés dans
 [RESTANT_A_FAIRE.md](../RESTANT_A_FAIRE.md).
 
@@ -219,8 +219,8 @@ le raccordement courant avant usage. Leur mise à niveau est recensée dans
 
 ## Livraison courante
 
-- [Notes de version 3.30](release-3.30.md)
-- Firmware : [`binary/flowios3-3.30.bin`](../binary/flowios3-3.30.bin)
+- [Notes de version 3.3.1](release-3.3.1.md)
+- Firmware : [`binary/flowios3-3.3.1.bin`](../binary/flowios3-3.3.1.bin)
 - Interface SPIFFS :
-  [`binary/flowios3-spiffs-3.30.bin`](../binary/flowios3-spiffs-3.30.bin)
+  [`binary/flowios3-spiffs-3.3.1.bin`](../binary/flowios3-spiffs-3.3.1.bin)
 - Environnement PlatformIO : `Waveshare-ESP32-S3`

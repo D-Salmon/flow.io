@@ -7,6 +7,7 @@
 #include "Core/CommandRegistry.h"
 #include "Core/ErrorCodes.h"
 #include "Core/SystemLimits.h"
+#include "Core/PsramJsonAllocator.h"
 
 #include <ArduinoJson.h>
 #include <cstdlib>
@@ -22,7 +23,7 @@ namespace {
 static bool parseCmdArgsObject_(const CommandRequest& req, JsonObjectConst& outObj)
 {
     static constexpr size_t CMD_DOC_CAPACITY = Limits::JsonCmdPoolDeviceBuf;
-    static JsonDocument doc;
+    static JsonDocument doc(psramOnlyJsonAllocator());
 
     doc.clear();
     const char* json = req.args ? req.args : req.json;
@@ -117,6 +118,71 @@ bool PoolLogicModule::cmdMqttControlStatic_(void* userCtx,
     PoolLogicModule* self = static_cast<PoolLogicModule*>(userCtx);
     if (!self) return false;
     return self->cmdMqttControl_(req, reply, replyLen);
+}
+
+bool PoolLogicModule::cmdDeviceWriteStatic_(void* userCtx,
+                                            const CommandRequest& req,
+                                            char* reply,
+                                            size_t replyLen)
+{
+    PoolLogicModule* self = static_cast<PoolLogicModule*>(userCtx);
+    return self && self->cmdDeviceWrite_(req, reply, replyLen);
+}
+
+bool PoolLogicModule::cmdDeviceWrite_(const CommandRequest& req, char* reply, size_t replyLen)
+{
+    JsonObjectConst args;
+    if (!parseCmdArgsObject_(req, args)) {
+        writeCmdError_(reply, replyLen, "poollogic.device.write", ErrorCode::MissingArgs);
+        return false;
+    }
+    if (!args["slot"].is<uint8_t>()) {
+        writeCmdError_(reply, replyLen, "poollogic.device.write", ErrorCode::MissingSlot);
+        return false;
+    }
+    bool requested = false;
+    if (args["value"].isUnbound() || !parseBoolValue_(args["value"], requested)) {
+        writeCmdError_(reply, replyLen, "poollogic.device.write", ErrorCode::MissingValue);
+        return false;
+    }
+
+    const uint8_t slot = args["slot"].as<uint8_t>();
+    const char* routedCommand = nullptr;
+    if (slot == filtrationDeviceSlot_) routedCommand = "poollogic.filtration.write";
+    else if (slot == phPumpDeviceSlot_) routedCommand = "poollogic.ph_pump.write";
+    else if (slot == orpPumpDeviceSlot_) routedCommand = "poollogic.dis_pump.write";
+    else if (slot == swgDeviceSlot_) routedCommand = "poollogic.chlorine_generator.write";
+    else if (slot == robotDeviceSlot_) routedCommand = "poollogic.robot.write";
+    else if (slot == heaterDeviceSlot_) routedCommand = "poollogic.heater.write";
+    else if (slot == lightsDeviceSlot_) routedCommand = "poollogic.lights.write";
+
+    if (routedCommand) {
+        const CommandRequest routed{routedCommand, req.json, req.args};
+        if (strcmp(routedCommand, "poollogic.filtration.write") == 0) {
+            return cmdFiltrationWrite_(routed, reply, replyLen);
+        }
+        return cmdMqttControl_(routed, reply, replyLen);
+    }
+
+    if (!poolSvc_ || !poolSvc_->writeDesired) {
+        writeCmdError_(reply, replyLen, "poollogic.device.write", ErrorCode::NotReady);
+        return false;
+    }
+    const PoolDeviceSvcStatus status = poolSvc_->writeDesired(poolSvc_->ctx, slot, requested ? 1U : 0U);
+    if (status != POOLDEV_SVC_OK) {
+        ErrorCode code = ErrorCode::Failed;
+        if (status == POOLDEV_SVC_ERR_UNKNOWN_SLOT) code = ErrorCode::UnknownSlot;
+        else if (status == POOLDEV_SVC_ERR_NOT_READY) code = ErrorCode::NotReady;
+        else if (status == POOLDEV_SVC_ERR_DISABLED) code = ErrorCode::Disabled;
+        else if (status == POOLDEV_SVC_ERR_INTERLOCK) code = ErrorCode::InterlockBlocked;
+        else if (status == POOLDEV_SVC_ERR_MAX_UPTIME) code = ErrorCode::MaxUptimeReached;
+        else if (status == POOLDEV_SVC_ERR_IO) code = ErrorCode::IoError;
+        writeCmdError_(reply, replyLen, "poollogic.device.write", code);
+        return false;
+    }
+    snprintf(reply, replyLen, "{\"ok\":true,\"slot\":%u,\"value\":%s}",
+             (unsigned)slot, requested ? "true" : "false");
+    return true;
 }
 
 bool PoolLogicModule::cmdFiltrationWrite_(const CommandRequest& req, char* reply, size_t replyLen)

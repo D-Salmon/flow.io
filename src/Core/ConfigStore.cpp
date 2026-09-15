@@ -7,6 +7,7 @@
 #include "Core/NvsKeys.h"
 #include "Core/Log.h"
 #include "Core/ModuleId.h"
+#include "Core/PsramJsonAllocator.h"
 #include "Core/SnprintfCheck.h"
 #include <Arduino.h>
 #include <ArduinoJson.h>
@@ -577,7 +578,7 @@ bool ConfigStore::applyJson(const char* json)
     if (!json || json[0] == '\0') return false;
 
     static constexpr size_t APPLY_JSON_DOC_CAPACITY = Limits::JsonConfigApplyBuf;
-    static JsonDocument doc;
+    static JsonDocument doc(psramOnlyJsonAllocator());
     doc.clear();
     const DeserializationError err = deserializeJson(doc, json);
     const size_t docUsedBytes = measureJson(doc);

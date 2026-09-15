@@ -7,6 +7,7 @@
 
 #include "Core/BufferUsageTracker.h"
 #include "Core/MqttTopics.h"
+#include "Core/PsramJsonAllocator.h"
 #include "Modules/Network/MQTTModule/MQTTRuntime.h"
 
 #include <ArduinoJson.h>
@@ -54,7 +55,7 @@ void MQTTModule::processRxCmd_(const RxMsg& msg)
     if (!scratch_) return;
 
     static constexpr size_t CMD_DOC_CAPACITY = Limits::JsonCmdBuf;
-    static JsonDocument doc;
+    static JsonDocument doc(psramOnlyJsonAllocator());
 
     doc.clear();
     DeserializationError err = deserializeJson(doc, msg.payload);
@@ -149,7 +150,7 @@ void MQTTModule::processRxCfgSet_(const RxMsg& msg)
     }
 
     static constexpr size_t CFG_DOC_CAPACITY = Limits::JsonCfgBuf;
-    static JsonDocument cfgDoc;
+    static JsonDocument cfgDoc(psramOnlyJsonAllocator());
     cfgDoc.clear();
 
     const DeserializationError cfgErr = deserializeJson(cfgDoc, msg.payload);

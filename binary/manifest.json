@@ -1,14 +1,14 @@
 {
   "schema": "flowio.firmware-manifest.v2",
-  "generated_at": "2026-09-14T20:12:48+02:00",
-  "release": "2026.09.14",
+  "generated_at": "2026-09-15T14:38:35+02:00",
+  "release": "2026.09.15",
   "artifacts": {
     "nextion": [
       {
         "title": "Flowio_Enhanced_480x320",
         "label": "Flowio_Enhanced_480x320",
         "version": "2.0.0",
-        "build_date": "2026-09-13T13:51:26+02:00",
+        "build_date": "2026-09-15T08:58:59+02:00",
         "target": "nextion",
         "path": "Flowio_Enhanced_480x320-2.0.0.tft",
         "kind": "nextion-tft",
@@ -20,7 +20,7 @@
         "title": "Flowio_Intelligent_800x480",
         "label": "Flowio_Intelligent_800x480",
         "version": "6.0.0",
-        "build_date": "2026-09-13T13:51:26+02:00",
+        "build_date": "2026-09-15T08:58:59+02:00",
         "target": "nextion",
         "path": "Flowio_Intelligent_800x480-6.0.0.tft",
         "kind": "nextion-tft",
@@ -33,8 +33,20 @@
       {
         "title": "flowios3",
         "label": "flowios3",
+        "version": "3.3.1",
+        "build_date": "2026-09-15T14:37:46+02:00",
+        "target": "flowios3",
+        "path": "flowios3-3.3.1.bin",
+        "kind": "esp32-firmware",
+        "route": "/fwupdate/waveshare",
+        "size": 2233664,
+        "sha256": "b961d57f874fbbe84a3721f20cf0bdd2ae2dd8e976e75023b896fbc0f1ae76ce"
+      },
+      {
+        "title": "flowios3",
+        "label": "flowios3",
         "version": "3.30",
-        "build_date": "2026-09-14T20:12:47+02:00",
+        "build_date": "2026-09-15T08:58:59+02:00",
         "target": "flowios3",
         "path": "flowios3-3.30.bin",
         "kind": "esp32-firmware",
@@ -47,8 +59,20 @@
       {
         "title": "flowios3-spiffs",
         "label": "flowios3-spiffs",
+        "version": "3.3.1",
+        "build_date": "2026-09-15T14:38:35+02:00",
+        "target": "spiffs",
+        "path": "flowios3-spiffs-3.3.1.bin",
+        "kind": "esp32-spiffs",
+        "route": "/fwupdate/spiffs",
+        "size": 8257536,
+        "sha256": "86934915949332bd0bda5065b5e044cbd96eb51dc59cc0ed36ddfe88f86a985f"
+      },
+      {
+        "title": "flowios3-spiffs",
+        "label": "flowios3-spiffs",
         "version": "3.30",
-        "build_date": "2026-09-14T20:04:03+02:00",
+        "build_date": "2026-09-15T08:58:59+02:00",
         "target": "spiffs",
         "path": "flowios3-spiffs-3.30.bin",
         "kind": "esp32-spiffs",

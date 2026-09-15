@@ -46,6 +46,12 @@ jobs:
           src include
       - name: Test OTA signing workflow
         run: python scripts/test_ota_signing.py
+      - name: Test live runtime events and Home Assistant routing
+        run: python scripts/test_runtime_events.py
+      - name: Check web dashboard JavaScript
+        run: |
+          node --check data/webinterface/app.js
+          node --check data/webinterface/pool.js
       - name: Regenerate compressed web assets
         run: bash scripts/gzip_web_assets.sh
       - name: Run native unit tests

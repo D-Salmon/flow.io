@@ -160,6 +160,7 @@ ac_unit: '\u{eb3b}',
     let webProfileKey = 'supervisor';
     let webLocalConfigLabel = 'Config Store Supervisor';
     let webLocalRuntime = false;
+    let webRuntimeEventsAvailable = false;
     let webRemoteConfigEnabled = true;
     let webAdminAuthenticated = false;
     let webPhysicalRecoveryActive = false;
@@ -624,6 +625,7 @@ ac_unit: '\u{eb3b}',
       const rawDeviceName = String(data.devicename || data.deviceName || '').trim();
       webDeviceName = rawDeviceName || 'flowio';
       webLocalRuntime = data.local_runtime === true;
+      webRuntimeEventsAvailable = data.runtime_events === true;
       const label = String(data.local_config_label || '').trim();
       webLocalConfigLabel = label || (isMicronovaProfile()
         ? tr('cfg.local.micronova', 'Config Store Micronova')
@@ -794,6 +796,7 @@ ac_unit: '\u{eb3b}',
           ? tr('cfg.local.micronova', 'Config Store Micronova')
           : tr('cfg.local.supervisor', 'Config Store Supervisor'));
         webLocalRuntime = initialMeta.local_runtime === true;
+        webRuntimeEventsAvailable = initialMeta.runtime_events === true;
         webRemoteConfigEnabled = initialMeta.remote_config_enabled !== false;
         networkMode = normalizeNetworkMode(initialMeta.network_mode);
         networkTransport = normalizeNetworkTransport(initialMeta.network_transport || initialMeta.transport);
@@ -1890,7 +1893,9 @@ ac_unit: '\u{eb3b}',
           createIntervalRunner,
           createRuntimeDomainState,
           bindClickAction,
-          getRuntimeMeasureDomainKeys: () => runtimeMeasureDomainKeys
+          getRuntimeMeasureDomainKeys: () => runtimeMeasureDomainKeys,
+          fetchFlowRemoteQueued,
+          canUseRuntimeEvents: () => webLocalRuntime && webRuntimeEventsAvailable && typeof EventSource === 'function'
         });
         return poolPage;
       })().finally(() => {

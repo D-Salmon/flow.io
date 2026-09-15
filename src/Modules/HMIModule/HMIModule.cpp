@@ -2784,7 +2784,7 @@ bool HMIModule::buildMenuJson_(char* out, size_t outLen)
 
 #if !FLOW_HMI_CONFIG_MENU_ENABLED
     {
-        JsonDocument doc;
+        JsonDocument doc(psramOnlyJsonAllocator());
         JsonObject root = doc.to<JsonObject>();
         root["ok"] = true;
         root["disabled"] = true;

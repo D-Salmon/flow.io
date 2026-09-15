@@ -18,6 +18,7 @@
 #include <ESPAsyncWebServer.h>
 #include <freertos/queue.h>
 #include "Core/EventBus/EventBus.h"
+#include "RuntimeEvents.h"
 
 #ifndef FLOW_ENABLE_WEB_SERIAL_TERMINAL
 #define FLOW_ENABLE_WEB_SERIAL_TERMINAL 0
@@ -165,6 +166,9 @@ private:
     void scheduleReboot_(uint32_t delayMs, const char* reason);
     uint8_t wsActiveSource_() const;
     void setWsActiveSource_(uint8_t source);
+    void configureRuntimeEvents_();
+    void markRuntimeEvents_(uint8_t domains);
+    void flushRuntimeEvents_();
     void noteInvalidOtaSignature_();
     static AlarmCondState condOtaSignatureFailuresStatic_(void* ctx, uint32_t nowMs);
     AlarmCondState condOtaSignatureFailures_(uint32_t nowMs) const;
@@ -177,6 +181,11 @@ private:
     bool bridgeUartEnabled_ = false;
     AsyncWebServer server_{kServerPort};
     AsyncWebSocket wsLog_{"/wslog"};
+    AsyncEventSource runtimeEvents_{"/api/runtime/events"};
+    RuntimeEventState runtimeEventState_{};
+    portMUX_TYPE runtimeEventsMux_ = portMUX_INITIALIZER_UNLOCKED;
+    uint32_t runtimeEventsLastSendMs_ = 0U;
+    bool runtimeEventsAvailable_ = false;
     char csrfToken_[33] = {0};
     struct WebSecurityConfig {
         char user[33]{};

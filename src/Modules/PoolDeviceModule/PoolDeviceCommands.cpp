@@ -6,6 +6,7 @@
 #include "PoolDeviceModule.h"
 #include "Core/ErrorCodes.h"
 #include "Domain/Pool/PoolIds.h"
+#include "Core/PsramJsonAllocator.h"
 #define LOG_MODULE_ID ((LogModuleId)LogModuleIdValue::PoolDeviceModule)
 #include "Core/ModuleLog.h"
 #include <ArduinoJson.h>
@@ -17,7 +18,7 @@ namespace {
 bool parseCmdArgsObject_(const CommandRequest& req, JsonObjectConst& outObj)
 {
     static constexpr size_t CMD_DOC_CAPACITY = Limits::JsonCmdPoolDeviceBuf;
-    static JsonDocument doc;
+    static JsonDocument doc(psramOnlyJsonAllocator());
 
     doc.clear();
     const char* json = req.args ? req.args : req.json;
@@ -64,7 +65,7 @@ bool readConfigBool_(ConfigStore* cfgStore, const char* moduleName, const char* 
     bool truncated = false;
     if (!cfgStore->toJsonModule(moduleName, json, sizeof(json), &truncated) || truncated) return false;
 
-    JsonDocument doc;
+    JsonDocument doc(psramOnlyJsonAllocator());
     const DeserializationError err = deserializeJson(doc, json);
     if (err || !doc.is<JsonObjectConst>()) return false;
     JsonVariantConst value = doc.as<JsonObjectConst>()[key];
@@ -80,7 +81,7 @@ bool readConfigUInt8_(ConfigStore* cfgStore, const char* moduleName, const char*
     bool truncated = false;
     if (!cfgStore->toJsonModule(moduleName, json, sizeof(json), &truncated) || truncated) return false;
 
-    JsonDocument doc;
+    JsonDocument doc(psramOnlyJsonAllocator());
     const DeserializationError err = deserializeJson(doc, json);
     if (err || !doc.is<JsonObjectConst>()) return false;
     JsonVariantConst value = doc.as<JsonObjectConst>()[key];
@@ -260,7 +261,7 @@ bool PoolDeviceModule::handlePoolWrite_(const CommandRequest& req, char* reply, 
         char modeJson[160]{};
         bool truncated = false;
         if (cfgStore_->toJsonModule("poollogic/devices", modeJson, sizeof(modeJson), &truncated) && !truncated) {
-            JsonDocument modeDoc;
+            JsonDocument modeDoc(psramOnlyJsonAllocator());
             const DeserializationError modeErr = deserializeJson(modeDoc, modeJson);
             if (!modeErr && modeDoc.is<JsonObjectConst>()) {
                 const JsonObjectConst obj = modeDoc.as<JsonObjectConst>();

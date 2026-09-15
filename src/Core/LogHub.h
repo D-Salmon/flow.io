@@ -75,7 +75,9 @@ private:
     uint32_t lastFormatTruncMs_ = 0;
     LogModuleId lastDropModuleId_ = (LogModuleId)LogModuleIdValue::Unknown;
     LogModuleId lastFormatTruncModuleId_ = (LogModuleId)LogModuleIdValue::Unknown;
-    ModuleRegistration modules_[MAX_REGISTERED_MODULES]{};
+    // Stable for the lifetime of the service: ConfigStore keeps pointers into
+    // these descriptors, so the PSRAM block is allocated only once at init.
+    ModuleRegistration* modules_ = nullptr;
     uint8_t moduleCount_ = 0;
     ConfigStore* cfg_ = nullptr;
     uint8_t cfgModuleId_ = 0;

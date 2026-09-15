@@ -5074,6 +5074,13 @@ void WebInterfaceModule::init(ConfigStore& cfg, ServiceRegistry& services)
     }
     if (eventBus_) {
         eventBus_->subscribe(EventId::DataChanged, &WebInterfaceModule::onEventStatic_, this);
+        eventBus_->subscribe(EventId::ConfigChanged, &WebInterfaceModule::onEventStatic_, this);
+        eventBus_->subscribe(EventId::PoolModeChanged, &WebInterfaceModule::onEventStatic_, this);
+        eventBus_->subscribe(EventId::SensorsUpdated, &WebInterfaceModule::onEventStatic_, this);
+        eventBus_->subscribe(EventId::AlarmRaised, &WebInterfaceModule::onEventStatic_, this);
+        eventBus_->subscribe(EventId::AlarmCleared, &WebInterfaceModule::onEventStatic_, this);
+        eventBus_->subscribe(EventId::AlarmReset, &WebInterfaceModule::onEventStatic_, this);
+        eventBus_->subscribe(EventId::AlarmConditionChanged, &WebInterfaceModule::onEventStatic_, this);
     }
 
     if (!services.add(ServiceId::WebInterface, &webInterfaceSvc_)) {
@@ -6135,6 +6142,7 @@ void WebInterfaceModule::startServer_()
             doc["nextion_display_version"] = nextionDisplayVersion;
         }
         doc["local_runtime"] = true;
+        doc["runtime_events"] = runtimeEventsAvailable_ && !provisioningOnly_;
         doc["local_config_label"] = "Config Store flow.io";
         doc["remote_config_enabled"] = false;
         doc["unify_status_card_icons"] = (FLOW_WEB_UNIFY_STATUS_CARD_ICONS != 0);
@@ -7430,6 +7438,174 @@ void WebInterfaceModule::startServer_()
                       "{\"ok\":false,\"err\":{\"code\":\"Disabled\",\"where\":\"runtime.alarms.disabled\"}}");
     });
 
+    server_.on("/api/runtime/alarm_options", HTTP_GET, [this](AsyncWebServerRequest* request) {
+        HttpLatencyScope latency(request, "/api/runtime/alarm_options");
+        const AlarmService* alarmSvc = services_ ? services_->get<AlarmService>(ServiceId::Alarm) : nullptr;
+        if (!alarmSvc || !alarmSvc->listIds || !alarmSvc->readState) {
+            request->send(503, "application/json",
+                          "{\"ok\":false,\"err\":{\"code\":\"NotReady\",\"where\":\"runtime.alarm_options\"}}");
+            return;
+        }
+        AlarmId ids[Limits::Alarm::MaxAlarms]{};
+        const uint8_t count = alarmSvc->listIds(alarmSvc->ctx, ids, (uint8_t)Limits::Alarm::MaxAlarms);
+        AsyncResponseStream* response = request->beginResponseStream("application/json");
+        addNoCacheHeaders_(response);
+        response->print("{\"ok\":true,\"options\":[");
+        bool first = true;
+        for (uint8_t i = 0; i < count; ++i) {
+            AlarmState state{};
+            if (!alarmSvc->readState(alarmSvc->ctx, ids[i], &state)) continue;
+            if (!first) response->print(',');
+            first = false;
+            response->printf("{\"value\":%u,\"label\":", (unsigned)((uint16_t)state.id));
+            printJsonEscaped_(*response, state.title[0] ? state.title : state.code);
+            response->print(",\"code\":");
+            printJsonEscaped_(*response, state.code);
+            response->printf(",\"active\":%s,\"condition\":%u,\"latched\":%s,\"resettable\":%s,\"automatic\":%s,\"triggeredAt\":",
+                             state.active ? "true" : "false",
+                             (unsigned)((uint8_t)state.condition),
+                             state.latchEnabled ? "true" : "false",
+                             state.resettable ? "true" : "false",
+                             state.latchEnabled ? "false" : "true");
+            if (state.lastRaisedUnixSec) response->printf("%llu", (unsigned long long)state.lastRaisedUnixSec);
+            else response->print("null");
+            response->print('}');
+        }
+        response->print("]}");
+        request->send(response);
+    });
+
+    server_.on("/api/runtime/pooldevice_options", HTTP_GET, [this](AsyncWebServerRequest* request) {
+        HttpLatencyScope latency(request, "/api/runtime/pooldevice_options");
+        const PoolDeviceService* poolSvc = services_ ? services_->get<PoolDeviceService>(ServiceId::PoolDevice) : nullptr;
+        if (!poolSvc || !poolSvc->meta) {
+            request->send(503, "application/json",
+                          "{\"ok\":false,\"err\":{\"code\":\"NotReady\",\"where\":\"runtime.pooldevice_options\"}}");
+            return;
+        }
+        AsyncResponseStream* response = request->beginResponseStream("application/json");
+        addNoCacheHeaders_(response);
+        response->print("{\"ok\":true,\"options\":[");
+        bool first = true;
+        for (uint8_t slot = 0; slot < POOL_DEVICE_MAX; ++slot) {
+            PoolDeviceSvcMeta meta{};
+            if (poolSvc->meta(poolSvc->ctx, slot, &meta) != POOLDEV_SVC_OK || !meta.used) continue;
+            PoolDeviceRuntimeStateEntry state{};
+            PoolDeviceRuntimeMetricsEntry metrics{};
+            const bool hasState = dataStore_ && poolDeviceRuntimeState(*dataStore_, slot, state);
+            const bool hasMetrics = dataStore_ && poolDeviceRuntimeMetrics(*dataStore_, slot, metrics);
+            if (!first) response->print(',');
+            first = false;
+            response->printf("{\"value\":%u,\"name\":", (unsigned)slot);
+            printJsonEscaped_(*response, meta.label[0] ? meta.label : meta.runtimeId);
+            response->print(",\"deviceId\":");
+            printJsonEscaped_(*response, meta.runtimeId);
+            response->printf(",\"controllable\":%s,\"actualOn\":",
+                             (hasState && meta.enabled && poolSvc->writesEnabled && poolSvc->writesEnabled(poolSvc->ctx))
+                                 ? "true" : "false");
+            if (hasState) response->print(state.actualOn ? "true" : "false");
+            else response->print("null");
+            if (hasMetrics) {
+                response->printf(",\"running\":{\"day_s\":%lu,\"week_s\":%lu,\"month_s\":%lu,\"total_s\":%lu}",
+                                 (unsigned long)metrics.runningSecDay, (unsigned long)metrics.runningSecWeek,
+                                 (unsigned long)metrics.runningSecMonth, (unsigned long)metrics.runningSecTotal);
+                response->printf(",\"injected\":{\"day_ml\":%.1f,\"week_ml\":%.1f,\"month_ml\":%.1f,\"total_ml\":%.1f}",
+                                 (double)metrics.injectedMlDay, (double)metrics.injectedMlWeek,
+                                 (double)metrics.injectedMlMonth, (double)metrics.injectedMlTotal);
+            } else {
+                response->print(",\"running\":null,\"injected\":null");
+            }
+            response->print('}');
+        }
+        response->print("]}");
+        request->send(response);
+    });
+
+    server_.on("/api/runtime/device_write", HTTP_POST, [this](AsyncWebServerRequest* request) {
+        char slotText[8]{};
+        char valueText[8]{};
+        if (!copyRequestParamValue_(request, "slot", true, slotText, sizeof(slotText), "") ||
+            !copyRequestParamValue_(request, "value", true, valueText, sizeof(valueText), "")) {
+            request->send(400, "application/json", "{\"ok\":false,\"err\":{\"code\":\"InvalidArg\",\"where\":\"runtime.device_write\"}}");
+            return;
+        }
+        char* slotEnd = nullptr;
+        const long slot = strtol(slotText, &slotEnd, 10);
+        if (!slotEnd || slotEnd == slotText || *slotEnd != '\0' || slot < 0 || slot >= POOL_DEVICE_MAX) {
+            request->send(400, "application/json", "{\"ok\":false,\"err\":{\"code\":\"BadSlot\",\"where\":\"runtime.device_write\"}}");
+            return;
+        }
+        bool value = false;
+        if (strcasecmp(valueText, "1") == 0 || strcasecmp(valueText, "true") == 0 ||
+            strcasecmp(valueText, "yes") == 0 || strcasecmp(valueText, "on") == 0) {
+            value = true;
+        } else if (strcasecmp(valueText, "0") != 0 && strcasecmp(valueText, "false") != 0 &&
+                   strcasecmp(valueText, "no") != 0 && strcasecmp(valueText, "off") != 0) {
+            request->send(400, "application/json", "{\"ok\":false,\"err\":{\"code\":\"InvalidValue\",\"where\":\"runtime.device_write\"}}");
+            return;
+        }
+        if (!cmdSvc_ && services_) cmdSvc_ = services_->get<CommandService>(ServiceId::Command);
+        if (!cmdSvc_ || !cmdSvc_->execute) {
+            request->send(503, "application/json", "{\"ok\":false,\"err\":{\"code\":\"NotReady\",\"where\":\"runtime.device_write\"}}");
+            return;
+        }
+        char args[64]{};
+        char reply[220]{};
+        snprintf(args, sizeof(args), "{\"slot\":%u,\"value\":%s}", (unsigned)slot, value ? "true" : "false");
+        const bool ok = cmdSvc_->execute(cmdSvc_->ctx, "poollogic.device.write", args, nullptr, reply, sizeof(reply));
+        request->send(ok ? 200 : 409, "application/json", reply[0] ? reply : (ok ? "{\"ok\":true}" : "{\"ok\":false}"));
+    });
+
+    server_.on("/api/runtime/counter_reset", HTTP_POST, [this](AsyncWebServerRequest* request) {
+        if (!cmdSvc_ && services_) cmdSvc_ = services_->get<CommandService>(ServiceId::Command);
+        if (!cmdSvc_ || !cmdSvc_->execute) {
+            request->send(503, "application/json", "{\"ok\":false,\"err\":{\"code\":\"NotReady\",\"where\":\"runtime.counter_reset\"}}");
+            return;
+        }
+        char args[32] = "{}";
+        const char* command = "pooldevice.uptime.reset_all";
+        if (request->hasParam("slot", true)) {
+            char slotText[8]{};
+            copyRequestParamValue_(request, "slot", true, slotText, sizeof(slotText), "");
+            char* slotEnd = nullptr;
+            const long slot = strtol(slotText, &slotEnd, 10);
+            if (!slotEnd || slotEnd == slotText || *slotEnd != '\0' || slot < 0 || slot >= POOL_DEVICE_MAX) {
+                request->send(400, "application/json", "{\"ok\":false,\"err\":{\"code\":\"BadSlot\",\"where\":\"runtime.counter_reset\"}}");
+                return;
+            }
+            snprintf(args, sizeof(args), "{\"slot\":%u}", (unsigned)slot);
+            command = "pooldevice.uptime.reset";
+        }
+        char reply[220]{};
+        const bool ok = cmdSvc_->execute(cmdSvc_->ctx, command, args, nullptr, reply, sizeof(reply));
+        request->send(ok ? 200 : 409, "application/json", reply[0] ? reply : (ok ? "{\"ok\":true}" : "{\"ok\":false}"));
+    });
+
+    server_.on("/api/runtime/alarm_reset", HTTP_POST, [this](AsyncWebServerRequest* request) {
+        if (!cmdSvc_ && services_) cmdSvc_ = services_->get<CommandService>(ServiceId::Command);
+        if (!cmdSvc_ || !cmdSvc_->execute) {
+            request->send(503, "application/json", "{\"ok\":false,\"err\":{\"code\":\"NotReady\",\"where\":\"runtime.alarm_reset\"}}");
+            return;
+        }
+        char args[32] = "{}";
+        const char* command = "alarms.reset_all";
+        if (request->hasParam("id", true)) {
+            char idText[12]{};
+            copyRequestParamValue_(request, "id", true, idText, sizeof(idText), "");
+            char* idEnd = nullptr;
+            const unsigned long id = strtoul(idText, &idEnd, 10);
+            if (!idEnd || idEnd == idText || *idEnd != '\0' || id > 0xFFFFUL) {
+                request->send(400, "application/json", "{\"ok\":false,\"err\":{\"code\":\"InvalidAlarmId\",\"where\":\"runtime.alarm_reset\"}}");
+                return;
+            }
+            snprintf(args, sizeof(args), "{\"id\":%lu}", id);
+            command = "alarms.reset";
+        }
+        char reply[220]{};
+        const bool ok = cmdSvc_->execute(cmdSvc_->ctx, command, args, nullptr, reply, sizeof(reply));
+        request->send(ok ? 200 : 409, "application/json", reply[0] ? reply : (ok ? "{\"ok\":true}" : "{\"ok\":false}"));
+    });
+
     server_.on("/api/io/summary", HTTP_GET, [this](AsyncWebServerRequest* request) {
         HttpLatencyScope latency(request, "/api/io/summary");
         LOGD("runtime.call route=/api/io/summary");
@@ -8290,6 +8466,7 @@ void WebInterfaceModule::startServer_()
     });
 
     if (!provisioningOnly_) {
+        configureRuntimeEvents_();
         wsLog_.onEvent([this](AsyncWebSocket* server,
                               AsyncWebSocketClient* client,
                               AwsEventType type,

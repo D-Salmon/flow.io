@@ -9,6 +9,7 @@
 #include "Core/FirmwareVersion.h"
 #include "Core/LogModuleIds.h"
 #include "Core/Services/Services.h"
+#include "Core/PsramJsonAllocator.h"
 
 #define LOG_MODULE_ID ((LogModuleId)LogModuleIdValue::ActivityLogModule)
 #include "Core/ModuleLog.h"
@@ -371,7 +372,7 @@ bool ActivityLogModule::formatLine_(const ActivityEvent& event, char* out, size_
         return n > 0 && static_cast<size_t>(n) < outLen;
     }
     out[0] = '\0';
-    JsonDocument doc;
+    JsonDocument doc(psramOnlyJsonAllocator());
     doc["seq"] = event.seq;
     doc["ts"] = event.ts_ms;
     doc["epoch"] = event.epoch_s;
@@ -393,7 +394,7 @@ bool ActivityLogModule::formatLine_(const ActivityEvent& event, char* out, size_
 bool ActivityLogModule::parseLine_(const char* line, ActivityEvent& out) const
 {
     if (!line || line[0] == '\0') return false;
-    JsonDocument doc;
+    JsonDocument doc(psramOnlyJsonAllocator());
     if (deserializeJson(doc, line) != DeserializationError::Ok) return false;
 
     out = {};

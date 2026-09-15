@@ -9,6 +9,7 @@
 #include "Core/CommandRegistry.h"
 #include "Core/SystemLimits.h"
 #include "Core/I2cGlobalMutex.h"
+#include "Core/PsramJsonAllocator.h"
 #if FLOW_RTC_PCF85063
 #include "Board/BoardCatalog.h"
 #include "Board/BoardSpec.h"
@@ -215,7 +216,7 @@ static uint32_t dayStampFromEpochLocal_(uint64_t epochSec)
 static bool parseCmdArgsObject_(const CommandRequest& req, JsonObjectConst& outObj)
 {
     static constexpr size_t CMD_DOC_CAPACITY = Limits::JsonCmdTimeBuf;
-    static JsonDocument doc;
+    static JsonDocument doc(psramOnlyJsonAllocator());
     doc.clear();
     const char* json = req.args ? req.args : req.json;
     if (!json || json[0] == '\0') return false;

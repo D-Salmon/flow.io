@@ -5,7 +5,7 @@ est actuellement la carte **Waveshare ESP32-S3-POE-ETH-8DI-8RO N16R8**, utilisé
 façon autonome : un seul ESP32-S3 exécute les entrées/sorties, les automatismes,
 les sécurités, le réseau, l’interface Web, MQTT et l’intégration Home Assistant.
 
-La version déclarée pour cette cible est **3.30**. L’environnement PlatformIO à
+La version déclarée pour cette cible est **3.3.1**. L’environnement PlatformIO à
 utiliser est `Waveshare-ESP32-S3`, également défini comme environnement par
 défaut dans `platformio.ini`.
 
@@ -15,9 +15,22 @@ ont été retirés. Le Nextion local et le TFT S3 sont conservés ; le transport
 de FlowConnectDisplay est supprimé. Les anciens documents multi-profils ci-dessous
 sont des références historiques, pas des instructions de compilation de cette branche.
 
-## État de validation 3.30 — 14 septembre 2026
+## État de validation 3.3.1 — 15 septembre 2026
 
-La version 3.30 reprend la base sécurisée 3.2.2 et intègre trois apports ciblés :
+La version 3.3.1 corrige la numérotation 3.30 (qui devait se lire 3.3.0) et
+ajoute deux apports ciblés : l’allocation en PSRAM des documents JSON et
+métadonnées volumineux, ainsi que l’actualisation en temps réel du tableau de
+bord par SSE avec les fenêtres de gestion des équipements et des alarmes.
+Les commandes Home Assistant des équipements empruntent désormais le même
+routage métier `poollogic.device.write` que l’interface Web. Voir les
+[notes de version 3.3.1](docs/release-3.3.1.md).
+
+La compilation logicielle est vérifiée avant publication. Le flash et la
+validation sur carte réelle restent nécessaires.
+
+## État de validation 3.3.0 (branche historique `3.30`) — 14 septembre 2026
+
+La version publiée sous le nom 3.30 reprend la base sécurisée 3.2.2 et intègre trois apports ciblés :
 l'identification matérielle du Nextion et le contrôle de compatibilité des
 artefacts nommés, un reçu persistant permettant de suivre le résultat d'une mise
 à jour au-delà d'un redémarrage, et une surveillance de la pression mémoire
@@ -99,20 +112,20 @@ Cette vue résume les raccordements exploités par le firmware. Pour les tableau
 d’affectation complets et les précautions électriques, consulter le
 [schéma de raccordement Waveshare](docs/integration/schema-raccordement-waveshare.md).
 
-## Images de livraison (3.30)
+## Images de livraison (3.3.1)
 
-La version 3.30 a été compilée pour la Waveshare ESP32-S3 N16R8. Elle reste à
+La version 3.3.1 est compilée pour la Waveshare ESP32-S3 N16R8. Elle reste à
 flasher et à valider sur la carte réelle. Les réglages persistants de la 3.2.2
 restent compatibles ; un nouvel enregistrement NVS borné est réservé au reçu de
 mise à jour.
 
-Le dossier `binary` contient les deux images 3.30 issues de la même
+Le dossier `binary` contient les deux images 3.3.1 issues de la même
 révision, ainsi que les deux images d’écran Nextion :
 
-- `binary/flowios3-3.30.bin` — `2 217 952` octets — SHA-256
-  `413c9ac4f7f094a4499f66fa122debe6812504501d7e77f774fc984dae38345c` ;
-- `binary/flowios3-spiffs-3.30.bin` — `8 257 536` octets — SHA-256
-  `b5e20721b0943b9da5c51d69d99b5a7da7816df12a35913490492a814f54b8ee`.
+- `binary/flowios3-3.3.1.bin` — `2 233 664` octets — SHA-256
+  `b961d57f874fbbe84a3721f20cf0bdd2ae2dd8e976e75023b896fbc0f1ae76ce` ;
+- `binary/flowios3-spiffs-3.3.1.bin` — `8 257 536` octets — SHA-256
+  `86934915949332bd0bda5065b5e044cbd96eb51dc59cc0ed36ddfe88f86a985f`.
 
 Le manifeste `binary/manifest.json` référence seulement ces artefacts utiles à
 la version courante.

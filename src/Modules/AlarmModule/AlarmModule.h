@@ -27,11 +27,12 @@ public:
     uint8_t taskCount() const override { return 1; }
     const ModuleTaskSpec* taskSpecs() const override { return singleLoopTaskSpec(); }
 
-    uint8_t dependencyCount() const override { return 3; }
+    uint8_t dependencyCount() const override { return 4; }
     ModuleId dependency(uint8_t i) const override {
         if (i == 0) return ModuleId::LogHub;
         if (i == 1) return ModuleId::EventBus;
         if (i == 2) return ModuleId::Command;
+        if (i == 3) return ModuleId::Time;
         return ModuleId::Unknown;
     }
 
@@ -59,6 +60,7 @@ private:
         uint32_t onSinceMs = 0;
         uint32_t offSinceMs = 0;
         uint32_t activeSinceMs = 0;
+        uint64_t lastRaisedUnixSec = 0U;
         uint32_t lastChangeMs = 0;
         uint32_t lastNotifyMs = 0;
     };
@@ -79,6 +81,7 @@ private:
     bool buildSnapshot_(char* out, size_t len) const;
     uint8_t listIds_(AlarmId* out, uint8_t max) const;
     bool buildAlarmState_(AlarmId id, char* out, size_t len) const;
+    bool readState_(AlarmId id, AlarmState* out) const;
     bool buildPacked_(char* out, size_t len, uint8_t slotCount) const;
     bool handleCmdReset_(const CommandRequest& req, char* reply, size_t replyLen);
     bool handleCmdResetSlot_(const CommandRequest& req, char* reply, size_t replyLen);
@@ -107,7 +110,8 @@ private:
         ServiceBinding::bind<&AlarmModule::listIds_>,
         ServiceBinding::bind<&AlarmModule::buildAlarmState_>,
         ServiceBinding::bind<&AlarmModule::buildPacked_>,
-        this
+        this,
+        ServiceBinding::bind<&AlarmModule::readState_>
     };
 
     const LogHubService* logHub_ = nullptr;
@@ -115,6 +119,7 @@ private:
     const CommandService* cmdSvc_ = nullptr;
     const HAService* haSvc_ = nullptr;
     const ActivityLogService* activityLogSvc_ = nullptr;
+    const TimeService* timeSvc_ = nullptr;
     bool haEntitiesRegistered_ = false;
 
     bool enabled_ = true;
