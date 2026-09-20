@@ -111,7 +111,13 @@
         var retryAfterHeader = response.headers ? response.headers.get('Retry-After') : '';
         var fallback = backoff[Math.min(attempt, backoff.length - 1)] || 1200;
         var waitMs = parseRetryAfterMs(retryAfterHeader, fallback);
-        setBootStatus('Supervisor occupé, nouvelle tentative...');
+        // A transient 503 can also occur while an already loaded page fetches
+        // data for a menu. Do not replace the complete application in that
+        // case: the retry should remain invisible and the current page must
+        // stay usable.
+        if (window.__FLOW_WEB_APP_READY__ !== true) {
+          setBootStatus('Appareil occupé, nouvelle tentative...');
+        }
         await sleep(waitMs);
       } catch (err) {
         lastError = err;

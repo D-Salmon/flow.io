@@ -13,6 +13,8 @@ ou des relais.
   minification ;
 - sur cette livraison, les 26 ressources Web passent d’environ 1,12 Mo à
   886 Ko minifiés et 205 Ko servis en gzip, sans suppression de fonction.
+- une réponse temporaire « appareil occupé » reçue pendant la navigation est
+  retentée sans remplacer ni bloquer la page déjà affichée.
 
 ## Comptes Web et rôles
 
