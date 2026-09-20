@@ -17,11 +17,11 @@
       "gzip_bytes": 10431
     },
     "app.js": {
-      "source_sha256": "0703444df1eed02dc30df8f56378f60a6f460e8e7004d6f70d5e7112d16d8ba9",
-      "gzip_sha256": "8293a65f2ec3d50055fc8543536959e63bdf5a9fe1a13e3e0158aae5f8e03e6c",
-      "original_bytes": 147100,
-      "minified_bytes": 109388,
-      "gzip_bytes": 26407
+      "source_sha256": "7d04fd31c8bb54cac6501dbaca2d0e1556e99f7537e4310e11ddd0cd76d02a0f",
+      "gzip_sha256": "37a5a39e9ec8f256b634fb4cd7fad65438103e640a377635bec89292373e5686",
+      "original_bytes": 147660,
+      "minified_bytes": 109754,
+      "gzip_bytes": 26447
     },
     "network.js": {
       "source_sha256": "0beb14a86761eb84e8beade7849e06368b4937bad267514988322faff2f6a5eb",
@@ -87,18 +87,18 @@
       "gzip_bytes": 23804
     },
     "i18n/fr.json": {
-      "source_sha256": "c05537aae8e1ec66d8916360b6504005d3845926e3870c1d94ec58b52ebcde63",
-      "gzip_sha256": "6545a11c7f16b90b716a78e69c2f4542416fe3ecd738cd5cc62dd0e5eedcaf51",
-      "original_bytes": 42325,
-      "minified_bytes": 37351,
-      "gzip_bytes": 10302
+      "source_sha256": "628400ed7a4681f0f612d166f920154a78fe968206fd9254197d91cacd9edae5",
+      "gzip_sha256": "f726eb1a6477ca97f1d92bbd8815e4fdb693f556ead03511a67db78c777a5023",
+      "original_bytes": 42379,
+      "minified_bytes": 37401,
+      "gzip_bytes": 10314
     },
     "i18n/en.json": {
-      "source_sha256": "f3389c6c130f5d992dcc00df300fb1700b3d8ab2de18848996eb0946f7667692",
-      "gzip_sha256": "be00f15416292c91fd9c60ce915f4a6e037f44b84058abc09f006cd6ece1fe4c",
-      "original_bytes": 39752,
-      "minified_bytes": 34778,
-      "gzip_bytes": 9296
+      "source_sha256": "b77a65cf04fce78746eef67478b6cc899afc9b41e8e6aeb3d244742f46dcfd99",
+      "gzip_sha256": "635d2b3dca5d9208c334922a1a5c448fe619735ff52b2652941659acf0aac6a4",
+      "original_bytes": 39804,
+      "minified_bytes": 34826,
+      "gzip_bytes": 9305
     },
     "app-core.css": {
       "source_sha256": "0bf447d99a13e4b7f014e583b623dc381ddbf90553bd4ee4b621f913913f44b8",

@@ -1286,7 +1286,13 @@ ac_unit: '\u{eb3b}',
             'header.security.recovery',
             'Récupération · {minutes} min'
           ).replace('{minutes}', String(minutes));
+        } else if (authSession && authSession.authenticated && authSession.role === 'admin') {
+          headerSecurityStatus.textContent = tr('header.security.admin', 'Administrateur connecté');
+        } else if (authSession && authSession.authenticated && authSession.role === 'operator') {
+          headerSecurityStatus.textContent = tr('header.security.operator', 'Opérateur connecté');
         } else if (webAdminAuthenticated) {
+          // Compatibility with a legacy authenticated request while the new
+          // session endpoint is still loading.
           headerSecurityStatus.textContent = tr('header.security.admin', 'Administrateur connecté');
         } else {
           headerSecurityStatus.textContent = tr('header.security.unauthenticated', 'Accès non authentifié');
@@ -3517,6 +3523,7 @@ ac_unit: '\u{eb3b}',
       if (name) name.textContent = authSession.username || '-';
       if (role) role.textContent = authSession.role === 'admin' ? 'Administrateur' : 'Opérateur';
       if (avatar) avatar.textContent = (authSession.username || '?').charAt(0).toUpperCase();
+      refreshAppHeader(getActivePageId());
       return authSession;
     }
 

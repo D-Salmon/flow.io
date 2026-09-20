@@ -302,6 +302,7 @@
     "header.device.unreachable": "Hors ligne",
     "header.security": "Sécurité",
     "header.security.admin": "Administrateur connecté",
+    "header.security.operator": "Opérateur connecté",
     "header.security.recovery": "Récupération · {minutes} min",
     "header.security.unauthenticated": "Accès non authentifié",
     "header.time": "Heure",

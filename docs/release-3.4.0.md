@@ -26,6 +26,8 @@ ou des relais.
 - un opérateur consulte et pilote la piscine, sans accès aux opérations système ;
 - le menu latéral affiche le compte actif, permet de changer son propre mot de
   passe et de se déconnecter ;
+- le bandeau de sécurité reprend le rôle de la session active et affiche
+  « Administrateur connecté » ou « Opérateur connecté » ;
 - les mots de passe nouveaux ou modifiés exigent au moins 12 caractères et
   sont stockés sous forme PBKDF2-HMAC-SHA256 avec sel individuel ;
 - Rescue conserve son fonctionnement physique et remplace le compte

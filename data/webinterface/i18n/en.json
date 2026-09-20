@@ -302,6 +302,7 @@
     "header.device.unreachable": "Offline",
     "header.security": "Security",
     "header.security.admin": "Administrator signed in",
+    "header.security.operator": "Operator signed in",
     "header.security.recovery": "Recovery · {minutes} min",
     "header.security.unauthenticated": "Unauthenticated access",
     "header.time": "Time",
