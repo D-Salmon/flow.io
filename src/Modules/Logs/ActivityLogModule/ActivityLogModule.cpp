@@ -1,6 +1,6 @@
 /**
  * @file ActivityLogModule.cpp
- * @brief User-facing activity journal backed by PSRAM and SPIFFS rotation.
+ * @brief User-facing activity journal backed by PSRAM and persistent runtime storage.
  */
 
 #include "ActivityLogModule.h"
@@ -10,6 +10,7 @@
 #include "Core/LogModuleIds.h"
 #include "Core/Services/Services.h"
 #include "Core/PsramJsonAllocator.h"
+#include "Core/ReleaseStorage.h"
 
 #define LOG_MODULE_ID ((LogModuleId)LogModuleIdValue::ActivityLogModule)
 #include "Core/ModuleLog.h"
@@ -17,7 +18,6 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <FS.h>
-#include <SPIFFS.h>
 #include <esp_heap_caps.h>
 #include <esp_system.h>
 #include <string.h>
@@ -121,7 +121,7 @@ void ActivityLogModule::init(ConfigStore&, ServiceRegistry& services)
         LOGE("service registration failed: %s", toString(ServiceId::ActivityLog));
     }
 
-    spiffsReady_ = SPIFFS.begin(false);
+    spiffsReady_ = ReleaseStorage::runtimeReady();
     if (!entries_ || capacity_ == 0U) {
         LOGW("Activity log memory unavailable");
     }
@@ -129,7 +129,7 @@ void ActivityLogModule::init(ConfigStore&, ServiceRegistry& services)
         LOGW("Activity log persistence queue unavailable");
     }
     if (!spiffsReady_) {
-        LOGW("Activity log SPIFFS persistence unavailable");
+        LOGW("Activity log runtime persistence unavailable");
     } else {
         replayFile_(kRotatedLogPath);
         replayFile_(kLogPath);
@@ -273,7 +273,7 @@ void ActivityLogModule::processDelete_()
     pendingDelete_ = nullptr;
     portEXIT_CRITICAL(&mux_);
     if (!job) return;
-    // Only this task writes SPIFFS. Flush pre-request events before tombstones.
+    // Only this task writes the runtime filesystem. Flush pre-request events before tombstones.
     const UBaseType_t queued = uxQueueMessagesWaiting(persistQueue_);
     ActivityEvent event{};
     bool ok = true;
@@ -419,8 +419,8 @@ bool ActivityLogModule::parseLine_(const char* line, ActivityEvent& out) const
 
 void ActivityLogModule::replayFile_(const char* path)
 {
-    if (!spiffsReady_ || !path || !SPIFFS.exists(path)) return;
-    File file = SPIFFS.open(path, FILE_READ);
+    if (!spiffsReady_ || !path || !ReleaseStorage::runtimeFilesystem().exists(path)) return;
+    File file = ReleaseStorage::runtimeFilesystem().open(path, FILE_READ);
     if (!file) return;
 
     char line[kLineMax] = {0};
@@ -445,16 +445,16 @@ void ActivityLogModule::replayFile_(const char* path)
 void ActivityLogModule::rotateIfNeeded_(size_t incomingLen)
 {
     if (!spiffsReady_) return;
-    File file = SPIFFS.open(kLogPath, FILE_READ);
+    File file = ReleaseStorage::runtimeFilesystem().open(kLogPath, FILE_READ);
     const size_t currentSize = file ? file.size() : 0U;
     if (file) file.close();
     if (currentSize + incomingLen + 1U <= kFileMaxBytes) return;
 
-    if (SPIFFS.exists(kRotatedLogPath)) {
-        SPIFFS.remove(kRotatedLogPath);
+    if (ReleaseStorage::runtimeFilesystem().exists(kRotatedLogPath)) {
+        ReleaseStorage::runtimeFilesystem().remove(kRotatedLogPath);
     }
-    if (SPIFFS.exists(kLogPath)) {
-        SPIFFS.rename(kLogPath, kRotatedLogPath);
+    if (ReleaseStorage::runtimeFilesystem().exists(kLogPath)) {
+        ReleaseStorage::runtimeFilesystem().rename(kLogPath, kRotatedLogPath);
     }
 }
 
@@ -467,7 +467,7 @@ bool ActivityLogModule::persist_(const ActivityEvent& event)
     const size_t len = strlen(line);
     // Deletion records must not themselves evict surviving history through rotation.
     if (event.code != UINT16_MAX) rotateIfNeeded_(len);
-    File file = SPIFFS.open(kLogPath, FILE_APPEND);
+    File file = ReleaseStorage::runtimeFilesystem().open(kLogPath, FILE_APPEND);
     if (!file) return false;
     // Separate any incomplete line left by a previous failed write/reset.
     if (event.code == UINT16_MAX && file.print('\n') != 1U) { file.close(); return false; }

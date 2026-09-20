@@ -1,4 +1,4 @@
-# Documentation Flow.io Waveshare 3.3.1
+# Documentation Flow.io Waveshare 3.4.0
 
 Cette documentation concerne la cible autonome
 `Waveshare-ESP32-S3` : une seule carte Waveshare
@@ -8,7 +8,7 @@ la RTC et les interfaces locales.
 
 Le document d’entrée principal du projet est le [README général](../README.md).
 Les changements propres à cette livraison sont détaillés dans les
-[notes de version 3.3.1](release-3.3.1.md).
+[notes de version 3.4.0](release-3.4.0.md).
 Les travaux encore ouverts sont regroupés dans
 [RESTANT_A_FAIRE.md](../RESTANT_A_FAIRE.md).
 
@@ -27,7 +27,8 @@ Les travaux encore ouverts sont regroupés dans
    configurer le réseau.
 8. Vérifier toutes les mesures et sorties avant d’activer un automatisme.
 
-Le firmware et l’image SPIFFS doivent provenir de la même révision du projet.
+Le firmware et l’image SPIFFS forment un couple de release. Après le premier
+flash USB de la 3.4.0, utiliser le package ZIP complet pour les mises à jour.
 
 ## Architecture actuelle
 
@@ -219,8 +220,9 @@ le raccordement courant avant usage. Leur mise à niveau est recensée dans
 
 ## Livraison courante
 
-- [Notes de version 3.3.1](release-3.3.1.md)
-- Firmware : [`binary/flowios3-3.3.1.bin`](../binary/flowios3-3.3.1.bin)
+- [Notes de version 3.4.0](release-3.4.0.md)
+- Package complet : [`binary/flowio-3.4.0.zip`](../binary/flowio-3.4.0.zip)
+- Firmware : [`binary/flowios3-3.4.0.bin`](../binary/flowios3-3.4.0.bin)
 - Interface SPIFFS :
-  [`binary/flowios3-spiffs-3.3.1.bin`](../binary/flowios3-spiffs-3.3.1.bin)
+  [`binary/flowios3-spiffs-3.4.0.bin`](../binary/flowios3-spiffs-3.4.0.bin)
 - Environnement PlatformIO : `Waveshare-ESP32-S3`

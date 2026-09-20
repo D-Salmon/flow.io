@@ -305,6 +305,10 @@ body.web-icons-disabled .status-flag-check.is-true{font-size:13px;}
 .upgrade-check-row{display:flex;justify-content:flex-start;align-items:flex-end;}
 .upgrade-check-row .btn-tonal{min-width:240px;min-height:42px;border-radius:var(--radius);}
 .updates-panel{display:grid;gap:20px;padding:26px 28px;}
+.updates-local-release{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:18px;align-items:center;padding:20px 22px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);}
+.updates-local-copy{min-width:0;}
+.updates-local-copy p{margin:6px 0 0;color:var(--muted);line-height:1.45;}
+.updates-local-copy .status-txt{margin-top:8px;}
 .updates-summary-grid,.upgrade-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:stretch;}
 .upgrade-cards.has-error{align-content:center;}
 .upgrade-empty{grid-column:1 / -1;color:var(--panel-frame-text);font-size:0.92rem;padding:28px 12px;border:1px dashed #C7D5E4;border-radius:var(--radius);background:#F8FBFF;text-align:center;}
@@ -666,7 +670,7 @@ body.web-icons-disabled .control-field-apply{font-size:15px;font-weight:800;lett
   .config-section-head{align-items:flex-start;flex-wrap:wrap;}
   .field-inline-select-action{width:100%;grid-template-columns:minmax(0,1fr) auto;}
   .field-upgrade-row{align-items:center;}
-  .upgrade-config-row,.updates-summary-grid,.upgrade-cards,.updates-info-panel{grid-template-columns:minmax(0,1fr);}
+  .upgrade-config-row,.updates-summary-grid,.upgrade-cards,.updates-info-panel,.updates-local-release{grid-template-columns:minmax(0,1fr);}
   .updates-panel{padding:18px 14px;gap:16px;}
   .update-summary-card{min-height:0;padding:18px 16px 16px;grid-template-columns:auto minmax(0,1fr) auto;}
   .update-summary-card::after{left:16px;right:16px;bottom:52px;}

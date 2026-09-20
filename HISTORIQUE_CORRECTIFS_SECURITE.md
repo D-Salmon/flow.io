@@ -164,3 +164,13 @@ MQTT et ne depend pas du transport HMI supprime.
 
 Le port 80 ne doit pas etre expose directement a Internet. Pour un acces Web
 distant, utiliser un VPN ou un reverse proxy HTTPS de confiance.
+# 2026-09-19 — Version 3.4.0
+
+- Ajout de deux couples firmware/interface Web A/B et validation du couple
+  inactif avant sélection au démarrage.
+- Activation du rollback ESP-IDF : une application qui ne valide pas son
+  filesystem associé revient automatiquement à la version précédente.
+- Vérification SHA-256 des deux images du package et contrôle du descripteur de
+  version ainsi que des ressources Web essentielles.
+- Conservation du journal d’activité dans une partition `runtime` séparée des
+  mises à jour.

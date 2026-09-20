@@ -1,4 +1,5 @@
 .pio
+node_modules/
 .cache
 .dummy
 .local-backup

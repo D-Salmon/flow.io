@@ -3,6 +3,7 @@
 #include "App/BuildFlags.h"
 #include "Core/Services/IHmi.h"
 #include "Core/Services/ILogger.h"
+#include "Core/ReleaseStorage.h"
 
 #ifndef FLOW_ENABLE_BOOT_LOG_CAPTURE
 #define FLOW_ENABLE_BOOT_LOG_CAPTURE 0
@@ -14,6 +15,7 @@ namespace {
 
 AppContext gContext{};
 bool gStarted = false;
+bool gPendingApplicationConfirmed = false;
 #if FLOW_ENABLE_BOOT_LOG_CAPTURE
 bool gBootLogCaptureCompleteMarked = false;
 
@@ -76,6 +78,9 @@ void loop()
     }
 
     (void)gContext.moduleManager.tickStartup(gContext.registry, gContext.services);
+    if (!gPendingApplicationConfirmed && gContext.moduleManager.startupComplete()) {
+        gPendingApplicationConfirmed = ReleaseStorage::confirmPendingApplication();
+    }
 #if FLOW_ENABLE_BOOT_LOG_CAPTURE
     markBootLogCaptureCompleteIfReady();
 #endif

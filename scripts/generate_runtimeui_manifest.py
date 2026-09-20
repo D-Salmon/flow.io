@@ -432,7 +432,7 @@ def main():
         "ok": True,
         "values": entries,
     }
-    write_manifest_json = os.getenv("FLOW_RUNTIMEUI_WRITE_JSON", "0").strip().lower() in ("1", "true", "yes", "on")
+    write_manifest_json = os.getenv("FLOW_RUNTIMEUI_WRITE_JSON", "1").strip().lower() in ("1", "true", "yes", "on")
     if write_manifest_json:
         out_json_path = project_dir / "data" / "webinterface" / "runtimeui.json"
         _json_dump(out_json_path, manifest)

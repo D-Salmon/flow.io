@@ -1,7 +1,7 @@
 #pragma once
 /**
  * @file ActivityLogModule.h
- * @brief User-facing activity journal backed by PSRAM and a rotating SPIFFS file.
+ * @brief User-facing activity journal backed by PSRAM and the persistent runtime partition.
  */
 
 #include "Core/Module.h"

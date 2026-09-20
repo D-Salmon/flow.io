@@ -16,7 +16,7 @@ traitement, 2 à sa réussite et 3 en cas d’échec, éventuellement partiel.
 Un délai dépassé ou une réponse perdue n’est jamais annoncé comme une réussite.
 Les POST destructifs ne sont pas automatiquement rejoués en cas d’erreur réseau.
 
-La tâche du journal est l’unique rédactrice du SPIFFS. Elle vide d’abord les
+La tâche du journal est l’unique rédactrice de la partition `runtime`. Elle vide d’abord les
 événements en attente puis écrit des marqueurs de suppression internes
 (`code=65535`, `seq` identifie l’événement, `state=1` signifie jusqu’à ce numéro).
 Chaque marqueur est persisté avant de retirer les événements de la mémoire.
@@ -28,7 +28,8 @@ persistante, pas d’un effacement sécurisé des octets en flash.
 La rotation habituelle des fichiers continue de limiter la rétention ; les
 marqueurs restent après les événements auxquels ils se rapportent. Un retour
 à un ancien firmware qui ne comprend pas ces marqueurs peut réafficher des
-événements supprimés. Sauvegarder le journal avant tout changement de firmware.
+événements supprimés. Depuis la 3.4.0, une mise à jour du couple firmware et
+interface Web conserve cette partition et son journal.
 
 Validation locale : `node scripts/test_activity_page.cjs`, compilation PlatformIO
 et vérification des assets. À valider sur matériel avec autorisation : suppression

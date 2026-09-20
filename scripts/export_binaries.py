@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import re
 import shutil
+import zipfile
 
 Import("env")
 
@@ -141,6 +142,43 @@ def _update_manifest():
     print(f"[export_binaries] manifest updated -> {rel_manifest}")
 
 
+def _write_release_package(version):
+    out_dir = _binary_dir()
+    firmware = out_dir / f"flowios3-{version}.bin"
+    filesystem = out_dir / f"flowios3-spiffs-{version}.bin"
+    if not firmware.is_file() or not filesystem.is_file():
+        return
+    expected_filesystem_size = 0x180000
+    package = out_dir / f"flowio-{version}.zip"
+    if filesystem.stat().st_size != expected_filesystem_size:
+        if package.exists():
+            package.unlink()
+        print(f"[export_binaries] package skipped: SPIFFS size must be {expected_filesystem_size}")
+        return
+    manifest = {
+        "format": 1,
+        "product": "Flow.IO",
+        "version": version,
+        "hardware": "WaveshareESP32S3",
+        "firmware": {
+            "file": "firmware.bin",
+            "size": firmware.stat().st_size,
+            "sha256": hashlib.sha256(firmware.read_bytes()).hexdigest(),
+        },
+        "filesystem": {
+            "file": "spiffs.bin",
+            "size": filesystem.stat().st_size,
+            "sha256": hashlib.sha256(filesystem.read_bytes()).hexdigest(),
+        },
+    }
+    manifest_bytes = (json.dumps(manifest, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
+    with zipfile.ZipFile(package, "w", compression=zipfile.ZIP_STORED) as archive:
+        archive.writestr("manifest.json", manifest_bytes)
+        archive.write(firmware, "firmware.bin")
+        archive.write(filesystem, "spiffs.bin")
+    print(f"[export_binaries] release package -> {package.relative_to(_project_dir())}")
+
+
 def _copy_if_exists(src_path, dst_name):
     src = Path(str(src_path))
     if not src.exists():
@@ -149,6 +187,7 @@ def _copy_if_exists(src_path, dst_name):
     shutil.copy2(src, dst)
     print(f"[export_binaries] copied {src.name} -> {dst.relative_to(_project_dir())}")
     _update_manifest()
+    _write_release_package(_resolve_firmware_version())
 
 
 def _export_program_bin(source, target, env):

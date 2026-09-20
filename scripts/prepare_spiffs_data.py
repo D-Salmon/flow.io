@@ -1,5 +1,7 @@
 from pathlib import Path
 import gzip
+import hashlib
+import json
 import shutil
 import os
 import sys
@@ -12,6 +14,27 @@ def _gzip_file(src: Path, dst: Path):
     dst.parent.mkdir(parents=True, exist_ok=True)
     with src.open("rb") as in_file, gzip.GzipFile(filename="", mode="wb", fileobj=dst.open("wb"), mtime=0) as out_file:
         shutil.copyfileobj(in_file, out_file)
+
+
+def _sha256_file(path: Path):
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(128 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _load_minified_manifest(src_dir: Path):
+    manifest_path = src_dir / "webinterface" / ".minified-assets.json"
+    if not manifest_path.exists():
+        raise RuntimeError(
+            "Missing minified web asset manifest. Run: pnpm install --frozen-lockfile && pnpm web:minify"
+        )
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assets = payload.get("assets")
+    if payload.get("version") != 1 or not isinstance(assets, dict):
+        raise RuntimeError(f"Invalid minified web asset manifest: {manifest_path}")
+    return assets
 
 
 project_dir = Path(env.subst("$PROJECT_DIR"))
@@ -92,6 +115,7 @@ if src_dir.exists():
             rel = cfgdoc_src.relative_to(src_dir)
             compressed_sources[rel] = rel.with_suffix(".j.gz")
     generated_outputs = set(compressed_sources.values())
+    generated_outputs.add(Path("webinterface/.minified-assets.json"))
     # Legacy 3.2.0 development artifact. The shorter config.js filename is
     # required by SPIFFS, whose object names are limited to 31 characters.
     generated_outputs.add(Path("webinterface/configuration.js.gz"))
@@ -110,10 +134,51 @@ if src_dir.exists():
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(path, dst)
 
+    minified_assets = _load_minified_manifest(src_dir)
     for src_rel, dst_rel in compressed_sources.items():
         src = src_dir / src_rel
-        if src.exists():
+        if not src.exists():
+            continue
+
+        if src_rel.parts[0] == "wc":
+            # Generated configuration-document chunks are already compact JSON.
             _gzip_file(src, staging_dir / dst_rel)
+            continue
+
+        web_rel = src_rel.relative_to("webinterface").as_posix()
+        metadata = minified_assets.get(web_rel)
+        gzip_src = src.with_name(src.name + ".gz")
+        if not isinstance(metadata, dict) or not gzip_src.exists():
+            raise RuntimeError(
+                f"Missing minified asset for {src_rel}. Run: pnpm web:minify"
+            )
+        if _sha256_file(src) != metadata.get("source_sha256"):
+            raise RuntimeError(
+                f"Source changed since minification: {src_rel}. Run: pnpm web:minify"
+            )
+        if _sha256_file(gzip_src) != metadata.get("gzip_sha256"):
+            raise RuntimeError(
+                f"Compressed asset does not match its manifest: {gzip_src}"
+            )
+        destination = staging_dir / dst_rel
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(gzip_src, destination)
+
+    try:
+        release_version = str(env.GetProjectOption("custom_version") or "0.0.0")
+    except Exception:
+        release_version = "0.0.0"
+    release_version = release_version.strip().replace("\\", "").strip('"').strip("'")
+    release_descriptor = {
+        "format": 1,
+        "product": "Flow.IO",
+        "version": release_version,
+        "hardware": "WaveshareESP32S3",
+    }
+    (staging_dir / "release.json").write_text(
+        json.dumps(release_descriptor, separators=(",", ":")) + "\n",
+        encoding="utf-8",
+    )
 
     env.Replace(PROJECT_DATA_DIR=str(staging_dir), PROJECTDATA_DIR=str(staging_dir))
     print(f"[prepare_spiffs_data] staging {src_dir} -> {staging_dir}")

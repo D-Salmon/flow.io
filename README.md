@@ -5,7 +5,7 @@ est actuellement la carte **Waveshare ESP32-S3-POE-ETH-8DI-8RO N16R8**, utilisé
 façon autonome : un seul ESP32-S3 exécute les entrées/sorties, les automatismes,
 les sécurités, le réseau, l’interface Web, MQTT et l’intégration Home Assistant.
 
-La version déclarée pour cette cible est **3.3.1**. L’environnement PlatformIO à
+La version déclarée pour cette cible est **3.4.0**. L’environnement PlatformIO à
 utiliser est `Waveshare-ESP32-S3`, également défini comme environnement par
 défaut dans `platformio.ini`.
 
@@ -14,6 +14,18 @@ Supervisor, FlowConnectDisplay et Micronova, leurs cartes et leurs modules exclu
 ont été retirés. Le Nextion local et le TFT S3 sont conservés ; le transport HMI UDP
 de FlowConnectDisplay est supprimé. Les anciens documents multi-profils ci-dessous
 sont des références historiques, pas des instructions de compilation de cette branche.
+
+## État de validation 3.4.0 — 19 septembre 2026
+
+La version 3.4.0 minifie l’interface Web, introduit deux couples indissociables
+firmware/interface Web A/B avec vérification avant basculement et rollback au
+démarrage, et place le journal d’activité dans une partition persistante
+séparée. Le paquet complet s’installe depuis la page **Mises à jour**. Voir les
+[notes de version 3.4.0](docs/release-3.4.0.md).
+
+La compilation du firmware, l’image SPIFFS, les ressources minifiées et le
+paquet ZIP ont été validés. Le premier flash avec le nouveau partitionnement et
+un essai matériel de rollback restent à effectuer.
 
 ## État de validation 3.3.1 — 15 septembre 2026
 

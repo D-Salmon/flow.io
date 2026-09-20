@@ -21,40 +21,18 @@ if [[ -f "scripts/generate_cfgdoc_chunks.py" ]]; then
   PIOENV="$cfgdocs_env" "$python_bin" scripts/generate_cfgdoc_chunks.py
 fi
 
-assets=(
-  "data/webinterface/index.html"
-  "data/webinterface/sh.html"
-  "data/webinterface/app.js"
-  "data/webinterface/network.js"
-  "data/webinterface/activity.js"
-  "data/webinterface/io-summary.js"
-  "data/webinterface/calibration.js"
-  "data/webinterface/info.js"
-  "data/webinterface/logs.js"
-  "data/webinterface/updates.js"
-  "data/webinterface/pool.js"
-  "data/webinterface/config.js"
-  "data/webinterface/i18n/fr.json"
-  "data/webinterface/i18n/en.json"
-  "data/webinterface/app-core.css"
-  "data/webinterface/network.css"
-  "data/webinterface/activity.css"
-  "data/webinterface/io-summary.css"
-  "data/webinterface/calibration.css"
-  "data/webinterface/app-core.js"
-  "data/webinterface/light.html"
-  "data/webinterface/light.css"
-  "data/webinterface/light.js"
-  "data/webinterface/prov.html"
-  "data/webinterface/prov.js"
-  "data/webinterface/runtimeui.json"
-)
+FLOW_RUNTIMEUI_WRITE_JSON=1 "$python_bin" scripts/generate_runtimeui_manifest.py
 
-for asset in "${assets[@]}"; do
-  if [[ -f "$asset" ]]; then
-    gzip -n -9 -c "$asset" > "$asset.gz"
-  fi
-done
+if ! command -v node >/dev/null 2>&1; then
+  echo "Node.js is required to minify the embedded web interface" >&2
+  exit 1
+fi
+if [[ ! -d node_modules ]]; then
+  echo "Web minifier dependencies are missing; run: pnpm install --frozen-lockfile" >&2
+  exit 1
+fi
+node scripts/minify_web_assets.cjs
+node scripts/check_minified_web_assets.cjs
 
 if [[ -d "data/wc" ]]; then
   while IFS= read -r -d '' file; do

@@ -313,6 +313,21 @@
 
       <section id="page-system" class="page">
         <div class="card updates-panel">
+          <div class="updates-local-release">
+            <div class="updates-local-copy">
+              <strong>Installer une version complète</strong>
+              <p>Sélectionnez le package Flow.IO ZIP contenant le firmware ESP32-S3 et l’interface web. Les deux images sont vérifiées avant le redémarrage.</p>
+              <div id="localReleaseSummary" class="status-txt" aria-live="polite"></div>
+            </div>
+            <div class="updates-action-stack">
+              <input id="localReleaseFile" type="file" accept=".zip,application/zip" hidden>
+              <button id="localReleaseSelect" type="button" class="btn-tonal" data-admin-only-action>
+                <span class="ui-msr btn-msr" aria-hidden="true">upload_file</span>
+                <span>Sélectionner le package</span>
+              </button>
+            </div>
+          </div>
+
           <div id="upgradeCards" class="updates-summary-grid" aria-live="polite"></div>
 
           <div class="updates-table-shell">

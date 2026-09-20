@@ -193,3 +193,11 @@ conditions suivantes seront réunies :
 - tests automatiques des automatismes critiques ;
 - stratégie de clés, Secure Boot, chiffrement et récupération décidée ;
 - documentation et schémas alignés avec le matériel livré.
+# Validation matérielle 3.4.0
+
+- Effectuer le premier flash USB avec la nouvelle table de partitions.
+- Installer ensuite un package complet depuis l’interface et vérifier le
+  basculement A vers B puis B vers A.
+- Provoquer une image Web invalide sur banc et confirmer le rollback vers le
+  couple précédent.
+- Vérifier que le journal d’activité est conservé pendant ces mises à jour.

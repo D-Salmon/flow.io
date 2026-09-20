@@ -10,6 +10,7 @@
 #include "Board/BoardSpec.h"
 #include "App/BuildFlags.h"
 #include "Core/FirmwareVersion.h"
+#include "Core/ReleaseStorage.h"
 #include "Core/Generated/RuntimeUiManifest_Generated.h"
 #include "Core/Generated/RuntimeUiManifestJson_Generated.h"
 #include "Core/I2cCfgProtocol.h"
@@ -56,6 +57,25 @@
 #ifndef FLOW_WEB_HEAP_FORENSICS
 #define FLOW_WEB_HEAP_FORENSICS 0
 #endif
+
+namespace {
+constexpr size_t kLocalUpgradeManifestMax = 1024U;
+constexpr uintptr_t kRequestContextAllocationFailed = 1U;
+
+struct LocalUpgradeBeginContext {
+    bool ok = false;
+    uint32_t transactionId = 0U;
+    char error[144]{};
+    char manifest[kLocalUpgradeManifestMax + 1U]{};
+};
+
+struct LocalUpgradeImageContext {
+    bool ok = false;
+    uint32_t transactionId = 0U;
+    FirmwareUpdateTarget target = FirmwareUpdateTarget::Waveshare;
+    char error[144]{};
+};
+}  // namespace
 
 static void sanitizeJsonString_(char* s)
 {
@@ -5242,7 +5262,7 @@ void WebInterfaceModule::startServer_()
         next();
     });
 
-    spiffsReady_ = SPIFFS.begin(false);
+    spiffsReady_ = ReleaseStorage::releaseReady();
     if (!spiffsReady_) {
         LOGW("SPIFFS mount failed; web assets unavailable");
     } else {
@@ -8458,6 +8478,174 @@ void WebInterfaceModule::startServer_()
     server_.on("/fwupdate/spiffs", HTTP_POST, [this](AsyncWebServerRequest* request) {
         HttpLatencyScope latency(request, "/fwupdate/spiffs");
         handleUpdateRequest_(request, FirmwareUpdateTarget::Spiffs);
+    });
+
+    const auto readLocalTransactionId = [](AsyncWebServerRequest* request, uint32_t& transactionId) -> bool {
+        char value[16] = {0};
+        if (!copyRequestParamValue_(request, "transaction_id", false, value, sizeof(value), "")) return false;
+        char* end = nullptr;
+        const unsigned long parsed = strtoul(value, &end, 10);
+        if (!end || *end != '\0' || parsed == 0UL || parsed > UINT32_MAX) return false;
+        transactionId = (uint32_t)parsed;
+        return true;
+    };
+
+    server_.on(
+        "/api/upgrade/begin", HTTP_POST,
+        [this](AsyncWebServerRequest* request) {
+            if (request->_tempObject == reinterpret_cast<void*>(kRequestContextAllocationFailed)) {
+                request->_tempObject = nullptr;
+                request->send(503, "application/json", "{\"ok\":false,\"err\":{\"code\":\"NoMemory\"}}");
+                return;
+            }
+            auto* context = static_cast<LocalUpgradeBeginContext*>(request->_tempObject);
+            if (!context || !context->ok) {
+                char error[144] = {0};
+                snprintf(error, sizeof(error), "%s", context && context->error[0] ? context->error : "invalid manifest");
+                if (context) delete context;
+                request->_tempObject = nullptr;
+                sanitizeJsonString_(error);
+                char response[240] = {0};
+                snprintf(response, sizeof(response),
+                         "{\"ok\":false,\"err\":{\"code\":\"BadRequest\",\"msg\":\"%s\"}}", error);
+                request->send(400, "application/json", response);
+                return;
+            }
+            const uint32_t transactionId = context->transactionId;
+            delete context;
+            request->_tempObject = nullptr;
+            char response[96] = {0};
+            snprintf(response, sizeof(response), "{\"ok\":true,\"transaction_id\":%lu}",
+                     (unsigned long)transactionId);
+            request->send(200, "application/json", response);
+        },
+        nullptr,
+        [this](AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
+            if (index == 0U) {
+                request->_tempObject = new (std::nothrow) LocalUpgradeBeginContext{};
+                if (!request->_tempObject) {
+                    request->_tempObject = reinterpret_cast<void*>(kRequestContextAllocationFailed);
+                    return;
+                }
+            }
+            if (request->_tempObject == reinterpret_cast<void*>(kRequestContextAllocationFailed)) return;
+            auto* context = static_cast<LocalUpgradeBeginContext*>(request->_tempObject);
+            if (!context || total == 0U || total > kLocalUpgradeManifestMax || index + len > total) {
+                if (context) snprintf(context->error, sizeof(context->error), "release manifest too large");
+                return;
+            }
+            memcpy(context->manifest + index, data, len);
+            if (index + len != total) return;
+            context->manifest[total] = '\0';
+            if (!fwUpdateSvc_ && services_) fwUpdateSvc_ = services_->get<FirmwareUpdateService>(ServiceId::FirmwareUpdate);
+            if (!fwUpdateSvc_ || !fwUpdateSvc_->beginLocalRelease) {
+                snprintf(context->error, sizeof(context->error), "upgrade service unavailable");
+                return;
+            }
+            context->ok = fwUpdateSvc_->beginLocalRelease(
+                fwUpdateSvc_->ctx, context->manifest, total, &context->transactionId,
+                context->error, sizeof(context->error));
+        });
+
+    const auto registerLocalImageRoute = [this, readLocalTransactionId](const char* route,
+                                                                        FirmwareUpdateTarget target) {
+        server_.on(
+            route, HTTP_POST,
+            [this](AsyncWebServerRequest* request) {
+                if (request->_tempObject == reinterpret_cast<void*>(kRequestContextAllocationFailed)) {
+                    request->_tempObject = nullptr;
+                    request->send(503, "application/json", "{\"ok\":false,\"err\":{\"code\":\"NoMemory\"}}");
+                    return;
+                }
+                auto* context = static_cast<LocalUpgradeImageContext*>(request->_tempObject);
+                if (!context || !context->ok) {
+                    char error[144] = {0};
+                    snprintf(error, sizeof(error), "%s", context && context->error[0] ? context->error : "upload failed");
+                    if (context) delete context;
+                    request->_tempObject = nullptr;
+                    sanitizeJsonString_(error);
+                    char response[240] = {0};
+                    snprintf(response, sizeof(response),
+                             "{\"ok\":false,\"err\":{\"code\":\"Failed\",\"msg\":\"%s\"}}", error);
+                    request->send(409, "application/json", response);
+                    return;
+                }
+                const uint32_t transactionId = context->transactionId;
+                const FirmwareUpdateTarget requestTarget = context->target;
+                delete context;
+                request->_tempObject = nullptr;
+                char error[144] = {0};
+                if (!fwUpdateSvc_->endLocalImage(fwUpdateSvc_->ctx, transactionId, requestTarget,
+                                                  error, sizeof(error))) {
+                    sanitizeJsonString_(error);
+                    char response[240] = {0};
+                    snprintf(response, sizeof(response),
+                             "{\"ok\":false,\"err\":{\"code\":\"Failed\",\"msg\":\"%s\"}}", error);
+                    request->send(409, "application/json", response);
+                    return;
+                }
+                request->send(200, "application/json", "{\"ok\":true,\"verified\":true}");
+            },
+            nullptr,
+            [this, readLocalTransactionId, target](AsyncWebServerRequest* request,
+                                                    uint8_t* data, size_t len, size_t index, size_t total) {
+                if (index == 0U) {
+                    request->_tempObject = new (std::nothrow) LocalUpgradeImageContext{};
+                    if (!request->_tempObject) {
+                        request->_tempObject = reinterpret_cast<void*>(kRequestContextAllocationFailed);
+                        return;
+                    }
+                    static_cast<LocalUpgradeImageContext*>(request->_tempObject)->target = target;
+                }
+                if (request->_tempObject == reinterpret_cast<void*>(kRequestContextAllocationFailed)) return;
+                auto* context = static_cast<LocalUpgradeImageContext*>(request->_tempObject);
+                if (!context) return;
+                if (index == 0U) {
+                    if (!readLocalTransactionId(request, context->transactionId)) {
+                        snprintf(context->error, sizeof(context->error), "invalid transaction id");
+                        return;
+                    }
+                    if (!fwUpdateSvc_ && services_) fwUpdateSvc_ = services_->get<FirmwareUpdateService>(ServiceId::FirmwareUpdate);
+                    if (!fwUpdateSvc_ || !fwUpdateSvc_->beginLocalImage ||
+                        !fwUpdateSvc_->writeLocalImage || !fwUpdateSvc_->endLocalImage) {
+                        snprintf(context->error, sizeof(context->error), "upgrade service unavailable");
+                        return;
+                    }
+                    context->ok = fwUpdateSvc_->beginLocalImage(
+                        fwUpdateSvc_->ctx, context->transactionId, target, total,
+                        context->error, sizeof(context->error));
+                }
+                if (!context->ok) return;
+                context->ok = fwUpdateSvc_->writeLocalImage(
+                    fwUpdateSvc_->ctx, context->transactionId, target, data, len, index,
+                    context->error, sizeof(context->error));
+            });
+    };
+    registerLocalImageRoute("/api/upgrade/filesystem", FirmwareUpdateTarget::Spiffs);
+    registerLocalImageRoute("/api/upgrade/firmware", FirmwareUpdateTarget::Waveshare);
+
+    server_.on("/api/upgrade/commit", HTTP_POST, [this, readLocalTransactionId](AsyncWebServerRequest* request) {
+        uint32_t transactionId = 0U;
+        char error[144] = {0};
+        if (!readLocalTransactionId(request, transactionId) || !fwUpdateSvc_ ||
+            !fwUpdateSvc_->commitLocalRelease ||
+            !fwUpdateSvc_->commitLocalRelease(fwUpdateSvc_->ctx, transactionId, error, sizeof(error))) {
+            request->send(409, "application/json", "{\"ok\":false,\"err\":{\"code\":\"Failed\"}}");
+            return;
+        }
+        request->send(200, "application/json", "{\"ok\":true,\"rebooting\":true}");
+    });
+
+    server_.on("/api/upgrade/abort", HTTP_POST, [this, readLocalTransactionId](AsyncWebServerRequest* request) {
+        uint32_t transactionId = 0U;
+        char error[144] = {0};
+        if (!readLocalTransactionId(request, transactionId) || !fwUpdateSvc_ ||
+            !fwUpdateSvc_->abortLocalRelease ||
+            !fwUpdateSvc_->abortLocalRelease(fwUpdateSvc_->ctx, transactionId, error, sizeof(error))) {
+            request->send(409, "application/json", "{\"ok\":false,\"err\":{\"code\":\"Failed\"}}");
+            return;
+        }
+        request->send(200, "application/json", "{\"ok\":true}");
     });
 
     server_.onNotFound([this, webInterfaceLandingUrl](AsyncWebServerRequest* request) {
