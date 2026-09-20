@@ -1,5 +1,53 @@
 # Historique des correctifs de sécurité
 
+## Version 3.4.0 — 2026-09-20
+
+### Authentification et séparation des rôles
+
+- remplacement de la boîte d’authentification HTTP du navigateur par une page
+  de connexion et un cookie de session `HttpOnly`, `SameSite=Strict`, limité à
+  sept jours ;
+- migration du compte Rescue existant, sans identifiant ni mot de passe fixé
+  dans le firmware ;
+- stockage des nouveaux mots de passe par PBKDF2-HMAC-SHA256, avec sel propre à
+  chaque compte et 60 000 itérations ;
+- invalidation des sessions du compte après changement de mot de passe ;
+- invalidation immédiate des sessions après changement de rôle et interdiction
+  de rétrograder le dernier compte Administrateur ;
+- rôle Opérateur limité au suivi et au pilotage piscine ; les écritures réseau,
+  configuration système, récupération, purge du journal, redémarrage et mise
+  à jour exigent le rôle Administrateur côté serveur ;
+- conservation des protections CSRF et de la limitation des échecs de
+  connexion ;
+- Rescue reste soumis à la présence physique et remplace explicitement le
+  compte Administrateur lorsque les accès sont modifiés.
+- le formulaire Rescue contrôle visiblement la confirmation du mot de passe
+  avant l’envoi, en complément du refus déjà appliqué côté serveur.
+
+### Cohérence des sécurités matérielles
+
+- une source centrale décrit chaque sonde, relais et retour de contacteur comme
+  actif, désactivé, non câblé, matériel absent, temporairement indisponible ou
+  bloqué par une sécurité ;
+- Piscine, Entrées/Sorties et Configuration consomment cette même source pour
+  éviter des indications contradictoires.
+
+Validation : JavaScript vérifié, minification reproductible, compilation et
+flash du firmware/SPIFFS réussis. La page de connexion répond par adresse IP
+et par `flowio.local`, et une requête de page sans session est redirigée sans
+boucle. La matrice complète des rôles et les défauts matériels simulés restent
+à contrôler sur le Waveshare réel.
+
+- suppression d’une ancienne route `/login` concurrente qui créait une boucle
+  entre la page de connexion et l’interface protégée ;
+- correction de la politique CSP de la page de connexion : son gestionnaire
+  JavaScript peut maintenant envoyer le formulaire en POST ; le formulaire
+  déclare aussi POST nativement afin que le mot de passe ne puisse jamais être
+  placé dans l’URL si JavaScript est indisponible ;
+- l’état central distingue maintenant le relais de désinfection selon le mode
+  choisi : pompe doseuse et électrolyseur ne sont plus annoncés actifs
+  simultanément lorsqu’ils partagent la même sortie.
+
 ## Version 3.2.2 — 2026-09-13
 
 ### Récupération des accès réseau et Web

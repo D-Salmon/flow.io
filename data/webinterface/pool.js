@@ -107,6 +107,7 @@
     let poolConfigModulesCache = {};
     let poolConfigAlarmSlotsCache = [];
     let poolConfigLiveState = {};
+    let poolAssetStates = {};
     let poolConfigDocsReady = false;
     let poolConfigDocsPromise = null;
     let poolChemistryHasPendingChanges = false;
@@ -119,15 +120,44 @@
     let poolOperatingModeStatusTone = '';
     let dashboardLightsOn = null;
     const poolEquipmentDefs = Object.freeze([
-      Object.freeze({ key: 'filtration', stateKey: 'fil', labelKey: 'pool.control.filtration', label: 'Pompe de filtration', icon: 'water', noteKey: 'pool.control.filtration.note', note: 'Fait circuler et filtre l’eau du bassin.', automatic: true }),
-      Object.freeze({ key: 'electrolysis', stateKey: 'swg', labelKey: 'pool.control.electrolysis', label: 'Électrolyseur', icon: 'bolt', noteKey: 'pool.control.electrolysis.note', note: 'Produit le désinfectant au sel.', automatic: true }),
-      Object.freeze({ key: 'chlorine', stateKey: 'clp', labelKey: 'pool.control.chlorine', label: 'Pompe chlore', icon: 'water_drop', noteKey: 'pool.control.chlorine.note', note: 'Injecte le désinfectant liquide.', automatic: true }),
-      Object.freeze({ key: 'ph', stateKey: 'php', labelKey: 'pool.control.ph', label: 'Pompe pH', icon: 'science', noteKey: 'pool.control.ph.note', note: 'Injecte le correcteur pH.', automatic: true }),
-      Object.freeze({ key: 'lights', stateKey: 'lgt', labelKey: 'pool.control.lights', label: 'Éclairage piscine', icon: 'lightbulb', noteKey: 'pool.control.lights.note', note: 'Allume ou éteint immédiatement l’éclairage.', automatic: false, featured: true }),
-      Object.freeze({ key: 'robot', stateKey: 'rbt', labelKey: 'pool.control.robot', label: 'Robot', icon: 'smart_toy', noteKey: 'pool.control.robot.note', note: 'Lance le cycle du robot de nettoyage.', automatic: true }),
-      Object.freeze({ key: 'heater', stateKey: 'htr', labelKey: 'pool.control.heater', label: 'Chauffage', icon: 'local_fire_department', noteKey: 'pool.control.heater.note', note: 'Commande la pompe à chaleur.', automatic: true }),
-      Object.freeze({ key: 'filling', stateKey: 'fill', labelKey: 'pool.control.filling', label: 'Remplissage', icon: 'faucet', noteKey: 'pool.control.filling.note', note: 'Commande l’appoint d’eau du bassin.', automatic: true })
+      Object.freeze({ key: 'filtration', slot: 11, stateKey: 'fil', labelKey: 'pool.control.filtration', label: 'Pompe de filtration', icon: 'water', noteKey: 'pool.control.filtration.note', note: 'Fait circuler et filtre l’eau du bassin.', automatic: true }),
+      Object.freeze({ key: 'electrolysis', slot: 16, stateKey: 'swg', labelKey: 'pool.control.electrolysis', label: 'Électrolyseur', icon: 'bolt', noteKey: 'pool.control.electrolysis.note', note: 'Produit le désinfectant au sel.', automatic: true }),
+      Object.freeze({ key: 'chlorine', slot: 13, stateKey: 'clp', labelKey: 'pool.control.chlorine', label: 'Pompe chlore', icon: 'water_drop', noteKey: 'pool.control.chlorine.note', note: 'Injecte le désinfectant liquide.', automatic: true }),
+      Object.freeze({ key: 'ph', slot: 12, stateKey: 'php', labelKey: 'pool.control.ph', label: 'Pompe pH', icon: 'science', noteKey: 'pool.control.ph.note', note: 'Injecte le correcteur pH.', automatic: true }),
+      Object.freeze({ key: 'lights', slot: 17, stateKey: 'lgt', labelKey: 'pool.control.lights', label: 'Éclairage piscine', icon: 'lightbulb', noteKey: 'pool.control.lights.note', note: 'Allume ou éteint immédiatement l’éclairage.', automatic: false, featured: true }),
+      Object.freeze({ key: 'robot', slot: 14, stateKey: 'rbt', labelKey: 'pool.control.robot', label: 'Robot', icon: 'smart_toy', noteKey: 'pool.control.robot.note', note: 'Lance le cycle du robot de nettoyage.', automatic: true }),
+      Object.freeze({ key: 'heater', slot: 18, stateKey: 'htr', labelKey: 'pool.control.heater', label: 'Chauffage', icon: 'local_fire_department', noteKey: 'pool.control.heater.note', note: 'Commande la pompe à chaleur.', automatic: true }),
+      Object.freeze({ key: 'filling', slot: 15, stateKey: 'fill', labelKey: 'pool.control.filling', label: 'Remplissage', icon: 'faucet', noteKey: 'pool.control.filling.note', note: 'Commande l’appoint d’eau du bassin.', automatic: true })
     ]);
+
+    function poolAsset(slot) {
+      return poolAssetStates[String(slot)] || null;
+    }
+
+    function poolAssetStateLabel(asset) {
+      const state = String(asset && asset.state || 'unavailable');
+      if (state === 'active') return 'Actif';
+      if (state === 'disabled') return 'Désactivé';
+      if (state === 'not_wired') return 'Non câblé';
+      if (state === 'hardware_missing') return 'Matériel absent';
+      if (state === 'safety_blocked') return 'Bloqué par une sécurité';
+      return 'Temporairement indisponible';
+    }
+
+    function poolConfigAssetSlot(moduleName, spec) {
+      const key = spec && spec.key;
+      if (moduleName === 'poollogic/sensors') {
+        return ({ dis_io_id:1, ph_io_id:2, psi_io_id:3, wat_temp_io_id:5, air_temp_io_id:6,
+          pool_lvl_io_id:7, ph_lvl_io_id:8, chl_lvl_io_id:9, flow_switch_io_id:19,
+          filtr_fb_io_id:20, swg_fb_io_id:21 })[key] || 0;
+      }
+      if (moduleName === 'poollogic/devices') {
+        return ({ 'io/output/d00':11, 'io/output/d01':12, 'io/output/d02':13,
+          'io/output/d03':14, 'io/output/d04':15, 'io/output/d06':17,
+          'io/output/d07':18 })[spec && spec.sourceModule] || 0;
+      }
+      return 0;
+    }
     const poolConfigModuleDefs = Object.freeze([
       Object.freeze({ module: 'poollogic/modes', hidden: true }),
       Object.freeze({ module: 'io/drivers/ds18b20', hidden: true }),
@@ -2568,7 +2598,9 @@
           grid.appendChild(winterCard);
           winterInserted = true;
         }
-        const available = typeof state[def.stateKey] === 'boolean';
+        const centralAsset = poolAsset(def.slot);
+        const centralActive = !centralAsset || centralAsset.state === 'active';
+        const available = typeof state[def.stateKey] === 'boolean' && centralActive;
         const on = available && state[def.stateKey] === true;
         const blockedByAutomatic = automatic && def.automatic;
         const pending = poolEquipmentCommandBusy === def.key;
@@ -2595,7 +2627,7 @@
         stateLabel.textContent = pending
           ? tr('pool.control.pending', 'Commande…')
           : (!available
-            ? tr('dashboard.equipment.unavailable', 'Indisponible')
+            ? (centralAsset ? poolAssetStateLabel(centralAsset) : tr('dashboard.equipment.unavailable', 'Indisponible'))
             : (on
               ? (isLights
                 ? tr('pool.control.on', 'Allumé')
@@ -3348,6 +3380,16 @@
         label.className = 'pool-setting-label';
         label.htmlFor = controlId;
         label.textContent = spec.label || poolConfigFieldLabel(moduleName, spec.key);
+        const assetSlot = poolConfigAssetSlot(moduleName, spec);
+        const asset = poolAsset(assetSlot);
+        if (asset) {
+          const badge = document.createElement('span');
+          badge.className = 'pool-setting-state io-state-badge ' +
+            (asset.state === 'active' ? 'is-active' :
+              ((asset.state === 'hardware_missing' || asset.state === 'safety_blocked') ? 'is-error' : 'is-sleeping'));
+          badge.textContent = poolAssetStateLabel(asset);
+          label.appendChild(badge);
+        }
         const control = document.createElement(spec.type === 'bool' || spec.type === 'enum' ? 'select' : 'input');
         control.id = controlId;
         control.className = 'pool-setting-control';
@@ -4165,10 +4207,11 @@
       const safety = source['poollogic/safety'] || {};
       const sensors = source['poollogic/sensors'] || {};
       const swgSelected = Number(modes.disinfection_type) === 1;
-      const phAvailable = live.ph !== null && typeof live.ph !== 'undefined' && Number.isFinite(Number(live.ph));
-      const orpAvailable = live.orp !== null && typeof live.orp !== 'undefined' && Number.isFinite(Number(live.orp));
-      const waterAvailable = live.wat !== null && typeof live.wat !== 'undefined' && Number.isFinite(Number(live.wat));
-      const pressureAvailable = live.psi !== null && typeof live.psi !== 'undefined' && Number.isFinite(Number(live.psi));
+      const phAsset = poolAsset(2), orpAsset = poolAsset(1), waterAsset = poolAsset(5), pressureAsset = poolAsset(3);
+      const phAvailable = (!phAsset || phAsset.state === 'active') && live.ph !== null && typeof live.ph !== 'undefined' && Number.isFinite(Number(live.ph));
+      const orpAvailable = (!orpAsset || orpAsset.state === 'active') && live.orp !== null && typeof live.orp !== 'undefined' && Number.isFinite(Number(live.orp));
+      const waterAvailable = (!waterAsset || waterAsset.state === 'active') && live.wat !== null && typeof live.wat !== 'undefined' && Number.isFinite(Number(live.wat));
+      const pressureAvailable = (!pressureAsset || pressureAsset.state === 'active') && live.psi !== null && typeof live.psi !== 'undefined' && Number.isFinite(Number(live.psi));
       const heldState = {
         kind: 'neutral',
         label: tr('pool.chemistry.sensorHeld', 'Mesure figée'),
@@ -4556,9 +4599,15 @@
       if (flowMonitoringEnabled) {
         poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.flowDelay', 'Validation absence de débit'), poolConfigFormatValue('poollogic/safety', 'flow_start_dly_s', safety.flow_start_dly_s));
       }
-      poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.filtrationFeedback', 'Retour contacteur filtration'), poolConfigSummaryConfigured(sensors.filtr_fb_io_id) ? tr('pool.protectionSummary.monitored', 'Surveillé') : tr('pool.protectionSummary.notWired', 'Non câblé'));
+      const filtrationFeedbackAsset = poolAsset(20);
+      poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.filtrationFeedback', 'Retour contacteur filtration'), filtrationFeedbackAsset
+        ? poolAssetStateLabel(filtrationFeedbackAsset)
+        : (poolConfigSummaryConfigured(sensors.filtr_fb_io_id) ? tr('pool.protectionSummary.monitored', 'Surveillé') : tr('pool.protectionSummary.notWired', 'Non câblé')));
       if (disinfectionType === 1) {
-        poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.electrolysisFeedback', 'Retour contacteur électrolyseur'), poolConfigSummaryConfigured(sensors.swg_fb_io_id) ? tr('pool.protectionSummary.monitored', 'Surveillé') : tr('pool.protectionSummary.notWired', 'Non câblé'));
+        const swgFeedbackAsset = poolAsset(21);
+        poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.electrolysisFeedback', 'Retour contacteur électrolyseur'), swgFeedbackAsset
+          ? poolAssetStateLabel(swgFeedbackAsset)
+          : (poolConfigSummaryConfigured(sensors.swg_fb_io_id) ? tr('pool.protectionSummary.monitored', 'Surveillé') : tr('pool.protectionSummary.notWired', 'Non câblé')));
       }
       poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.freezeStart', 'Déclenchement hors gel'), poolConfigFormatValue('poollogic/safety', 'winter_start_t', safety.winter_start_t));
       poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.freezeHold', 'Maintien hors gel jusqu’à'), poolConfigFormatValue('poollogic/safety', 'freeze_hold_t', safety.freeze_hold_t));
@@ -4911,10 +4960,15 @@
     }
 
     async function refreshPoolConfigLive(forceRefresh) {
-      const [poolResult, pressureResult] = await Promise.all([
+      const [poolResult, pressureResult, assetResult] = await Promise.all([
         fetchFlowStatusDomain('pool', !!forceRefresh, 'pool-page').catch(() => null),
-        fetchRuntimeValues([2206]).catch(() => [])
+        fetchRuntimeValues([2206]).catch(() => []),
+        fetchOkJson('/api/pool/assets', { cache: 'no-store' }, 'état central indisponible').catch(() => null)
       ]);
+      poolAssetStates = {};
+      ((assetResult && assetResult.assets) || []).forEach((asset) => {
+        poolAssetStates[String(asset.slot)] = asset;
+      });
       poolConfigLiveState = poolResult && poolResult.pool && typeof poolResult.pool === 'object'
         ? { ...poolResult.pool }
         : {};

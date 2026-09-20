@@ -76,6 +76,10 @@ def verify_manifest() -> None:
 
 
 def verify_gzip_assets() -> None:
+    minified_manifest_path = ROOT / "data" / "webinterface" / ".minified-assets.json"
+    minified_assets = {}
+    if minified_manifest_path.is_file():
+        minified_assets = json.loads(minified_manifest_path.read_text(encoding="utf-8")).get("assets", {})
     for archive in (ROOT / "data").rglob("*.gz"):
         source = archive.with_suffix("")
         if not source.is_file():
@@ -84,7 +88,20 @@ def verify_gzip_assets() -> None:
             expanded = gzip.decompress(archive.read_bytes())
         except (OSError, EOFError) as exc:
             fail(f"invalid gzip {archive.relative_to(ROOT)}: {exc}")
-        if expanded != source.read_bytes():
+        try:
+            relative_web_path = source.relative_to(ROOT / "data" / "webinterface").as_posix()
+        except ValueError:
+            relative_web_path = ""
+        entry = minified_assets.get(relative_web_path)
+        if entry:
+            source_data = source.read_bytes()
+            if entry.get("source_sha256") != hashlib.sha256(source_data).hexdigest():
+                fail(f"stale minification source: {source.relative_to(ROOT)}")
+            if entry.get("gzip_sha256") != hashlib.sha256(archive.read_bytes()).hexdigest():
+                fail(f"stale gzip asset: {archive.relative_to(ROOT)}")
+            if entry.get("minified_bytes") != len(expanded):
+                fail(f"bad minified size: {archive.relative_to(ROOT)}")
+        elif expanded != source.read_bytes():
             fail(f"stale gzip asset: {archive.relative_to(ROOT)}")
 
 

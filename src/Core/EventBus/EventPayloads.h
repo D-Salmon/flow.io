@@ -27,7 +27,8 @@ enum class ConfigModuleId : uint8_t {
     Log,
     Micronova,
     System,
-    TftS3
+    TftS3,
+    PoolHistory
 };
 
 /** @brief Payload for ConfigChanged events. */

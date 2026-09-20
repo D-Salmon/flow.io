@@ -25,6 +25,7 @@
 #include "Modules/Network/WifiProvisioningModule/WifiProvisioningModule.h"
 #include "Modules/Network/WifiModule/WifiModule.h"
 #include "Modules/PoolDeviceModule/PoolDeviceModule.h"
+#include "Modules/PoolHistoryModule/PoolHistoryModule.h"
 #include "Modules/PoolLogicModule/PoolLogicModule.h"
 #include "Modules/Stores/ConfigStoreModule/ConfigStoreModule.h"
 #include "Modules/Stores/DataStoreModule/DataStoreModule.h"
@@ -33,6 +34,7 @@
 #endif
 #include "Modules/System/SystemModule/SystemModule.h"
 #include "Modules/System/SystemMonitorModule/SystemMonitorModule.h"
+#include "Modules/UserModule/UserModule.h"
 
 class DataStore;
 struct HAService;
@@ -59,6 +61,7 @@ struct ModuleInstances {
     HAModule haModule{};
     SystemModule systemModule{};
     SystemMonitorModule systemMonitorModule{};
+    UserModule userModule{};
     LogSerialSinkModule logSerialSinkModule{};
     ActivityLogModule activityLogModule{};
 #if FLOW_ENABLE_BOOT_LOG_CAPTURE
@@ -74,6 +77,7 @@ struct ModuleInstances {
     OneWireBus oneWireWater{20};
     OneWireBus oneWireAir{19};
     PoolDeviceModule poolDeviceModule{};
+    PoolHistoryModule poolHistoryModule{};
     PoolLogicModule poolLogicModule{};
     DataStore* ioDataStore = nullptr;
     const HAService* haService = nullptr;

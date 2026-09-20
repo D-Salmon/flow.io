@@ -127,6 +127,108 @@ static bool parseBoolParam_(const char* in, bool fallback)
     return fallback;
 }
 
+static constexpr char kSessionCookieName[] = "flowio_session";
+static constexpr size_t kSessionTokenMax = 256U;
+static constexpr uint32_t kSessionCookieMaxAgeSeconds = 7U * 24U * 60U * 60U;
+
+static bool pathStartsWith_(const char* path, const char* prefix)
+{
+    return path && prefix && strncmp(path, prefix, strlen(prefix)) == 0;
+}
+
+static bool pathEquals_(const char* path, const char* expected)
+{
+    return path && expected && strcmp(path, expected) == 0;
+}
+
+static bool isPublicSessionPath_(AsyncWebServerRequest* request, const char* url)
+{
+    if (!url) return false;
+    if (pathEquals_(url, "/login") || pathEquals_(url, "/login.html") ||
+        pathEquals_(url, "/api/auth/login") || pathEquals_(url, "/favicon.ico")) return true;
+    if (pathStartsWith_(url, "/webinterface/") &&
+        (strstr(url, ".css") || strstr(url, ".js") || strstr(url, ".png") ||
+         strstr(url, ".svg") || strstr(url, ".woff") || strstr(url, ".json"))) return true;
+    if (pathEquals_(url, "/generate_204") || pathEquals_(url, "/gen_204") ||
+        pathEquals_(url, "/hotspot-detect.html") || pathEquals_(url, "/connecttest.txt") ||
+        pathEquals_(url, "/ncsi.txt") || pathEquals_(url, "/webinterface/health") ||
+        pathEquals_(url, "/webserial/health")) return true;
+    (void)request;
+    return false;
+}
+
+static bool sessionRequiresAdmin_(AsyncWebServerRequest* request, const char* url)
+{
+    if (!request || request->method() != HTTP_POST || !url) return false;
+    return pathStartsWith_(url, "/api/fwupdate/") ||
+           pathStartsWith_(url, "/api/upgrade/") ||
+           pathStartsWith_(url, "/api/activity/") ||
+           pathStartsWith_(url, "/api/recovery/") ||
+           pathStartsWith_(url, "/api/system/") ||
+           pathStartsWith_(url, "/api/flow/system/") ||
+           pathStartsWith_(url, "/api/supervisorcfg/") ||
+           pathStartsWith_(url, "/api/flowcfg/") ||
+           pathStartsWith_(url, "/api/wifi/") ||
+           pathStartsWith_(url, "/api/network/") ||
+           pathStartsWith_(url, "/api/mqtt/") ||
+           pathStartsWith_(url, "/fwupdate/");
+}
+
+static bool extractSessionCookie_(AsyncWebServerRequest* request, char* out, size_t outLen)
+{
+    if (!request || !out || outLen == 0U) return false;
+    out[0] = '\0';
+    const String cookies = request->header("Cookie");
+    const String needle = String(kSessionCookieName) + "=";
+    int pos = cookies.indexOf(needle);
+    if (pos < 0) return false;
+    pos += needle.length();
+    int end = cookies.indexOf(';', pos);
+    if (end < 0) end = cookies.length();
+    const String value = cookies.substring(pos, end);
+    if (value.isEmpty() || value.length() >= outLen) return false;
+    memcpy(out, value.c_str(), value.length() + 1U);
+    return true;
+}
+
+static const char kLoginPageHtml[] PROGMEM = R"HTML(<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>flow.io — Connexion</title><style>
+:root{color-scheme:light dark;font-family:Inter,Segoe UI,Arial,sans-serif}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#eef8fc;color:#071a35}.card{width:min(92vw,430px);padding:36px;border:1px solid #cbddeb;border-radius:22px;background:#fff;box-shadow:0 24px 70px #19628b26}h1{margin:0 0 8px;text-align:center}.brand{font-size:30px;font-weight:800;color:#079ec0;text-align:center;margin-bottom:25px}.sub{color:#61758d;text-align:center;margin:0 0 28px}label{display:block;font-weight:700;margin:16px 0 7px}input{width:100%;padding:14px;border:1px solid #b9cede;border-radius:10px;font:inherit}button{width:100%;padding:14px;margin-top:24px;border:0;border-radius:10px;background:#078fc4;color:#fff;font:inherit;font-weight:800;cursor:pointer}.status{min-height:22px;text-align:center;color:#b4233a;margin-top:12px}@media(prefers-color-scheme:dark){body{background:#07111f;color:#edf5ff}.card{background:#111c2b;border-color:#2c405a}.sub{color:#a9b9cf}input{background:#0b1726;color:#edf5ff;border-color:#3a526e}}
+</style></head><body><form class="card" id="f" method="post" action="/api/auth/login"><div class="brand">〰 flow.io</div><h1>Connexion</h1><p class="sub">Accédez à votre contrôleur de piscine.</p><label for="u">Identifiant</label><input id="u" name="username" autocomplete="username" required autofocus><label for="p">Mot de passe</label><input id="p" name="password" type="password" autocomplete="current-password" required><button>Se connecter</button><div class="status" id="s"></div></form><script>
+const f=document.getElementById('f'),s=document.getElementById('s');f.addEventListener('submit',async e=>{e.preventDefault();s.textContent='Connexion…';const b=new URLSearchParams(new FormData(f));try{const r=await fetch('/api/auth/login',{method:'POST',body:b});if(!r.ok)throw 0;location.replace('/webinterface');}catch(_){s.textContent='Identifiant ou mot de passe incorrect.';}});
+</script></body></html>)HTML";
+
+static void printHistoryMetricJson_(Print& out, const PoolHistoryMetricSummary& metric)
+{
+    out.printf("{\"valid\":%s,\"count\":%lu,\"first\":%.3f,\"last\":%.3f,"
+               "\"min\":%.3f,\"max\":%.3f,\"avg\":%.3f}",
+               metric.valid ? "true" : "false", (unsigned long)metric.sampleCount,
+               (double)metric.first, (double)metric.last, (double)metric.minimum,
+               (double)metric.maximum, (double)metric.average);
+}
+
+static void printHistoryDayJson_(Print& out, const PoolHistoryDaySummary& day)
+{
+    out.printf("{\"valid\":%s,\"complete\":%s,\"date\":%lu,"
+               "\"filtration_min\":%lu,\"heating_min\":%lu,"
+               "\"refill_l\":%.2f,\"refill_events\":%lu,\"ph\":",
+               day.valid ? "true" : "false", day.complete ? "true" : "false",
+               (unsigned long)day.localDate,
+               (unsigned long)day.filtration.runningMinutes,
+               (unsigned long)day.heating.runningMinutes,
+               (double)day.refillVolumeLitres,
+               (unsigned long)day.refillEventCount);
+    printHistoryMetricJson_(out, day.ph);
+    out.print(",\"orp\":"); printHistoryMetricJson_(out, day.orp);
+    out.print(",\"water_temp\":"); printHistoryMetricJson_(out, day.waterTemperature);
+    out.print(",\"air_temp\":"); printHistoryMetricJson_(out, day.airTemperature);
+    out.print(",\"ph_setpoint\":"); printHistoryMetricJson_(out, day.phSetpoint);
+    out.print(",\"orp_setpoint\":"); printHistoryMetricJson_(out, day.orpSetpoint);
+    out.print(",\"heater_setpoint\":"); printHistoryMetricJson_(out, day.heaterSetpoint);
+    out.print("}");
+}
+
 static bool validIpv4Param_(const char* text, bool required)
 {
     if (!text || text[0] == '\0') return !required;
@@ -3892,6 +3994,8 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
   section { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 14px; }
   label { display: block; margin: 10px 0 4px; color: var(--muted); font-size: 13px; }
   input, select { width: 100%; min-height: 38px; border: 1px solid var(--line); border-radius: 5px; background: #071422; color: var(--text); padding: 8px 10px; font-size: 15px; }
+  input.invalid { border-color: var(--bad); outline: 1px solid var(--bad); }
+  .field-error { min-height: 18px; margin-top: 5px; color: var(--bad); font-size: 13px; font-weight: 700; }
   input[type="checkbox"] { width: auto; min-height: 0; margin-right: 8px; }
   button { min-height: 38px; border: 1px solid #55d5c8; border-radius: 5px; background: #0c5e58; color: white; padding: 8px 12px; font-size: 14px; font-weight: 700; cursor: pointer; }
   button.secondary { border-color: var(--line); background: var(--panel2); color: var(--text); }
@@ -3934,7 +4038,8 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
     <label for="adminPass">Nouveau mot de passe (12 a 32 caracteres)</label>
     <input id="adminPass" type="password" minlength="12" maxlength="32" autocomplete="new-password" />
     <label for="adminConfirm">Confirmation</label>
-    <input id="adminConfirm" type="password" minlength="12" maxlength="32" autocomplete="new-password" />
+    <input id="adminConfirm" type="password" minlength="12" maxlength="32" autocomplete="new-password" aria-describedby="adminConfirmError" />
+    <div class="field-error" id="adminConfirmError" role="alert" aria-live="polite"></div>
     <div class="status note" id="securityMsg">Verification de la recuperation BOOT...</div>
   </section>
 
@@ -4032,6 +4137,7 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
   const wifiMsg = $("wifiMsg");
   const mqttMsg = $("mqttMsg");
   const securityMsg = $("securityMsg");
+  const adminConfirmError = $("adminConfirmError");
   const saveMsg = $("saveMsg");
   const fwCfgMsg = $("fwCfgMsg");
   const updateMsg = $("updateMsg");
@@ -4041,6 +4147,20 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
   let adminAuthenticated = false;
   let sensitiveAllowed = false;
   let recoveryPollBusy = false;
+
+  function validateAdminConfirmation() {
+    const pass = $("adminPass").value;
+    const confirmation = $("adminConfirm").value;
+    const mismatch = confirmation.length > 0 && pass !== confirmation;
+    $("adminConfirm").setCustomValidity(
+      mismatch ? "La confirmation ne correspond pas au mot de passe." : ""
+    );
+    $("adminConfirm").classList.toggle("invalid", mismatch);
+    adminConfirmError.textContent = mismatch
+      ? "Les deux mots de passe ne correspondent pas."
+      : "";
+    return !mismatch;
+  }
 
   const setBusy = (busy) => {
     buttons.forEach((b) => { b.disabled = busy; });
@@ -4190,13 +4310,20 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
       put(saveMsg, "Maintenez d'abord BOOT pendant 5 secondes, puis rafraichissez.", "bad");
       return;
     }
-    if (recoveryAllowed && (!user || pass.length < 12 || pass.length > 32 || pass !== confirmPass)) {
-      put(
-        saveMsg,
-        "Utilisateur requis; mot de passe de 12 a 32 caracteres et confirmation identique.",
-        "bad"
-      );
-      return;
+    if (recoveryAllowed) {
+      if (!user) {
+        put(saveMsg, "Indiquez l'utilisateur administrateur.", "bad");
+        return;
+      }
+      if (pass.length < 12 || pass.length > 32) {
+        put(saveMsg, "Le mot de passe administrateur doit contenir de 12 à 32 caractères.", "bad");
+        return;
+      }
+      if (!validateAdminConfirmation() || pass !== confirmPass) {
+        put(saveMsg, "Les deux mots de passe administrateur ne correspondent pas.", "bad");
+        $("adminConfirm").focus();
+        return;
+      }
     }
     if ($("wifiEnabled").checked && !$("ssid").value.trim()) {
       put(saveMsg, "Choisissez un réseau Wi-Fi ou désactivez le réseau station.", "bad");
@@ -4383,6 +4510,8 @@ static const char kWebInterfaceFallbackPage[] PROGMEM = R"HTML(
   $("refresh").addEventListener("click", refreshAll);
   $("scan").addEventListener("click", scanWifi);
   $("saveRescue").addEventListener("click", saveRescue);
+  $("adminPass").addEventListener("input", validateAdminConfirmation);
+  $("adminConfirm").addEventListener("input", validateAdminConfirmation);
   $("cancelRescue").addEventListener("click", cancelRescue);
   $("saveFwCfg").addEventListener("click", saveFwConfig);
   $("checkManifest").addEventListener("click", checkManifest);
@@ -5068,6 +5197,7 @@ void WebInterfaceModule::init(ConfigStore& cfg, ServiceRegistry& services)
     mqttSvc_ = services.get<MqttService>(ServiceId::Mqtt);
     ioSvc_ = services.get<IOServiceV2>(ServiceId::Io);
     alarmSvc_ = services.get<AlarmService>(ServiceId::Alarm);
+    userSvc_ = services.get<UserService>(ServiceId::User);
     const DataStoreService* dsSvc = services.get<DataStoreService>(ServiceId::DataStore);
     dataStore_ = dsSvc ? dsSvc->store : nullptr;
     auto* ebSvc = services.get<EventBusService>(ServiceId::EventBus);
@@ -5226,30 +5356,7 @@ void WebInterfaceModule::startServer_()
     });
 
     server_.addMiddleware([this](AsyncWebServerRequest* request, ArMiddlewareNext next) {
-        if (!allowUnauthenticatedRequest_(request)) {
-            uint32_t retryAfterSeconds = 0U;
-            if (webAuthRateLimited_(request, retryAfterSeconds)) {
-                AsyncWebServerResponse* response = request->beginResponse(
-                    429,
-                    "application/json",
-                    "{\"ok\":false,\"err\":{\"code\":\"AuthRateLimited\",\"where\":\"web.security\"}}"
-                );
-                char retryAfter[12] = {0};
-                snprintf(retryAfter, sizeof(retryAfter), "%lu", (unsigned long)retryAfterSeconds);
-                response->addHeader("Retry-After", retryAfter);
-                request->send(response);
-                return;
-            }
-            if (!webRequestAuthorized_(request)) {
-                // The browser's initial Digest challenge has no Authorization header
-                // and must not consume the source failure budget.
-                if (request->hasHeader("Authorization")) noteWebAuthFailure_(request);
-                request->requestAuthentication("Flow.io", true);
-                return;
-            }
-            noteWebAuthSuccess_(request);
-        }
-        next();
+        authGate_(request, next);
     });
 
     server_.addMiddleware([this](AsyncWebServerRequest* request, ArMiddlewareNext next) {
@@ -5439,10 +5546,6 @@ void WebInterfaceModule::startServer_()
 
     server_.on("/webinterface/rescue", HTTP_GET, [sendRescuePage](AsyncWebServerRequest* request) {
         sendRescuePage(request);
-    });
-
-    server_.on("/login", HTTP_GET, [this](AsyncWebServerRequest* request) {
-        request->redirect(webCredentialsReady_ ? "/webinterface?page=page-users" : "/rescue");
     });
 
     server_.on("/webinterface/app.css", HTTP_GET, [this, beginSpiffsAssetResponse, sendPreparedAssetResponse](AsyncWebServerRequest* request) {
@@ -6411,6 +6514,18 @@ void WebInterfaceModule::startServer_()
             return;
         }
 
+        if (setCredentials) {
+            if (!userSvc_ && services_) userSvc_ = services_->get<UserService>(ServiceId::User);
+            char accountError[40] = {0};
+            if (!userSvc_ || !userSvc_->replaceAdministrator ||
+                !userSvc_->replaceAdministrator(userSvc_->ctx, replacement.user, replacement.pass,
+                                                accountError, sizeof(accountError))) {
+                request->send(500, "application/json",
+                              "{\"ok\":false,\"err\":{\"code\":\"Failed\",\"where\":\"recovery.apply.account\"}}");
+                return;
+            }
+        }
+
         emitConfigPatchActivity_("Rescue", patchJson);
         if (setCredentials) {
             webSecurity_ = replacement;
@@ -6494,6 +6609,16 @@ void WebInterfaceModule::startServer_()
                 500,
                 "application/json",
                 "{\"ok\":false,\"err\":{\"code\":\"Failed\",\"where\":\"recovery.credentials\"}}");
+            return;
+        }
+
+        if (!userSvc_ && services_) userSvc_ = services_->get<UserService>(ServiceId::User);
+        char accountError[40] = {0};
+        if (!userSvc_ || !userSvc_->replaceAdministrator ||
+            !userSvc_->replaceAdministrator(userSvc_->ctx, replacement.user, replacement.pass,
+                                            accountError, sizeof(accountError))) {
+            request->send(500, "application/json",
+                          "{\"ok\":false,\"err\":{\"code\":\"Failed\",\"where\":\"recovery.credentials.account\"}}");
             return;
         }
 
@@ -8648,6 +8773,218 @@ void WebInterfaceModule::startServer_()
         request->send(200, "application/json", "{\"ok\":true}");
     });
 
+    server_.on("/api/pool/assets", HTTP_GET, [this](AsyncWebServerRequest* request) {
+        const DomainStatusService* status = services_
+            ? services_->get<DomainStatusService>(ServiceId::DomainStatus) : nullptr;
+        if (!status || !status->slotStatus) {
+            request->send(503, "application/json", "{\"ok\":false}");
+            return;
+        }
+        auto* response = request->beginResponseStream("application/json");
+        response->print("{\"ok\":true,\"assets\":[");
+        bool first = true;
+        for (DomainSlotId slot = 1U; slot <= PoolIds::DomainSlotCount; ++slot) {
+            DomainSlotStatus item{};
+            if (!status->slotStatus(status->ctx, slot, &item)) continue;
+            if (!first) response->print(',');
+            first = false;
+            response->printf("{\"slot\":%u,\"state\":\"%s\",\"reason\":\"%s\","
+                             "\"io_id\":%u,\"has_value\":%s",
+                             (unsigned)slot, domainSlotRuntimeStateName(item.state),
+                             domainSlotStatusReasonName(item.reason), (unsigned)item.ioId,
+                             item.hasValue ? "true" : "false");
+            if (item.hasValue) {
+                if (item.value.type == IO_VAL_BOOL) response->printf(",\"value\":%s", item.value.v.b ? "true" : "false");
+                else if (item.value.type == IO_VAL_INT32) response->printf(",\"value\":%ld", (long)item.value.v.i32);
+                else response->printf(",\"value\":%.3f", (double)item.value.v.f);
+            }
+            response->print('}');
+        }
+        response->print("]}");
+        request->send(response);
+    });
+
+    server_.on("/api/pool/history", HTTP_GET, [this](AsyncWebServerRequest* request) {
+        const PoolHistoryService* history = services_
+            ? services_->get<PoolHistoryService>(ServiceId::PoolHistory) : nullptr;
+        PoolHistorySnapshot snapshot{};
+        if (!history || !history->getSnapshot ||
+            !history->getSnapshot(history->ctx, &snapshot)) {
+            request->send(503, "application/json",
+                          "{\"ok\":false,\"err\":{\"code\":\"NotReady\",\"where\":\"pool.history\"}}");
+            return;
+        }
+        auto* response = request->beginResponseStream("application/json");
+        response->printf("{\"ok\":true,\"generated_at\":%llu,\"today\":",
+                         (unsigned long long)snapshot.generatedAtUtc);
+        printHistoryDayJson_(*response, snapshot.today);
+        response->print(",\"days\":[");
+        for (uint8_t i = 0; i < POOL_HISTORY_COMPLETE_DAY_COUNT; ++i) {
+            if (i) response->print(',');
+            printHistoryDayJson_(*response, snapshot.completeDays[i]);
+        }
+        response->printf("],\"summary\":{\"available_days\":%u,"
+                         "\"filtration_h\":%.2f,\"filtration_daily_h\":%.2f,"
+                         "\"refill_l\":%.2f,\"refill_events\":%lu}}",
+                         (unsigned)snapshot.last7Days.availableDayCount,
+                         (double)snapshot.last7Days.totalFiltrationHours,
+                         (double)snapshot.last7Days.averageDailyFiltrationHours,
+                         (double)snapshot.last7Days.totalRefillVolumeLitres,
+                         (unsigned long)snapshot.last7Days.totalRefillEventCount);
+        request->send(response);
+    });
+    server_.on("/api/pool/history.csv", HTTP_GET, [this](AsyncWebServerRequest* request) {
+        const PoolHistoryService* history = services_
+            ? services_->get<PoolHistoryService>(ServiceId::PoolHistory) : nullptr;
+        PoolHistorySnapshot snapshot{};
+        if (!history || !history->getSnapshot ||
+            !history->getSnapshot(history->ctx, &snapshot)) {
+            request->send(503, "text/plain", "Historique indisponible");
+            return;
+        }
+        auto* response = request->beginResponseStream("text/csv; charset=utf-8");
+        response->addHeader("Content-Disposition", "attachment; filename=flowio-historique-7j.csv");
+        response->print("date;ph_min;ph_moy;ph_max;orp_min;orp_moy;orp_max;temp_eau_min;temp_eau_moy;temp_eau_max;temp_air_min;temp_air_moy;temp_air_max;consigne_ph;consigne_orp;consigne_chauffage;filtration_min;chauffage_min;remplissage_l;remplissages\r\n");
+        for (uint8_t i = 0; i < POOL_HISTORY_COMPLETE_DAY_COUNT; ++i) {
+            const auto& d = snapshot.completeDays[i];
+            if (!d.valid) continue;
+            response->printf("%lu;%.3f;%.3f;%.3f;%.1f;%.1f;%.1f;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;%.1f;%.2f;%lu;%lu;%.2f;%lu\r\n",
+                (unsigned long)d.localDate,
+                (double)d.ph.minimum, (double)d.ph.average, (double)d.ph.maximum,
+                (double)d.orp.minimum, (double)d.orp.average, (double)d.orp.maximum,
+                (double)d.waterTemperature.minimum, (double)d.waterTemperature.average,
+                (double)d.waterTemperature.maximum,
+                (double)d.airTemperature.minimum, (double)d.airTemperature.average,
+                (double)d.airTemperature.maximum,
+                (double)d.phSetpoint.average, (double)d.orpSetpoint.average,
+                (double)d.heaterSetpoint.average,
+                (unsigned long)d.filtration.runningMinutes,
+                (unsigned long)d.heating.runningMinutes,
+                (double)d.refillVolumeLitres, (unsigned long)d.refillEventCount);
+        }
+        request->send(response);
+    });
+
+    server_.on("/login", HTTP_GET, [](AsyncWebServerRequest* request) {
+        request->send(200, "text/html; charset=utf-8",
+                      reinterpret_cast<const uint8_t*>(kLoginPageHtml),
+                      sizeof(kLoginPageHtml) - 1U);
+    });
+    server_.on("/login.html", HTTP_GET, [](AsyncWebServerRequest* request) {
+        request->redirect("/login");
+    });
+    server_.on("/api/auth/login", HTTP_POST, [this](AsyncWebServerRequest* request) {
+        uint32_t retryAfter = 0U;
+        if (webAuthRateLimited_(request, retryAfter)) {
+            auto* response = request->beginResponse(429, "application/json",
+                "{\"ok\":false,\"err\":{\"code\":\"AuthRateLimited\"}}");
+            char seconds[12] = {0};
+            snprintf(seconds, sizeof(seconds), "%lu", (unsigned long)retryAfter);
+            response->addHeader("Retry-After", seconds);
+            request->send(response);
+            return;
+        }
+        if (!userSvc_ && services_) userSvc_ = services_->get<UserService>(ServiceId::User);
+        char username[40] = {0};
+        char password[96] = {0};
+        copyRequestParamValue_(request, "username", true, username, sizeof(username), "");
+        copyRequestParamValue_(request, "password", true, password, sizeof(password), "");
+        char token[kSessionTokenMax] = {0};
+        char error[40] = {0};
+        if (!userSvc_ || !userSvc_->authenticate ||
+            !userSvc_->authenticate(userSvc_->ctx, username, password, token, sizeof(token),
+                                    error, sizeof(error))) {
+            noteWebAuthFailure_(request);
+            request->send(401, "application/json",
+                          "{\"ok\":false,\"err\":{\"code\":\"Unauthorized\"}}");
+            return;
+        }
+        noteWebAuthSuccess_(request);
+        auto* response = request->beginResponseStream("application/json");
+        char cookie[320] = {0};
+        snprintf(cookie, sizeof(cookie),
+                 "%s=%s; Path=/; HttpOnly; SameSite=Strict; Max-Age=%lu",
+                 kSessionCookieName, token, (unsigned long)kSessionCookieMaxAgeSeconds);
+        response->addHeader("Set-Cookie", cookie);
+        response->print("{\"ok\":true}");
+        request->send(response);
+    });
+    server_.on("/api/auth/logout", HTTP_POST, [](AsyncWebServerRequest* request) {
+        auto* response = request->beginResponseStream("application/json");
+        response->addHeader("Set-Cookie",
+            "flowio_session=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0");
+        response->print("{\"ok\":true}");
+        request->send(response);
+    });
+    server_.on("/api/auth/session", HTTP_GET, [this](AsyncWebServerRequest* request) {
+        if (!userSvc_ && services_) userSvc_ = services_->get<UserService>(ServiceId::User);
+        char token[kSessionTokenMax] = {0};
+        char username[40] = {0};
+        UserRole role = UserRole::None;
+        extractSessionCookie_(request, token, sizeof(token));
+        const bool ok = userSvc_ && userSvc_->sessionInfo &&
+            userSvc_->sessionInfo(userSvc_->ctx, token, &role, username, sizeof(username));
+        auto* response = request->beginResponseStream("application/json");
+        response->printf("{\"ok\":true,\"authenticated\":%s,\"role\":\"%s\",\"username\":",
+                         ok ? "true" : "false", userRoleName(ok ? role : UserRole::None));
+        printJsonEscaped_(*response, ok ? username : "");
+        response->print("}");
+        request->send(response);
+    });
+    server_.on("/api/auth/users", HTTP_GET, [this](AsyncWebServerRequest* request) {
+        if (!userSvc_ && services_) userSvc_ = services_->get<UserService>(ServiceId::User);
+        char token[kSessionTokenMax] = {0};
+        extractSessionCookie_(request, token, sizeof(token));
+        char output[1400] = {0};
+        bool truncated = false;
+        if (!userSvc_ || !userSvc_->listUsers ||
+            !userSvc_->listUsers(userSvc_->ctx, token, output, sizeof(output), &truncated)) {
+            request->send(403, "application/json", output[0] ? output : "{\"ok\":false}");
+            return;
+        }
+        request->send(200, "application/json", output);
+    });
+    server_.on("/api/auth/users", HTTP_POST, [this](AsyncWebServerRequest* request) {
+        if (!userSvc_ && services_) userSvc_ = services_->get<UserService>(ServiceId::User);
+        char token[kSessionTokenMax] = {0}, username[40] = {0}, password[96] = {0}, roleName[16] = {0};
+        extractSessionCookie_(request, token, sizeof(token));
+        copyRequestParamValue_(request, "username", true, username, sizeof(username), "");
+        copyRequestParamValue_(request, "password", true, password, sizeof(password), "");
+        copyRequestParamValue_(request, "role", true, roleName, sizeof(roleName), "operator");
+        UserRole role = UserRole::None;
+        char error[40] = {0};
+        if (!userRoleFromName(roleName, &role) || !userSvc_ || !userSvc_->saveUser ||
+            !userSvc_->saveUser(userSvc_->ctx, token, username, password, role, error, sizeof(error))) {
+            request->send(403, "application/json", "{\"ok\":false,\"err\":{\"code\":\"Forbidden\"}}");
+            return;
+        }
+        request->send(200, "application/json", "{\"ok\":true}");
+    });
+    server_.on("/api/auth/users/delete", HTTP_POST, [this](AsyncWebServerRequest* request) {
+        if (!userSvc_ && services_) userSvc_ = services_->get<UserService>(ServiceId::User);
+        char token[kSessionTokenMax] = {0}, username[40] = {0}, error[40] = {0};
+        extractSessionCookie_(request, token, sizeof(token));
+        copyRequestParamValue_(request, "username", true, username, sizeof(username), "");
+        if (!userSvc_ || !userSvc_->deleteUser ||
+            !userSvc_->deleteUser(userSvc_->ctx, token, username, error, sizeof(error))) {
+            request->send(403, "application/json", "{\"ok\":false,\"err\":{\"code\":\"Forbidden\"}}");
+            return;
+        }
+        request->send(200, "application/json", "{\"ok\":true}");
+    });
+    server_.on("/api/auth/password", HTTP_POST, [this](AsyncWebServerRequest* request) {
+        if (!userSvc_ && services_) userSvc_ = services_->get<UserService>(ServiceId::User);
+        char token[kSessionTokenMax] = {0}, password[96] = {0}, error[40] = {0};
+        extractSessionCookie_(request, token, sizeof(token));
+        copyRequestParamValue_(request, "password", true, password, sizeof(password), "");
+        if (!userSvc_ || !userSvc_->changeOwnPassword ||
+            !userSvc_->changeOwnPassword(userSvc_->ctx, token, password, error, sizeof(error))) {
+            request->send(400, "application/json", "{\"ok\":false,\"err\":{\"code\":\"Failed\"}}");
+            return;
+        }
+        request->send(200, "application/json", "{\"ok\":true}");
+    });
+
     server_.onNotFound([this, webInterfaceLandingUrl](AsyncWebServerRequest* request) {
         noteHttpActivity_();
         request->redirect(webInterfaceLandingUrl());
@@ -8722,6 +9059,39 @@ void WebInterfaceModule::startServer_()
     } else {
         LOGI("WebInterface URL: waiting for network IP");
     }
+}
+
+void WebInterfaceModule::authGate_(AsyncWebServerRequest* request, ArMiddlewareNext next)
+{
+    if (!request) return;
+    if (allowUnauthenticatedRequest_(request) ||
+        isPublicSessionPath_(request, request->url().c_str()) ||
+        pathStartsWith_(request->url().c_str(), "/api/auth/")) {
+        next();
+        return;
+    }
+    if (!userSvc_ && services_) userSvc_ = services_->get<UserService>(ServiceId::User);
+    char token[kSessionTokenMax] = {0};
+    extractSessionCookie_(request, token, sizeof(token));
+    UserRole role = UserRole::None;
+    const bool authorized = userSvc_ && userSvc_->authorize &&
+        userSvc_->authorize(userSvc_->ctx, token, &role);
+    if (!authorized) {
+        const char* url = request->url().c_str();
+        const bool page = request->method() == HTTP_GET &&
+            !pathStartsWith_(url, "/api/") && !pathStartsWith_(url, "/ws");
+        if (page) request->redirect("/login");
+        else request->send(401, "application/json",
+                           "{\"ok\":false,\"err\":{\"code\":\"Unauthorized\",\"where\":\"auth\"}}");
+        return;
+    }
+    if (sessionRequiresAdmin_(request, request->url().c_str()) &&
+        !roleHasPermission(role, UserPermission::UpdateSystem)) {
+        request->send(403, "application/json",
+                      "{\"ok\":false,\"err\":{\"code\":\"Forbidden\",\"where\":\"auth\"}}");
+        return;
+    }
+    next();
 }
 
 void WebInterfaceModule::handleUpdateRequest_(AsyncWebServerRequest* request, FirmwareUpdateTarget target)
@@ -8812,6 +9182,7 @@ bool WebInterfaceModule::requestOriginAllowed_(AsyncWebServerRequest* request,
 bool WebInterfaceModule::csrfRequestAllowed_(AsyncWebServerRequest* request) const
 {
     if (!request) return false;
+    if (request->url() == "/api/auth/login") return true;
     const bool tokenPresent = request->hasHeader("X-Flow-CSRF");
     const String suppliedToken = tokenPresent ? request->header("X-Flow-CSRF") : String();
     const Security::CsrfRequestFacts facts{

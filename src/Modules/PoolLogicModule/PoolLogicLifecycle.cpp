@@ -169,6 +169,219 @@ static constexpr MqttConfigRouteProducer::Route kPoolLogicCfgRoutes[] = {
 };
 }
 
+bool PoolLogicModule::serviceDomainSlotStatus_(void* ctx, DomainSlotId slot, DomainSlotStatus* out)
+{
+    return ctx && out && static_cast<PoolLogicModule*>(ctx)->domainSlotStatus_(slot, *out);
+}
+
+bool PoolLogicModule::domainSlotStatus_(DomainSlotId slot, DomainSlotStatus& out) const
+{
+    out = DomainSlotStatus{};
+    out.domainSlot = slot;
+    const bool disinfectionDisabled = disinfectionType_ == DisinfectionDisabled;
+    const bool saltElectrolysis = disinfectionType_ == DisinfectionSwg;
+    if ((slot == PoolIds::ActuatorChlorinePump &&
+         (disinfectionDisabled || saltElectrolysis)) ||
+        (slot == PoolIds::ActuatorChlorineGenerator && !saltElectrolysis) ||
+        (slot == PoolIds::SensorChlorineLevel &&
+         (disinfectionDisabled || saltElectrolysis)) ||
+        (slot == PoolIds::SensorSwgContactorFeedback && !saltElectrolysis)) {
+        out.state = DomainSlotRuntimeState::Disabled;
+        out.reason = DomainSlotStatusReason::SlotDisabled;
+        return true;
+    }
+    IoId ioId = IO_ID_INVALID;
+    uint8_t deviceSlot = POOL_DEVICE_INVALID;
+    switch (slot) {
+        case PoolIds::SensorPh: ioId = phIoId_; break;
+        case PoolIds::SensorOrp: ioId = orpIoId_; break;
+        case PoolIds::SensorPsi: ioId = psiIoId_; break;
+        case PoolIds::SensorWaterTemp: ioId = waterTempIoId_; break;
+        case PoolIds::SensorAirTemp: ioId = airTempIoId_; break;
+        case PoolIds::SensorPoolLevel: ioId = levelIoId_; break;
+        case PoolIds::SensorPhLevel: ioId = phLevelIoId_; break;
+        case PoolIds::SensorChlorineLevel: ioId = chlorineLevelIoId_; break;
+        case PoolIds::SensorFlowSwitch: ioId = flowSwitchIoId_; break;
+        case PoolIds::SensorFiltrationContactorFeedback: ioId = filtrationContactorFeedbackIoId_; break;
+        case PoolIds::SensorSwgContactorFeedback: ioId = swgContactorFeedbackIoId_; break;
+        case PoolIds::ActuatorFiltrationPump: deviceSlot = filtrationDeviceSlot_; break;
+        case PoolIds::ActuatorPhPump: deviceSlot = phPumpDeviceSlot_; break;
+        case PoolIds::ActuatorChlorinePump:
+        case PoolIds::ActuatorChlorineGenerator: deviceSlot = swgDeviceSlot_; break;
+        case PoolIds::ActuatorRobot: deviceSlot = robotDeviceSlot_; break;
+        case PoolIds::ActuatorFillPump: deviceSlot = fillingDeviceSlot_; break;
+        case PoolIds::ActuatorLights: deviceSlot = lightsDeviceSlot_; break;
+        case PoolIds::ActuatorWaterHeater: deviceSlot = heaterDeviceSlot_; break;
+        default: return false;
+    }
+    if (deviceSlot != POOL_DEVICE_INVALID) {
+        if (!poolSvc_ || !poolSvc_->meta ||
+            poolSvc_->meta(poolSvc_->ctx, deviceSlot, &out.poolMeta) != POOLDEV_SVC_OK) {
+            out.state = DomainSlotRuntimeState::HardwareMissing;
+            out.reason = DomainSlotStatusReason::NotConfigured;
+            out.error = 1U;
+            return true;
+        }
+        out.hasPoolDevice = 1U;
+        out.ioId = out.poolMeta.ioId;
+        if (!out.poolMeta.enabled || out.poolMeta.blockReason == POOL_DEVICE_BLOCK_DISABLED) {
+            out.state = DomainSlotRuntimeState::Disabled;
+            out.reason = DomainSlotStatusReason::SlotDisabled;
+            return true;
+        }
+        if (out.poolMeta.blockReason != POOL_DEVICE_BLOCK_NONE) {
+            out.state = DomainSlotRuntimeState::SafetyBlocked;
+            out.reason = DomainSlotStatusReason::PoolDeviceBlocked;
+            out.error = 1U;
+            return true;
+        }
+        if (!poolSvc_->readActualOn ||
+            poolSvc_->readActualOn(poolSvc_->ctx, deviceSlot, &out.poolActualOn,
+                                   &out.poolActualTsMs) != POOLDEV_SVC_OK) {
+            out.state = DomainSlotRuntimeState::Unavailable;
+            out.reason = DomainSlotStatusReason::ReadFailed;
+            out.error = 1U;
+            return true;
+        }
+        out.value.valid = 1U;
+        out.value.type = IO_VAL_BOOL;
+        out.value.v.b = out.poolActualOn;
+        out.value.tsMs = out.poolActualTsMs;
+        out.hasValue = 1U;
+        out.active = 1U;
+        out.state = DomainSlotRuntimeState::Active;
+        return true;
+    }
+    out.ioId = ioId;
+    if (ioId == IO_ID_INVALID) {
+        out.state = DomainSlotRuntimeState::NotWired;
+        out.reason = DomainSlotStatusReason::Unbound;
+        return true;
+    }
+    if (!ioSvc_ || !ioSvc_->meta || ioSvc_->meta(ioSvc_->ctx, ioId, &out.meta) != IO_OK) {
+        out.state = DomainSlotRuntimeState::HardwareMissing;
+        out.reason = DomainSlotStatusReason::NotConfigured;
+        out.error = 1U;
+        return true;
+    }
+    out.hasMeta = 1U;
+    out.hasBindingPort = 1U;
+    if (ioSvc_->sensorStatus) {
+        IoSensorStatus sensor{};
+        if (ioSvc_->sensorStatus(ioSvc_->ctx, ioId, &sensor) == IO_OK) {
+            if (!sensor.enabled) {
+                out.state = DomainSlotRuntimeState::Disabled;
+                out.reason = DomainSlotStatusReason::DriverDisabled;
+                return true;
+            }
+            if (!sensor.valid) {
+                out.state = DomainSlotRuntimeState::Unavailable;
+                out.reason = DomainSlotStatusReason::NoValidValue;
+                out.error = 1U;
+                return true;
+            }
+        }
+    }
+    if (!ioSvc_->readValue || ioSvc_->readValue(ioSvc_->ctx, ioId, &out.value) != IO_OK ||
+        !out.value.valid) {
+        out.state = DomainSlotRuntimeState::Unavailable;
+        out.reason = DomainSlotStatusReason::ReadFailed;
+        out.error = 1U;
+        return true;
+    }
+    out.hasValue = 1U;
+    out.active = 1U;
+    out.state = DomainSlotRuntimeState::Active;
+    return true;
+}
+
+bool PoolLogicModule::serviceDomainSummary_(void* ctx, DomainStatusSummary* out)
+{
+    return ctx && out && static_cast<PoolLogicModule*>(ctx)->domainSummary_(*out);
+}
+
+bool PoolLogicModule::domainSummary_(DomainStatusSummary& out) const
+{
+    out = DomainStatusSummary{};
+    for (DomainSlotId slot = 1U; slot <= PoolIds::DomainSlotCount; ++slot) {
+        DomainSlotStatus status{};
+        if (!domainSlotStatus_(slot, status)) continue;
+        ++out.total;
+        switch (status.state) {
+            case DomainSlotRuntimeState::Active: ++out.active; break;
+            case DomainSlotRuntimeState::Disabled: ++out.disabled; break;
+            case DomainSlotRuntimeState::NotWired: ++out.notWired; break;
+            case DomainSlotRuntimeState::HardwareMissing: ++out.hardwareMissing; break;
+            case DomainSlotRuntimeState::Unavailable: ++out.unavailable; break;
+            case DomainSlotRuntimeState::SafetyBlocked: ++out.safetyBlocked; break;
+        }
+    }
+    return true;
+}
+
+bool PoolLogicModule::serviceDomainHasError_(void* ctx)
+{
+    DomainSlotStatus status{};
+    return serviceDomainFirstError_(ctx, &status);
+}
+
+bool PoolLogicModule::serviceDomainFirstError_(void* ctx, DomainSlotStatus* out)
+{
+    if (!ctx || !out) return false;
+    auto* self = static_cast<PoolLogicModule*>(ctx);
+    for (DomainSlotId slot = 1U; slot <= PoolIds::DomainSlotCount; ++slot) {
+        DomainSlotStatus status{};
+        if (self->domainSlotStatus_(slot, status) && status.error) {
+            *out = status;
+            return true;
+        }
+    }
+    *out = DomainSlotStatus{};
+    return false;
+}
+
+bool PoolLogicModule::serviceGetPoolCharacteristics_(void* ctx, PoolCharacteristics* out)
+{
+    return ctx && out && static_cast<PoolLogicModule*>(ctx)->getPoolCharacteristics_(*out);
+}
+
+bool PoolLogicModule::getPoolCharacteristics_(PoolCharacteristics& out) const
+{
+    out = PoolCharacteristics{};
+    out.available = true;
+    out.volumeValid = std::isfinite(o2PoolVolumeM3_) && o2PoolVolumeM3_ > 0.0f;
+    out.volumeM3 = out.volumeValid ? o2PoolVolumeM3_ : 0.0f;
+    switch (disinfectionType_) {
+        case DisinfectionChlorineBromine: out.disinfectionMethod = PoolDisinfectionMethod::ChlorineBromine; break;
+        case DisinfectionSwg: out.disinfectionMethod = PoolDisinfectionMethod::SaltElectrolysis; break;
+        case DisinfectionActiveOxygen: out.disinfectionMethod = PoolDisinfectionMethod::ActiveOxygen; break;
+        default: out.disinfectionMethod = PoolDisinfectionMethod::Disabled; break;
+    }
+    return true;
+}
+
+bool PoolLogicModule::serviceGetPoolOperatingConfiguration_(void* ctx, PoolOperatingConfiguration* out)
+{
+    return ctx && out && static_cast<PoolLogicModule*>(ctx)->getPoolOperatingConfiguration_(*out);
+}
+
+bool PoolLogicModule::getPoolOperatingConfiguration_(PoolOperatingConfiguration& out) const
+{
+    out = PoolOperatingConfiguration{};
+    out.available = true;
+    out.filtrationAutoMode = autoMode_;
+    out.phAutoMode = phAutoMode_;
+    out.orpAutoMode = orpAutoMode_;
+    out.heaterAutoMode = heaterAutoMode_;
+    out.phSetpointValid = std::isfinite(phSetpoint_);
+    out.phSetpoint = phSetpoint_;
+    out.orpSetpointValid = std::isfinite(orpSetpoint_);
+    out.orpSetpointMv = orpSetpoint_;
+    out.heaterSetpointValid = std::isfinite(heaterSetpoint_);
+    out.heaterSetpointC = heaterSetpoint_;
+    return true;
+}
+
 void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
 {
     constexpr uint8_t kCfgModuleId = (uint8_t)ConfigModuleId::PoolLogic;
@@ -357,6 +570,12 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
     const CommandService* cmdSvc = services.get<CommandService>(ServiceId::Command);
     alarmSvc_ = services.get<AlarmService>(ServiceId::Alarm);
     activityLogSvc_ = services.get<ActivityLogService>(ServiceId::ActivityLog);
+    if (!services.add(ServiceId::DomainStatus, &domainStatusSvc_)) {
+        LOGE("service registration failed: %s", toString(ServiceId::DomainStatus));
+    }
+    if (!services.add(ServiceId::PoolConfiguration, &poolConfigurationSvc_)) {
+        LOGE("service registration failed: %s", toString(ServiceId::PoolConfiguration));
+    }
     if (!ioSvc_) {
         LOGW("PoolLogic waiting for IOServiceV2");
     }

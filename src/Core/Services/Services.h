@@ -24,3 +24,7 @@
 #include "IFirmwareUpdate.h"
 #include "IFlowCfg.h"
 #include "ILocale.h"
+#include "IUser.h"
+#include "IPoolHistory.h"
+#include "IDomainStatus.h"
+#include "IPoolConfiguration.h"

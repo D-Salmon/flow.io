@@ -135,6 +135,10 @@ void test_csp_profiles()
     TEST_ASSERT_EQUAL(WebCspProfile::InlineRecovery,
                       cspProfileForPath("/rescue"));
     TEST_ASSERT_EQUAL(WebCspProfile::InlineRecovery,
+                      cspProfileForPath("/login"));
+    TEST_ASSERT_EQUAL(WebCspProfile::InlineRecovery,
+                      cspProfileForPath("/login.html"));
+    TEST_ASSERT_EQUAL(WebCspProfile::InlineRecovery,
                       cspProfileForPath("/webserial"));
     TEST_ASSERT_NOT_NULL(strstr(contentSecurityPolicy(WebCspProfile::StrictApplication),
                                 "script-src 'self';"));

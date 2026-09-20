@@ -60,8 +60,11 @@ public:
     NetworkPortalReason portalReason(uint32_t nowMs) const {
         if (hasNetwork()) return NetworkPortalReason::None;
 
-        if (hadUsableNetwork_ && lastNetworkLostMs_ != 0U &&
-            (nowMs - lastNetworkLostMs_) < (uint32_t)ETH_TIMEOUT_MS) {
+        // Once the configured station has worked, a transient radio loss must
+        // not replace it with the AP-only rescue portal.  Keeping the portal
+        // stopped leaves WifiModule free to retry the saved network until it
+        // comes back.  The physical BOOT-button rescue path remains available.
+        if (hadUsableNetwork_) {
             return NetworkPortalReason::None;
         }
 

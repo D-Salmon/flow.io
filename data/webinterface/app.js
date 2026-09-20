@@ -1950,6 +1950,10 @@ ac_unit: '\u{eb3b}',
     }
 
     function showPage(pageId, options) {
+      if (authSession && authSession.authenticated && authSession.role !== 'admin' &&
+          ['page-control','page-wifi','page-system'].includes(pageId)) {
+        pageId = 'page-pool-measures';
+      }
       const opts = options || {};
       if (configurationPage && configurationPage.isBusy()
         && currentPageId === 'page-control' && pageId !== 'page-control') {
@@ -1966,6 +1970,12 @@ ac_unit: '\u{eb3b}',
       syncMobileTopbarTitle(pageId);
       if (pageId === 'page-activity-log') {
         schedulePageTask(pageId, pageToken, deferredHeavyMs, () => onActivityPageShown(false));
+      }
+      if (pageId === 'page-history') {
+        schedulePageTask(pageId, pageToken, deferredHeavyMs, () => loadPoolHistory());
+      }
+      if (pageId === 'page-users') {
+        schedulePageTask(pageId, pageToken, deferredHeavyMs, () => loadUsers());
       }
       if (pageId === 'page-pool-measures') {
         schedulePageTask(pageId, pageToken, deferredHeavyMs, () => onPoolDashboardShown());
@@ -3487,6 +3497,99 @@ ac_unit: '\u{eb3b}',
       });
     }
 
+    let authSession = { authenticated: false, role: 'none', username: '' };
+
+    async function loadAuthSession() {
+      const response = await fetchJsonResponse('/api/auth/session', { cache: 'no-store' });
+      if (!response.res.ok || !response.data || !response.data.authenticated) {
+        window.location.replace('/login');
+        return authSession;
+      }
+      authSession = response.data;
+      document.querySelectorAll('[data-admin-only]').forEach((node) => {
+        node.hidden = authSession.role !== 'admin';
+      });
+      const account = document.getElementById('drawerAccount');
+      if (account) account.hidden = false;
+      const name = document.getElementById('accountName');
+      const role = document.getElementById('accountRole');
+      const avatar = document.getElementById('accountAvatar');
+      if (name) name.textContent = authSession.username || '-';
+      if (role) role.textContent = authSession.role === 'admin' ? 'Administrateur' : 'Opérateur';
+      if (avatar) avatar.textContent = (authSession.username || '?').charAt(0).toUpperCase();
+      return authSession;
+    }
+
+    async function logoutSession() {
+      await fetchWithBusyRetry('/api/auth/logout', { method: 'POST', cache: 'no-store' }).catch(() => null);
+      window.location.replace('/login');
+    }
+
+    function historyNumber(metric, key, digits) {
+      return metric && metric.valid ? Number(metric[key]).toFixed(digits) : '-';
+    }
+
+    function historyRange(metric, digits, unit) {
+      if (!metric || !metric.valid) return '-';
+      return historyNumber(metric,'min',digits)+' / '+historyNumber(metric,'avg',digits)+' / '+historyNumber(metric,'max',digits)+(unit||'');
+    }
+
+    function renderHistoryChart(days) {
+      const host = document.getElementById('historyChart');
+      if (!host) return;
+      const rows = (days || []).filter((d) => d && d.valid).slice().reverse();
+      if (!rows.length) { host.textContent = 'Aucune journée complète disponible.'; return; }
+      const series = [
+        ['ph','ph','#0f9d8a'],['orp','orp','#8b5cf6'],
+        ['water_temp','water','#1687d8'],['air_temp','air','#ef8b2c']
+      ];
+      const width = 760, height = 280, left = 42, right = 18, top = 20, bottom = 36;
+      let svg = '<svg viewBox="0 0 '+width+' '+height+'" role="img">';
+      for (let i=0;i<5;i++){const y=top+(height-top-bottom)*i/4;svg+='<line class="grid" x1="'+left+'" y1="'+y+'" x2="'+(width-right)+'" y2="'+y+'"/>';}
+      series.forEach((entry) => {
+        const values = rows.map((d) => d[entry[0]] && d[entry[0]].valid ? Number(d[entry[0]].average) : null);
+        const finite = values.filter(Number.isFinite); if (!finite.length) return;
+        let min=Math.min(...finite), max=Math.max(...finite); if(max===min){max+=1;min-=1;}
+        let points=''; values.forEach((value,index)=>{if(!Number.isFinite(value))return;const x=left+(width-left-right)*(rows.length===1?.5:index/(rows.length-1));const y=top+(height-top-bottom)*(1-(value-min)/(max-min));points+=x.toFixed(1)+','+y.toFixed(1)+' ';});
+        svg+='<polyline class="line '+entry[1]+'" points="'+points.trim()+'"/>';
+      });
+      rows.forEach((d,index)=>{const x=left+(width-left-right)*(rows.length===1?.5:index/(rows.length-1));const raw=String(d.date||'');const label=raw.length===8?raw.slice(6)+'/'+raw.slice(4,6):raw;svg+='<text class="axis-label" text-anchor="middle" x="'+x+'" y="'+(height-10)+'">'+label+'</text>';});
+      host.innerHTML=svg+'</svg>';
+    }
+
+    async function loadPoolHistory() {
+      const status = document.getElementById('historyStatus');
+      if (status) status.textContent = 'Chargement…';
+      try {
+        const data = await fetchOkJson('/api/pool/history', { cache: 'no-store' }, 'Historique indisponible');
+        const summary = data.summary || {}, days = Array.isArray(data.days) ? data.days : [];
+        document.getElementById('historyFiltration').textContent = Number(summary.filtration_h || 0).toFixed(1)+' h';
+        document.getElementById('historyFiltrationAverage').textContent = Number(summary.filtration_daily_h || 0).toFixed(1)+' h/j';
+        document.getElementById('historyRefill').textContent = Number(summary.refill_l || 0).toFixed(1)+' L';
+        document.getElementById('historyDays').textContent = String(summary.available_days || 0)+' / 7';
+        const tbody=document.getElementById('historyTableBody'); if(tbody){tbody.innerHTML='';days.filter(d=>d&&d.valid).forEach(d=>{const tr=document.createElement('tr');const raw=String(d.date||'');const date=raw.length===8?raw.slice(6)+'/'+raw.slice(4,6)+'/'+raw.slice(0,4):raw;const setpoints=historyNumber(d.ph_setpoint,'avg',2)+' / '+historyNumber(d.orp_setpoint,'avg',0)+' / '+historyNumber(d.heater_setpoint,'avg',1)+' °C';tr.innerHTML='<td>'+date+'</td><td>'+historyRange(d.ph,2,'')+'</td><td>'+historyRange(d.orp,0,' mV')+'</td><td>'+historyRange(d.water_temp,1,' °C')+'</td><td>'+historyRange(d.air_temp,1,' °C')+'</td><td>'+setpoints+'</td><td>'+Number(d.filtration_min||0)+' min</td><td>'+Number(d.heating_min||0)+' min</td><td>'+Number(d.refill_l||0).toFixed(1)+' L · '+Number(d.refill_events||0)+' cycle(s)</td>';tbody.appendChild(tr);});}
+        renderHistoryChart(days); if(status) status.textContent='Historique local à jour.';
+      } catch (error) { if(status) status.textContent='Historique indisponible pour le moment.'; }
+    }
+
+    function resetUserForm() {
+      const form=document.getElementById('userForm'); if(form) form.reset();
+      const username=document.getElementById('userUsername'); if(username){username.readOnly=false;username.value='';}
+      const title=document.getElementById('userFormTitle'); if(title) title.textContent='Ajouter un compte';
+    }
+
+    async function loadUsers() {
+      if (authSession.role !== 'admin') return;
+      const list=document.getElementById('usersList'); if(!list)return;
+      try { const data=await fetchOkJson('/api/auth/users',{cache:'no-store'},'Comptes indisponibles');list.innerHTML='';(data.accounts||[]).forEach(account=>{const row=document.createElement('div');row.className='user-row';row.innerHTML='<span class="account-avatar">'+String(account.username||'?').charAt(0).toUpperCase()+'</span><span class="user-row-copy"><strong></strong><span class="user-role">'+(account.role==='admin'?'Administrateur':'Opérateur')+'</span></span><span class="user-row-actions"><button type="button" class="btn-tonal edit-user">Modifier</button><button type="button" class="btn-tonal delete-user">Supprimer</button></span>';row.querySelector('strong').textContent=account.username;row.querySelector('.edit-user').onclick=()=>{document.getElementById('userUsername').value=account.username;document.getElementById('userUsername').readOnly=true;document.getElementById('userRole').value=account.role;document.getElementById('userPassword').value='';document.getElementById('userFormTitle').textContent='Modifier le compte';};row.querySelector('.delete-user').onclick=async()=>{if(!confirm('Supprimer le compte '+account.username+' ?'))return;await fetchOkJson('/api/auth/users/delete',createFormPostOptions({username:account.username}),'Suppression refusée');await loadUsers();};list.appendChild(row);}); } catch(error){list.textContent='Impossible de charger les comptes.';}
+    }
+
+    const accountLogout=document.getElementById('accountLogout'); if(accountLogout) accountLogout.addEventListener('click',logoutSession);
+    const accountOpen=document.getElementById('accountOpen'); if(accountOpen) accountOpen.addEventListener('click',()=>showPage('page-users'));
+    const userCancel=document.getElementById('userFormCancel'); if(userCancel) userCancel.addEventListener('click',resetUserForm);
+    const userForm=document.getElementById('userForm'); if(userForm) userForm.addEventListener('submit',async(event)=>{event.preventDefault();const username=document.getElementById('userUsername').value.trim(),password=document.getElementById('userPassword').value,role=document.getElementById('userRole').value,status=document.getElementById('usersStatus');try{await fetchOkJson('/api/auth/users',createFormPostOptions({username,password,role}),'Enregistrement refusé');resetUserForm();await loadUsers();if(status)status.textContent='Compte enregistré.';}catch(error){if(status)status.textContent=error.message||'Enregistrement refusé.';}});
+    const ownPasswordForm=document.getElementById('ownPasswordForm'); if(ownPasswordForm) ownPasswordForm.addEventListener('submit',async(event)=>{event.preventDefault();const input=document.getElementById('ownPassword'),status=document.getElementById('ownPasswordStatus');try{await fetchOkJson('/api/auth/password',createFormPostOptions({password:input.value}),'Modification refusée');input.value='';if(status)status.textContent='Mot de passe modifié.';}catch(error){if(status)status.textContent=error.message||'Modification refusée.';}});
+
     initStatusBindings();
     initSystemBindings();
     initGlobalUiBindings();
@@ -3501,6 +3604,7 @@ ac_unit: '\u{eb3b}',
     refreshAppHeader(resolveInitialPageId());
     const initialPageId = resolveInitialPageId();
     const startInitialUi = async () => {
+      await loadAuthSession();
       await loadWebMeta().catch(() => {});
       refreshAppHeaderWifi(true).catch(() => {});
       refreshAppHeaderTime(true).catch(() => {});

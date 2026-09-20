@@ -46,6 +46,8 @@ enum class LogModuleIdValue : LogModuleId {
     MicronovaMqttBridgeModule = 31,
     BootLogCaptureModule = 32,
     ActivityLogModule = 33,
+    UserModule = 34,
+    PoolHistoryModule = 35,
 
     CoreI2cLink = 40,
     CoreModuleManager = 41,
@@ -87,6 +89,8 @@ static inline LogModuleId logModuleIdFromModuleId(ModuleId moduleId)
         case ModuleId::MicronovaMqttBridge: return (LogModuleId)LogModuleIdValue::MicronovaMqttBridgeModule;
         case ModuleId::BootLogCapture: return (LogModuleId)LogModuleIdValue::BootLogCaptureModule;
         case ModuleId::ActivityLog: return (LogModuleId)LogModuleIdValue::ActivityLogModule;
+        case ModuleId::User: return (LogModuleId)LogModuleIdValue::UserModule;
+        case ModuleId::PoolHistory: return (LogModuleId)LogModuleIdValue::PoolHistoryModule;
         case ModuleId::HmiBuzzer: return (LogModuleId)LogModuleIdValue::HMIModule;
         case ModuleId::Hmi:
         case ModuleId::SupervisorHmi:
@@ -135,6 +139,8 @@ static inline const char* logModuleNameFromId(LogModuleId moduleId)
         case LogModuleIdValue::MicronovaMqttBridgeModule: return "micronova.mqtt";
         case LogModuleIdValue::BootLogCaptureModule: return "log.bootcapture";
         case LogModuleIdValue::ActivityLogModule: return "activitylog";
+        case LogModuleIdValue::UserModule: return "user";
+        case LogModuleIdValue::PoolHistoryModule: return "poolhistory";
         case LogModuleIdValue::CoreI2cLink: return "core.i2clink";
         case LogModuleIdValue::CoreModuleManager: return "core.modulemanager";
         case LogModuleIdValue::CoreConfigStore: return "core.configstore";

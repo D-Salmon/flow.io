@@ -1,29 +1,37 @@
-# Flow.io Waveshare 3.2.2 — améliorations restantes
+# Flow.io Waveshare 3.4.0 — améliorations restantes
 
 Ce document présente uniquement les travaux encore ouverts pour la cible
-autonome `Waveshare-ESP32-S3`. L’historique de la livraison se trouve dans les
-[notes de version 3.2.2](docs/release-3.2.2.md).
+autonome `Waveshare-ESP32-S3`. L’état de la livraison se trouve dans les
+[notes de version 3.4.0](docs/release-3.4.0.md).
 
-## État au 13 septembre 2026
+## État au 20 septembre 2026
 
-La branche `flow.io-waveshare-3.2.2` est publiée sur GitHub au commit `9553ab2`.
-Le firmware et la SPIFFS ont été compilés, flashés et démarrés sur la carte
-réelle. L'adresse IP et `flowio.local` répondent correctement après le dernier
-flash. La compilation occupe 33,9 % de la RAM et 50,9 % du slot applicatif.
+La branche 3.4.0 ajoute les mises à jour A/B atomiques, la minification Web, les
+comptes Administrateur/Opérateur, l’historique local sur sept jours et une vue
+centralisée de l’état des sondes et équipements. Le firmware compile ; les
+points ci-dessous décrivent les validations matérielles encore nécessaires.
+
+Le firmware et la SPIFFS 3.4.0 ont été compilés, flashés et démarrés sur la
+carte réelle. L’adresse IP et `flowio.local` affichent la page de connexion ;
+un accès direct sans session revient correctement vers celle-ci. La
+compilation occupe 33,9 % de la RAM et 33,7 % du slot applicatif.
 
 Les images courantes sont présentes dans `binary` et référencées par le
 manifeste :
 
-- `flowios3-3.2.2.bin` ;
-- `flowios3-spiffs-3.2.2.bin`.
+- `flowios3-3.4.0.bin` ;
+- `flowios3-spiffs-3.4.0.bin` ;
+- `flowio-3.4.0.zip`.
 
 Le vérificateur de release réussit. Le parcours Rescue utilise un mot de passe
 propre à la carte, une présence physique par BOOT et une fenêtre temporaire
 réservée au premier client. Les affectations de sondes et de relais ont été
 alignées entre Piscine, Configuration et Entrées/Sorties.
 
-La version est utilisable sur banc, mais elle n’est pas encore qualifiée pour
-une installation autonome sans surveillance.
+Les comptes, l’historique et les états centralisés sont intégrés. Leur matrice
+fonctionnelle complète ainsi que le basculement A/B restent à éprouver. La
+version est utilisable sur banc, mais elle n’est pas encore qualifiée pour une
+installation autonome sans surveillance.
 
 ## Priorité 1 — qualification du coffret réel
 
@@ -100,6 +108,14 @@ actions, résultats et journaux attendus.
   enregistrement global et unique redémarrage ;
 - vérifier que `local-device/rescue-access.txt` est régénéré après flash, reste
   hors Git et correspond au SSID réellement annoncé par la carte.
+- vérifier qu’une session reste valide après redémarrage avec et sans accès
+  Internet, puis expire réellement au bout de sept jours ;
+- vérifier le compte Opérateur sur chaque page et confirmer le refus serveur
+  des écritures réseau, système et mise à jour ;
+- laisser fonctionner l’appareil plus de sept jours et comparer les agrégats
+  et l’export CSV aux valeurs du journal ;
+- débrancher puis rebrancher chaque capteur et équipement pour vérifier les six
+  états identiques dans Piscine, Entrées/Sorties et Configuration.
 
 Critère de fin : aucun épuisement progressif, blocage ou défaut durable de
 reconnexion ne survient pendant la durée d’essai retenue.

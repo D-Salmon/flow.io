@@ -15,7 +15,7 @@ ont été retirés. Le Nextion local et le TFT S3 sont conservés ; le transport
 de FlowConnectDisplay est supprimé. Les anciens documents multi-profils ci-dessous
 sont des références historiques, pas des instructions de compilation de cette branche.
 
-## État de validation 3.4.0 — 19 septembre 2026
+## État de validation 3.4.0 — 20 septembre 2026
 
 La version 3.4.0 minifie l’interface Web, introduit deux couples indissociables
 firmware/interface Web A/B avec vérification avant basculement et rollback au
@@ -23,9 +23,17 @@ démarrage, et place le journal d’activité dans une partition persistante
 séparée. Le paquet complet s’installe depuis la page **Mises à jour**. Voir les
 [notes de version 3.4.0](docs/release-3.4.0.md).
 
-La compilation du firmware, l’image SPIFFS, les ressources minifiées et le
-paquet ZIP ont été validés. Le premier flash avec le nouveau partitionnement et
-un essai matériel de rollback restent à effectuer.
+Elle ajoute aussi des comptes Web Administrateur/Opérateur avec sessions de
+sept jours, un bouton de déconnexion, un historique piscine local sur sept
+jours avec export CSV et une source d’état commune aux pages Piscine,
+Entrées/Sorties et aux affectations de configuration.
+
+La compilation du firmware, les contrôles JavaScript, l’image SPIFFS, les
+ressources minifiées et le paquet ZIP ont été validés. Le firmware et la
+SPIFFS ont été flashés sur la carte réelle ; la page de connexion et la
+redirection sans session répondent par adresse IP et par `flowio.local`. Les
+droits Administrateur/Opérateur après connexion, l’accumulation sur sept jours
+et le rollback A/B restent à éprouver sur le matériel.
 
 ## État de validation 3.3.1 — 15 septembre 2026
 
@@ -124,20 +132,20 @@ Cette vue résume les raccordements exploités par le firmware. Pour les tableau
 d’affectation complets et les précautions électriques, consulter le
 [schéma de raccordement Waveshare](docs/integration/schema-raccordement-waveshare.md).
 
-## Images de livraison (3.3.1)
+## Images de livraison (3.4.0)
 
-La version 3.3.1 est compilée pour la Waveshare ESP32-S3 N16R8. Elle reste à
-flasher et à valider sur la carte réelle. Les réglages persistants de la 3.2.2
-restent compatibles ; un nouvel enregistrement NVS borné est réservé au reçu de
-mise à jour.
+La version 3.4.0 est compilée et flashée sur la Waveshare ESP32-S3 N16R8. Les
+réglages persistants des versions précédentes restent compatibles.
 
-Le dossier `binary` contient les deux images 3.3.1 issues de la même
-révision, ainsi que les deux images d’écran Nextion :
+Le dossier `binary` contient le firmware, l’interface Web associée et le paquet
+complet A/B :
 
-- `binary/flowios3-3.3.1.bin` — `2 233 664` octets — SHA-256
-  `b961d57f874fbbe84a3721f20cf0bdd2ae2dd8e976e75023b896fbc0f1ae76ce` ;
-- `binary/flowios3-spiffs-3.3.1.bin` — `8 257 536` octets — SHA-256
-  `86934915949332bd0bda5065b5e044cbd96eb51dc59cc0ed36ddfe88f86a985f`.
+- `binary/flowios3-3.4.0.bin` — `2 291 824` octets — SHA-256
+  `d8a2c9265dd959c969a573ecdd16f523b24fb8db5992366dd4d2af036b57e8b4` ;
+- `binary/flowios3-spiffs-3.4.0.bin` — `1 572 864` octets — SHA-256
+  `f417125e2231aae300ea34a3f3183785f9c16dfc455fabdef0db04a9b1c6549a` ;
+- `binary/flowio-3.4.0.zip` — paquet atomique contenant manifeste, firmware et
+  SPIFFS.
 
 Le manifeste `binary/manifest.json` référence seulement ces artefacts utiles à
 la version courante.
@@ -429,8 +437,9 @@ enregistrés ; un champ vide lors d’une modification conserve le secret exista
 L’interface indique explicitement si l’utilisateur est administrateur, si la
 récupération physique est active ou si l’accès n’est pas authentifié.
 
-Les routes d’administration utilisent l’authentification Digest et les actions
-modifiant l’état nécessitent également un jeton CSRF.
+L’interface utilise une session de sept jours liée à un compte administrateur
+ou opérateur. Les routes d’administration contrôlent le rôle côté serveur et
+les actions modifiant l’état nécessitent également un jeton CSRF.
 
 Les mises à jour du firmware sont prévues pour être signées en ECDSA P-256 et
 échouent si la clé publique de production ou la signature manque. La clé de
@@ -478,7 +487,7 @@ déduire le câblage de la cible autonome actuelle.
 ## Références utiles
 
 - [État des améliorations restantes](RESTANT_A_FAIRE.md)
-- [Notes de version 3.2.2](docs/release-3.2.2.md)
+- [Notes de version 3.4.0](docs/release-3.4.0.md)
 - [Notes de version 3.2.1](docs/release-3.2.1.md)
 - [Notes de version 3.1.5](docs/release-3.1.5.md)
 - [Audit technique du socle 3.1.3](AUDIT_2026-08-16.md)

@@ -90,6 +90,7 @@ private:
     void startServer_();
     void startLocalRuntime_();
     void handleUpdateRequest_(AsyncWebServerRequest* request, FirmwareUpdateTarget target);
+    void authGate_(AsyncWebServerRequest* request, ArMiddlewareNext next);
     void ensureCsrfToken_();
     bool csrfRequestAllowed_(AsyncWebServerRequest* request) const;
     bool requestOriginAllowed_(AsyncWebServerRequest* request, bool originRequired) const;
@@ -215,6 +216,7 @@ private:
     const MqttService* mqttSvc_ = nullptr;
     const IOServiceV2* ioSvc_ = nullptr;
     const AlarmService* alarmSvc_ = nullptr;
+    const UserService* userSvc_ = nullptr;
     DataStore* dataStore_ = nullptr;
     ConfigStore* cfgStore_ = nullptr;
     EventBus* eventBus_ = nullptr;

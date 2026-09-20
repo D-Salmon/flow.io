@@ -467,6 +467,28 @@ private:
     const MqttService* mqttSvc_ = nullptr;
     const AlarmService* alarmSvc_ = nullptr;
     const ActivityLogService* activityLogSvc_ = nullptr;
+    static bool serviceDomainSlotStatus_(void* ctx, DomainSlotId slot, DomainSlotStatus* out);
+    static bool serviceDomainSummary_(void* ctx, DomainStatusSummary* out);
+    static bool serviceDomainHasError_(void* ctx);
+    static bool serviceDomainFirstError_(void* ctx, DomainSlotStatus* out);
+    bool domainSlotStatus_(DomainSlotId slot, DomainSlotStatus& out) const;
+    bool domainSummary_(DomainStatusSummary& out) const;
+    static bool serviceGetPoolCharacteristics_(void* ctx, PoolCharacteristics* out);
+    static bool serviceGetPoolOperatingConfiguration_(void* ctx, PoolOperatingConfiguration* out);
+    bool getPoolCharacteristics_(PoolCharacteristics& out) const;
+    bool getPoolOperatingConfiguration_(PoolOperatingConfiguration& out) const;
+    DomainStatusService domainStatusSvc_{
+        &PoolLogicModule::serviceDomainSlotStatus_,
+        &PoolLogicModule::serviceDomainSummary_,
+        &PoolLogicModule::serviceDomainHasError_,
+        &PoolLogicModule::serviceDomainFirstError_,
+        this
+    };
+    PoolConfigurationService poolConfigurationSvc_{
+        &PoolLogicModule::serviceGetPoolCharacteristics_,
+        &PoolLogicModule::serviceGetPoolOperatingConfiguration_,
+        this
+    };
     MqttConfigRouteProducer* cfgMqttPub_ = nullptr;
 
     // Lifecycle

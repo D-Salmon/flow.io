@@ -220,7 +220,9 @@ bool unauthenticatedWebRouteAllowed(bool credentialsReady,
 WebCspProfile cspProfileForPath(const char* path)
 {
     if (!path) return WebCspProfile::StrictApplication;
-    if (strcmp(path, "/rescue") == 0 ||
+    if (strcmp(path, "/login") == 0 ||
+        strcmp(path, "/login.html") == 0 ||
+        strcmp(path, "/rescue") == 0 ||
         strcmp(path, "/webinterface/rescue") == 0 ||
         strcmp(path, "/webserial") == 0) {
         return WebCspProfile::InlineRecovery;

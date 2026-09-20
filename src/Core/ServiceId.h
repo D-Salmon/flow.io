@@ -30,6 +30,10 @@ enum class ServiceId : uint8_t {
     FlowCfg,
     Locale,
     ActivityLog,
+    User,
+    PoolHistory,
+    DomainStatus,
+    PoolConfiguration,
     Count
 };
 
@@ -70,6 +74,10 @@ constexpr const char* toString(ServiceId id)
         case ServiceId::FlowCfg: return "flowcfg";
         case ServiceId::Locale: return "locale";
         case ServiceId::ActivityLog: return "activitylog";
+        case ServiceId::User: return "user";
+        case ServiceId::PoolHistory: return "poolhistory";
+        case ServiceId::DomainStatus: return "domain_status";
+        case ServiceId::PoolConfiguration: return "pool_configuration";
         case ServiceId::Count: return "count";
     }
     return "unknown";

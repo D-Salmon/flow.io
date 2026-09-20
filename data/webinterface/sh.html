@@ -16,17 +16,25 @@
       </div>
       <nav class="menu-group">
         <button class="menu-item active" data-page="page-pool-measures"><span class="ico icon-measures" aria-hidden="true"></span><span class="label" data-i18n="menu.dashboard">Tableau de bord</span></button>
+        <button class="menu-item" data-page="page-history"><span class="ui-msr ico" aria-hidden="true">monitoring</span><span class="label">Historique</span></button>
         <button class="menu-item" data-page="page-pool"><span class="ico icon-pool" aria-hidden="true"></span><span class="label" data-i18n="menu.pool">Piscine</span></button>
         <button class="menu-item" data-page="page-calibration"><span class="ico icon-calibration" aria-hidden="true"></span><span class="label" data-i18n="menu.calibration">Étalonnage</span></button>
         <button class="menu-item" data-page="page-activity-log"><span class="ico icon-activity" aria-hidden="true"></span><span class="label" data-i18n="menu.activity">Journal d’Activité</span></button>
-        <button class="menu-item" data-page="page-control"><span class="ico icon-flowcfg" aria-hidden="true"></span><span class="label" data-i18n="menu.config">Configuration</span></button>
-        <button class="menu-item" data-page="page-wifi"><span class="ico icon-network" aria-hidden="true"></span><span class="label" data-i18n="menu.network">Réseau</span></button>
+        <button class="menu-item" data-page="page-control" data-admin-only><span class="ico icon-flowcfg" aria-hidden="true"></span><span class="label" data-i18n="menu.config">Configuration</span></button>
+        <button class="menu-item" data-page="page-wifi" data-admin-only><span class="ico icon-network" aria-hidden="true"></span><span class="label" data-i18n="menu.network">Réseau</span></button>
         <button class="menu-item" data-page="page-io-summary"><span class="ico icon-io" aria-hidden="true"></span><span class="label" data-i18n="menu.io">Entrées/Sorties</span></button>
-        <button class="menu-item" data-page="page-users"><span class="ico icon-users" aria-hidden="true"></span><span class="label">Utilisateurs</span></button>
-        <button class="menu-item" data-page="page-system"><span class="ico icon-system" aria-hidden="true"></span><span class="label" data-i18n="menu.updates">Mises à Jour</span></button>
+        <button class="menu-item" data-page="page-users" data-admin-only><span class="ico icon-users" aria-hidden="true"></span><span class="label">Utilisateurs</span></button>
+        <button class="menu-item" data-page="page-system" data-admin-only><span class="ico icon-system" aria-hidden="true"></span><span class="label" data-i18n="menu.updates">Mises à Jour</span></button>
         <button class="menu-item" data-page="page-info"><span class="ico icon-info" aria-hidden="true"></span><span class="label" data-i18n="menu.info">Informations</span></button>
       </nav>
       <div class="drawer-footer">
+        <div id="drawerAccount" class="drawer-account" hidden>
+          <button id="accountOpen" type="button" class="drawer-account-main" title="Mon compte">
+            <span id="accountAvatar" class="account-avatar">?</span>
+            <span><strong id="accountName">-</strong><small id="accountRole">-</small></span>
+          </button>
+          <button id="accountLogout" type="button" class="account-logout" title="Se déconnecter" aria-label="Se déconnecter"><span class="ui-msr" aria-hidden="true">logout</span></button>
+        </div>
         <label class="theme-switch" title="Activer le mode sombre">
           <span class="theme-toggle-label">Mode sombre</span>
           <span class="md3-switch md3-switch-compact theme-mode-switch">
@@ -250,6 +258,19 @@
           <div id="ioSummaryCards" class="status-grid io-summary-cards" aria-live="polite"></div>
           <div id="ioSummaryTables" class="io-table-stack" aria-live="polite"></div>
         </div>
+      </section>
+
+      <section id="page-history" class="page">
+        <div class="topbar"><h1 class="ui-heading-inline"><span class="ui-msr" aria-hidden="true">monitoring</span><span>Historique sur 7 jours</span></h1></div>
+        <div class="history-actions"><span id="historyStatus" class="config-status">Chargement…</span><a class="btn-tonal" href="/api/pool/history.csv" download>Exporter en CSV</a></div>
+        <div class="history-summary-grid">
+          <div class="card history-kpi"><small>Filtration sur 7 jours</small><strong id="historyFiltration">-</strong></div>
+          <div class="card history-kpi"><small>Moyenne quotidienne</small><strong id="historyFiltrationAverage">-</strong></div>
+          <div class="card history-kpi"><small>Remplissage</small><strong id="historyRefill">-</strong></div>
+          <div class="card history-kpi"><small>Jours disponibles</small><strong id="historyDays">-</strong></div>
+        </div>
+        <div class="card history-chart-card"><h2>Évolution des mesures</h2><div id="historyChart" class="history-chart" aria-label="Courbes pH, ORP et températures"></div><div class="history-legend"><span class="ph">pH</span><span class="orp">ORP</span><span class="water">Température eau</span><span class="air">Température air</span></div></div>
+        <div class="card history-table-card"><div class="table-wrap"><table><thead><tr><th>Date</th><th>pH min / moy / max</th><th>ORP min / moy / max</th><th>Eau min / moy / max</th><th>Air min / moy / max</th><th>Consignes pH / ORP / chauffage</th><th>Filtration</th><th>Chauffage</th><th>Remplissage</th></tr></thead><tbody id="historyTableBody"></tbody></table></div></div>
       </section>
 
       <section id="page-activity-log" class="page">
@@ -545,13 +566,12 @@
 
       <section id="page-users" class="page">
         <div class="topbar">
-          <h1 class="ui-heading-inline"><span class="ui-msr" aria-hidden="true">manage_accounts</span><span>Utilisateurs</span></h1>
+          <h1 class="ui-heading-inline"><span class="ui-msr" aria-hidden="true">manage_accounts</span><span>Compte et utilisateurs</span></h1>
         </div>
-        <div class="card users-card">
-          <div class="btn-row">
-            <a class="btn-tonal" href="/rescue">Gérer les identifiants</a>
-          </div>
-          <p class="note">La modification des identifiants nécessite le mode de récupération physique par appui long sur BOOT.</p>
+        <div class="users-grid">
+          <form id="ownPasswordForm" class="card users-card"><h2>Mon mot de passe</h2><p>Modifiez le mot de passe du compte actuellement connecté.</p><div class="field"><label for="ownPassword">Nouveau mot de passe</label><input id="ownPassword" type="password" minlength="12" autocomplete="new-password" required><small>12 caractères minimum.</small></div><div class="btn-row"><button type="submit" class="btn-primary">Modifier</button></div><div id="ownPasswordStatus" class="config-status" aria-live="polite"></div></form>
+          <div class="card users-card" data-admin-only><h2>Comptes</h2><div id="usersList" class="users-list"></div><div id="usersStatus" class="config-status"></div></div>
+          <form id="userForm" class="card users-card" data-admin-only><h2 id="userFormTitle">Ajouter un compte</h2><div class="field"><label for="userUsername">Identifiant</label><input id="userUsername" maxlength="31" required></div><div class="field"><label for="userRole">Rôle</label><select id="userRole"><option value="operator">Opérateur</option><option value="admin">Administrateur</option></select></div><div class="field"><label for="userPassword">Mot de passe</label><input id="userPassword" type="password" minlength="12" autocomplete="new-password"><small>Laissez vide pour conserver le mot de passe d’un compte existant.</small></div><div class="btn-row"><button id="userFormCancel" type="button" class="btn-tonal">Annuler</button><button type="submit" class="btn-primary">Enregistrer</button></div></form>
         </div>
       </section>
 

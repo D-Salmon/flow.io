@@ -102,6 +102,10 @@
     for (var attempt = 0; attempt <= retries; attempt += 1) {
       try {
         var response = await fetch(url, secureFetchOptions(options));
+        if (response.status === 401 && !String(url || '').startsWith('/api/auth/')) {
+          window.location.replace('/login');
+          return response;
+        }
         if (response.status !== 503) return response;
         if (attempt >= retries) return response;
         var retryAfterHeader = response.headers ? response.headers.get('Retry-After') : '';

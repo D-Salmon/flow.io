@@ -30,13 +30,18 @@
       if (key === 'active') return tr('io.state.active', 'Actif');
       if (key === 'sleeping') return tr('io.state.sleeping', 'Veille');
       if (key === 'error') return tr('io.state.error', 'Erreur');
+      if (key === 'disabled') return 'Désactivé';
+      if (key === 'not_wired') return 'Non câblé';
+      if (key === 'hardware_missing') return 'Matériel absent';
+      if (key === 'unavailable') return 'Temporairement indisponible';
+      if (key === 'safety_blocked') return 'Bloqué par une sécurité';
       return key || '-';
     }
 
     function ioSummaryStateClass(state) {
       const key = String(state || '').trim().toLowerCase();
       if (key === 'active') return 'is-active';
-      if (key === 'error') return 'is-error';
+      if (key === 'error' || key === 'hardware_missing' || key === 'safety_blocked') return 'is-error';
       return 'is-sleeping';
     }
 
@@ -398,8 +403,31 @@
     }
 
     async function fetchIoSummary() {
-      const data = await fetchOkJson('/api/io/summary', { cache: 'no-store' }, 'lecture entrées/sorties indisponible');
+      const results = await Promise.all([
+        fetchOkJson('/api/io/summary', { cache: 'no-store' }, 'lecture entrées/sorties indisponible'),
+        fetchOkJson('/api/pool/assets', { cache: 'no-store' }, 'état central indisponible').catch(() => null)
+      ]);
+      const data = results[0];
       if (!data || data.ok !== true) throw new Error('résumé entrées/sorties indisponible');
+      const assets = results[1] && Array.isArray(results[1].assets) ? results[1].assets : [];
+      const bySlot = new Map(assets.map((asset) => [Number(asset.slot), asset]));
+      const byIoId = new Map(assets
+        .filter((asset) => Number(asset.io_id) !== 65535)
+        .map((asset) => [Number(asset.io_id), asset]));
+      (data.domain_slots || []).forEach((row) => {
+        const asset = bySlot.get(Number(row.domain_slot_id));
+        if (!asset) return;
+        row.state = asset.state;
+        row.error = asset.reason || '';
+        if (asset.has_value) row.last_value = String(asset.value);
+      });
+      (data.io_slots || []).forEach((row) => {
+        const asset = byIoId.get(Number(row.io_id));
+        if (!asset) return;
+        row.state = asset.state;
+        row.error = asset.reason || '';
+        if (asset.has_value) row.last_value = String(asset.value);
+      });
       return data;
     }
 

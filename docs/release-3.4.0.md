@@ -11,8 +11,42 @@ ou des relais.
 - les versions gzip sont générées en même temps et contrôlées par empreinte ;
 - la préparation de SPIFFS échoue si un fichier source a changé sans nouvelle
   minification ;
-- sur cette livraison, les 26 ressources Web passent d’environ 1,08 Mo à
-  868 Ko minifiés et 200 Ko servis en gzip, sans suppression de fonction.
+- sur cette livraison, les 26 ressources Web passent d’environ 1,12 Mo à
+  886 Ko minifiés et 205 Ko servis en gzip, sans suppression de fonction.
+
+## Comptes Web et rôles
+
+- l’ancien identifiant administrateur configuré par Rescue est migré sans
+  changer son mot de passe ;
+- l’interface utilise une page de connexion et une session valable sept jours ;
+- un administrateur gère les comptes, le réseau, la configuration système et
+  les mises à jour ;
+- un opérateur consulte et pilote la piscine, sans accès aux opérations système ;
+- le menu latéral affiche le compte actif, permet de changer son propre mot de
+  passe et de se déconnecter ;
+- les mots de passe nouveaux ou modifiés exigent au moins 12 caractères et
+  sont stockés sous forme PBKDF2-HMAC-SHA256 avec sel individuel ;
+- Rescue conserve son fonctionnement physique et remplace le compte
+  administrateur lorsque ses identifiants sont modifiés.
+- Rescue signale immédiatement une confirmation de mot de passe différente et
+  bloque l’enregistrement tant que les deux valeurs ne correspondent pas.
+
+## Historique local sur sept jours
+
+- conservation des sept dernières journées complètes ainsi que de la journée
+  en cours ;
+- min, moyenne et max du pH, de l’ORP et des températures eau/air ;
+- évolution des consignes pH, ORP et chauffage ;
+- durées de filtration et de chauffage, volume et nombre de remplissages ;
+- nouvelle page **Historique** avec courbes, synthèse et export CSV.
+
+## État cohérent des sondes et équipements
+
+PoolLogic publie désormais un état central utilisé par les pages **Piscine**,
+**Entrées/Sorties** et les affectations de configuration. Les états possibles
+sont : actif, désactivé, non câblé, matériel absent, temporairement
+indisponible et bloqué par une sécurité. Les deux retours de contacteurs sont
+inclus dans cette vue commune.
 
 ## Couple de mise à jour A/B
 
@@ -54,6 +88,13 @@ complet depuis la page **Mises à jour**.
 
 - minification et contrôle de 26 ressources Web ;
 - compilation `Waveshare-ESP32-S3` réussie ;
+- JavaScript de l’interface vérifié syntaxiquement ;
 - image SPIFFS de 1,5 Mo générée ;
 - package de release généré avec empreintes SHA-256 ;
+- firmware et SPIFFS flashés sur le Waveshare réel ;
+- démarrage Web et page de connexion vérifiés par adresse IP et par
+  `flowio.local` ;
+- redirection d’un accès sans session vérifiée sans boucle ;
+- parcours authentifié Administrateur/Opérateur, accumulation sur sept jours
+  et défauts matériels simulés encore à valider sur la carte ;
 - essai matériel du nouveau basculement A/B encore requis.

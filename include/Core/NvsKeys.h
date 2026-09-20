@@ -524,6 +524,25 @@ namespace WebSecurity {
 constexpr char Credentials[] = "web_auth";
 }  // namespace WebSecurity
 
+namespace Users {
+constexpr char AccountKeyPrefix[] = "usr";
+constexpr char SessionSecret[] = "usr_secret";
+}  // namespace Users
+
+namespace PoolHistory {
+constexpr char DayStartHour[] = "hist_dstart";
+constexpr char DayEndHour[] = "hist_dend";
+constexpr char Today[] = "hist_today";
+constexpr char PreviousDay[] = "hist_prev";
+constexpr char CompletedDay0[] = "hist_d0";
+constexpr char CompletedDay1[] = "hist_d1";
+constexpr char CompletedDay2[] = "hist_d2";
+constexpr char CompletedDay3[] = "hist_d3";
+constexpr char CompletedDay4[] = "hist_d4";
+constexpr char CompletedDay5[] = "hist_d5";
+constexpr char CompletedDay6[] = "hist_d6";
+}  // namespace PoolHistory
+
 namespace Provisioning {
 constexpr char ApPassword[] = "prov_ap_pass"; // Per-device provisioning AP password generated on first boot.
 }  // namespace Provisioning

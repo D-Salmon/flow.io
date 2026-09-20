@@ -26,6 +26,7 @@ struct PoolDeviceSvcMeta {
     uint8_t type = 0;
     uint8_t enabled = 0;
     uint8_t blockReason = 0;
+    float flowLPerHour = 0.0f;
     IoId ioId = IO_ID_INVALID;
     char runtimeId[8] = {0};
     char label[24] = {0};
