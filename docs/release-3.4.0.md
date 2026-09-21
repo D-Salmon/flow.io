@@ -23,6 +23,8 @@ ou des relais.
 - l’interface utilise une page de connexion et une session valable sept jours ;
 - un administrateur gère les comptes, le réseau, la configuration système et
   les mises à jour ;
+- les comptes Administrateur peuvent être modifiés mais pas supprimés. Leur
+  bouton Supprimer est absent de l’interface et l’API applique la même règle ;
 - un opérateur consulte et pilote la piscine, sans accès aux opérations système ;
 - le menu latéral affiche le compte actif, permet de changer son propre mot de
   passe et de se déconnecter ;

@@ -14,6 +14,9 @@
 - invalidation des sessions du compte après changement de mot de passe ;
 - invalidation immédiate des sessions après changement de rôle et interdiction
   de rétrograder le dernier compte Administrateur ;
+- interdiction de supprimer directement un compte Administrateur, dans
+  l’interface comme dans l’API. Un administrateur supplémentaire doit d’abord
+  être modifié en Opérateur avant de pouvoir être supprimé ;
 - rôle Opérateur limité au suivi et au pilotage piscine ; les écritures réseau,
   configuration système, récupération, purge du journal, redémarrage et mise
   à jour exigent le rôle Administrateur côté serveur ;

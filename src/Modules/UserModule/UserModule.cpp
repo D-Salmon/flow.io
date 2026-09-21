@@ -676,19 +676,18 @@ bool UserModule::deleteUser_(const char* adminToken,
         return false;
     }
 
-    // Refuse to delete the last admin account.
     AccountRecord target{};
-    loadAccount_((uint8_t)slot, &target);
+    if (!loadAccount_((uint8_t)slot, &target)) {
+        snprintf(errOut, errOutLen, "not_found");
+        return false;
+    }
+
+    // Administrator accounts must be edited explicitly before removal. This
+    // prevents an accidental delete from immediately revoking privileged
+    // access and keeps the Users page consistent with the server-side rule.
     if (target.role == UserRole::Admin) {
-        uint8_t adminCount = 0U;
-        for (uint8_t s = 0; s < kMaxAccounts; ++s) {
-            AccountRecord r{};
-            if (loadAccount_(s, &r) && r.role == UserRole::Admin) ++adminCount;
-        }
-        if (adminCount <= 1U) {
-            snprintf(errOut, errOutLen, "last_admin");
-            return false;
-        }
+        snprintf(errOut, errOutLen, "admin_delete_forbidden");
+        return false;
     }
 
     if (!eraseAccount_((uint8_t)slot)) {
