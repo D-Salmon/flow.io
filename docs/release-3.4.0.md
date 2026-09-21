@@ -90,6 +90,9 @@ complet depuis la page **Mises à jour**.
 
 ## Validation
 
+- la pile de la tâche EventBus passe de 4 à 6 Ko après analyse d’un rapport de
+  plantage montrant seulement 112 octets libres au déclenchement de la
+  protection de pile ;
 - minification et contrôle de 26 ressources Web ;
 - compilation `Waveshare-ESP32-S3` réussie ;
 - JavaScript de l’interface vérifié syntaxiquement ;

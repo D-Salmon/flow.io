@@ -32,6 +32,14 @@
 - Piscine, Entrées/Sorties et Configuration consomment cette même source pour
   éviter des indications contradictoires.
 
+### Stabilité de la distribution des événements
+
+- analyse d’un rapport de plantage conservé dans la partition `coredump` :
+  tâche fautive `EventBus`, exception de protection de pile et seulement
+  112 octets de pile libres ;
+- augmentation de la pile EventBus de 4 à 6 Ko afin de conserver une marge
+  suffisante pendant l’exécution synchrone des gestionnaires d’événements.
+
 Validation : JavaScript vérifié, minification reproductible, compilation et
 flash du firmware/SPIFFS réussis. La page de connexion répond par adresse IP
 et par `flowio.local`, et une requête de page sans session est redirigée sans

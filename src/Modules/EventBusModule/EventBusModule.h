@@ -35,8 +35,10 @@ public:
     void loop() override;
 
     /** @brief Stack size override. */
-    // Synchronous event handlers need headroom with the rebuilt ESP-IDF libraries.
-    uint16_t taskStackSize() const override { return 4096; }
+    // Event callbacks run synchronously on this task. A captured stack-watchpoint
+    // crash left only 112 bytes free with 4096 bytes, so keep enough headroom
+    // for the deepest pool, web and history handlers.
+    uint16_t taskStackSize() const override { return 6144; }
     /** @brief Task priority override. */
     UBaseType_t taskPriority() const override { return 1; }
 
