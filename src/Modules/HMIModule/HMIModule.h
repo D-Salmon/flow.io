@@ -28,6 +28,12 @@ public:
     const char* taskName() const override { return "HMI"; }
     BaseType_t taskCore() const override { return 1; }
     uint16_t taskStackSize() const override { return 6144; }
+    UBaseType_t taskStackCaps() const override {
+        // HMI orchestration does not run while flash caches are disabled. Keep
+        // its sizeable stack in PSRAM to preserve internal heap headroom for
+        // the network stack and synchronous EventBus callbacks.
+        return MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT;
+    }
     uint8_t taskCount() const override { return 1; }
     const ModuleTaskSpec* taskSpecs() const override { return singleLoopTaskSpec(); }
     uint32_t startDelayMs() const override { return 0U; }

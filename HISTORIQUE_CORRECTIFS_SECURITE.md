@@ -39,6 +39,13 @@
   112 octets de pile libres ;
 - augmentation de la pile EventBus de 4 à 6 Ko afin de conserver une marge
   suffisante pendant l’exécution synchrone des gestionnaires d’événements.
+- identification sur la carte d’une seconde cause de redémarrage : la
+  protection mémoire restait en état critique avec 11,6 Ko libres et
+  demandait un redémarrage après 15 secondes ;
+- déplacement de la pile HMI de 6 Ko vers la PSRAM. La réserve interne après
+  démarrage Web atteint 18 880 octets, puis reste hors de l’état critique ;
+- validation pendant plus de cinq minutes, dont 30 requêtes HTTP consécutives,
+  sans coupure ni nouveau redémarrage.
 
 Validation : JavaScript vérifié, minification reproductible, compilation et
 flash du firmware/SPIFFS réussis. La page de connexion répond par adresse IP

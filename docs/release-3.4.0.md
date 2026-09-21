@@ -93,6 +93,9 @@ complet depuis la page **Mises à jour**.
 - la pile de la tâche EventBus passe de 4 à 6 Ko après analyse d’un rapport de
   plantage montrant seulement 112 octets libres au déclenchement de la
   protection de pile ;
+- la pile HMI de 6 Ko est placée en PSRAM : la mémoire interne disponible après
+  le démarrage Web passe de 12 472 à 18 880 octets et ne déclenche plus le
+  redémarrage automatique pour pression mémoire ;
 - minification et contrôle de 26 ressources Web ;
 - compilation `Waveshare-ESP32-S3` réussie ;
 - JavaScript de l’interface vérifié syntaxiquement ;
@@ -101,6 +104,8 @@ complet depuis la page **Mises à jour**.
 - firmware et SPIFFS flashés sur le Waveshare réel ;
 - démarrage Web et page de connexion vérifiés par adresse IP et par
   `flowio.local` ;
+- stabilité vérifiée plus de cinq minutes après la période de grâce du
+  watchdog, avec 30 requêtes Web réussies sur 30 et aucun redémarrage ;
 - redirection d’un accès sans session vérifiée sans boucle ;
 - parcours authentifié Administrateur/Opérateur, accumulation sur sept jours
   et défauts matériels simulés encore à valider sur la carte ;
