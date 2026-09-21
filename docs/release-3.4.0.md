@@ -77,6 +77,11 @@ Le journal d’activité et sa rotation sont déplacés dans la partition dédi�
 `runtime` de 384 Ko. Cette partition n’appartient à aucun des deux couples de
 release : une mise à jour du firmware et de l’interface Web ne l’efface plus.
 
+Les ordres automatiques redondants ne sont plus présentés comme de nouvelles
+demandes : un retour Maintenance → Automatique ne journalise pas « OFF
+demandé » lorsque la pompe est déjà arrêtée. Les véritables changements d’état
+et les ordres de sécurité restent consignés.
+
 ## Nouveau partitionnement
 
 | Partition | Taille | Rôle |

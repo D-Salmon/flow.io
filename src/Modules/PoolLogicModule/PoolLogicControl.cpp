@@ -1032,6 +1032,7 @@ void PoolLogicModule::applyDeviceControl_(uint8_t deviceSlot,
                                           uint32_t nowMs)
 {
     const bool desiredChanged = (desired != fsm.lastDesired);
+    const bool observedStateNeedsChange = !fsm.known || (fsm.on != desired);
     // When the actual state does not follow the requested state, retry at a
     // bounded cadence instead of spamming the downstream pool-device service.
     const bool needRetry = (fsm.known && (fsm.on != desired) && (uint32_t)(nowMs - fsm.lastCmdMs) >= 5000U);
@@ -1039,7 +1040,12 @@ void PoolLogicModule::applyDeviceControl_(uint8_t deviceSlot,
     if (desiredChanged || needRetry) {
         if (writeDeviceDesired_(deviceSlot, desired)) {
             LOGI("%s %s", desired ? "Start" : "Stop", label ? label : "Pool Device");
-            if (desiredChanged) {
+            // A reconciliation can deliberately repeat the current output
+            // after a mode or schedule change. Keep that command silent in
+            // the activity log when the observed actuator already has the
+            // requested state; otherwise it looks like a user-visible state
+            // transition that never happened.
+            if (desiredChanged && observedStateNeedsChange) {
                 emitDeviceActivity_(true, desired, deviceSlot, label, ActivityReason::Auto);
             }
         }
