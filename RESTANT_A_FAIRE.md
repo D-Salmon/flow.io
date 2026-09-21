@@ -217,3 +217,11 @@ conditions suivantes seront réunies :
 - Provoquer une image Web invalide sur banc et confirmer le rollback vers le
   couple précédent.
 - Vérifier que le journal d’activité est conservé pendant ces mises à jour.
+- Vérifier sur téléphone et ordinateur le parcours Opérateur local, puis le
+  passage en Administrateur et le retour en Opérateur local après déconnexion.
+- Confirmer que les sept rubriques réservées (réseau, configuration,
+  utilisateurs, mises à jour, redémarrage/récupération et étalonnage) restent
+  inaccessibles sans session Administrateur.
+- Activer **Exiger l’authentification Web**, vérifier que l’ouverture mène à la
+  page de connexion, puis le désactiver et confirmer le retour au mode
+  Opérateur local par défaut.

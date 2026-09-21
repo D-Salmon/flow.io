@@ -522,6 +522,7 @@ constexpr char UdpToken[] = "fcd_udptk"; // Flow Connect Display persisted pairi
 
 namespace WebSecurity {
 constexpr char Credentials[] = "web_auth";
+constexpr char AuthenticationRequired[] = "web_auth_req";
 }  // namespace WebSecurity
 
 namespace Users {

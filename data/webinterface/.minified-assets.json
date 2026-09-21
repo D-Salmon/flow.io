@@ -10,18 +10,18 @@
       "gzip_bytes": 785
     },
     "sh.html": {
-      "source_sha256": "a11b5832ac273a8325741d573aae5fcbf84a776ed0f2f3d31fbd40a78f01707d",
-      "gzip_sha256": "80542f1dd3a73ad9ae0fd7f292f9c843041c3dc9738ddd368c0f82a1ce282b8e",
-      "original_bytes": 63588,
-      "minified_bytes": 52291,
-      "gzip_bytes": 10431
+      "source_sha256": "aec6259501b551d3b5e87b683cf3d36d14278699bd4e96628d86542a67d62692",
+      "gzip_sha256": "8ab4a63732d9e3ef499cc8aa6088775f46879f4605338f3c911751c73d2a2916",
+      "original_bytes": 63660,
+      "minified_bytes": 52365,
+      "gzip_bytes": 10437
     },
     "app.js": {
-      "source_sha256": "6b876896c606258ce8f68aa046f9395228542a557554780f09abe374e96b8475",
-      "gzip_sha256": "cf8cfb9d6efc6fe5be96b052ced936923959d9710748a45866c512134e26fc59",
-      "original_bytes": 147748,
-      "minified_bytes": 109840,
-      "gzip_bytes": 26473
+      "source_sha256": "15d04c687e09179d9cb2ff1d897ea0bd676b7bb468401cbfc8c2c00d0fcc5886",
+      "gzip_sha256": "61969413eb8802b28e1e376305f10d9410067e5fe0d24917f798050b65493896",
+      "original_bytes": 148643,
+      "minified_bytes": 110541,
+      "gzip_bytes": 26628
     },
     "network.js": {
       "source_sha256": "0beb14a86761eb84e8beade7849e06368b4937bad267514988322faff2f6a5eb",
@@ -101,11 +101,11 @@
       "gzip_bytes": 9305
     },
     "app-core.css": {
-      "source_sha256": "0bf447d99a13e4b7f014e583b623dc381ddbf90553bd4ee4b621f913913f44b8",
-      "gzip_sha256": "12d83fabbba34f3a8acddc701dfda58b00abf98672d0ad3e9fe7acbf98980cf8",
-      "original_bytes": 150542,
-      "minified_bytes": 144942,
-      "gzip_bytes": 26666
+      "source_sha256": "172510d0c4afa5ba8b4d9d8deff14465fbaae1a7715efe96998f8e6291747a95",
+      "gzip_sha256": "0062ccb8e119730ce2aedaa8678b831a6f4e2c8d13fd19892761cb68fb5779f4",
+      "original_bytes": 150574,
+      "minified_bytes": 144974,
+      "gzip_bytes": 26678
     },
     "network.css": {
       "source_sha256": "564c3a2d3b6b3cdac53c4eb74dd7d64dc3ac25f4c9bac95f0db6fa0791647c7b",

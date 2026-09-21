@@ -148,6 +148,19 @@ void test_csp_profiles()
                                 "script-src 'self' 'unsafe-inline'"));
 }
 
+void test_local_operator_sensitive_routes_require_admin()
+{
+    TEST_ASSERT_TRUE(webRouteRequiresAdmin(WebRouteMethod::Get, "/api/wifi/config"));
+    TEST_ASSERT_TRUE(webRouteRequiresAdmin(WebRouteMethod::Get, "/api/cfgdoc/index"));
+    TEST_ASSERT_TRUE(webRouteRequiresAdmin(WebRouteMethod::Get, "/api/auth/users"));
+    TEST_ASSERT_TRUE(webRouteRequiresAdmin(WebRouteMethod::Post, "/api/system/reboot"));
+    TEST_ASSERT_TRUE(webRouteRequiresAdmin(WebRouteMethod::Get, "/rescue"));
+    TEST_ASSERT_TRUE(webRouteRequiresAdmin(WebRouteMethod::Post, "/api/flowcfg/apply"));
+    TEST_ASSERT_FALSE(webRouteRequiresAdmin(WebRouteMethod::Get, "/api/flowcfg/module"));
+    TEST_ASSERT_FALSE(webRouteRequiresAdmin(WebRouteMethod::Post, "/api/poollogic/mode"));
+    TEST_ASSERT_FALSE(webRouteRequiresAdmin(WebRouteMethod::Get, "/api/pool/history"));
+}
+
 void test_ota_preflight_fails_closed()
 {
     TEST_ASSERT_EQUAL(OtaUploadPreflight::PublicKeyMissing,
@@ -186,6 +199,7 @@ int main()
     RUN_TEST(test_global_auth_throttle);
     RUN_TEST(test_success_clears_source_failures);
     RUN_TEST(test_csp_profiles);
+    RUN_TEST(test_local_operator_sensitive_routes_require_admin);
     RUN_TEST(test_ota_preflight_fails_closed);
     RUN_TEST(test_repeated_failure_alarm_window);
     return UNITY_END();

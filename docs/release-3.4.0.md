@@ -23,11 +23,22 @@ ou des relais.
 - l’interface utilise une page de connexion et une session valable sept jours ;
 - un administrateur gère les comptes, le réseau, la configuration système et
   les mises à jour ;
+- sans identification, l’interface ouvre une session locale temporaire sous le
+  libellé « Opérateur local ». Aucun compte basique n’est créé ni stocké ;
+- l’opérateur local peut consulter et piloter la piscine, l’historique, le
+  journal d’activité, les entrées/sorties et les informations ;
+- Réseau, Configuration, Utilisateurs, Mises à jour, redémarrage,
+  récupération et Étalonnage restent réservés à une session Administrateur.
+  Les menus sont masqués et les routes sensibles sont aussi refusées côté
+  serveur ;
+- le réglage **Interface Web > Exiger l’authentification Web** permet à
+  l’administrateur d’imposer une identification dès l’ouverture. Il est
+  désactivé par défaut ;
 - les comptes Administrateur peuvent être modifiés mais pas supprimés. Leur
   bouton Supprimer est absent de l’interface et l’API applique la même règle ;
 - un opérateur consulte et pilote la piscine, sans accès aux opérations système ;
-- le menu latéral affiche le compte actif, permet de changer son propre mot de
-  passe et de se déconnecter ;
+- le menu latéral affiche le compte actif ; l’opérateur local peut y ouvrir la
+  connexion administrateur et un compte identifié peut se déconnecter ;
 - le bandeau de sécurité reprend le rôle de la session active et affiche
   « Administrateur connecté » ou « Opérateur connecté » ;
 - les mots de passe nouveaux ou modifiés exigent au moins 12 caractères et
@@ -45,6 +56,8 @@ ou des relais.
 - évolution des consignes pH, ORP et chauffage ;
 - durées de filtration et de chauffage, volume et nombre de remplissages ;
 - nouvelle page **Historique** avec courbes, synthèse et export CSV.
+- l’icône de la page Historique utilise désormais un calendrier pour la
+  distinguer du Journal d’activité.
 
 ## État cohérent des sondes et équipements
 
@@ -113,7 +126,8 @@ complet depuis la page **Mises à jour**.
   `flowio.local` ;
 - stabilité vérifiée plus de cinq minutes après la période de grâce du
   watchdog, avec 30 requêtes Web réussies sur 30 et aucun redémarrage ;
-- redirection d’un accès sans session vérifiée sans boucle ;
+- ouverture locale sans compte comme Opérateur et séparation des routes
+  Administrateur compilées ;
 - parcours authentifié Administrateur/Opérateur, accumulation sur sept jours
   et défauts matériels simulés encore à valider sur la carte ;
 - essai matériel du nouveau basculement A/B encore requis.

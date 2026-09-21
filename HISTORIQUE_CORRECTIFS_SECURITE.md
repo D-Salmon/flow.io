@@ -20,6 +20,14 @@
 - rôle Opérateur limité au suivi et au pilotage piscine ; les écritures réseau,
   configuration système, récupération, purge du journal, redémarrage et mise
   à jour exigent le rôle Administrateur côté serveur ;
+- ajout d’un mode « Opérateur local » sans compte enregistré : l’interface est
+  accessible sur le réseau local sans identification, mais Réseau,
+  Configuration, Utilisateurs, Mises à jour, redémarrage, récupération et
+  Étalonnage exigent une vraie session Administrateur. Les routes sensibles
+  refusent également l’accès direct côté serveur ;
+- ajout du réglage persistant **Exiger l’authentification Web**, désactivé par
+  défaut, pour les installations qui souhaitent interdire complètement
+  l’accès anonyme ;
 - conservation des protections CSRF et de la limitation des échecs de
   connexion ;
 - Rescue reste soumis à la présence physique et remplace explicitement le

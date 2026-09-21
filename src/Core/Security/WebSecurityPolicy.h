@@ -72,6 +72,9 @@ bool unauthenticatedWebRouteAllowed(bool credentialsReady,
                                     WebRouteMethod method,
                                     const char* path);
 
+/** Return true when a Web route requires a real administrator session. */
+bool webRouteRequiresAdmin(WebRouteMethod method, const char* path);
+
 enum class WebCspProfile : uint8_t {
     StrictApplication = 0,
     InlineRecovery = 1,

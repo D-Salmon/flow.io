@@ -140,10 +140,10 @@ réglages persistants des versions précédentes restent compatibles.
 Le dossier `binary` contient le firmware, l’interface Web associée et le paquet
 complet A/B :
 
-- `binary/flowios3-3.4.0.bin` — `2 291 824` octets — SHA-256
-  `9cbd4756c778da42d6a6990c5eefd1e7913b561e682e8c5ad6dcef9fa7b4177f` ;
+- `binary/flowios3-3.4.0.bin` — `2 293 088` octets — SHA-256
+  `2d559851e7a911797453b3d2b4c26cbe9f8468d0fe87893013cc153de147bf6e` ;
 - `binary/flowios3-spiffs-3.4.0.bin` — `1 572 864` octets — SHA-256
-  `a5c2405fb18da51870c29d8793848ee584f1c12fb86be0c085e2dd1f3cad1ab5` ;
+  `4f6441462f3ebe69f0e7a9997415ce6d20db95faeb5f5e0214658411c7266cfe` ;
 - `binary/flowio-3.4.0.zip` — paquet atomique contenant manifeste, firmware et
   SPIFFS.
 
@@ -435,11 +435,18 @@ Ce fichier local est exclu de Git et contient le mot de passe en clair. Les API
 Web ne renvoient plus les mots de passe Wi-Fi ou MQTT
 enregistrés ; un champ vide lors d’une modification conserve le secret existant.
 L’interface indique explicitement si l’utilisateur est administrateur, si la
-récupération physique est active ou si l’accès n’est pas authentifié.
+récupération physique est active ou si l’accès utilise le mode
+« Opérateur local — non identifié ».
 
-L’interface utilise une session de sept jours liée à un compte administrateur
-ou opérateur. Les routes d’administration contrôlent le rôle côté serveur et
-les actions modifiant l’état nécessitent également un jeton CSRF.
+L’interface reste accessible sans compte en mode Opérateur local afin de
+consulter et piloter la piscine sur le réseau local. Ce mode n’accède pas au
+réseau, à la configuration, aux utilisateurs, aux mises à jour, aux commandes
+de redémarrage et de récupération, ni à l’étalonnage. Ces restrictions sont
+appliquées dans le menu et côté serveur. La connexion administrateur reste
+disponible depuis le menu ou la page de connexion. Les sessions identifiées
+sont valables sept jours. Le réglage **Interface Web > Exiger
+l’authentification Web**, désactivé par défaut, permet d’imposer une connexion
+dès l’ouverture. Les actions modifiant l’état exigent aussi un jeton CSRF.
 
 Les mises à jour du firmware sont prévues pour être signées en ECDSA P-256 et
 échouent si la clé publique de production ou la signature manque. La clé de

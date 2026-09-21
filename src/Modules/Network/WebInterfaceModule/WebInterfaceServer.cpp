@@ -159,19 +159,11 @@ static bool isPublicSessionPath_(AsyncWebServerRequest* request, const char* url
 
 static bool sessionRequiresAdmin_(AsyncWebServerRequest* request, const char* url)
 {
-    if (!request || request->method() != HTTP_POST || !url) return false;
-    return pathStartsWith_(url, "/api/fwupdate/") ||
-           pathStartsWith_(url, "/api/upgrade/") ||
-           pathStartsWith_(url, "/api/activity/") ||
-           pathStartsWith_(url, "/api/recovery/") ||
-           pathStartsWith_(url, "/api/system/") ||
-           pathStartsWith_(url, "/api/flow/system/") ||
-           pathStartsWith_(url, "/api/supervisorcfg/") ||
-           pathStartsWith_(url, "/api/flowcfg/") ||
-           pathStartsWith_(url, "/api/wifi/") ||
-           pathStartsWith_(url, "/api/network/") ||
-           pathStartsWith_(url, "/api/mqtt/") ||
-           pathStartsWith_(url, "/fwupdate/");
+    if (!request || !url) return true;
+    Security::WebRouteMethod method = Security::WebRouteMethod::Other;
+    if (request->method() == HTTP_GET) method = Security::WebRouteMethod::Get;
+    else if (request->method() == HTTP_POST) method = Security::WebRouteMethod::Post;
+    return Security::webRouteRequiresAdmin(method, url);
 }
 
 static bool extractSessionCookie_(AsyncWebServerRequest* request, char* out, size_t outLen)
@@ -194,9 +186,9 @@ static bool extractSessionCookie_(AsyncWebServerRequest* request, char* out, siz
 static const char kLoginPageHtml[] PROGMEM = R"HTML(<!doctype html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>flow.io — Connexion</title><style>
-:root{color-scheme:light dark;font-family:Inter,Segoe UI,Arial,sans-serif}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#eef8fc;color:#071a35}.card{width:min(92vw,430px);padding:36px;border:1px solid #cbddeb;border-radius:22px;background:#fff;box-shadow:0 24px 70px #19628b26}h1{margin:0 0 8px;text-align:center}.brand{font-size:30px;font-weight:800;color:#079ec0;text-align:center;margin-bottom:25px}.sub{color:#61758d;text-align:center;margin:0 0 28px}label{display:block;font-weight:700;margin:16px 0 7px}input{width:100%;padding:14px;border:1px solid #b9cede;border-radius:10px;font:inherit}button{width:100%;padding:14px;margin-top:24px;border:0;border-radius:10px;background:#078fc4;color:#fff;font:inherit;font-weight:800;cursor:pointer}.status{min-height:22px;text-align:center;color:#b4233a;margin-top:12px}@media(prefers-color-scheme:dark){body{background:#07111f;color:#edf5ff}.card{background:#111c2b;border-color:#2c405a}.sub{color:#a9b9cf}input{background:#0b1726;color:#edf5ff;border-color:#3a526e}}
-</style></head><body><form class="card" id="f" method="post" action="/api/auth/login"><div class="brand">〰 flow.io</div><h1>Connexion</h1><p class="sub">Accédez à votre contrôleur de piscine.</p><label for="u">Identifiant</label><input id="u" name="username" autocomplete="username" required autofocus><label for="p">Mot de passe</label><input id="p" name="password" type="password" autocomplete="current-password" required><button>Se connecter</button><div class="status" id="s"></div></form><script>
-const f=document.getElementById('f'),s=document.getElementById('s');f.addEventListener('submit',async e=>{e.preventDefault();s.textContent='Connexion…';const b=new URLSearchParams(new FormData(f));try{const r=await fetch('/api/auth/login',{method:'POST',body:b});if(!r.ok)throw 0;location.replace('/webinterface');}catch(_){s.textContent='Identifiant ou mot de passe incorrect.';}});
+:root{color-scheme:light dark;font-family:Inter,Segoe UI,Arial,sans-serif}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#eef8fc;color:#071a35}.card{width:min(92vw,430px);padding:36px;border:1px solid #cbddeb;border-radius:22px;background:#fff;box-shadow:0 24px 70px #19628b26}h1{margin:0 0 8px;text-align:center}.brand{font-size:30px;font-weight:800;color:#079ec0;text-align:center;margin-bottom:25px}.sub{color:#61758d;text-align:center;margin:0 0 28px}label{display:block;font-weight:700;margin:16px 0 7px}input{width:100%;padding:14px;border:1px solid #b9cede;border-radius:10px;font:inherit}button{width:100%;padding:14px;margin-top:24px;border:0;border-radius:10px;background:#078fc4;color:#fff;font:inherit;font-weight:800;cursor:pointer}.local{display:block;margin-top:12px;padding:13px;text-align:center;border:1px solid #078fc4;border-radius:10px;color:#0782b3;text-decoration:none;font-weight:800}.status{min-height:22px;text-align:center;color:#b4233a;margin-top:12px}@media(prefers-color-scheme:dark){body{background:#07111f;color:#edf5ff}.card{background:#111c2b;border-color:#2c405a}.sub{color:#a9b9cf}input{background:#0b1726;color:#edf5ff;border-color:#3a526e}.local{color:#66c9ef}}
+</style></head><body><form class="card" id="f" method="post" action="/api/auth/login"><div class="brand">〰 flow.io</div><h1>Connexion administrateur</h1><p class="sub">Identifiez-vous pour accéder aux réglages sensibles.</p><label for="u">Identifiant</label><input id="u" name="username" autocomplete="username" required autofocus><label for="p">Mot de passe</label><input id="p" name="password" type="password" autocomplete="current-password" required><button>Se connecter</button><a id="local" class="local" href="/webinterface">Continuer comme opérateur local</a><div class="status" id="s"></div></form><script>
+const f=document.getElementById('f'),s=document.getElementById('s'),l=document.getElementById('local');fetch('/api/auth/session',{cache:'no-store'}).then(r=>r.json()).then(x=>{l.hidden=x.local_operator!==true;}).catch(()=>{l.hidden=true;});f.addEventListener('submit',async e=>{e.preventDefault();s.textContent='Connexion…';const b=new URLSearchParams(new FormData(f));try{const r=await fetch('/api/auth/login',{method:'POST',body:b});if(!r.ok)throw 0;location.replace('/webinterface');}catch(_){s.textContent='Identifiant ou mot de passe incorrect.';}});
 </script></body></html>)HTML";
 
 static void printHistoryMetricJson_(Print& out, const PoolHistoryMetricSummary& metric)
@@ -5177,6 +5169,9 @@ void WebInterfaceModule::emitConfigPatchActivity_(const char* contextLabel, cons
 
 void WebInterfaceModule::init(ConfigStore& cfg, ServiceRegistry& services)
 {
+    cfg.registerVar(authenticationRequiredVar_,
+                    (uint8_t)ConfigModuleId::WebInterface,
+                    1U);
     cfgStore_ = &cfg;
     initRuntimeValuesBodyScratch_();
 
@@ -6225,6 +6220,7 @@ void WebInterfaceModule::startServer_()
         doc["ok"] = true;
         doc["csrf_token"] = csrfToken_;
         doc["auth_enabled"] = webCredentialsReady_;
+        doc["auth_required"] = authenticationRequired_;
         // Reaching this handler through a protected route proves that the global
         // Digest middleware already authenticated the request. Recovery/bootstrap
         // routes remain public and still require an explicit credential check.
@@ -8925,9 +8921,12 @@ void WebInterfaceModule::startServer_()
         const bool ok = userSvc_ && userSvc_->sessionInfo &&
             userSvc_->sessionInfo(userSvc_->ctx, token, &role, username, sizeof(username));
         auto* response = request->beginResponseStream("application/json");
-        response->printf("{\"ok\":true,\"authenticated\":%s,\"role\":\"%s\",\"username\":",
-                         ok ? "true" : "false", userRoleName(ok ? role : UserRole::None));
-        printJsonEscaped_(*response, ok ? username : "");
+        const bool localOperator = !ok && webCredentialsReady_ && !authenticationRequired_;
+        response->printf("{\"ok\":true,\"authenticated\":%s,\"local_operator\":%s,\"role\":\"%s\",\"username\":",
+                         ok ? "true" : "false",
+                         localOperator ? "true" : "false",
+                         userRoleName(ok ? role : (localOperator ? UserRole::Operator : UserRole::None)));
+        printJsonEscaped_(*response, ok ? username : (localOperator ? "Opérateur local" : ""));
         response->print("}");
         request->send(response);
     });
@@ -9076,7 +9075,7 @@ void WebInterfaceModule::authGate_(AsyncWebServerRequest* request, ArMiddlewareN
     UserRole role = UserRole::None;
     const bool authorized = userSvc_ && userSvc_->authorize &&
         userSvc_->authorize(userSvc_->ctx, token, &role);
-    if (!authorized) {
+    if (!authorized && (!webCredentialsReady_ || authenticationRequired_)) {
         const char* url = request->url().c_str();
         const bool page = request->method() == HTTP_GET &&
             !pathStartsWith_(url, "/api/") && !pathStartsWith_(url, "/ws");
@@ -9085,10 +9084,15 @@ void WebInterfaceModule::authGate_(AsyncWebServerRequest* request, ArMiddlewareN
                            "{\"ok\":false,\"err\":{\"code\":\"Unauthorized\",\"where\":\"auth\"}}");
         return;
     }
+    if (!authorized) role = UserRole::Operator;
     if (sessionRequiresAdmin_(request, request->url().c_str()) &&
         !roleHasPermission(role, UserPermission::UpdateSystem)) {
-        request->send(403, "application/json",
-                      "{\"ok\":false,\"err\":{\"code\":\"Forbidden\",\"where\":\"auth\"}}");
+        const char* url = request->url().c_str();
+        const bool page = request->method() == HTTP_GET &&
+            !pathStartsWith_(url, "/api/") && !pathStartsWith_(url, "/ws");
+        if (page) request->redirect("/login");
+        else request->send(403, "application/json",
+                           "{\"ok\":false,\"err\":{\"code\":\"Forbidden\",\"where\":\"auth\"}}");
         return;
     }
     next();

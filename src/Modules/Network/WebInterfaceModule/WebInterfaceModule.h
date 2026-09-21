@@ -193,6 +193,16 @@ private:
         char pass[33]{};
     } webSecurity_{};
     bool webCredentialsReady_ = false;
+    bool authenticationRequired_ = false;
+    ConfigVariable<bool,0> authenticationRequiredVar_{
+        NVS_KEY(NvsKeys::WebSecurity::AuthenticationRequired),
+        "authentication_required",
+        "webinterface",
+        ConfigType::Bool,
+        &authenticationRequired_,
+        ConfigPersistence::Persistent,
+        0
+    };
     Security::WebAuthThrottleState webAuthThrottleState_{};
     portMUX_TYPE webAuthThrottleMux_ = portMUX_INITIALIZER_UNLOCKED;
     uint32_t bootButtonPressedAtMs_ = 0U;

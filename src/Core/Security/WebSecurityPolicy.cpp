@@ -217,6 +217,39 @@ bool unauthenticatedWebRouteAllowed(bool credentialsReady,
     return false;
 }
 
+bool webRouteRequiresAdmin(WebRouteMethod method, const char* path)
+{
+    if (!path) return true;
+
+    const bool mutating = method == WebRouteMethod::Post || method == WebRouteMethod::Other;
+    const auto startsWith = [path](const char* prefix) {
+        return strncmp(path, prefix, strlen(prefix)) == 0;
+    };
+
+    if (strcmp(path, "/rescue") == 0 ||
+        strcmp(path, "/webinterface/rescue") == 0 ||
+        startsWith("/api/fwupdate/") ||
+        startsWith("/api/upgrade/") ||
+        startsWith("/api/recovery/") ||
+        startsWith("/api/system/") ||
+        startsWith("/api/flow/system/") ||
+        startsWith("/api/wifi/") ||
+        startsWith("/api/network/") ||
+        startsWith("/api/mqtt/") ||
+        startsWith("/api/cfgdoc/") ||
+        startsWith("/api/supervisorcfg/") ||
+        startsWith("/api/auth/users") ||
+        startsWith("/fwupdate/")) {
+        return true;
+    }
+
+    if (mutating &&
+        (startsWith("/api/activity/") || startsWith("/api/flowcfg/"))) {
+        return true;
+    }
+    return false;
+}
+
 WebCspProfile cspProfileForPath(const char* path)
 {
     if (!path) return WebCspProfile::StrictApplication;

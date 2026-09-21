@@ -1288,6 +1288,8 @@ ac_unit: '\u{eb3b}',
           ).replace('{minutes}', String(minutes));
         } else if (authSession && authSession.authenticated && authSession.role === 'admin') {
           headerSecurityStatus.textContent = tr('header.security.admin', 'Administrateur connecté');
+        } else if (authSession && authSession.local_operator === true) {
+          headerSecurityStatus.textContent = tr('header.security.localOperator', 'Opérateur local · non identifié');
         } else if (authSession && authSession.authenticated && authSession.role === 'operator') {
           headerSecurityStatus.textContent = tr('header.security.operator', 'Opérateur connecté');
         } else if (webAdminAuthenticated) {
@@ -1956,8 +1958,8 @@ ac_unit: '\u{eb3b}',
     }
 
     function showPage(pageId, options) {
-      if (authSession && authSession.authenticated && authSession.role !== 'admin' &&
-          ['page-control','page-wifi','page-system'].includes(pageId)) {
+      if (authSession && authSession.role !== 'admin' &&
+          ['page-calibration','page-control','page-wifi','page-users','page-system'].includes(pageId)) {
         pageId = 'page-pool-measures';
       }
       const opts = options || {};
@@ -3507,7 +3509,8 @@ ac_unit: '\u{eb3b}',
 
     async function loadAuthSession() {
       const response = await fetchJsonResponse('/api/auth/session', { cache: 'no-store' });
-      if (!response.res.ok || !response.data || !response.data.authenticated) {
+      if (!response.res.ok || !response.data ||
+          (!response.data.authenticated && response.data.local_operator !== true)) {
         window.location.replace('/login');
         return authSession;
       }
@@ -3520,16 +3523,29 @@ ac_unit: '\u{eb3b}',
       const name = document.getElementById('accountName');
       const role = document.getElementById('accountRole');
       const avatar = document.getElementById('accountAvatar');
-      if (name) name.textContent = authSession.username || '-';
-      if (role) role.textContent = authSession.role === 'admin' ? 'Administrateur' : 'Opérateur';
-      if (avatar) avatar.textContent = (authSession.username || '?').charAt(0).toUpperCase();
+      const logout = document.getElementById('accountLogout');
+      if (name) name.textContent = authSession.local_operator === true ?
+        'Se connecter comme administrateur' : (authSession.username || '-');
+      if (role) role.textContent = authSession.local_operator === true ? 'Opérateur local' :
+        (authSession.role === 'admin' ? 'Administrateur' : 'Opérateur');
+      if (avatar) avatar.textContent = authSession.local_operator === true ? 'A' :
+        (authSession.username || '?').charAt(0).toUpperCase();
+      if (logout && authSession.local_operator === true) {
+        logout.hidden = true;
+      } else if (logout) {
+        logout.hidden = false;
+      }
       refreshAppHeader(getActivePageId());
       return authSession;
     }
 
     async function logoutSession() {
+      if (authSession && authSession.local_operator === true) {
+        window.location.assign('/login');
+        return;
+      }
       await fetchWithBusyRetry('/api/auth/logout', { method: 'POST', cache: 'no-store' }).catch(() => null);
-      window.location.replace('/login');
+      window.location.replace('/webinterface');
     }
 
     function historyNumber(metric, key, digits) {
@@ -3592,7 +3608,7 @@ ac_unit: '\u{eb3b}',
     }
 
     const accountLogout=document.getElementById('accountLogout'); if(accountLogout) accountLogout.addEventListener('click',logoutSession);
-    const accountOpen=document.getElementById('accountOpen'); if(accountOpen) accountOpen.addEventListener('click',()=>showPage('page-users'));
+    const accountOpen=document.getElementById('accountOpen'); if(accountOpen) accountOpen.addEventListener('click',()=>{if(authSession&&authSession.role==='admin')showPage('page-users');else window.location.assign('/login');});
     const userCancel=document.getElementById('userFormCancel'); if(userCancel) userCancel.addEventListener('click',resetUserForm);
     const userForm=document.getElementById('userForm'); if(userForm) userForm.addEventListener('submit',async(event)=>{event.preventDefault();const username=document.getElementById('userUsername').value.trim(),password=document.getElementById('userPassword').value,role=document.getElementById('userRole').value,status=document.getElementById('usersStatus');try{await fetchOkJson('/api/auth/users',createFormPostOptions({username,password,role}),'Enregistrement refusé');resetUserForm();await loadUsers();if(status)status.textContent='Compte enregistré.';}catch(error){if(status)status.textContent=error.message||'Enregistrement refusé.';}});
     const ownPasswordForm=document.getElementById('ownPasswordForm'); if(ownPasswordForm) ownPasswordForm.addEventListener('submit',async(event)=>{event.preventDefault();const input=document.getElementById('ownPassword'),status=document.getElementById('ownPasswordStatus');try{await fetchOkJson('/api/auth/password',createFormPostOptions({password:input.value}),'Modification refusée');input.value='';if(status)status.textContent='Mot de passe modifié.';}catch(error){if(status)status.textContent=error.message||'Modification refusée.';}});
