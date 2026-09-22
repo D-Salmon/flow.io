@@ -104,16 +104,38 @@
           || String(event && event.domain_name || '').toLowerCase() === 'pooldevice';
       }
 
+      function activityField(event, name) {
+        return String(event && event[name] || '').trim().toLowerCase();
+      }
+
+      function isManual(event) {
+        const code = Number(event && event.code) || 0;
+        const source = Number(event && event.source);
+        const reason = Number(event && event.reason);
+        return activityField(event, 'source_name') === 'manual'
+          || source === 2 || reason === 4
+          || code === 220 || code === 221 || code === 230 || code === 240;
+      }
+
+      function isAutomatic(event) {
+        if (isManual(event)) return false;
+        const code = Number(event && event.code) || 0;
+        const source = Number(event && event.source);
+        const reason = Number(event && event.reason);
+        const sourceName = activityField(event, 'source_name');
+        return sourceName === 'auto' || sourceName === 'scheduler' || sourceName === 'pid'
+          || source === 1 || source === 3 || source === 5
+          || reason === 3 || reason === 5 || reason === 6 || reason === 8 || reason === 9
+          || (code >= 120 && code <= 150);
+      }
+
       function matchesFilter(event) {
         if (filter === 'all') return true;
         if (filter === 'equipment') return isEquipment(event);
-        if (filter === 'automatic') {
-          const source = String(event && event.source_name || '').toLowerCase();
-          return source === 'auto' || source === 'scheduler' || source === 'pid';
-        }
-        if (filter === 'manual') return event.source_name === 'manual';
+        if (filter === 'automatic') return isAutomatic(event);
+        if (filter === 'manual') return isManual(event);
         if (filter === 'alerts') return isAlert(event);
-        if (filter === 'system') return event.domain_name === 'system';
+        if (filter === 'system') return activityField(event, 'domain_name') === 'system';
         return true;
       }
 
@@ -188,7 +210,7 @@
         const items = Array.isArray(events) ? events : [];
         if (summaryTotal) summaryTotal.textContent = String(items.length);
         if (summaryAlerts) summaryAlerts.textContent = String(items.filter(isAlert).length);
-        if (summaryManual) summaryManual.textContent = String(items.filter((event) => event.source_name === 'manual').length);
+        if (summaryManual) summaryManual.textContent = String(items.filter(isManual).length);
         if (summaryEquipment) summaryEquipment.textContent = String(items.filter(isEquipment).length);
       }
 

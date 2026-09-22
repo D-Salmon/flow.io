@@ -95,6 +95,19 @@ demandes : un retour Maintenance → Automatique ne journalise pas « OFF
 demandé » lorsque la pompe est déjà arrêtée. Les véritables changements d’état
 et les ordres de sécurité restent consignés.
 
+Les filtres **Automatismes** et **Manuel** utilisent désormais le code, la
+source et le motif numériques de chaque événement. Ils restent donc exacts
+pour les anciennes entrées du journal même lorsque leur libellé de source est
+absent ou incomplet. Les alertes de sécurité ne sont pas assimilées aux
+automatismes.
+
+## Lisibilité de la filtration
+
+Lorsque la filtration fonctionne, sa carte prend une teinte bleue plus nette
+et l’icône d’eau s’anime doucement dans le Tableau de bord et dans **Piscine**.
+Si le navigateur demande une réduction des animations, un halo statique
+conserve la distinction visuelle.
+
 ## Nouveau partitionnement
 
 | Partition | Taille | Rôle |
@@ -119,6 +132,7 @@ complet depuis la page **Mises à jour**.
 - minification et contrôle de 26 ressources Web ;
 - compilation `Waveshare-ESP32-S3` réussie ;
 - JavaScript de l’interface vérifié syntaxiquement ;
+- test ciblé des filtres Automatismes et Manuel réussi ;
 - image SPIFFS de 1,5 Mo générée ;
 - package de release généré avec empreintes SHA-256 ;
 - firmware et SPIFFS flashés sur le Waveshare réel ;

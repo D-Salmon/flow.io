@@ -143,7 +143,7 @@ complet A/B :
 - `binary/flowios3-3.4.0.bin` — `2 293 088` octets — SHA-256
   `2d559851e7a911797453b3d2b4c26cbe9f8468d0fe87893013cc153de147bf6e` ;
 - `binary/flowios3-spiffs-3.4.0.bin` — `1 572 864` octets — SHA-256
-  `4f6441462f3ebe69f0e7a9997415ce6d20db95faeb5f5e0214658411c7266cfe` ;
+  `748bc1bb975fe122e6d57810816fc05dd3e5fb61755a9663a91ae579b59db514` ;
 - `binary/flowio-3.4.0.zip` — paquet atomique contenant manifeste, firmware et
   SPIFFS.
 

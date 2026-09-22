@@ -14,17 +14,22 @@ function element() {
 }
 function setup(fetch, confirm = () => true) {
   const elements = new Map();
+  const filters = ['all', 'equipment', 'automatic', 'manual', 'alerts', 'system'].map(value => {
+    const button = element();
+    button.dataset = { activityFilter: value };
+    return button;
+  });
   const timers = new Set();
   const context = { window: {}, AbortController, fetch, confirm,
     setTimeout(fn, delay) { if (delay === 1000) { queueMicrotask(fn); return fn; } timers.add(fn); return fn; }, clearTimeout(fn) { timers.delete(fn); },
     document: { getElementById(id) {
       if (!elements.has(id)) elements.set(id, element());
       return elements.get(id);
-    }, querySelectorAll: () => [], createElement: element, createTextNode: element } };
+    }, querySelectorAll: selector => selector === '[data-activity-filter]' ? filters : [], createElement: element, createTextNode: element } };
   vm.runInNewContext(source, context);
   const page = context.window.FlowWebPages.activity.create({ tr: (_, text) => text,
     currentWebLocaleTag: () => 'fr-FR', fetchWithBusyRetry: fetch });
-  return { page, timers, elements, status: elements.get('activityLogStatus'), button: elements.get('activityRefreshBtn') };
+  return { page, timers, elements, filters, status: elements.get('activityLogStatus'), button: elements.get('activityRefreshBtn') };
 }
 const result = (payload) => ({ ok: true, json: async () => payload });
 const empty = { available: true, events: [], count: 0, complete: true };
@@ -160,8 +165,27 @@ async function main() {
   await reloadFailure.elements.get('activityPurgeBtn').listeners.click();
   assert.equal(reloadFailure.elements.get('activitySummaryTotal').textContent, '0');
   assert.match(reloadFailure.status.textContent, /Journal vidé.*Actualisation automatique impossible/);
+
+  const classified = setup(async () => result({ available: true, count: 5, complete: true, events: [
+    { seq: 51, code: 122, domain_name: 'poollogic', source: 0, source_name: 'system', reason: 5 },
+    { seq: 52, code: 130, domain_name: 'poollogic', source: 3, source_name: 'unknown', reason: 3 },
+    { seq: 53, code: 160, domain_name: 'poollogic', source: 4, source_name: 'safety', reason: 7, severity_name: 'warning' },
+    { seq: 54, code: 220, domain_name: 'pooldevice', source: 0, source_name: 'system', reason: 4 },
+    { seq: 55, code: 2, domain_name: 'system', source: 2, source_name: 'manual', reason: 4 }
+  ] }));
+  await classified.page.show();
+  classified.filters.find(button => button.dataset.activityFilter === 'automatic').listeners.click();
+  classified.elements.get('activitySelectVisibleBtn').listeners.click();
+  assert.match(classified.elements.get('activityDeleteBtn').textContent, /\(2\)/,
+    'Automatismes uses codes and numeric metadata without including safety alerts');
+  classified.filters.find(button => button.dataset.activityFilter === 'manual').listeners.click();
+  classified.elements.get('activitySelectVisibleBtn').listeners.click();
+  assert.match(classified.elements.get('activityDeleteBtn').textContent, /\(2\)/,
+    'Manuel includes explicit and legacy manual actions');
+  assert.equal(classified.elements.get('activitySummaryManual').textContent, '2');
   console.log('Post-delete refresh: immediate view update, slow reload and reload failure OK');
   console.log('Activity deletion: confirmation, selection, clear-all and persistence failure OK');
+  console.log('Activity filters: automatic and manual classification OK');
   console.log('Activity page: concurrency, cancellation, errors, timeout and pagination OK');
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });
