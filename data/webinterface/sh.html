@@ -16,7 +16,7 @@
       </div>
       <nav class="menu-group">
         <button class="menu-item active" data-page="page-pool-measures"><span class="ico icon-measures" aria-hidden="true"></span><span class="label" data-i18n="menu.dashboard">Tableau de bord</span></button>
-        <button class="menu-item" data-page="page-history"><span class="ui-msr ico" aria-hidden="true">date_range</span><span class="label">Historique</span></button>
+        <button class="menu-item" data-page="page-history"><span class="ico icon-history" aria-hidden="true"></span><span class="label">Historique</span></button>
         <button class="menu-item" data-page="page-pool"><span class="ico icon-pool" aria-hidden="true"></span><span class="label" data-i18n="menu.pool">Piscine</span></button>
         <button class="menu-item" data-page="page-calibration" data-admin-only hidden><span class="ico icon-calibration" aria-hidden="true"></span><span class="label" data-i18n="menu.calibration">Étalonnage</span></button>
         <button class="menu-item" data-page="page-activity-log"><span class="ico icon-activity" aria-hidden="true"></span><span class="label" data-i18n="menu.activity">Journal d’Activité</span></button>
@@ -107,80 +107,76 @@
             <div class="dashboard-hero-main">
               <span class="ui-msr dashboard-hero-icon" data-fallback="≈" aria-hidden="true">pool</span>
               <div class="dashboard-hero-copy">
-                <div class="dashboard-eyebrow" data-i18n="dashboard.overview.eyebrow">Vue d’ensemble</div>
-                <h2 id="dashboardModeTitle" data-i18n="dashboard.loading">Chargement en cours...</h2>
-                <div id="dashboardModeControl" class="dashboard-mode-control">
-                  <label for="dashboardOperatingMode" data-i18n="pool.mode.label">Mode de fonctionnement</label>
-                  <div class="dashboard-mode-control-row">
-                    <select id="dashboardOperatingMode" class="pool-setting-control" disabled>
-                      <option value="maintenance" data-i18n="pool.mode.maintenance">Manuel / maintenance</option>
-                      <option value="safe_manual" data-i18n="pool.mode.safeManual">Manuel sécurisé</option>
-                      <option value="automatic" data-i18n="pool.mode.automatic">Automatique</option>
-                    </select>
-                    <button id="dashboardModeApply" type="button" class="btn-primary" disabled data-i18n="pool.mode.apply">Appliquer</button>
-                  </div>
-                  <span id="dashboardModeStatus" class="dashboard-mode-status" aria-live="polite"></span>
+                <div id="dashboardOverallState" class="dashboard-overall-state is-loading">
+                  <span class="ui-msr" aria-hidden="true">progress_activity</span>
+                  <span data-i18n="dashboard.loading">Chargement en cours...</span>
                 </div>
                 <p id="dashboardSummary" data-i18n="dashboard.overview.loading">Lecture de l’état de la piscine et des équipements…</p>
-                <div id="dashboardConnectionBadges" class="dashboard-connection-badges"></div>
+                <div class="dashboard-hero-filtration">
+                  <strong id="dashboardFiltrationStart">—</strong>
+                  <div class="dashboard-progress-track" aria-hidden="true"><span id="dashboardFiltrationProgress"></span></div>
+                  <strong id="dashboardFiltrationStop">—</strong>
+                  <span id="dashboardFiltrationState" class="dashboard-state-pill is-unknown">—</span>
+                </div>
+                <p id="dashboardFiltrationHint" class="dashboard-panel-note" data-i18n="dashboard.filtration.loading">Chargement de la plage calculée…</p>
               </div>
             </div>
             <div class="dashboard-hero-side">
-              <div id="dashboardOverallState" class="dashboard-overall-state is-loading">
-                <span class="ui-msr" aria-hidden="true">progress_activity</span>
-                <span data-i18n="dashboard.loading">Chargement en cours...</span>
+              <div class="dashboard-current-mode">
+                <span class="ui-msr" aria-hidden="true">tune</span>
+                <div><small>Mode actuel</small><strong id="dashboardModeTitle" data-i18n="dashboard.loading">Chargement en cours...</strong></div>
               </div>
-              <div class="dashboard-shortcuts" aria-label="Accès rapides" data-i18n-aria-label="dashboard.shortcuts.aria">
-                <button id="dashboardLightsShortcut" type="button" class="dashboard-shortcut dashboard-lights-shortcut" aria-label="Commander l’éclairage" data-i18n-aria-label="dashboard.lights.command"><span class="ui-msr" data-fallback="☀" aria-hidden="true">lightbulb</span><span data-i18n="dashboard.equipment.lights">Éclairage</span></button>
-                <button type="button" class="dashboard-shortcut" data-dashboard-page="page-pool"><span class="ui-msr" data-fallback="⚙" aria-hidden="true">tune</span><span data-i18n="menu.pool">Piscine</span></button>
-                <button type="button" class="dashboard-shortcut" data-dashboard-page="page-calibration" data-admin-only hidden><span class="ui-msr" data-fallback="⚗" aria-hidden="true">science</span><span data-i18n="menu.calibration">Étalonnage</span></button>
-                <button type="button" class="dashboard-shortcut" data-dashboard-page="page-activity-log"><span class="ui-msr" data-fallback="↶" aria-hidden="true">history</span><span data-i18n="menu.activity">Journal d’Activité</span></button>
+              <div id="dashboardConnectionBadges" class="dashboard-connection-badges"></div>
+              <div class="dashboard-hero-links">
+                <button type="button" class="btn-tonal" data-dashboard-page="page-pool"><span class="ui-msr" aria-hidden="true">tune</span><span>Gérer la piscine</span></button>
+                <button type="button" class="btn-tonal" data-dashboard-page="page-activity-log"><span class="ui-msr" aria-hidden="true">date_range</span><span>Voir le journal</span></button>
               </div>
             </div>
           </section>
 
-          <section id="dashboardKpiGrid" class="dashboard-kpi-grid" aria-label="Mesures principales" data-i18n-aria-label="dashboard.kpi.aria" aria-live="polite"></section>
-
           <div class="dashboard-main-grid">
+            <section class="dashboard-panel dashboard-mode-panel">
+              <div class="dashboard-panel-head">
+                <div class="dashboard-panel-title"><span class="ui-msr" data-fallback="◆" aria-hidden="true">tune</span><h2>Mode</h2><span id="dashboardModeCount" class="dashboard-panel-count">—</span></div>
+              </div>
+              <div id="dashboardModeGrid" class="dashboard-mode-grid" aria-live="polite"></div>
+              <div id="dashboardModeControl" class="dashboard-mode-control">
+                <label for="dashboardOperatingMode" data-i18n="pool.mode.label">Mode de fonctionnement</label>
+                <div class="dashboard-mode-control-row">
+                  <select id="dashboardOperatingMode" class="pool-setting-control" disabled>
+                    <option value="maintenance" data-i18n="pool.mode.maintenance">Manuel / maintenance</option>
+                    <option value="safe_manual" data-i18n="pool.mode.safeManual">Manuel sécurisé</option>
+                    <option value="automatic" data-i18n="pool.mode.automatic">Automatique</option>
+                  </select>
+                  <button id="dashboardModeApply" type="button" class="btn-primary" disabled data-i18n="pool.mode.apply">Appliquer</button>
+                </div>
+                <span id="dashboardModeStatus" class="dashboard-mode-status" aria-live="polite"></span>
+              </div>
+            </section>
+
             <section class="dashboard-panel dashboard-equipment-panel">
               <div class="dashboard-panel-head">
-                <div>
-                  <div class="dashboard-panel-kicker" data-i18n="dashboard.equipment.kicker">Équipements</div>
-                  <h2 data-i18n="dashboard.equipment.title">État des équipements</h2>
-                </div>
-                <div class="dashboard-panel-actions"><span id="dashboardEquipmentCount" class="dashboard-count-badge">—</span><button id="dashboardEquipmentManage" type="button" class="btn-tonal dashboard-manage-button"><span class="ui-msr" aria-hidden="true">settings</span><span>Gérer</span></button></div>
+                <div class="dashboard-panel-title"><span class="ui-msr" data-fallback="⚙" aria-hidden="true">settings</span><h2 data-i18n="dashboard.equipment.kicker">Équipements</h2><span id="dashboardEquipmentCount" class="dashboard-panel-count">—</span></div>
+                <button id="dashboardEquipmentManage" type="button" class="dashboard-panel-link">Gérer les équipements</button>
               </div>
               <div id="dashboardEquipmentGrid" class="dashboard-equipment-grid" aria-live="polite"></div>
             </section>
 
-            <section class="dashboard-panel dashboard-filtration-panel">
+            <section class="dashboard-panel dashboard-sensors-panel">
               <div class="dashboard-panel-head">
-                <div>
-                  <div class="dashboard-panel-kicker" data-i18n="dashboard.filtration.kicker">Cycle du jour</div>
-                  <h2 data-i18n="dashboard.filtration.title">Filtration</h2>
-                </div>
-                <span id="dashboardFiltrationState" class="dashboard-state-pill is-unknown">—</span>
+                <div class="dashboard-panel-title"><span class="ui-msr" data-fallback="◉" aria-hidden="true">speed</span><h2>Sondes</h2><span class="dashboard-panel-count">5 mesures</span></div>
               </div>
-              <div class="dashboard-filtration-times">
-                <div><span data-i18n="dashboard.filtration.start">Début</span><strong id="dashboardFiltrationStart">—</strong></div>
-                <span class="ui-msr" aria-hidden="true">arrow_forward</span>
-                <div><span data-i18n="dashboard.filtration.stop">Fin</span><strong id="dashboardFiltrationStop">—</strong></div>
+              <div id="dashboardKpiGrid" class="dashboard-kpi-grid" aria-label="Mesures principales" data-i18n-aria-label="dashboard.kpi.aria" aria-live="polite"></div>
+            </section>
+
+            <section class="dashboard-panel dashboard-alarm-panel">
+              <div class="dashboard-panel-head">
+                <div class="dashboard-panel-title"><span class="ui-msr" data-fallback="!" aria-hidden="true">notifications</span><h2>Alarmes</h2><span id="dashboardAlarmCount" class="dashboard-panel-count">—</span></div>
+                <button id="dashboardAlarmManage" type="button" class="dashboard-panel-link">Gérer les alarmes</button>
               </div>
-              <div class="dashboard-progress-track" aria-hidden="true"><span id="dashboardFiltrationProgress"></span></div>
-              <p id="dashboardFiltrationHint" class="dashboard-panel-note" data-i18n="dashboard.filtration.loading">Chargement de la plage calculée…</p>
+              <div id="dashboardAlarmList" class="dashboard-alarm-list" aria-live="polite"></div>
             </section>
           </div>
-
-          <section class="dashboard-panel dashboard-alarm-panel">
-            <div class="dashboard-panel-head">
-              <div>
-                <div class="dashboard-panel-kicker" data-i18n="dashboard.alarm.kicker">Surveillance</div>
-                <h2 data-i18n="dashboard.alarm.title">Alarmes actives</h2>
-              </div>
-              <div class="dashboard-panel-actions"><span id="dashboardAlarmCount" class="dashboard-count-badge">—</span><button id="dashboardAlarmManage" type="button" class="btn-tonal dashboard-manage-button"><span class="ui-msr" aria-hidden="true">notifications</span><span>Gérer</span></button></div>
-            </div>
-            <div id="dashboardAlarmList" class="dashboard-alarm-list" aria-live="polite"></div>
-          </section>
 
           <details class="dashboard-diagnostics">
             <summary>

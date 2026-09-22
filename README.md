@@ -143,7 +143,7 @@ complet A/B :
 - `binary/flowios3-3.4.0.bin` — `2 293 088` octets — SHA-256
   `2d559851e7a911797453b3d2b4c26cbe9f8468d0fe87893013cc153de147bf6e` ;
 - `binary/flowios3-spiffs-3.4.0.bin` — `1 572 864` octets — SHA-256
-  `748bc1bb975fe122e6d57810816fc05dd3e5fb61755a9663a91ae579b59db514` ;
+  `8b07faa79fe8f8775804be04189396df1a8a0b7b7ad9b668d48b1d78121c50f1` ;
 - `binary/flowio-3.4.0.zip` — paquet atomique contenant manifeste, firmware et
   SPIFFS.
 
@@ -205,7 +205,12 @@ Les fonctions actuellement implémentées comprennent :
 - dépendances entre appareils, limites de temps de marche, suivi des volumes
   injectés et niveaux théoriques des bidons.
 
-Le tableau de bord permet de changer le mode sans quitter sa vue d’ensemble.
+Le tableau de bord regroupe l’état général et la plage de filtration, puis les
+cartes **Mode**, **Équipements**, **Sondes** et **Alarmes**. Les sondes ont des
+couleurs distinctes. Les interrupteurs sont gris à l’arrêt, verts lorsqu’ils
+sont actifs et bleus pour la filtration en marche, sans animation. Il permet
+de changer le mode sans quitter sa vue d’ensemble. Les textes courants restent
+en graisse normale et le menu signale la page active par sa couleur.
 Dans `Piscine > Contrôle des équipements`, les commandes suivent l’ordre
 filtration, électrolyseur ou pompe à chlore, pompe pH, éclairage, mode hiver,
 robot, chauffage et remplissage. Un équipement désactivé ou non affecté n’est

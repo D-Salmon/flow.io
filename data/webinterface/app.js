@@ -37,6 +37,7 @@
       'icon-calibration': 'science',
       'icon-terminal': 'list_alt',
       'icon-activity': 'history',
+      'icon-history': 'monitoring',
       'icon-system': 'system_update_alt',
       'icon-flowcfg': 'settings',
       'icon-network': 'wifi',

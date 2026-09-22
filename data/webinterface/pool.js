@@ -61,6 +61,8 @@
     const dashboardSummary = document.getElementById('dashboardSummary');
     const dashboardConnectionBadges = document.getElementById('dashboardConnectionBadges');
     const dashboardOverallState = document.getElementById('dashboardOverallState');
+    const dashboardModeCount = document.getElementById('dashboardModeCount');
+    const dashboardModeGrid = document.getElementById('dashboardModeGrid');
     const dashboardKpiGrid = document.getElementById('dashboardKpiGrid');
     const dashboardEquipmentCount = document.getElementById('dashboardEquipmentCount');
     const dashboardEquipmentGrid = document.getElementById('dashboardEquipmentGrid');
@@ -1845,11 +1847,6 @@
     function dashboardCreateKpiCard(config) {
       const card = document.createElement('article');
       card.className = 'dashboard-kpi-card ' + (config.className || '');
-      const icon = document.createElement('span');
-      icon.className = 'ui-msr dashboard-kpi-icon';
-      icon.setAttribute('aria-hidden', 'true');
-      icon.textContent = config.icon;
-      icon.dataset.fallback = ({ water: '💧', thermostat: '℃', science: 'pH', electric_bolt: 'mV', speed: 'bar' })[config.icon] || '•';
       const copy = document.createElement('div');
       copy.className = 'dashboard-kpi-copy';
       const label = document.createElement('span');
@@ -1865,11 +1862,43 @@
         unit.textContent = config.unit;
         valueWrap.appendChild(unit);
       }
+      const numeric = Number(String(config.value || '').replace(',', '.'));
+      const min = Number(config.min);
+      const max = Number(config.max);
+      const progress = Number.isFinite(numeric) && Number.isFinite(min) && Number.isFinite(max) && max > min
+        ? Math.max(0, Math.min(100, ((numeric - min) / (max - min)) * 100)) : 0;
+      const bar = document.createElement('span');
+      bar.className = 'dashboard-kpi-bar';
+      const fill = document.createElement('span');
+      fill.style.width = progress.toFixed(1) + '%';
+      bar.appendChild(fill);
+      const range = document.createElement('small');
+      range.className = 'dashboard-kpi-range';
+      range.textContent = config.value === '—' ? tr('dashboard.equipment.unavailable', 'Indisponible') : config.rangeLabel;
       copy.appendChild(label);
       copy.appendChild(valueWrap);
-      card.appendChild(icon);
+      copy.appendChild(bar);
+      copy.appendChild(range);
       card.appendChild(copy);
       return card;
+    }
+
+    function dashboardCreateModeTile(label, on, available) {
+      const tile = document.createElement('article');
+      tile.className = 'dashboard-mode-tile ' + (!available ? 'is-unavailable' : (on ? 'is-on' : 'is-off'));
+      const copy = document.createElement('div');
+      const title = document.createElement('strong');
+      title.textContent = label;
+      const state = document.createElement('span');
+      state.innerHTML = '<i aria-hidden="true"></i>' + (!available ? 'Indisponible' : (on ? 'Actif' : 'Arrêt'));
+      copy.appendChild(title);
+      copy.appendChild(state);
+      const toggle = document.createElement('span');
+      toggle.className = 'dashboard-toggle' + (available && on ? ' is-on' : '');
+      toggle.setAttribute('aria-hidden', 'true');
+      tile.appendChild(copy);
+      tile.appendChild(toggle);
+      return tile;
     }
 
     function dashboardFormatNumber(value, decimals) {
@@ -1993,6 +2022,8 @@
       if (dashboardSummary) dashboardSummary.textContent = tr('dashboard.overview.loading', 'Lecture de l’état de la piscine et des équipements…');
       if (dashboardConnectionBadges) dashboardConnectionBadges.innerHTML = '';
       dashboardSetOverallState('loading', tr('dashboard.loading', 'Chargement en cours...'), 'progress_activity');
+      if (dashboardModeCount) dashboardModeCount.textContent = '—';
+      if (dashboardModeGrid) dashboardModeGrid.innerHTML = '';
       if (dashboardKpiGrid) {
         dashboardKpiGrid.innerHTML = '';
         [
@@ -2093,6 +2124,7 @@
       const modes = payload.modes || {};
       const filtration = payload.filtration || {};
       const sensors = payload.sensors || {};
+      const phConfig = payload.phConfig || {};
       const electrolysisFeedbackMonitored = Number(sensors.swg_fb_io_id) !== 65535;
       const poolLogicEnabled = Object.prototype.hasOwnProperty.call(modes, 'enabled') ? toBool(modes.enabled) : !!(pool && pool.has);
       const automatic = poolLogicEnabled && (Object.prototype.hasOwnProperty.call(modes, 'auto_mode') ? toBool(modes.auto_mode) : !!(pool && pool.auto));
@@ -2113,6 +2145,23 @@
         if (schedule) details.push(tr('dashboard.summary.filtration', 'Filtration {start}–{stop}').replace('{start}', schedule.start).replace('{stop}', schedule.stop));
         if (treatment) details.push(tr('dashboard.summary.treatment', 'Traitement : {treatment}').replace('{treatment}', treatment));
         dashboardSummary.textContent = details.length ? details.join(' · ') : tr('dashboard.summary.ready', 'État instantané de la piscine et des équipements.');
+      }
+
+      if (dashboardModeGrid) {
+        dashboardModeGrid.innerHTML = '';
+        const phAutoAvailable = Object.prototype.hasOwnProperty.call(phConfig, 'ph_auto_mode');
+        const phAuto = phAutoAvailable && toBool(phConfig.ph_auto_mode);
+        const disinfectionTypeForMode = Number.parseInt(modes.disinfection_type, 10);
+        const treatmentAvailable = Number.isFinite(disinfectionTypeForMode);
+        const treatmentAuto = treatmentAvailable && disinfectionTypeForMode !== 3 && automatic;
+        const modeTiles = [
+          { label: 'Mode auto', on: automatic, available: poolLogicEnabled },
+          { label: 'Mode hiver', on: winter, available: poolLogicEnabled },
+          { label: 'pH auto', on: phAuto, available: phAutoAvailable },
+          { label: 'Traitement auto', on: treatmentAuto, available: treatmentAvailable }
+        ];
+        modeTiles.forEach((item) => dashboardModeGrid.appendChild(dashboardCreateModeTile(item.label, item.on, item.available)));
+        if (dashboardModeCount) dashboardModeCount.textContent = modeTiles.filter((item) => item.available && item.on).length + ' actifs';
       }
 
       if (dashboardConnectionBadges) {
@@ -2137,11 +2186,11 @@
       if (dashboardKpiGrid) {
         dashboardKpiGrid.innerHTML = '';
         [
-          { poolKey: 'wat', runtimeUiId: 2201, decimals: 1, unit: '°C', label: tr('dashboard.kpi.water', 'Température eau'), icon: 'water', className: 'is-water' },
-          { poolKey: 'air', runtimeUiId: 2202, decimals: 1, unit: '°C', label: tr('dashboard.kpi.air', 'Température air'), icon: 'thermostat', className: 'is-air' },
-          { poolKey: 'ph', runtimeUiId: 2203, decimals: 2, unit: '', label: 'pH', icon: 'science', className: 'is-ph' },
-          { poolKey: 'orp', runtimeUiId: 2204, decimals: 0, unit: 'mV', label: 'ORP', icon: 'electric_bolt', className: 'is-orp' },
-          { poolKey: 'psi', runtimeUiId: 2206, decimals: 2, unit: 'bar', label: tr('dashboard.kpi.pressure', 'Pression'), icon: 'speed', className: 'is-pressure' }
+          { poolKey: 'wat', runtimeUiId: 2201, decimals: 1, unit: '°C', label: 'Eau', className: 'is-water', min: 0, max: 40, rangeLabel: 'plage 0–40 °C' },
+          { poolKey: 'air', runtimeUiId: 2202, decimals: 1, unit: '°C', label: 'Air', className: 'is-air', min: -10, max: 50, rangeLabel: 'plage -10–50 °C' },
+          { poolKey: 'ph', runtimeUiId: 2203, decimals: 2, unit: '', label: 'pH', className: 'is-ph', min: 6, max: 9, rangeLabel: 'plage 6–9' },
+          { poolKey: 'orp', runtimeUiId: 2204, decimals: 0, unit: 'mV', label: 'ORP', className: 'is-orp', min: 0, max: 1000, rangeLabel: 'plage 0–1000 mV' },
+          { poolKey: 'psi', runtimeUiId: 2206, decimals: 2, unit: 'bar', label: tr('dashboard.kpi.pressure', 'Pression'), className: 'is-pressure', min: 0, max: 3, rangeLabel: 'plage 0–3 bar' }
         ].forEach((config) => {
           const metric = dashboardMetric(pool, payload.slotPayload, config);
           dashboardKpiGrid.appendChild(dashboardCreateKpiCard({ ...config, ...metric }));
@@ -2198,29 +2247,30 @@
             + (actionable ? ' is-actionable ' : '')
             + (def.key === 'lgt' ? ' is-lighting ' : '')
             + (available ? (on ? 'is-on' : 'is-off') : 'is-unavailable');
-          const icon = document.createElement('span');
-          icon.className = 'ui-msr';
-          icon.setAttribute('aria-hidden', 'true');
-          icon.textContent = def.icon;
-          icon.dataset.fallback = ({ waves: '≈', science: 'pH', bubble_chart: 'O₂', water_drop: 'Cl', bolt: '⚡', smart_toy: 'R', faucet: '↧', local_fire_department: '♨', lightbulb: '☀' })[def.icon] || '•';
+          const copy = document.createElement('div');
           const label = document.createElement('strong');
           label.textContent = def.label;
           const state = document.createElement('span');
+          state.className = 'dashboard-equipment-state';
           const commandOnly = def.key === 'swg' && !electrolysisFeedbackMonitored;
-          state.textContent = !available
+          state.innerHTML = '<i aria-hidden="true"></i>' + (!available
             ? tr('dashboard.equipment.unavailable', 'Indisponible')
             : (on
               ? (commandOnly ? tr('dashboard.equipment.commanded', 'Commandé') : tr('dashboard.equipment.on', 'En marche'))
-              : tr('dashboard.equipment.off', 'À l’arrêt'));
-          card.appendChild(icon);
-          card.appendChild(label);
-          card.appendChild(state);
+              : tr('dashboard.equipment.off', 'À l’arrêt')));
+          copy.appendChild(label);
+          copy.appendChild(state);
+          const toggle = document.createElement('span');
+          toggle.className = 'dashboard-toggle' + (on ? ' is-on' : '');
+          toggle.setAttribute('aria-hidden', 'true');
+          card.appendChild(copy);
+          card.appendChild(toggle);
           dashboardEquipmentGrid.appendChild(card);
         });
       }
       if (dashboardEquipmentCount) {
         dashboardEquipmentCount.textContent = equipmentAvailableCount ? equipmentOnCount + '/' + equipmentAvailableCount : '—';
-        dashboardEquipmentCount.className = 'dashboard-count-badge' + (equipmentOnCount > 0 ? ' is-ok' : '');
+        dashboardEquipmentCount.className = 'dashboard-panel-count' + (equipmentOnCount > 0 ? ' is-ok' : '');
       }
 
       const lightsAvailable = !!pool && typeof pool.lgt === 'boolean';
@@ -2254,7 +2304,8 @@
           : tr('dashboard.filtration.hint.unavailable', 'Plage calculée indisponible.');
       }
 
-      const slotAlarms = poolConfigActiveAlarms(dashboardNormalizeAlarmSlots(payload.slotPayload));
+      const configuredAlarmSlots = dashboardNormalizeAlarmSlots(payload.slotPayload).filter((slot) => slot.enabled);
+      const slotAlarms = poolConfigActiveAlarms(configuredAlarmSlots);
       const alarmCodes = Array.isArray(alarmDomain.codes) ? alarmDomain.codes.map((code) => String(code || '').trim()).filter(Boolean) : [];
       const alarmCount = Math.max(Number(alarmDomain.cnt) || 0, slotAlarms.length, alarmCodes.length);
       const alarmRows = slotAlarms.length
@@ -2262,11 +2313,25 @@
         : alarmCodes.map((code) => ({ label: code.replace(/^alarm_/, tr('dashboard.alarm.generic', 'Alarme').trim() + ' '), state: tr('pool.alarm.state.activeCondition', 'condition active') }));
       if (dashboardAlarmCount) {
         dashboardAlarmCount.textContent = String(alarmCount);
-        dashboardAlarmCount.className = 'dashboard-count-badge ' + (alarmCount ? 'is-alert' : 'is-ok');
+        dashboardAlarmCount.className = 'dashboard-panel-count ' + (alarmCount ? 'is-alert' : 'is-ok');
       }
       if (dashboardAlarmList) {
         dashboardAlarmList.innerHTML = '';
-        if (!alarmCount) {
+        if (configuredAlarmSlots.length) {
+          configuredAlarmSlots.forEach((alarm) => {
+            const active = alarm.conditionTrue || alarm.latched;
+            const known = alarm.available && alarm.conditionKnown;
+            const row = document.createElement('div');
+            row.className = 'dashboard-alarm-row ' + (active ? 'is-alert' : (known ? 'is-ok' : 'is-unknown'));
+            const label = document.createElement('strong');
+            label.textContent = alarm.label || tr('pool.alarm.defaultLabel', 'Alarme piscine');
+            const state = document.createElement('span');
+            state.innerHTML = '<i aria-hidden="true"></i>' + (active ? (alarm.conditionTrue ? 'Condition active' : 'Alarme mémorisée') : (known ? 'Normal' : 'Indisponible'));
+            row.appendChild(label);
+            row.appendChild(state);
+            dashboardAlarmList.appendChild(row);
+          });
+        } else if (!alarmCount) {
           const empty = document.createElement('div');
           empty.className = 'dashboard-alarm-empty';
           empty.innerHTML = '<span class="ui-msr" aria-hidden="true">verified</span>';
@@ -2278,7 +2343,7 @@
           const rows = alarmRows.length ? alarmRows : [{ label: tr('pool.alarm.defaultLabel', 'Alarme piscine'), state: tr('pool.alarm.state.activeCondition', 'condition active') }];
           rows.forEach((alarm) => {
             const row = document.createElement('div');
-            row.className = 'dashboard-alarm-row';
+            row.className = 'dashboard-alarm-row is-alert';
             const icon = document.createElement('span');
             icon.className = 'ui-msr';
             icon.setAttribute('aria-hidden', 'true');
@@ -2317,7 +2382,8 @@
         safe(fetchPoolDashboardSlots()),
         safe(poolConfigFetchModule('poollogic/modes')),
         safe(poolConfigFetchModule('poollogic/filtration')),
-        safe(poolConfigFetchModule('poollogic/sensors'))
+        safe(poolConfigFetchModule('poollogic/sensors')),
+        safe(poolConfigFetchModule('poollogic/ph'))
       ]);
       if (reqSeq !== dashboardOverviewReqSeq) return;
       const payload = {
@@ -2328,7 +2394,8 @@
         slotPayload: results[4] || {},
         modes: results[5] && results[5].data ? results[5].data : {},
         filtration: results[6] && results[6].data ? results[6].data : {},
-        sensors: results[7] && results[7].data ? results[7].data : {}
+        sensors: results[7] && results[7].data ? results[7].data : {},
+        phConfig: results[8] && results[8].data ? results[8].data : {}
       };
       dashboardOverviewLoadedOnce = true;
       renderDashboardOverview(payload);

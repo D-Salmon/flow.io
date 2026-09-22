@@ -56,7 +56,7 @@ ou des relais.
 - évolution des consignes pH, ORP et chauffage ;
 - durées de filtration et de chauffage, volume et nombre de remplissages ;
 - nouvelle page **Historique** avec courbes, synthèse et export CSV.
-- l’icône de la page Historique utilise désormais un calendrier pour la
+- l’icône de la page Historique utilise désormais un graphique pour la
   distinguer du Journal d’activité.
 
 ## État cohérent des sondes et équipements
@@ -101,12 +101,21 @@ pour les anciennes entrées du journal même lorsque leur libellé de source est
 absent ou incomplet. Les alertes de sécurité ne sont pas assimilées aux
 automatismes.
 
-## Lisibilité de la filtration
+## Nouveau Tableau de bord
 
-Lorsque la filtration fonctionne, sa carte prend une teinte bleue plus nette
-et l’icône d’eau s’anime doucement dans le Tableau de bord et dans **Piscine**.
-Si le navigateur demande une réduction des animations, un halo statique
-conserve la distinction visuelle.
+Le Tableau de bord reprend l’organisation claire de la proposition du fork :
+état général et plage de filtration en tête, puis cartes **Mode**,
+**Équipements**, **Sondes** et **Alarmes**. Les valeurs des sondes utilisent
+des couleurs distinctes pour être reconnues immédiatement.
+
+Les modes et équipements sont représentés par des interrupteurs d’état : gris
+à l’arrêt, vert lorsqu’ils sont actifs et bleu pour la filtration en marche.
+L’état reste ainsi explicite sans animation.
+
+La typographie reprend les proportions aérées de la maquette : libellés plus
+grands, graisse normale pour les informations courantes et titres réservés à
+la hiérarchie. La première carte remonte sous le bandeau d’état. Dans le menu
+latéral, la couleur indique la page active sans épaissir son libellé.
 
 ## Nouveau partitionnement
 
