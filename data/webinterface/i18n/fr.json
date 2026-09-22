@@ -325,7 +325,7 @@
     "dashboard.network.offline": "Réseau indisponible",
     "dashboard.mqtt.connected": "MQTT connecté",
     "dashboard.mqtt.disconnected": "MQTT déconnecté",
-    "dashboard.state.normal": "État disponible — aucune alarme active",
+    "dashboard.state.normal": "État normal — aucune alarme active",
     "dashboard.state.alarm": "1 alarme active",
     "dashboard.state.alarms": "{count} alarmes actives",
     "dashboard.state.unavailable": "État piscine indisponible",

@@ -325,7 +325,7 @@
     "dashboard.network.offline": "Network unavailable",
     "dashboard.mqtt.connected": "MQTT connected",
     "dashboard.mqtt.disconnected": "MQTT disconnected",
-    "dashboard.state.normal": "Status available — no active alarms",
+    "dashboard.state.normal": "Normal status — no active alarms",
     "dashboard.state.alarm": "1 active alarm",
     "dashboard.state.alarms": "{count} active alarms",
     "dashboard.state.unavailable": "Pool status unavailable",

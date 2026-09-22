@@ -117,6 +117,11 @@ grands, graisse normale pour les informations courantes et titres réservés à
 la hiérarchie. La première carte remonte sous le bandeau d’état. Dans le menu
 latéral, la couleur indique la page active sans épaissir son libellé.
 
+La pile typographique reprend exactement celle de la maquette du fork, avec la
+police système native de chaque appareil. L’état sain est nommé **État normal**
+et la carte d’état ne contient plus de raccourcis redondants vers Piscine et le
+Journal.
+
 ## Nouveau partitionnement
 
 | Partition | Taille | Rôle |

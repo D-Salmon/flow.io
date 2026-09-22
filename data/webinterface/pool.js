@@ -2364,7 +2364,7 @@
       if (alarmCount > 0) {
         dashboardSetOverallState('alert', alarmCount > 1 ? tr('dashboard.state.alarms', '{count} alarmes actives').replace('{count}', String(alarmCount)) : tr('dashboard.state.alarm', '1 alarme active'), 'warning');
       } else if (pool) {
-        dashboardSetOverallState('ok', tr('dashboard.state.normal', 'État disponible — aucune alarme active'), 'check_circle');
+        dashboardSetOverallState('ok', tr('dashboard.state.normal', 'État normal — aucune alarme active'), 'check_circle');
       } else {
         dashboardSetOverallState('unavailable', tr('dashboard.state.unavailable', 'État piscine indisponible'), 'cloud_off');
       }
