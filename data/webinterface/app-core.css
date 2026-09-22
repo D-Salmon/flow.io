@@ -1430,51 +1430,63 @@ body:not(.menu-icons-remote) #page-pool-measures .dashboard-kpi-icon::before{fon
 @media(max-width:800px){.history-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.users-grid{grid-template-columns:1fr}}@media(max-width:480px){.history-summary-grid{grid-template-columns:1fr 1fr}.history-actions{align-items:stretch;flex-direction:column}}
 .pool-setting-label .pool-setting-state{margin-left:.55rem;vertical-align:middle;font-size:.72rem;font-weight:700}
 
-/* Lisibilité du tableau de bord : proportions proches de la maquette du fork. */
-.menu-item{font-weight:500;}
-.menu-item.active{background:#d9f0f4;color:#006c9c;font-weight:500;}
-.menu-item.active .ico{color:#0086a0;}
+/* Typographie et proportions reprises exactement de dashboard-proposal.html. */
+:root{--drawer-width:216px;}
+.drawer{padding:14px 12px;}
+.drawer-header{margin-bottom:16px;}
+.menu-group{gap:2px;}
+.menu-item{min-height:36px;padding:8px 11px;border-radius:11px;gap:11px;font-size:13.5px;font-weight:550;letter-spacing:-.1px;}
+.menu-item.active{background:rgba(0,122,255,.10);color:#007aff;font-weight:550;}
+.menu-item.active .ico{color:#007aff;}
 :root[data-theme="dark"] .menu-item.active{background:rgba(43,183,198,.2);color:#71e5ec;}
 :root[data-theme="dark"] .menu-item.active .ico{color:#54d7df;}
-.content{padding-top:14px;}
-.app-header{margin-bottom:12px;}
+.content{padding:18px 22px;}
+.app-header{margin-bottom:14px;}
 #page-pool-measures{position:relative;}
 #page-pool-measures>.topbar{position:absolute;z-index:4;top:12px;right:12px;margin:0;}
 #page-pool-measures>.dashboard-shell{margin-top:0;}
-.dashboard-hero{padding:22px 66px 22px 22px;}
-.dashboard-hero-side{padding-right:12px;}
-.dashboard-overall-state{font-size:19px;font-weight:650;}
-.dashboard-hero-copy p{font-size:15px;font-weight:400;line-height:1.5;}
-.dashboard-hero-filtration>strong{font-size:14px;font-weight:600;}
-.dashboard-state-pill{font-size:13px;font-weight:600;}
-.dashboard-hero-copy .dashboard-panel-note{font-size:13px;font-weight:400;}
-.dashboard-current-mode small{font-size:13px;font-weight:400;}
-.dashboard-current-mode strong{font-size:17px;font-weight:600;}
-.dashboard-connection-badge{font-size:13px;font-weight:500;}
-.dashboard-hero-links button{font-size:14px;font-weight:600;}
-.dashboard-panel-title h2{font-size:20px;font-weight:600;}
-.dashboard-panel-count{font-size:13px;font-weight:400;}
-.dashboard-panel-link{font-size:14px;font-weight:500;}
-.dashboard-mode-tile strong,.dashboard-equipment-card strong{font-size:15px;font-weight:500;}
-.dashboard-mode-tile span:not(.dashboard-toggle),.dashboard-equipment-state{font-size:14px;font-weight:400;}
-.dashboard-mode-control>label{font-size:13px;font-weight:500;}
-.dashboard-mode-control .pool-setting-control,.dashboard-mode-control .btn-primary{font-size:15px;font-weight:500;}
-.dashboard-kpi-label{font-size:14px;font-weight:500;}
-.dashboard-kpi-value{font-size:25px;font-weight:600;}
-.dashboard-kpi-range{font-size:12px;font-weight:400;}
-.dashboard-alarm-row strong{font-size:14px;font-weight:500;}
-.dashboard-alarm-row>span,.dashboard-alarm-row>div>span{font-size:14px;font-weight:500;}
-.dashboard-diagnostics>summary{font-size:15px;font-weight:600;}
+.header-status-item{min-height:34px;padding:0 12px;border-radius:12px;}
+.header-status-label{font-size:12.5px;font-weight:500;}
+.header-status-value{font-size:13px;font-weight:600;}
+.dashboard-shell{gap:14px;}
+.dashboard-hero{padding:16px 58px 16px 18px;gap:16px;}
+.dashboard-hero-side{padding-right:0;}
+.dashboard-overall-state{gap:7px;font-size:16px;font-weight:700;}
+.dashboard-hero-copy p{margin:5px 0 12px;font-size:13px;font-weight:400;line-height:1.45;}
+.dashboard-hero-filtration>strong{font-size:12.5px;font-weight:600;}
+.dashboard-state-pill{font-size:11.5px;font-weight:600;}
+.dashboard-hero-copy .dashboard-panel-note{font-size:11.5px;font-weight:400;}
+.dashboard-current-mode small{font-size:11.5px;font-weight:650;}
+.dashboard-current-mode strong{font-size:12.5px;font-weight:500;}
+.dashboard-connection-badge{font-size:12.5px;font-weight:500;}
+.dashboard-main-grid{gap:14px;}
+.dashboard-panel{padding:14px;}
+.dashboard-panel-head{gap:10px;margin-bottom:11px;}
+.dashboard-panel-title{gap:10px;}
+.dashboard-panel-title h2{font-size:14.5px;font-weight:650;letter-spacing:-.2px;}
+.dashboard-panel-count{font-size:11.5px;font-weight:500;}
+.dashboard-panel-link{font-size:12.5px;font-weight:600;}
+.dashboard-mode-grid,.dashboard-equipment-grid{gap:9px;}
+.dashboard-mode-tile,.dashboard-equipment-card{min-height:58px;padding:10px 11px;gap:9px;}
+.dashboard-mode-tile strong,.dashboard-equipment-card strong{font-size:12.5px;font-weight:600;letter-spacing:-.1px;}
+.dashboard-mode-tile span:not(.dashboard-toggle),.dashboard-equipment-state{font-size:13px;font-weight:650;}
+.dashboard-mode-control>label{font-size:11.5px;font-weight:600;}
+.dashboard-mode-control .pool-setting-control,.dashboard-mode-control .btn-primary{font-size:13px;font-weight:500;}
+.dashboard-kpi-grid,.dashboard-alarm-list{gap:9px;}
+.dashboard-kpi-card{min-height:74px;padding:10px 11px;}
+.dashboard-kpi-label{font-size:11.5px;font-weight:600;}
+.dashboard-kpi-value{font-size:20px;font-weight:700;letter-spacing:-.5px;}
+.dashboard-kpi-range{font-size:10px;font-weight:400;}
+.dashboard-alarm-row{min-height:70px;padding:10px 11px;gap:5px;}
+.dashboard-alarm-row strong{font-size:11.5px;font-weight:600;}
+.dashboard-alarm-row>span,.dashboard-alarm-row>div>span,.dashboard-alarm-row>span:last-child,.dashboard-alarm-row>div>span:last-child{font-size:13.5px;font-weight:700;}
+.dashboard-diagnostics>summary{font-size:13px;font-weight:600;}
 @media(min-width:901px) and (max-width:1280px){
   .app-header-status{display:grid;width:100%;max-width:none;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;}
-  .header-status-item{min-width:0;min-height:46px;padding:0 10px;}
+  .header-status-item{min-width:0;min-height:34px;padding:0 10px;}
   .header-status-copy{overflow:hidden;}
-  .header-status-label,.header-status-value{font-size:13px;}
 }
 @media(max-width:640px){
   #page-pool-measures>.topbar{top:8px;right:8px;}
-  .dashboard-hero{padding:18px 58px 18px 18px;}
-  .dashboard-overall-state{font-size:17px;}
-  .dashboard-panel-title h2{font-size:18px;}
-  .dashboard-mode-tile strong,.dashboard-equipment-card strong{font-size:15px;}
+  .dashboard-hero{padding:16px 52px 16px 16px;}
 }

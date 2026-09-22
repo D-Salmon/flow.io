@@ -112,10 +112,11 @@ Les modes et équipements sont représentés par des interrupteurs d’état : g
 à l’arrêt, vert lorsqu’ils sont actifs et bleu pour la filtration en marche.
 L’état reste ainsi explicite sans animation.
 
-La typographie reprend les proportions aérées de la maquette : libellés plus
-grands, graisse normale pour les informations courantes et titres réservés à
-la hiérarchie. La première carte remonte sous le bandeau d’état. Dans le menu
-latéral, la couleur indique la page active sans épaissir son libellé.
+La typographie reprend les valeurs exactes de la maquette : menu à 13,5 px,
+titres de cartes à 14,5 px, libellés à 12,5 px, états à 13 px et mesures à
+20 px. Les graisses, interlignes, espacements et la largeur de menu de 216 px
+sont également alignés sur le fork. La première carte remonte sous le bandeau
+d’état et la couleur indique la page active.
 
 La pile typographique reprend exactement celle de la maquette du fork, avec la
 police système native de chaque appareil. L’état sain est nommé **État normal**

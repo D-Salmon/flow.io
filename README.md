@@ -143,7 +143,7 @@ complet A/B :
 - `binary/flowios3-3.4.0.bin` — `2 293 088` octets — SHA-256
   `2d559851e7a911797453b3d2b4c26cbe9f8468d0fe87893013cc153de147bf6e` ;
 - `binary/flowios3-spiffs-3.4.0.bin` — `1 572 864` octets — SHA-256
-  `a6eab94e287dfde15611b86c257c45c76b8df294a89300ac4d6a90af06f80a85` ;
+  `938139894aec280290ac60c963ec038405b63e73f0ded2f79e908c7404581223` ;
 - `binary/flowio-3.4.0.zip` — paquet atomique contenant manifeste, firmware et
   SPIFFS.
 
@@ -210,8 +210,9 @@ cartes **Mode**, **Équipements**, **Sondes** et **Alarmes**. Les sondes ont des
 couleurs distinctes. Les interrupteurs sont gris à l’arrêt, verts lorsqu’ils
 sont actifs et bleus pour la filtration en marche, sans animation. Il permet
 de changer le mode sans quitter sa vue d’ensemble. Les textes courants restent
-en graisse normale, utilisent la police système native comme la maquette du
-fork et le menu signale la page active par sa couleur.
+utilisent la pile de polices système, les tailles, les graisses et les
+espacements définis par la maquette du fork. Le menu signale la page active par
+sa couleur.
 Dans `Piscine > Contrôle des équipements`, les commandes suivent l’ordre
 filtration, électrolyseur ou pompe à chlore, pompe pH, éclairage, mode hiver,
 robot, chauffage et remplissage. Un équipement désactivé ou non affecté n’est
