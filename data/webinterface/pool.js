@@ -262,8 +262,7 @@
           autoModeKey: 'auto_mode',
           label: 'Mode de fonctionnement'
         }),
-        Object.freeze({ key: 'winter_mode', type: 'bool', label: 'Mode hiver' }),
-        Object.freeze({ key: 'robot_auto_mode', type: 'bool', label: 'Robot automatique' })
+        Object.freeze({ key: 'winter_mode', type: 'bool', label: 'Mode hiver' })
       ]),
       'poollogic/ph': Object.freeze([
         Object.freeze({ key: 'ph_auto_mode', type: 'bool', label: 'Régulation pH automatique' }),
@@ -350,6 +349,7 @@
         Object.freeze({ key: 'freeze_hold_t', type: 'number', label: 'Température de maintien hors gel', min: -10, max: 15, step: 0.1, unit: '°C' })
       ]),
       'poollogic/robot': Object.freeze([
+        Object.freeze({ key: 'robot_auto_mode', sourceModule: 'poollogic/modes', type: 'bool', label: 'Robot' }),
         Object.freeze({ key: 'robot_delay_min', type: 'number', label: 'Délai avant départ du robot', min: 0, max: 255, step: 1, unit: 'min' }),
         Object.freeze({ key: 'robot_dur_min', type: 'number', label: 'Durée de nettoyage', min: 1, max: 255, step: 1, unit: 'min' })
       ]),
@@ -2278,9 +2278,15 @@
         { key: 'htr', equipmentKey: 'heater', label: tr('dashboard.equipment.heater', 'Chauffage'), icon: 'local_fire_department' },
         { key: 'lgt', equipmentKey: 'lights', label: tr('dashboard.equipment.lights', 'Éclairage'), icon: 'lightbulb' }
       ];
+      const robotEnabled = toBool(modes.robot_auto_mode);
+      const heaterEnabled = toBool((payload.heaterConfig || {}).heater_auto_mode);
+      const refillEnabled = toBool((payload.refillConfig || {}).fill_enabled);
       const visibleEquipmentDefs = equipmentDefs.filter((def) => {
         if (def.key === 'swg') return !hasDisinfectionType || disinfectionType === 1;
         if (def.key === 'clp') return !hasDisinfectionType || disinfectionType === 0 || disinfectionType === 2;
+        if (def.key === 'rbt') return robotEnabled;
+        if (def.key === 'htr') return heaterEnabled;
+        if (def.key === 'fill') return refillEnabled;
         return true;
       });
       let equipmentOnCount = 0;
@@ -2464,6 +2470,8 @@
         safe(poolConfigFetchModule('poollogic/sensors')),
         safe(poolConfigFetchModule('poollogic/ph')),
         safe(poolConfigFetchModule('poollogic/chlorine')),
+        safe(poolConfigFetchModule('poollogic/heater')),
+        safe(poolConfigFetchModule('poollogic/refill')),
         safe(fetchOkJson('/api/pool/assets', { cache: 'no-store' }, 'état central indisponible'))
       ]);
       if (reqSeq !== dashboardOverviewReqSeq) return;
@@ -2478,7 +2486,9 @@
         sensors: results[7] && results[7].data ? results[7].data : {},
         phConfig: results[8] && results[8].data ? results[8].data : {},
         chlorineConfig: results[9] && results[9].data ? results[9].data : {},
-        assetResult: results[10] || null
+        heaterConfig: results[10] && results[10].data ? results[10].data : {},
+        refillConfig: results[11] && results[11].data ? results[11].data : {},
+        assetResult: results[12] || null
       };
       dashboardOverviewLoadedOnce = true;
       renderDashboardOverview(payload);
@@ -2962,7 +2972,8 @@
       if (enumLabel) return enumLabel;
       if (typeof value === 'boolean') return poolConfigBoolLabel(value);
       const cleanKey = String(key || '').toLowerCase();
-      const unit = String(doc && doc.unit ? doc.unit : '').trim();
+      const fieldSpec = (poolEditableFieldSpecs[moduleName] || []).find((entry) => entry && entry.key === key);
+      const unit = String(doc && doc.unit ? doc.unit : (fieldSpec && fieldSpec.unit ? fieldSpec.unit : '')).trim();
       if (cleanKey.endsWith('_ms') || unit === 'ms') return poolConfigFormatDurationMs(value);
       if (cleanKey.includes('hour') || /^filtr_(?:start|stop)_/.test(cleanKey)) return poolConfigFormatHour(value);
       if (Number.isFinite(Number(value))) {
@@ -3351,8 +3362,6 @@
       form.className = 'pool-settings-form';
       form.dataset.poolModule = moduleName;
       form.noValidate = false;
-      const robotSettingsEnabled = moduleName !== 'poollogic/robot'
-        || toBool((poolConfigModulesCache['poollogic/modes'] || {}).robot_auto_mode);
       const fields = document.createElement('div');
       fields.className = 'pool-settings-fields';
       const entries = [];
@@ -3799,6 +3808,24 @@
           });
         }
       }
+      if (moduleName === 'poollogic/robot') {
+        const enabledEntry = entries.find((entry) => entry.spec && entry.spec.key === 'robot_auto_mode');
+        const dependentEntries = entries.filter((entry) => entry.spec
+          && (entry.spec.key === 'robot_delay_min' || entry.spec.key === 'robot_dur_min'));
+        if (enabledEntry) {
+          const syncRobotFields = () => {
+            const enabled = String(enabledEntry.input.value) === 'true';
+            dependentEntries.forEach((entry) => {
+              entry.input.disabled = !enabled;
+              entry.input.required = enabled;
+              const field = entry.input.closest('.pool-setting-field');
+              if (field) field.classList.toggle('is-disabled', !enabled);
+            });
+          };
+          enabledEntry.input.addEventListener('change', syncRobotFields);
+          syncRobotFields();
+        }
+      }
       if (moduleName === 'poollogic/refill') {
         const enabledEntry = entries.find((entry) => entry.spec && entry.spec.key === 'fill_enabled');
         const dependentEntries = entries.filter((entry) => entry.spec && entry.spec.key === 'fill_min_on_s');
@@ -3893,21 +3920,6 @@
         });
         syncEditorActions(false);
       });
-      if (!robotSettingsEnabled) {
-        form.classList.add('is-disabled');
-        Array.from(fields.querySelectorAll('input, select, button')).forEach((element) => {
-          element.disabled = true;
-        });
-        cancel.disabled = true;
-        submit.disabled = true;
-        const disabledNote = document.createElement('p');
-        disabledNote.className = 'pool-setting-disabled-note';
-        disabledNote.textContent = tr(
-          'pool.robot.disabledHint',
-          'Activez « Robot automatique » dans Contrôle des équipements pour modifier ces réglages.'
-        );
-        form.appendChild(disabledNote);
-      }
       form.appendChild(footer);
       form.addEventListener('submit', (event) => {
         event.preventDefault();

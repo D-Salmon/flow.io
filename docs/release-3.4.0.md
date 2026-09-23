@@ -123,10 +123,12 @@ Les quatre interrupteurs de mode sont maintenant de vraies commandes :
 **pH auto** et **Traitement auto** se règlent directement. Le traitement
 automatique possède un réglage persistant propre à l’électrolyse et à l’oxygène
 actif ; le chlore conserve sa régulation ORP dédiée. Le mode Maintenance reste
-disponible uniquement dans Configuration.
+disponible uniquement dans Configuration. En Manuel sécurisé, pH et traitement
+peuvent rester automatiques lorsque la filtration a été mise en marche
+manuellement ; aucune régulation ne peut alors démarrer la filtration.
 
 Tous les textes du Tableau de bord ont été agrandis : titres de cartes à 17 px,
-libellés principaux à 15 px, états à 14,5 px et mesures à 24 px. Les graisses,
+libellés principaux à 15 px, états à 14,5 px et mesures à 24 px. Le robot dispose désormais d'un réglage Activé / Désactivé dans sa carte Piscine ; le robot, le chauffage et le remplissage sont masqués du Tableau de bord lorsqu'ils sont désactivés. Les graisses,
 interlignes, espacements et la largeur de menu de 216 px restent alignés sur le
 fork. La première carte remonte sous le bandeau d’état et la couleur indique la
 page active.

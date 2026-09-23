@@ -29,8 +29,12 @@ jours avec export CSV et une source d’état commune aux pages Piscine,
 Entrées/Sorties et aux affectations de configuration.
 Le Tableau de bord regroupe désormais l’état, les commandes directes des
 équipements et quatre commandes de mode : automatique, hiver, régulation pH et
-traitement. Leur activation est accessible à l’Opérateur ; le mode Maintenance
-reste réservé à Configuration pour éviter de couper les sécurités par erreur.
+traitement. Leur activation est accessible à l’Opérateur ; en Manuel sécurisé, les
+régulations pH et traitement peuvent continuer si la filtration fonctionne
+déjà, sans pouvoir la démarrer. Le mode Maintenance reste réservé à
+Configuration pour éviter de couper les sécurités par erreur. Le robot, le chauffage
+et le remplissage disparaissent du Tableau de bord lorsqu'ils sont désactivés
+dans leurs cartes Piscine respectives.
 La page Piscine est réservée aux réglages et sa synthèse générale est intitulée
 **Synthèse des réglages** ; elle affiche les consignes pH et désinfection
 adaptées au traitement sélectionné.

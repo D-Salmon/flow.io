@@ -421,7 +421,7 @@ bool PoolLogicModule::stepO2Protocol_(bool filtrationDesired,
     requestFiltrationOut = false;
     pumpDesiredOut = false;
 
-    if (!isDisinfectionType_(DisinfectionActiveOxygen) || !autoMode_ || !treatmentAutoMode_) {
+    if (!isDisinfectionType_(DisinfectionActiveOxygen) || !treatmentAutoMode_) {
         o2LastProgressMs_ = 0;
         if (o2PendingMl_ <= kO2DoseEpsilonMl) {
             o2PendingMl_ = 0.0f;
@@ -1347,8 +1347,9 @@ void PoolLogicModule::runControlLoop_(uint32_t nowMs)
     }
     bool filtrationDesired = filtrationDesiredBase;
 
-    // Robot and SWG remain derived outputs in auto mode. A manual robot request
-    // is still arbitrated here so PoolLogic, not the HMI or PoolDeviceModule,
+    // Robot follows the global automatic mode. SWG follows its independent
+    // treatment mode. A manual robot request is still arbitrated here so
+    // PoolLogic, not the HMI or PoolDeviceModule,
     // owns interlocks and duration limits.
     bool robotDesired = robotFsm_.on;
     bool robotManualOverride = false;
@@ -1399,9 +1400,9 @@ void PoolLogicModule::runControlLoop_(uint32_t nowMs)
 
     const DeviceFsm& swgControlFsm = sharedDisinfectionDevice_() ? orpPumpFsm_ : swgFsm_;
     bool swgDesired = swgControlFsm.on;
-    if (autoMode_) {
+    if (treatmentAutoMode_) {
         swgDesired = false;
-        if (treatmentAutoMode_ && isDisinfectionType_(DisinfectionSwg) && filtrationFsm_.on) {
+        if (isDisinfectionType_(DisinfectionSwg) && filtrationFsm_.on) {
             if (swgControlMode_ == SwgControlOrp) {
                 if (swgControlFsm.on) {
                     swgDesired = orpFresh && (orp <= orpSetpoint_);
@@ -1639,7 +1640,7 @@ void PoolLogicModule::runControlLoop_(uint32_t nowMs)
                           nowMs,
                           o2RequestFiltration,
                           o2PumpDesired);
-    if (o2RequestFiltration && !circulationSafetyError) {
+    if (autoMode_ && o2RequestFiltration && !circulationSafetyError) {
         filtrationDesired = true;
     }
     if (isDisinfectionType_(DisinfectionActiveOxygen)) {

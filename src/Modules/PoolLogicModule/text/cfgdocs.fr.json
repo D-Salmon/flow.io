@@ -28,7 +28,8 @@
     "poollogic/chlorine/dis_setpoint": {
       "type": "Float",
       "label_t": "cfgdocs.poollogic.chlorine.dis_setpoint.label",
-      "help_t": "cfgdocs.poollogic.chlorine.dis_setpoint.help"
+      "help_t": "cfgdocs.poollogic.chlorine.dis_setpoint.help",
+      "unit": "mV"
     },
     "poollogic/chlorine/dis_window_ms": {
       "type": "Int32",
