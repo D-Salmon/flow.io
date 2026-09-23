@@ -29,7 +29,7 @@ jours avec export CSV et une source d’état commune aux pages Piscine,
 Entrées/Sorties et aux affectations de configuration.
 Le Tableau de bord regroupe désormais l’état, les commandes directes des
 équipements et quatre commandes de mode : automatique, hiver, régulation pH et
-traitement. L'activation du mode Auto force aussi pH auto et l'automatisation
+désinfection. L'activation du mode Auto force aussi pH auto et l'automatisation
 du traitement sélectionné. Leur activation est accessible à l’Opérateur ; en Manuel sécurisé, les
 régulations pH et traitement peuvent continuer si la filtration fonctionne
 déjà, sans pouvoir la démarrer. Le mode Maintenance reste réservé à

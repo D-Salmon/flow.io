@@ -2216,7 +2216,7 @@
           { key: 'automatic', command: 'automatic', label: 'Mode auto', on: automatic, available: Object.prototype.hasOwnProperty.call(modes, 'auto_mode') },
           { key: 'winter', command: 'winter', label: 'Mode hiver', on: winter, available: poolLogicEnabled && Object.prototype.hasOwnProperty.call(modes, 'winter_mode') },
           { key: 'ph', command: 'ph', label: 'pH auto', on: phAuto, available: phAutoAvailable },
-          { key: 'treatment', command: chlorineTreatment ? 'chlorine' : 'treatment', label: 'Traitement auto', on: treatmentAuto, available: treatmentAutoAvailable }
+          { key: 'treatment', command: chlorineTreatment ? 'chlorine' : 'treatment', label: 'Désinfection auto', on: treatmentAuto, available: treatmentAutoAvailable }
         ];
         modeTiles.forEach((item) => dashboardModeGrid.appendChild(
           dashboardCreateModeTile(item.key, item.label, item.on, item.available, item.command)

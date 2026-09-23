@@ -1288,17 +1288,17 @@ ac_unit: '\u{eb3b}',
             'Récupération · {minutes} min'
           ).replace('{minutes}', String(minutes));
         } else if (authSession && authSession.authenticated && authSession.role === 'admin') {
-          headerSecurityStatus.textContent = tr('header.security.admin', 'Administrateur connecté');
+          headerSecurityStatus.textContent = tr('header.security.admin', 'Connecté en administrateur');
         } else if (authSession && authSession.local_operator === true) {
-          headerSecurityStatus.textContent = tr('header.security.localOperator', 'Opérateur local · non identifié');
+          headerSecurityStatus.textContent = tr('header.security.localOperator', 'Connecté en utilisateur');
         } else if (authSession && authSession.authenticated && authSession.role === 'operator') {
-          headerSecurityStatus.textContent = tr('header.security.operator', 'Opérateur connecté');
+          headerSecurityStatus.textContent = tr('header.security.operator', 'Connecté en utilisateur');
         } else if (webAdminAuthenticated) {
           // Compatibility with a legacy authenticated request while the new
           // session endpoint is still loading.
-          headerSecurityStatus.textContent = tr('header.security.admin', 'Administrateur connecté');
+          headerSecurityStatus.textContent = tr('header.security.admin', 'Connecté en administrateur');
         } else {
-          headerSecurityStatus.textContent = tr('header.security.unauthenticated', 'Accès non authentifié');
+          headerSecurityStatus.textContent = tr('header.security.unauthenticated', 'Connecté en utilisateur');
         }
       }
       renderHeaderReachability();
@@ -3527,8 +3527,8 @@ ac_unit: '\u{eb3b}',
       const logout = document.getElementById('accountLogout');
       if (name) name.textContent = authSession.local_operator === true ?
         'Se connecter comme administrateur' : (authSession.username || '-');
-      if (role) role.textContent = authSession.local_operator === true ? 'Opérateur local' :
-        (authSession.role === 'admin' ? 'Administrateur' : 'Opérateur');
+      if (role) role.textContent = authSession.role === 'admin' && authSession.local_operator !== true ?
+        'Administrateur' : 'Utilisateur';
       if (avatar) avatar.textContent = authSession.local_operator === true ? 'A' :
         (authSession.username || '?').charAt(0).toUpperCase();
       if (logout && authSession.local_operator === true) {

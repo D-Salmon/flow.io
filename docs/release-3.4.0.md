@@ -29,6 +29,10 @@ ou des relais.
 
 ## Comptes Web et rôles
 
+Le bandeau indique simplement **Connecté en administrateur** ou **Connecté en
+utilisateur**. Dans le menu latéral, l’accès local affiche **Se connecter comme
+administrateur** et le rôle **Utilisateur**.
+
 - l’ancien identifiant administrateur configuré par Rescue est migré sans
   changer son mot de passe ;
 - l’interface utilise une page de connexion et une session valable sept jours ;
@@ -125,7 +129,7 @@ filtration en marche en bleu. La carte **Détails techniques personnalisables**,
 devenue redondante, a été retirée du Tableau de bord.
 Les quatre interrupteurs de mode sont maintenant de vraies commandes :
 **Mode auto** bascule entre Automatique et Manuel sécurisé, puis **Mode hiver**,
-**pH auto** et **Traitement auto** se règlent directement. Activer **Mode auto**
+**pH auto** et **Désinfection auto** se règlent directement. Activer **Mode auto**
 active également pH auto et l'automatisation du traitement sélectionné ; avec
 **Aucun traitement de l’eau**, seule la régulation pH est activée. Le traitement
 automatique possède un réglage persistant propre à l’électrolyse et à l’oxygène
