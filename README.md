@@ -27,6 +27,10 @@ Elle ajoute aussi des comptes Web Administrateur/Opérateur avec sessions de
 sept jours, un bouton de déconnexion, un historique piscine local sur sept
 jours avec export CSV et une source d’état commune aux pages Piscine,
 Entrées/Sorties et aux affectations de configuration.
+Le Tableau de bord regroupe désormais l’état et les commandes directes des
+équipements. La page Piscine est réservée aux réglages et sa synthèse générale
+est intitulée **Synthèse des réglages** ; elle affiche les consignes pH et
+désinfection adaptées au traitement sélectionné.
 
 La compilation du firmware, les contrôles JavaScript, l’image SPIFFS, les
 ressources minifiées et le paquet ZIP ont été validés. Le firmware et la
@@ -143,7 +147,7 @@ complet A/B :
 - `binary/flowios3-3.4.0.bin` — `2 293 088` octets — SHA-256
   `2d559851e7a911797453b3d2b4c26cbe9f8468d0fe87893013cc153de147bf6e` ;
 - `binary/flowios3-spiffs-3.4.0.bin` — `1 572 864` octets — SHA-256
-  `938139894aec280290ac60c963ec038405b63e73f0ded2f79e908c7404581223` ;
+  `d62b75654181bb55a57d38b4502fb3381a31b7f362558c30a968401ef3c55598` ;
 - `binary/flowio-3.4.0.zip` — paquet atomique contenant manifeste, firmware et
   SPIFFS.
 

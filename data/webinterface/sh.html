@@ -156,6 +156,7 @@
                 <button id="dashboardEquipmentManage" type="button" class="dashboard-panel-link">Gérer les équipements</button>
               </div>
               <div id="dashboardEquipmentGrid" class="dashboard-equipment-grid" aria-live="polite"></div>
+              <div id="dashboardEquipmentStatus" class="pool-equipment-feedback dashboard-equipment-feedback" aria-live="polite" hidden></div>
             </section>
 
             <section class="dashboard-panel dashboard-sensors-panel">
@@ -200,40 +201,6 @@
           <h1 class="ui-heading-inline"><span class="ui-msr" aria-hidden="true">pool</span><span data-i18n="menu.pool">Piscine</span></h1>
         </div>
         <div class="pool-page-shell">
-          <section class="pool-hero-panel">
-            <div class="pool-hero-main">
-              <span class="ui-msr pool-hero-icon" aria-hidden="true">pool</span>
-              <div class="pool-hero-copy">
-                <h2 id="poolConfigTitle" data-i18n="pool.title">État général</h2>
-                <div id="poolHeroState" class="pool-hero-state is-ok" aria-live="polite">
-                  <span class="ui-msr pool-hero-state-icon" aria-hidden="true">check_circle</span>
-                  <span data-i18n="pool.state.normalStatus">État normal</span>
-                </div>
-                <p id="poolConfigSummary" data-i18n="pool.summary">Lecture des paramètres utilisateur de filtration, traitement, chauffage et remplissage.</p>
-                <div class="pool-filtration-daybar" aria-hidden="true">
-                  <span id="poolFiltrationStart" class="pool-daybar-time">--:--</span>
-                  <span class="pool-daybar-track"><span id="poolFiltrationFill" class="pool-daybar-fill"></span></span>
-                  <span id="poolFiltrationStop" class="pool-daybar-time">--:--</span>
-                </div>
-              </div>
-            </div>
-            <div class="pool-hero-side">
-              <button id="poolConfigRefresh" class="btn-tonal btn-icon-only btn-refresh-icon pool-hero-refresh" aria-label="Rafraîchir la configuration piscine" title="Rafraîchir la configuration piscine" data-i18n-aria-label="pool.refresh" data-i18n-title="pool.refresh"><span class="refresh-icon-glyph" aria-hidden="true"></span></button>
-              <div id="poolOperatingModeControl" class="pool-operating-mode-control">
-                <label for="poolOperatingMode" data-i18n="pool.mode.label">Mode de fonctionnement</label>
-                <select id="poolOperatingMode" class="pool-setting-control" disabled>
-                  <option value="maintenance" data-i18n="pool.mode.maintenance">Manuel / maintenance</option>
-                  <option value="safe_manual" data-i18n="pool.mode.safeManual">Manuel sécurisé</option>
-                  <option value="automatic" data-i18n="pool.mode.automatic">Automatique</option>
-                </select>
-                <div class="pool-operating-mode-actions">
-                  <span id="poolOperatingModeStatus" class="pool-operating-mode-status" aria-live="polite"></span>
-                  <button id="poolOperatingModeApply" type="button" class="btn-primary" disabled data-i18n="pool.mode.apply">Appliquer</button>
-                </div>
-              </div>
-            </div>
-          </section>
-          <section id="poolEquipmentControl" class="pool-equipment-control" aria-live="polite"></section>
           <section id="poolAlarmCard" class="pool-alarm-card" hidden aria-live="polite"></section>
           <section id="poolProtectionSummary" class="pool-protection-summary" aria-live="polite"></section>
           <section id="poolChemistryPanel" class="pool-chemistry-panel" aria-live="polite"></section>

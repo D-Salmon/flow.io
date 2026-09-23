@@ -891,10 +891,12 @@ body.web-icons-disabled .control-field-apply{font-size:15px;font-weight:800;lett
 .pool-protection-row{min-height:37px;display:flex;align-items:center;justify-content:space-between;gap:16px;border-top:1px solid var(--border);font-size:13px;}
 .pool-protection-row>span{color:var(--text-muted);}
 .pool-protection-row>b{color:var(--text);font-size:13px;text-align:right;white-space:nowrap;}
+.pool-protection-group.is-setpoints{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:24px;}
+.pool-protection-group.is-setpoints .pool-protection-group-head{grid-column:1/-1;}
 .pool-protection-group.is-electrolysis{grid-column:1/-1;background:#F5FBFF;border-color:#BDE4F5;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:24px;}
 .pool-protection-group.is-electrolysis .pool-protection-group-head,.pool-protection-group.is-electrolysis .pool-protection-treatment{grid-column:1/-1;}
 .pool-protection-treatment{justify-self:start;margin:-4px 0 9px 31px;padding:5px 9px;border-radius:999px;background:#E3F4FC;color:#087EA8;font-size:12px;font-weight:700;}
-@media(max-width:720px){.pool-protection-summary-head{align-items:flex-start;padding:15px;}.pool-protection-grid{grid-template-columns:1fr;padding:14px;gap:14px}.pool-protection-group.is-electrolysis{grid-column:auto;grid-template-columns:1fr}.pool-protection-group.is-electrolysis .pool-protection-group-head,.pool-protection-group.is-electrolysis .pool-protection-treatment{grid-column:auto}.pool-protection-row{gap:10px}.pool-protection-status{padding:5px 8px}.pool-protection-summary-title h2{font-size:16px}}
+@media(max-width:720px){.pool-protection-summary-head{align-items:flex-start;padding:15px;}.pool-protection-grid{grid-template-columns:1fr;padding:14px;gap:14px}.pool-protection-group.is-setpoints,.pool-protection-group.is-electrolysis{grid-column:auto;grid-template-columns:1fr}.pool-protection-group.is-electrolysis .pool-protection-group-head,.pool-protection-group.is-electrolysis .pool-protection-treatment{grid-column:auto}.pool-protection-row{gap:10px}.pool-protection-status{padding:5px 8px}.pool-protection-summary-title h2{font-size:16px}}
 .pool-alarm-head{display:grid;grid-template-columns:42px minmax(0,1fr);gap:12px;align-items:start;}
 .pool-alarm-icon{width:42px;height:42px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:rgba(214,69,93,0.12);color:var(--danger);font-size:24px;box-shadow:inset 0 0 0 1px rgba(214,69,93,0.2);}
 .pool-alarm-title-wrap{display:grid;gap:4px;min-width:0;}
@@ -1490,3 +1492,7 @@ body:not(.menu-icons-remote) #page-pool-measures .dashboard-kpi-icon::before{fon
   #page-pool-measures>.topbar{top:8px;right:8px;}
   .dashboard-hero{padding:16px 52px 16px 16px;}
 }
+
+.dashboard-equipment-feedback{margin-top:10px;}
+.dashboard-equipment-card.is-automatic{opacity:.72;}
+.dashboard-equipment-card.is-pending{cursor:progress;box-shadow:0 0 0 3px rgba(0,116,232,.09);}

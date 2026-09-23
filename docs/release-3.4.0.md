@@ -15,6 +15,14 @@ ou des relais.
   886 Ko minifiés et 205 Ko servis en gzip, sans suppression de fonction.
 - une réponse temporaire « appareil occupé » reçue pendant la navigation est
   retentée sans remplacer ni bloquer la page déjà affichée.
+- le Tableau de bord permet maintenant de commander directement les
+  équipements. Les commandes automatisées restent verrouillées en mode automatique
+  et les sécurités matérielles demeurent prioritaires ;
+- la page **Piscine** est recentrée sur les réglages : les cartes redondantes
+  **État général** et **Contrôle des équipements** sont supprimées, et
+  **Conditions générales** devient **Synthèse des réglages**. Sa nouvelle
+  sous-carte **Consignes** affiche les cibles pH et désinfection réellement
+  utilisées par le traitement sélectionné.
 
 ## Comptes Web et rôles
 

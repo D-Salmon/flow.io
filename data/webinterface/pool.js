@@ -66,6 +66,7 @@
     const dashboardKpiGrid = document.getElementById('dashboardKpiGrid');
     const dashboardEquipmentCount = document.getElementById('dashboardEquipmentCount');
     const dashboardEquipmentGrid = document.getElementById('dashboardEquipmentGrid');
+    const dashboardEquipmentStatus = document.getElementById('dashboardEquipmentStatus');
     const dashboardEquipmentManage = document.getElementById('dashboardEquipmentManage');
     const dashboardFiltrationState = document.getElementById('dashboardFiltrationState');
     const dashboardFiltrationStart = document.getElementById('dashboardFiltrationStart');
@@ -2108,6 +2109,15 @@
       return Math.max(0, Math.min(100, ((current - start) / (stop - start)) * 100));
     }
 
+    function renderDashboardEquipmentStatus() {
+      if (!dashboardEquipmentStatus) return;
+      const message = String(poolEquipmentStatusMessage || '').trim();
+      dashboardEquipmentStatus.hidden = !message;
+      dashboardEquipmentStatus.className = 'pool-equipment-feedback dashboard-equipment-feedback'
+        + (poolEquipmentStatusTone ? ' is-' + poolEquipmentStatusTone : '');
+      dashboardEquipmentStatus.textContent = message;
+    }
+
     function renderDashboardOverview(payload) {
       const pool = payload.poolDomain && payload.poolDomain.ok === true && payload.poolDomain.pool
         ? payload.poolDomain.pool
@@ -2125,6 +2135,10 @@
       const filtration = payload.filtration || {};
       const sensors = payload.sensors || {};
       const phConfig = payload.phConfig || {};
+      poolAssetStates = {};
+      ((payload.assetResult && payload.assetResult.assets) || []).forEach((asset) => {
+        poolAssetStates[String(asset.slot)] = asset;
+      });
       const electrolysisFeedbackMonitored = Number(sensors.swg_fb_io_id) !== 65535;
       const poolLogicEnabled = Object.prototype.hasOwnProperty.call(modes, 'enabled') ? toBool(modes.enabled) : !!(pool && pool.has);
       const automatic = poolLogicEnabled && (Object.prototype.hasOwnProperty.call(modes, 'auto_mode') ? toBool(modes.auto_mode) : !!(pool && pool.auto));
@@ -2200,20 +2214,21 @@
       const disinfectionType = Number.parseInt(modes.disinfection_type, 10);
       const hasDisinfectionType = Number.isFinite(disinfectionType);
       const equipmentDefs = [
-        { key: 'fil', label: tr('dashboard.equipment.filtration', 'Filtration'), icon: 'waves' },
-        { key: 'php', label: tr('dashboard.equipment.phPump', 'Pompe pH'), icon: 'science' },
+        { key: 'fil', equipmentKey: 'filtration', label: tr('dashboard.equipment.filtration', 'Filtration'), icon: 'waves' },
+        { key: 'php', equipmentKey: 'ph', label: tr('dashboard.equipment.phPump', 'Pompe pH'), icon: 'science' },
         {
           key: 'clp',
+          equipmentKey: 'chlorine',
           label: disinfectionType === 2
             ? tr('dashboard.equipment.activeOxygenPump', 'Pompe oxygène actif')
             : tr('dashboard.equipment.chlorinePump', 'Pompe chlore'),
           icon: disinfectionType === 2 ? 'bubble_chart' : 'water_drop'
         },
-        { key: 'swg', label: tr('dashboard.equipment.swg', 'Électrolyse'), icon: 'bolt' },
-        { key: 'rbt', label: tr('dashboard.equipment.robot', 'Robot'), icon: 'smart_toy' },
-        { key: 'fill', label: tr('dashboard.equipment.filling', 'Remplissage'), icon: 'faucet' },
-        { key: 'htr', label: tr('dashboard.equipment.heater', 'Chauffage'), icon: 'local_fire_department' },
-        { key: 'lgt', label: tr('dashboard.equipment.lights', 'Éclairage'), icon: 'lightbulb', equipmentKey: 'lights' }
+        { key: 'swg', equipmentKey: 'electrolysis', label: tr('dashboard.equipment.swg', 'Électrolyse'), icon: 'bolt' },
+        { key: 'rbt', equipmentKey: 'robot', label: tr('dashboard.equipment.robot', 'Robot'), icon: 'smart_toy' },
+        { key: 'fill', equipmentKey: 'filling', label: tr('dashboard.equipment.filling', 'Remplissage'), icon: 'faucet' },
+        { key: 'htr', equipmentKey: 'heater', label: tr('dashboard.equipment.heater', 'Chauffage'), icon: 'local_fire_department' },
+        { key: 'lgt', equipmentKey: 'lights', label: tr('dashboard.equipment.lights', 'Éclairage'), icon: 'lightbulb' }
       ];
       const visibleEquipmentDefs = equipmentDefs.filter((def) => {
         if (def.key === 'swg') return !hasDisinfectionType || disinfectionType === 1;
@@ -2225,39 +2240,54 @@
       if (dashboardEquipmentGrid) {
         dashboardEquipmentGrid.innerHTML = '';
         visibleEquipmentDefs.forEach((def) => {
-          const available = !!pool && typeof pool[def.key] === 'boolean';
+          const equipmentDef = poolEquipmentDefs.find((entry) => entry.key === def.equipmentKey);
+          const centralAsset = equipmentDef ? poolAsset(equipmentDef.slot) : null;
+          const centralActive = !centralAsset || centralAsset.state === 'active';
+          const available = !!pool && typeof pool[def.key] === 'boolean' && !!equipmentDef && centralActive;
           const on = available && pool[def.key] === true;
+          const blockedByAutomatic = available && automatic && equipmentDef.automatic;
+          const pending = poolEquipmentCommandBusy === def.equipmentKey;
+          const actionable = available && !blockedByAutomatic && !poolEquipmentCommandBusy;
           if (available) equipmentAvailableCount += 1;
           if (on) equipmentOnCount += 1;
-          const actionable = def.equipmentKey === 'lights';
-          const card = document.createElement(actionable ? 'button' : 'article');
+
+          const card = document.createElement('button');
+          card.type = 'button';
+          card.disabled = !actionable;
+          card.setAttribute('aria-label', !available
+            ? def.label + ' · ' + (centralAsset ? poolAssetStateLabel(centralAsset) : tr('dashboard.equipment.unavailable', 'Indisponible'))
+            : (blockedByAutomatic
+              ? def.label + ' · ' + tr('pool.control.automatic', 'Piloté automatiquement')
+              : (on
+                ? tr('pool.control.action.stopEquipment', 'Arrêter') + ' · ' + def.label
+                : tr('pool.control.action.startEquipment', 'Démarrer') + ' · ' + def.label)));
+          card.title = blockedByAutomatic
+            ? tr('pool.control.automatic', 'Piloté automatiquement')
+            : (!available && centralAsset ? poolAssetStateLabel(centralAsset) : '');
           if (actionable) {
-            card.type = 'button';
-            card.disabled = !available || !!poolEquipmentCommandBusy;
-            card.setAttribute('aria-label', on
-              ? tr('dashboard.lights.turnOff', 'Éteindre l’éclairage')
-              : tr('dashboard.lights.turnOn', 'Allumer l’éclairage'));
             card.addEventListener('click', () => {
-              const equipmentDef = poolEquipmentDefs.find((entry) => entry.key === def.equipmentKey);
-              if (equipmentDef) commandPoolEquipment(equipmentDef, !on).catch(() => {});
+              commandPoolEquipment(equipmentDef, !on).catch(() => {});
             });
           }
-          card.className = 'dashboard-equipment-card '
-            + ' is-equipment-' + def.key + ' '
-            + (actionable ? ' is-actionable ' : '')
-            + (def.key === 'lgt' ? ' is-lighting ' : '')
-            + (available ? (on ? 'is-on' : 'is-off') : 'is-unavailable');
+          card.className = 'dashboard-equipment-card is-actionable'
+            + ' is-equipment-' + def.key
+            + (def.key === 'lgt' ? ' is-lighting' : '')
+            + (available ? (on ? ' is-on' : ' is-off') : ' is-unavailable')
+            + (blockedByAutomatic ? ' is-automatic' : '')
+            + (pending ? ' is-pending' : '');
           const copy = document.createElement('div');
           const label = document.createElement('strong');
           label.textContent = def.label;
           const state = document.createElement('span');
           state.className = 'dashboard-equipment-state';
           const commandOnly = def.key === 'swg' && !electrolysisFeedbackMonitored;
-          state.innerHTML = '<i aria-hidden="true"></i>' + (!available
-            ? tr('dashboard.equipment.unavailable', 'Indisponible')
-            : (on
-              ? (commandOnly ? tr('dashboard.equipment.commanded', 'Commandé') : tr('dashboard.equipment.on', 'En marche'))
-              : tr('dashboard.equipment.off', 'À l’arrêt')));
+          state.innerHTML = '<i aria-hidden="true"></i>' + (pending
+            ? tr('pool.control.pending', 'Commande…')
+            : (!available
+              ? (centralAsset ? poolAssetStateLabel(centralAsset) : tr('dashboard.equipment.unavailable', 'Indisponible'))
+              : (on
+                ? (commandOnly ? tr('dashboard.equipment.commanded', 'Commandé') : tr('dashboard.equipment.on', 'En marche'))
+                : tr('dashboard.equipment.off', 'À l’arrêt'))));
           copy.appendChild(label);
           copy.appendChild(state);
           const toggle = document.createElement('span');
@@ -2272,6 +2302,7 @@
         dashboardEquipmentCount.textContent = equipmentAvailableCount ? equipmentOnCount + '/' + equipmentAvailableCount : '—';
         dashboardEquipmentCount.className = 'dashboard-panel-count' + (equipmentOnCount > 0 ? ' is-ok' : '');
       }
+      renderDashboardEquipmentStatus();
 
       const lightsAvailable = !!pool && typeof pool.lgt === 'boolean';
       dashboardLightsOn = lightsAvailable ? pool.lgt === true : null;
@@ -2383,7 +2414,8 @@
         safe(poolConfigFetchModule('poollogic/modes')),
         safe(poolConfigFetchModule('poollogic/filtration')),
         safe(poolConfigFetchModule('poollogic/sensors')),
-        safe(poolConfigFetchModule('poollogic/ph'))
+        safe(poolConfigFetchModule('poollogic/ph')),
+        safe(fetchOkJson('/api/pool/assets', { cache: 'no-store' }, 'état central indisponible'))
       ]);
       if (reqSeq !== dashboardOverviewReqSeq) return;
       const payload = {
@@ -2395,7 +2427,8 @@
         modes: results[5] && results[5].data ? results[5].data : {},
         filtration: results[6] && results[6].data ? results[6].data : {},
         sensors: results[7] && results[7].data ? results[7].data : {},
-        phConfig: results[8] && results[8].data ? results[8].data : {}
+        phConfig: results[8] && results[8].data ? results[8].data : {},
+        assetResult: results[9] || null
       };
       dashboardOverviewLoadedOnce = true;
       renderDashboardOverview(payload);
@@ -2485,6 +2518,7 @@
           + ' · ' + tr(def.labelKey, def.label) + '…',
         'pending'
       );
+      renderDashboardEquipmentStatus();
       if (getActivePageId() === 'page-pool') {
         renderPoolEquipmentControl(poolConfigModulesCache, poolConfigLiveState);
       }
@@ -2514,6 +2548,7 @@
         if (getActivePageId() === 'page-pool') {
           renderPoolEquipmentControl(poolConfigModulesCache, poolConfigLiveState);
         }
+        renderDashboardEquipmentStatus();
         if (getActivePageId() === 'page-pool-measures') {
           refreshDashboardOverview(true).catch(() => {});
         }
@@ -4633,7 +4668,7 @@
       headerIcon.textContent = 'shield_with_heart';
       const copy = document.createElement('div');
       const title = document.createElement('h2');
-      title.textContent = tr('pool.protectionSummary.title', 'Conditions générales');
+      title.textContent = tr('pool.protectionSummary.title', 'Synthèse des réglages');
       const note = document.createElement('p');
       note.textContent = tr('pool.protectionSummary.note', 'Synthèse des réglages utilisés par les automatismes.');
       copy.appendChild(title);
@@ -4651,6 +4686,34 @@
 
       const grid = document.createElement('div');
       grid.className = 'pool-protection-grid';
+
+      const setpoints = poolConfigCreateProtectionGroup(
+        tr('pool.protectionSummary.setpoints', 'Consignes'),
+        'track_changes'
+      );
+      setpoints.classList.add('is-setpoints');
+      poolConfigAppendProtectionRow(
+        setpoints,
+        tr('pool.protectionSummary.phSetpoint', 'Consigne pH'),
+        poolConfigFormatValue('poollogic/ph', 'ph_setpoint', ph.ph_setpoint)
+      );
+      let disinfectionSetpoint = poolConfigFormatValue('poollogic/chlorine', 'dis_setpoint', chlorine.dis_setpoint);
+      let disinfectionSetpointTone = '';
+      if (disinfectionType === 3) {
+        disinfectionSetpoint = tr('pool.protectionSummary.disinfectionDisabled', 'Désactivée');
+        disinfectionSetpointTone = 'inactive';
+      } else if (disinfectionType === 2) {
+        disinfectionSetpoint = tr('pool.protectionSummary.doseCalculated', 'Dosage calculé automatiquement');
+      } else if (disinfectionType === 1 && Number(swg.swg_control_mode) !== 0) {
+        disinfectionSetpoint = tr('pool.protectionSummary.continuousModeShort', 'Continu pendant la filtration');
+      }
+      poolConfigAppendProtectionRow(
+        setpoints,
+        tr('pool.protectionSummary.disinfectionSetpoint', 'Consigne désinfection'),
+        disinfectionSetpoint,
+        disinfectionSetpointTone
+      );
+      grid.appendChild(setpoints);
 
       const protections = poolConfigCreateProtectionGroup(
         tr('pool.protectionSummary.protections', 'Protections générales'),
