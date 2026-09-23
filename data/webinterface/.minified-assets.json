@@ -10,11 +10,11 @@
       "gzip_bytes": 785
     },
     "sh.html": {
-      "source_sha256": "4fd3cf782d076d1ac5373ebe067d92d6de781a85e8329a2d5729671b97d45e81",
-      "gzip_sha256": "1a34d6add60ebc7b3e9dae65824c8246ae732253e77536e0e753383f7c488791",
-      "original_bytes": 56880,
-      "minified_bytes": 47399,
-      "gzip_bytes": 9622
+      "source_sha256": "df36f7cee7a5c5a9911d489175a74dac896193b8c68d9e89c155777aec7b1750",
+      "gzip_sha256": "0d4786d9586feb70055141dee79686f89acc3c22dfe2dcb9bb91a69c1ce73f98",
+      "original_bytes": 56893,
+      "minified_bytes": 47400,
+      "gzip_bytes": 9624
     },
     "app.js": {
       "source_sha256": "c0a832dcecbb1b10f8b92c35ec563d2004f239dfb92555f27f36b38fdc112e1f",
@@ -73,11 +73,11 @@
       "gzip_bytes": 10859
     },
     "pool.js": {
-      "source_sha256": "cb51eb162323a7f9a1e25b5cf16f4dfc02bfb276f7dcc1cded2b20527054d3c0",
-      "gzip_sha256": "b28e954e6d9a6fe914c2996004901fdc3c48ed2f33a2a774ddbeda1266b0cc0c",
-      "original_bytes": 254937,
-      "minified_bytes": 196705,
-      "gzip_bytes": 42880
+      "source_sha256": "73efaa1e68c4c10852061c37b2844ef319ebbef2692ebf98b7c9f4f34965b03e",
+      "gzip_sha256": "4e365195c7b8c12c6379da77f3aeaec5453385e8037e29229a52276091e7f28e",
+      "original_bytes": 255162,
+      "minified_bytes": 196883,
+      "gzip_bytes": 42898
     },
     "config.js": {
       "source_sha256": "b1f16af4f6cb61b4cf8855733b775de3b182b8a46ab0601891bafe884084fddc",
@@ -101,11 +101,11 @@
       "gzip_bytes": 9360
     },
     "app-core.css": {
-      "source_sha256": "a637c16281539bd899724a034998285a795bd05d72204cbd3be26e3fd98349c9",
-      "gzip_sha256": "55e3758081a1e12a7fca986d9317359663b74e0caf1ba99eede45da8a03827c9",
-      "original_bytes": 167155,
-      "minified_bytes": 162220,
-      "gzip_bytes": 29108
+      "source_sha256": "aba95e1a03c61af52b06f817043c62ac5c36257e8d6e6e226353ca976ca088fb",
+      "gzip_sha256": "4e23c0218871cd1d50e2b1872f7d31e139913fcdbb9829fafce90f732d6c7caf",
+      "original_bytes": 167834,
+      "minified_bytes": 162883,
+      "gzip_bytes": 29217
     },
     "network.css": {
       "source_sha256": "564c3a2d3b6b3cdac53c4eb74dd7d64dc3ac25f4c9bac95f0db6fa0791647c7b",

@@ -4945,6 +4945,9 @@
       });
       orderedDefs.forEach((def) => {
         if (def.hidden) return;
+        if (def.module === 'poollogic/sensors' && poolProtectionSummary) {
+          poolConfigGrid.appendChild(poolProtectionSummary);
+        }
         const data = modules[def.module] || {};
         if (def.module === 'poollogic/filtration') {
           poolConfigGrid.appendChild(poolConfigRenderFiltrationCard(def, data));
@@ -4983,11 +4986,11 @@
       poolConfigAlarmSlotsCache = Array.isArray(alarmSlots) ? alarmSlots : [];
       poolConfigRenderHero(source, alarmSlots);
       renderPoolEquipmentControl(source, poolConfigLiveState);
-      poolConfigRenderProtectionSummary(source);
       poolConfigRenderChemistry(source, poolConfigLiveState);
       poolConfigRenderDisinfection(source);
       poolConfigRenderAlarms(alarmSlots);
       poolConfigRenderGeneralCards(source);
+      poolConfigRenderProtectionSummary(source);
     }
 
     function poolConfigRenderSkeleton() {
@@ -5052,6 +5055,7 @@
         card.appendChild(createSkeletonLine('', 42));
         card.appendChild(createSkeletonLine('', 86));
         poolProtectionSummary.appendChild(card);
+        if (poolConfigGrid) poolConfigGrid.appendChild(poolProtectionSummary);
       }
     }
 

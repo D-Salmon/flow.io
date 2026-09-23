@@ -40,7 +40,8 @@ La page Piscine est réservée aux réglages et sa synthèse générale est inti
 **Synthèse des réglages**. Les consignes pH et ORP sont regroupées uniquement
 dans **Qualité de l'eau**, avec les mesures correspondantes. La carte ORP y est
 masquée lorsque le traitement de l'eau est désactivé, et toutes les sorties de
-désinfection sont alors forcées à l'arrêt.
+désinfection sont alors forcées à l'arrêt. La synthèse est placée à la fin des
+réglages, juste avant **Affectation des sondes** et **Affectation des relais**.
 
 La compilation du firmware, les contrôles JavaScript, l’image SPIFFS, les
 ressources minifiées et le paquet ZIP ont été validés. Le firmware et la

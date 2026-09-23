@@ -24,7 +24,8 @@ ou des relais.
   et ORP sont centralisées dans **Qualité de l'eau**, auprès des mesures, et ne
   sont plus répétées dans les autres cartes. Lorsque le traitement de l'eau est
   désactivé, la carte ORP est masquée et les sorties de désinfection sont
-  explicitement forcées à l'arrêt.
+  explicitement forcées à l'arrêt. La synthèse est positionnée juste avant
+  **Affectation des sondes** et **Affectation des relais**.
 
 ## Comptes Web et rôles
 
@@ -147,7 +148,9 @@ Journal.
 En mode sombre, les boutons principaux utilisent maintenant un fond bleu/cyan
 plein. Les boutons secondaires ont un fond bleu sombre et une bordure claire ;
 les états survolé, désactivé et les actions dangereuses conservent ainsi un
-contraste lisible sur toutes les cartes.
+contraste lisible sur toutes les cartes. Les quatre boutons de mode du Tableau
+de bord restent délimités au repos et prennent une teinte verte lorsqu’ils sont
+actifs, sans dépendre du survol pour être visibles.
 
 ## Nouveau partitionnement
 
