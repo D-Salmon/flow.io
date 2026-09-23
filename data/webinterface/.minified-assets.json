@@ -101,11 +101,11 @@
       "gzip_bytes": 9360
     },
     "app-core.css": {
-      "source_sha256": "5863cfbef875643730a51eec50a7f17e99a43d212a7a5c9e90a9f72e2d65fcb1",
-      "gzip_sha256": "78be4c4977ea72138736651d7f41b1ee1f125b974d174783281fcc2ba213fc2e",
-      "original_bytes": 165541,
-      "minified_bytes": 160676,
-      "gzip_bytes": 28821
+      "source_sha256": "a637c16281539bd899724a034998285a795bd05d72204cbd3be26e3fd98349c9",
+      "gzip_sha256": "55e3758081a1e12a7fca986d9317359663b74e0caf1ba99eede45da8a03827c9",
+      "original_bytes": 167155,
+      "minified_bytes": 162220,
+      "gzip_bytes": 29108
     },
     "network.css": {
       "source_sha256": "564c3a2d3b6b3cdac53c4eb74dd7d64dc3ac25f4c9bac95f0db6fa0791647c7b",

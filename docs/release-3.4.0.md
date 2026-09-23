@@ -144,6 +144,11 @@ police système native de chaque appareil. L’état sain est nommé **État nor
 et la carte d’état ne contient plus de raccourcis redondants vers Piscine et le
 Journal.
 
+En mode sombre, les boutons principaux utilisent maintenant un fond bleu/cyan
+plein. Les boutons secondaires ont un fond bleu sombre et une bordure claire ;
+les états survolé, désactivé et les actions dangereuses conservent ainsi un
+contraste lisible sur toutes les cartes.
+
 ## Nouveau partitionnement
 
 | Partition | Taille | Rôle |
