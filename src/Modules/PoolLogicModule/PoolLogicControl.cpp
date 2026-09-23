@@ -1645,6 +1645,13 @@ void PoolLogicModule::runControlLoop_(uint32_t nowMs)
     }
     if (isDisinfectionType_(DisinfectionActiveOxygen)) {
         orpPumpDesired = o2PumpDesired;
+    } else if (isDisinfectionType_(DisinfectionDisabled)) {
+        // No water treatment means no disinfection output, regardless of a
+        // retained relay state, manual mode, or the automatic treatment flag.
+        orpPumpDesired = false;
+        swgDesired = false;
+        resetTemporalPidState_(orpPidState_, nowMs);
+        orpPidEnabled_ = false;
     }
 
     bool fillingDesired = false;

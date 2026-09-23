@@ -212,7 +212,7 @@
     "pool.protectionSummary.minimumTemperature": "Température minimale",
     "pool.protectionSummary.electrolysisDelay": "Délai après filtration",
     "pool.protectionSummary.controlMode": "Mode de pilotage",
-    "pool.protectionSummary.orpSetpointMode": "Consigne ORP",
+    "pool.protectionSummary.orpSetpointMode": "Régulation par ORP",
     "pool.protectionSummary.continuousMode": "Continu pendant la filtration",
     "pool.protectionSummary.orpSetpoint": "Consigne ORP",
     "pool.protectionSummary.electrolysisFeedback": "Retour contacteur électrolyseur",

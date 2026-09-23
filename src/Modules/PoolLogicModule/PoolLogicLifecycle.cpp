@@ -1626,6 +1626,26 @@ void PoolLogicModule::onEvent_(const Event& e)
                 portENTER_CRITICAL(&pendingMux_);
                 pendingFiltrationReconcile_ = true;
                 portEXIT_CRITICAL(&pendingMux_);
+
+                // Entering full automatic mode enables every applicable water
+                // regulation. Their normal freshness, filtration, timing, and
+                // safety interlocks still decide whether an output may run.
+                if (cfgStore_) {
+                    if (!phAutoMode_) {
+                        (void)cfgStore_->set(phAutoModeVar_, true);
+                        phAutoMode_ = true;
+                    }
+                    if (disinfectionType_ == DisinfectionChlorineBromine && !orpAutoMode_) {
+                        (void)cfgStore_->set(orpAutoModeVar_, true);
+                        orpAutoMode_ = true;
+                    } else if ((disinfectionType_ == DisinfectionSwg ||
+                                disinfectionType_ == DisinfectionActiveOxygen) &&
+                               !treatmentAutoMode_) {
+                        (void)cfgStore_->set(treatmentAutoModeVar_, true);
+                        treatmentAutoMode_ = true;
+                    }
+                }
+                LOGI("PoolLogic automatic mode enabled with pH and selected treatment automation");
             } else if (strcmp(p->nvsKey, NvsKeys::PoolLogic::TreatmentAutoMode) == 0) {
                 // A treatment mode change always starts from stopped outputs.
                 (void)writeDeviceDesired_(orpPumpDeviceSlot_, false);

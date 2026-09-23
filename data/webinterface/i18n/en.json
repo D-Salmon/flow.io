@@ -212,7 +212,7 @@
     "pool.protectionSummary.minimumTemperature": "Minimum temperature",
     "pool.protectionSummary.electrolysisDelay": "Delay after filtration",
     "pool.protectionSummary.controlMode": "Control mode",
-    "pool.protectionSummary.orpSetpointMode": "ORP setpoint",
+    "pool.protectionSummary.orpSetpointMode": "ORP regulation",
     "pool.protectionSummary.continuousMode": "Continuous during filtration",
     "pool.protectionSummary.orpSetpoint": "ORP setpoint",
     "pool.protectionSummary.electrolysisFeedback": "Salt-water generator contactor feedback",

@@ -1399,6 +1399,7 @@ body:not(.menu-icons-remote) #page-pool-measures .dashboard-kpi-icon::before{fon
 .dashboard-mode-tile span:not(.dashboard-toggle),.dashboard-equipment-state{display:flex;align-items:center;gap:6px;color:var(--text-muted);font-size:12px;font-weight:750;}
 .dashboard-mode-tile i,.dashboard-equipment-state i{width:6px;height:6px;border-radius:50%;background:#c7c7cc;}
 .dashboard-mode-tile.is-on span:not(.dashboard-toggle),.dashboard-equipment-card.is-on .dashboard-equipment-state{color:var(--state-ok-fg);}
+.dashboard-equipment-card.is-off .dashboard-equipment-state{color:var(--danger);}
 .dashboard-mode-tile.is-on i,.dashboard-equipment-card.is-on .dashboard-equipment-state i{background:var(--success);}
 .dashboard-mode-tile.is-unavailable,.dashboard-equipment-card.is-unavailable{opacity:.58;}
 .dashboard-equipment-card.is-on{border:0;background:rgba(22,164,93,.08);}

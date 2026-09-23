@@ -275,7 +275,6 @@
             Object.freeze({ value: true, label: 'pH+ (correcteur)' })
           ])
         }),
-        Object.freeze({ key: 'ph_setpoint', type: 'number', label: 'Consigne pH', min: 6, max: 8, step: 0.01 }),
         Object.freeze({ key: 'ph_window_ms', type: 'number', label: 'Fenêtre de dosage', min: 1, max: 180, step: 1, scale: 60000, unit: 'min' }),
         Object.freeze({ key: 'ph_kp', type: 'number', label: 'Gain proportionnel Kp', min: 0, step: 0.001 }),
         Object.freeze({ key: 'ph_ki', type: 'number', label: 'Gain intégral Ki', min: 0, step: 0.001 }),
@@ -283,7 +282,6 @@
       ]),
       'poollogic/chlorine': Object.freeze([
         Object.freeze({ key: 'dis_auto_mode', type: 'bool', label: 'Régulation ORP automatique' }),
-        Object.freeze({ key: 'dis_setpoint', type: 'number', label: 'Consigne ORP', min: 300, max: 900, step: 1, unit: 'mV' }),
         Object.freeze({ key: 'dis_window_ms', type: 'number', label: 'Fenêtre de dosage', min: 1, max: 180, step: 1, scale: 60000, unit: 'min' }),
         Object.freeze({ key: 'dis_kp', type: 'number', label: 'Gain proportionnel Kp', min: 0, step: 0.001 }),
         Object.freeze({ key: 'dis_ki', type: 'number', label: 'Gain intégral Ki', min: 0, step: 0.001 }),
@@ -4370,7 +4368,9 @@
       const swg = source['poollogic/swg'] || {};
       const safety = source['poollogic/safety'] || {};
       const sensors = source['poollogic/sensors'] || {};
-      const swgSelected = Number(modes.disinfection_type) === 1;
+      const disinfectionType = Number(modes.disinfection_type);
+      const swgSelected = disinfectionType === 1;
+      const disinfectionDisabled = disinfectionType === 3;
       const phAsset = poolAsset(2), orpAsset = poolAsset(1), waterAsset = poolAsset(5), pressureAsset = poolAsset(3);
       const phAvailable = (!phAsset || phAsset.state === 'active') && live.ph !== null && typeof live.ph !== 'undefined' && Number.isFinite(Number(live.ph));
       const orpAvailable = (!orpAsset || orpAsset.state === 'active') && live.orp !== null && typeof live.orp !== 'undefined' && Number.isFinite(Number(live.orp));
@@ -4449,30 +4449,32 @@
           { label: 'Pompe', value: poolConfigBoolLabel(live.php, 'En marche', 'Arrêt') }
         ]
       });
-      poolConfigAppendChemistryCard(grid, {
-        title: 'ORP',
-        subtitle: 'Potentiel de désinfection',
-        icon: 'water_drop',
-        accent: 'is-orp',
-        available: orpAvailable,
-        state: orpState,
-        measured: poolConfigLiveNumber(live.orp, 0, 'mV'),
-        metrics: [
-          {
-            label: 'Consigne',
-            featured: true,
-            editable: { module: 'poollogic/chlorine', key: 'dis_setpoint', type: 'number', value: chlorine.dis_setpoint, min: 300, max: 900, step: 1, unit: 'mV' }
-          },
-          {
-            label: 'Régulation',
-            editable: { module: 'poollogic/chlorine', key: 'dis_auto_mode', type: 'bool', value: chlorine.dis_auto_mode }
-          },
-          {
-            label: swgSelected ? 'Électrolyseur' : 'Pompe',
-            value: poolConfigBoolLabel(swgSelected ? live.swg : live.clp, 'En marche', 'Arrêt')
-          }
-        ]
-      });
+      if (!disinfectionDisabled) {
+        poolConfigAppendChemistryCard(grid, {
+          title: 'ORP',
+          subtitle: 'Potentiel de désinfection',
+          icon: 'water_drop',
+          accent: 'is-orp',
+          available: orpAvailable,
+          state: orpState,
+          measured: poolConfigLiveNumber(live.orp, 0, 'mV'),
+          metrics: [
+            {
+              label: 'Consigne',
+              featured: true,
+              editable: { module: 'poollogic/chlorine', key: 'dis_setpoint', type: 'number', value: chlorine.dis_setpoint, min: 300, max: 900, step: 1, unit: 'mV' }
+            },
+            {
+              label: 'Régulation',
+              editable: { module: 'poollogic/chlorine', key: 'dis_auto_mode', type: 'bool', value: chlorine.dis_auto_mode }
+            },
+            {
+              label: swgSelected ? 'Électrolyseur' : 'Pompe',
+              value: poolConfigBoolLabel(swgSelected ? live.swg : live.clp, 'En marche', 'Arrêt')
+            }
+          ]
+        });
+      }
       poolConfigAppendChemistryCard(grid, {
         title: 'Température',
         subtitle: 'Température utilisée par PoolLogic',
@@ -4584,7 +4586,6 @@
       if (selected && selectedDef.module) {
         if (selectedDef.key === 'chlorine') {
           poolConfigAppendMetric(metrics, tr('pool.metric.autoOrp', 'Auto ORP'), poolConfigBoolLabel(data.dis_auto_mode), { module: selectedDef.module, key: 'dis_auto_mode' });
-          poolConfigAppendMetric(metrics, tr('pool.metric.setpoint', 'Consigne'), poolConfigFormatValue(selectedDef.module, 'dis_setpoint', data.dis_setpoint), { featured: true, module: selectedDef.module, key: 'dis_setpoint' });
           poolConfigAppendMetric(metrics, tr('pool.metric.window', 'Fenêtre'), poolConfigFormatValue(selectedDef.module, 'dis_window_ms', data.dis_window_ms), { module: selectedDef.module, key: 'dis_window_ms' });
         } else if (selectedDef.key === 'o2') {
           poolConfigAppendMetric(metrics, tr('pool.metric.poolVolume', 'Volume bassin'), poolConfigFormatValue(selectedDef.module, 'pool_volume_m3', data.pool_volume_m3), { featured: true });
@@ -4749,33 +4750,6 @@
       const grid = document.createElement('div');
       grid.className = 'pool-protection-grid';
 
-      const setpoints = poolConfigCreateProtectionGroup(
-        tr('pool.protectionSummary.setpoints', 'Consignes'),
-        'track_changes'
-      );
-      setpoints.classList.add('is-setpoints');
-      poolConfigAppendProtectionRow(
-        setpoints,
-        tr('pool.protectionSummary.phSetpoint', 'Consigne pH'),
-        poolConfigFormatValue('poollogic/ph', 'ph_setpoint', ph.ph_setpoint)
-      );
-      let disinfectionSetpoint = poolConfigFormatValue('poollogic/chlorine', 'dis_setpoint', chlorine.dis_setpoint);
-      let disinfectionSetpointTone = '';
-      if (disinfectionType === 3) {
-        disinfectionSetpoint = tr('pool.protectionSummary.disinfectionDisabled', 'Désactivée');
-        disinfectionSetpointTone = 'inactive';
-      } else if (disinfectionType === 2) {
-        disinfectionSetpoint = tr('pool.protectionSummary.doseCalculated', 'Dosage calculé automatiquement');
-      } else if (disinfectionType === 1 && Number(swg.swg_control_mode) !== 0) {
-        disinfectionSetpoint = tr('pool.protectionSummary.continuousModeShort', 'Continu pendant la filtration');
-      }
-      poolConfigAppendProtectionRow(
-        setpoints,
-        tr('pool.protectionSummary.disinfectionSetpoint', 'Consigne désinfection'),
-        disinfectionSetpoint,
-        disinfectionSetpointTone
-      );
-      grid.appendChild(setpoints);
 
       const protections = poolConfigCreateProtectionGroup(
         tr('pool.protectionSummary.protections', 'Protections générales'),
@@ -4843,10 +4817,7 @@
         poolConfigAppendProtectionRow(electrolysis, tr('pool.protectionSummary.minimumTemperature', 'Température minimale'), poolConfigFormatValue('poollogic/swg', 'secure_elec_t', swg.secure_elec_t));
         poolConfigAppendProtectionRow(electrolysis, tr('pool.protectionSummary.electrolysisDelay', 'Délai après filtration'), poolConfigFormatValue('poollogic/swg', 'dly_electro_min', swg.dly_electro_min));
         const swgOrpMode = Number(swg.swg_control_mode) === 0;
-        poolConfigAppendProtectionRow(electrolysis, tr('pool.protectionSummary.controlMode', 'Mode de pilotage'), swgOrpMode ? tr('pool.protectionSummary.orpSetpointMode', 'Consigne ORP') : tr('pool.protectionSummary.continuousMode', 'Continu pendant la filtration'));
-        if (swgOrpMode) {
-          poolConfigAppendProtectionRow(electrolysis, tr('pool.protectionSummary.orpSetpoint', 'Consigne ORP'), poolConfigFormatValue('poollogic/chlorine', 'dis_setpoint', chlorine.dis_setpoint));
-        }
+        poolConfigAppendProtectionRow(electrolysis, tr('pool.protectionSummary.controlMode', 'Mode de pilotage'), swgOrpMode ? tr('pool.protectionSummary.orpSetpointMode', 'Régulation par ORP') : tr('pool.protectionSummary.continuousMode', 'Continu pendant la filtration'));
         grid.appendChild(electrolysis);
       }
 

@@ -20,9 +20,11 @@ ou des relais.
   et les sécurités matérielles demeurent prioritaires ;
 - la page **Piscine** est recentrée sur les réglages : les cartes redondantes
   **État général** et **Contrôle des équipements** sont supprimées, et
-  **Conditions générales** devient **Synthèse des réglages**. Sa nouvelle
-  sous-carte **Consignes** affiche les cibles pH et désinfection réellement
-  utilisées par le traitement sélectionné.
+  **Conditions générales** devient **Synthèse des réglages**. Les consignes pH
+  et ORP sont centralisées dans **Qualité de l'eau**, auprès des mesures, et ne
+  sont plus répétées dans les autres cartes. Lorsque le traitement de l'eau est
+  désactivé, la carte ORP est masquée et les sorties de désinfection sont
+  explicitement forcées à l'arrêt.
 
 ## Comptes Web et rôles
 
@@ -116,11 +118,15 @@ Le Tableau de bord reprend l’organisation claire de la proposition du fork :
 **Équipements**, **Sondes** et **Alarmes**. Les valeurs des sondes utilisent
 des couleurs distinctes pour être reconnues immédiatement.
 
-Les modes et équipements sont représentés par des interrupteurs d’état : gris
-à l’arrêt, vert lorsqu’ils sont actifs et bleu pour la filtration en marche.
+Les modes conservent un état gris à l’arrêt. Dans la carte **Équipements**,
+l’état « À l’arrêt » apparaît en rouge, les équipements actifs en vert et la
+filtration en marche en bleu. La carte **Détails techniques personnalisables**,
+devenue redondante, a été retirée du Tableau de bord.
 Les quatre interrupteurs de mode sont maintenant de vraies commandes :
 **Mode auto** bascule entre Automatique et Manuel sécurisé, puis **Mode hiver**,
-**pH auto** et **Traitement auto** se règlent directement. Le traitement
+**pH auto** et **Traitement auto** se règlent directement. Activer **Mode auto**
+active également pH auto et l'automatisation du traitement sélectionné ; avec
+**Aucun traitement de l’eau**, seule la régulation pH est activée. Le traitement
 automatique possède un réglage persistant propre à l’électrolyse et à l’oxygène
 actif ; le chlore conserve sa régulation ORP dédiée. Le mode Maintenance reste
 disponible uniquement dans Configuration. En Manuel sécurisé, pH et traitement

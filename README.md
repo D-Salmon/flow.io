@@ -29,15 +29,18 @@ jours avec export CSV et une source d’état commune aux pages Piscine,
 Entrées/Sorties et aux affectations de configuration.
 Le Tableau de bord regroupe désormais l’état, les commandes directes des
 équipements et quatre commandes de mode : automatique, hiver, régulation pH et
-traitement. Leur activation est accessible à l’Opérateur ; en Manuel sécurisé, les
+traitement. L'activation du mode Auto force aussi pH auto et l'automatisation
+du traitement sélectionné. Leur activation est accessible à l’Opérateur ; en Manuel sécurisé, les
 régulations pH et traitement peuvent continuer si la filtration fonctionne
 déjà, sans pouvoir la démarrer. Le mode Maintenance reste réservé à
 Configuration pour éviter de couper les sécurités par erreur. Le robot, le chauffage
 et le remplissage disparaissent du Tableau de bord lorsqu'ils sont désactivés
 dans leurs cartes Piscine respectives.
 La page Piscine est réservée aux réglages et sa synthèse générale est intitulée
-**Synthèse des réglages** ; elle affiche les consignes pH et désinfection
-adaptées au traitement sélectionné.
+**Synthèse des réglages**. Les consignes pH et ORP sont regroupées uniquement
+dans **Qualité de l'eau**, avec les mesures correspondantes. La carte ORP y est
+masquée lorsque le traitement de l'eau est désactivé, et toutes les sorties de
+désinfection sont alors forcées à l'arrêt.
 
 La compilation du firmware, les contrôles JavaScript, l’image SPIFFS, les
 ressources minifiées et le paquet ZIP ont été validés. Le firmware et la
@@ -218,10 +221,12 @@ Les fonctions actuellement implémentées comprennent :
 
 Le tableau de bord regroupe l’état général et la plage de filtration, puis les
 cartes **Mode**, **Équipements**, **Sondes** et **Alarmes**. Les sondes ont des
-couleurs distinctes. Les interrupteurs sont gris à l’arrêt, verts lorsqu’ils
-sont actifs et bleus pour la filtration en marche, sans animation. Il permet
-de changer le mode sans quitter sa vue d’ensemble. Les textes courants restent
-utilisent la pile de polices système, les tailles, les graisses et les
+couleurs distinctes. Les modes sont gris à l’arrêt. Pour les équipements,
+l’état « À l’arrêt » est rouge, les éléments actifs sont verts et la filtration
+en marche est bleue, sans animation. La carte technique personnalisable,
+devenue redondante, a été retirée. Il permet de changer le mode sans quitter sa
+vue d’ensemble. Les textes courants utilisent la pile de polices système, les
+tailles, les graisses et les
 espacements définis par la maquette du fork. Le menu signale la page active par
 sa couleur.
 Dans `Piscine > Contrôle des équipements`, les commandes suivent l’ordre
