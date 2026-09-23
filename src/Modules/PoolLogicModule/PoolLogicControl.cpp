@@ -421,7 +421,7 @@ bool PoolLogicModule::stepO2Protocol_(bool filtrationDesired,
     requestFiltrationOut = false;
     pumpDesiredOut = false;
 
-    if (!isDisinfectionType_(DisinfectionActiveOxygen) || !autoMode_) {
+    if (!isDisinfectionType_(DisinfectionActiveOxygen) || !autoMode_ || !treatmentAutoMode_) {
         o2LastProgressMs_ = 0;
         if (o2PendingMl_ <= kO2DoseEpsilonMl) {
             o2PendingMl_ = 0.0f;
@@ -1401,7 +1401,7 @@ void PoolLogicModule::runControlLoop_(uint32_t nowMs)
     bool swgDesired = swgControlFsm.on;
     if (autoMode_) {
         swgDesired = false;
-        if (isDisinfectionType_(DisinfectionSwg) && filtrationFsm_.on) {
+        if (treatmentAutoMode_ && isDisinfectionType_(DisinfectionSwg) && filtrationFsm_.on) {
             if (swgControlMode_ == SwgControlOrp) {
                 if (swgControlFsm.on) {
                     swgDesired = orpFresh && (orp <= orpSetpoint_);

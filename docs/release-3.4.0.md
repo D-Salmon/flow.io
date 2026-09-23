@@ -118,13 +118,18 @@ des couleurs distinctes pour être reconnues immédiatement.
 
 Les modes et équipements sont représentés par des interrupteurs d’état : gris
 à l’arrêt, vert lorsqu’ils sont actifs et bleu pour la filtration en marche.
-L’état reste ainsi explicite sans animation.
+Les quatre interrupteurs de mode sont maintenant de vraies commandes :
+**Mode auto** bascule entre Automatique et Manuel sécurisé, puis **Mode hiver**,
+**pH auto** et **Traitement auto** se règlent directement. Le traitement
+automatique possède un réglage persistant propre à l’électrolyse et à l’oxygène
+actif ; le chlore conserve sa régulation ORP dédiée. Le mode Maintenance reste
+disponible uniquement dans Configuration.
 
-La typographie reprend les valeurs exactes de la maquette : menu à 13,5 px,
-titres de cartes à 14,5 px, libellés à 12,5 px, états à 13 px et mesures à
-20 px. Les graisses, interlignes, espacements et la largeur de menu de 216 px
-sont également alignés sur le fork. La première carte remonte sous le bandeau
-d’état et la couleur indique la page active.
+Tous les textes du Tableau de bord ont été agrandis : titres de cartes à 17 px,
+libellés principaux à 15 px, états à 14,5 px et mesures à 24 px. Les graisses,
+interlignes, espacements et la largeur de menu de 216 px restent alignés sur le
+fork. La première carte remonte sous le bandeau d’état et la couleur indique la
+page active.
 
 La pile typographique reprend exactement celle de la maquette du fork, avec la
 police système native de chaque appareil. L’état sain est nommé **État normal**

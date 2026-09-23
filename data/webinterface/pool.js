@@ -49,6 +49,7 @@
 
       let dashboardOverviewReqSeq = 0;
       let dashboardOverviewLoadedOnce = false;
+      let dashboardModeActionBusy = "";
 
     const poolMeasuresRefreshBtn = document.getElementById('poolMeasuresRefresh');
     const poolMeasuresDomains = document.getElementById('poolMeasuresDomains');
@@ -1884,14 +1885,17 @@
       return card;
     }
 
-    function dashboardCreateModeTile(label, on, available) {
-      const tile = document.createElement('article');
-      tile.className = 'dashboard-mode-tile ' + (!available ? 'is-unavailable' : (on ? 'is-on' : 'is-off'));
+    function dashboardCreateModeTile(key, label, on, available, commandMode) {
+      const tile = document.createElement('button');
+      tile.type = 'button';
+      tile.className = 'dashboard-mode-tile is-actionable ' + (!available ? 'is-unavailable' : (on ? 'is-on' : 'is-off'));
+      tile.disabled = !available || !!dashboardModeActionBusy;
+      tile.setAttribute('aria-pressed', on ? 'true' : 'false');
       const copy = document.createElement('div');
       const title = document.createElement('strong');
       title.textContent = label;
       const state = document.createElement('span');
-      state.innerHTML = '<i aria-hidden="true"></i>' + (!available ? 'Indisponible' : (on ? 'Actif' : 'Arrêt'));
+      state.innerHTML = '<i aria-hidden="true"></i>' + (!available ? 'Indisponible' : (dashboardModeActionBusy === key ? 'Application…' : (on ? 'Actif' : 'Arrêt')));
       copy.appendChild(title);
       copy.appendChild(state);
       const toggle = document.createElement('span');
@@ -1899,7 +1903,42 @@
       toggle.setAttribute('aria-hidden', 'true');
       tile.appendChild(copy);
       tile.appendChild(toggle);
+      if (available) {
+        tile.addEventListener('click', () => applyDashboardMode(key, commandMode, !on, label));
+      }
       return tile;
+    }
+
+    async function applyDashboardMode(key, commandMode, desired, label) {
+      if (!commandMode || dashboardModeActionBusy) return false;
+      dashboardModeActionBusy = key;
+      if (dashboardModeStatus) {
+        dashboardModeStatus.className = 'dashboard-mode-status is-pending';
+        dashboardModeStatus.textContent = 'Application · ' + label + '…';
+      }
+      try {
+        await fetchOkJson(
+          '/api/poollogic/mode',
+          createFormPostOptions({ mode: commandMode, value: desired ? 'true' : 'false' }),
+          'Commande refusée',
+          fetchFlowRemoteQueued
+        );
+        await waitMs(250);
+        if (dashboardModeStatus) {
+          dashboardModeStatus.className = 'dashboard-mode-status is-ok';
+          dashboardModeStatus.textContent = label + ' : ' + (desired ? 'actif' : 'arrêt') + '.';
+        }
+        return true;
+      } catch (err) {
+        if (dashboardModeStatus) {
+          dashboardModeStatus.className = 'dashboard-mode-status is-error';
+          dashboardModeStatus.textContent = 'Commande refusée : ' + String(err);
+        }
+        return false;
+      } finally {
+        dashboardModeActionBusy = '';
+        await refreshDashboardOverview(true).catch(() => {});
+      }
     }
 
     function dashboardFormatNumber(value, decimals) {
@@ -2135,6 +2174,7 @@
       const filtration = payload.filtration || {};
       const sensors = payload.sensors || {};
       const phConfig = payload.phConfig || {};
+      const chlorineConfig = payload.chlorineConfig || {};
       poolAssetStates = {};
       ((payload.assetResult && payload.assetResult.assets) || []).forEach((asset) => {
         poolAssetStates[String(asset.slot)] = asset;
@@ -2166,15 +2206,23 @@
         const phAutoAvailable = Object.prototype.hasOwnProperty.call(phConfig, 'ph_auto_mode');
         const phAuto = phAutoAvailable && toBool(phConfig.ph_auto_mode);
         const disinfectionTypeForMode = Number.parseInt(modes.disinfection_type, 10);
-        const treatmentAvailable = Number.isFinite(disinfectionTypeForMode);
-        const treatmentAuto = treatmentAvailable && disinfectionTypeForMode !== 3 && automatic;
+        const treatmentAvailable = Number.isFinite(disinfectionTypeForMode) && disinfectionTypeForMode !== 3;
+        const chlorineTreatment = disinfectionTypeForMode === 0;
+        const treatmentAutoAvailable = treatmentAvailable && (chlorineTreatment
+          ? Object.prototype.hasOwnProperty.call(chlorineConfig, 'dis_auto_mode')
+          : Object.prototype.hasOwnProperty.call(modes, 'treatment_auto_mode'));
+        const treatmentAuto = treatmentAutoAvailable && toBool(chlorineTreatment
+          ? chlorineConfig.dis_auto_mode
+          : modes.treatment_auto_mode);
         const modeTiles = [
-          { label: 'Mode auto', on: automatic, available: poolLogicEnabled },
-          { label: 'Mode hiver', on: winter, available: poolLogicEnabled },
-          { label: 'pH auto', on: phAuto, available: phAutoAvailable },
-          { label: 'Traitement auto', on: treatmentAuto, available: treatmentAvailable }
+          { key: 'automatic', command: 'automatic', label: 'Mode auto', on: automatic, available: Object.prototype.hasOwnProperty.call(modes, 'auto_mode') },
+          { key: 'winter', command: 'winter', label: 'Mode hiver', on: winter, available: poolLogicEnabled && Object.prototype.hasOwnProperty.call(modes, 'winter_mode') },
+          { key: 'ph', command: 'ph', label: 'pH auto', on: phAuto, available: phAutoAvailable },
+          { key: 'treatment', command: chlorineTreatment ? 'chlorine' : 'treatment', label: 'Traitement auto', on: treatmentAuto, available: treatmentAutoAvailable }
         ];
-        modeTiles.forEach((item) => dashboardModeGrid.appendChild(dashboardCreateModeTile(item.label, item.on, item.available)));
+        modeTiles.forEach((item) => dashboardModeGrid.appendChild(
+          dashboardCreateModeTile(item.key, item.label, item.on, item.available, item.command)
+        ));
         if (dashboardModeCount) dashboardModeCount.textContent = modeTiles.filter((item) => item.available && item.on).length + ' actifs';
       }
 
@@ -2415,6 +2463,7 @@
         safe(poolConfigFetchModule('poollogic/filtration')),
         safe(poolConfigFetchModule('poollogic/sensors')),
         safe(poolConfigFetchModule('poollogic/ph')),
+        safe(poolConfigFetchModule('poollogic/chlorine')),
         safe(fetchOkJson('/api/pool/assets', { cache: 'no-store' }, 'état central indisponible'))
       ]);
       if (reqSeq !== dashboardOverviewReqSeq) return;
@@ -2428,7 +2477,8 @@
         filtration: results[6] && results[6].data ? results[6].data : {},
         sensors: results[7] && results[7].data ? results[7].data : {},
         phConfig: results[8] && results[8].data ? results[8].data : {},
-        assetResult: results[9] || null
+        chlorineConfig: results[9] && results[9].data ? results[9].data : {},
+        assetResult: results[10] || null
       };
       dashboardOverviewLoadedOnce = true;
       renderDashboardOverview(payload);
@@ -5155,7 +5205,6 @@
         });
         deps.bindClickAction(applyButton, () => applyPoolOperatingMode(select.value));
       };
-      bindOperatingModeControl(dashboardOperatingMode, dashboardModeApply);
       bindOperatingModeControl(poolOperatingMode, poolOperatingModeApply);
       deps.bindClickAction(dashboardLightsShortcut, () => {
         const def = poolEquipmentDefs.find((entry) => entry.key === 'lights');

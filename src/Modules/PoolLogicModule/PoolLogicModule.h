@@ -161,6 +161,7 @@ private:
 
     // Modes
     bool autoMode_ = false;
+    bool treatmentAutoMode_ = true;
     bool winterMode_ = false;
     bool phAutoMode_ = false;
     bool orpAutoMode_ = false;
@@ -302,6 +303,8 @@ private:
 
     ConfigVariable<bool,0> autoModeVar_{NVS_KEY(NvsKeys::PoolLogic::AutoMode), "auto_mode", "poollogic/modes", ConfigType::Bool,
                                         &autoMode_, ConfigPersistence::Persistent, 0};
+    ConfigVariable<bool,0> treatmentAutoModeVar_{NVS_KEY(NvsKeys::PoolLogic::TreatmentAutoMode), "treatment_auto_mode", "poollogic/modes", ConfigType::Bool,
+                                                 &treatmentAutoMode_, ConfigPersistence::Persistent, 0};
     ConfigVariable<bool,0> winterModeVar_{NVS_KEY(NvsKeys::PoolLogic::WinterMode), "winter_mode", "poollogic/modes", ConfigType::Bool,
                                           &winterMode_, ConfigPersistence::Persistent, 0};
     ConfigVariable<bool,0> phAutoModeVar_{NVS_KEY(NvsKeys::PoolLogic::PhAutoMode), "ph_auto_mode", "poollogic/ph", ConfigType::Bool,

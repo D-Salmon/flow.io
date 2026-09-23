@@ -280,6 +280,10 @@ bool PoolLogicModule::cmdAutoModeSet_(const CommandRequest& req, char* reply, si
         return false;
     }
 
+    // The public automatic-mode command always keeps PoolLogic and its
+    // protections enabled. Maintenance remains an administrator setting.
+    (void)cfgStore_->set(enabledVar_, true);
+    enabled_ = true;
     (void)cfgStore_->set(autoModeVar_, requested);
     autoMode_ = requested;
 
@@ -572,6 +576,12 @@ bool PoolLogicModule::cmdMqttControl_(const CommandRequest& req, char* reply, si
 
     if (strcmp(cmdName, "poollogic.auto_mode.toggle") == 0) {
         return toggleModeValue("poollogic.auto_mode.toggle", autoModeVar_, autoMode_);
+    }
+    if (strcmp(cmdName, "poollogic.treatment_auto_mode.set") == 0) {
+        return setModeValue("poollogic.treatment_auto_mode.set", treatmentAutoModeVar_, treatmentAutoMode_);
+    }
+    if (strcmp(cmdName, "poollogic.treatment_auto_mode.toggle") == 0) {
+        return toggleModeValue("poollogic.treatment_auto_mode.toggle", treatmentAutoModeVar_, treatmentAutoMode_);
     }
     if (strcmp(cmdName, "poollogic.ph_auto_mode.set") == 0) {
         return setModeValue("poollogic.ph_auto_mode.set", phAutoModeVar_, phAutoMode_);

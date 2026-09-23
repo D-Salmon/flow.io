@@ -8467,6 +8467,53 @@ void WebInterfaceModule::startServer_()
         request->send(200, "application/json", (reply[0] != '\0') ? reply : "{\"ok\":true}");
     });
 
+    server_.on("/api/poollogic/mode", HTTP_POST, [this](AsyncWebServerRequest* request) {
+        HttpLatencyScope latency(request, "/api/poollogic/mode");
+        if (!request->hasParam("mode", true) || !request->hasParam("value", true)) {
+            request->send(400, "application/json",
+                          "{\"ok\":false,\"err\":{\"code\":\"InvalidArg\",\"where\":\"poollogic.mode\"}}");
+            return;
+        }
+        char mode[28] = {0};
+        char valueText[8] = {0};
+        copyRequestParamValue_(request, "mode", true, mode, sizeof(mode), "");
+        copyRequestParamValue_(request, "value", true, valueText, sizeof(valueText), "");
+        const bool value = strcmp(valueText, "true") == 0 || strcmp(valueText, "1") == 0 || strcmp(valueText, "on") == 0;
+        const bool validValue = value || strcmp(valueText, "false") == 0 || strcmp(valueText, "0") == 0 || strcmp(valueText, "off") == 0;
+        if (!validValue) {
+            request->send(400, "application/json",
+                          "{\"ok\":false,\"err\":{\"code\":\"InvalidArg\",\"where\":\"poollogic.mode.value\"}}");
+            return;
+        }
+        const char* command = nullptr;
+        if (strcmp(mode, "automatic") == 0) command = "poollogic.auto_mode.set";
+        else if (strcmp(mode, "winter") == 0) command = "poollogic.winter_mode.set";
+        else if (strcmp(mode, "ph") == 0) command = "poollogic.ph_auto_mode.set";
+        else if (strcmp(mode, "treatment") == 0) command = "poollogic.treatment_auto_mode.set";
+        else if (strcmp(mode, "chlorine") == 0) command = "poollogic.dis_auto_mode.set";
+        else {
+            request->send(400, "application/json",
+                          "{\"ok\":false,\"err\":{\"code\":\"UnknownSlot\",\"where\":\"poollogic.mode\"}}");
+            return;
+        }
+        if (!cmdSvc_ && services_) cmdSvc_ = services_->get<CommandService>(ServiceId::Command);
+        if (!cmdSvc_ || !cmdSvc_->execute) {
+            request->send(503, "application/json",
+                          "{\"ok\":false,\"err\":{\"code\":\"NotReady\",\"where\":\"poollogic.mode\"}}");
+            return;
+        }
+        char args[32] = {0};
+        snprintf(args, sizeof(args), "{\"value\":%s}", value ? "true" : "false");
+        char reply[220] = {0};
+        const bool ok = cmdSvc_->execute(cmdSvc_->ctx, command, args, nullptr, reply, sizeof(reply));
+        if (!ok) {
+            request->send(409, "application/json",
+                          (reply[0] != '\0') ? reply : "{\"ok\":false,\"err\":{\"code\":\"Failed\",\"where\":\"poollogic.mode\"}}");
+            return;
+        }
+        request->send(200, "application/json", (reply[0] != '\0') ? reply : "{\"ok\":true}");
+    });
+
     server_.on("/api/system/reboot", HTTP_POST, [this](AsyncWebServerRequest* request) {
         HttpLatencyScope latency(request, "/api/system/reboot");
         if (!cmdSvc_ && services_) {

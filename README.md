@@ -27,10 +27,13 @@ Elle ajoute aussi des comptes Web Administrateur/Opérateur avec sessions de
 sept jours, un bouton de déconnexion, un historique piscine local sur sept
 jours avec export CSV et une source d’état commune aux pages Piscine,
 Entrées/Sorties et aux affectations de configuration.
-Le Tableau de bord regroupe désormais l’état et les commandes directes des
-équipements. La page Piscine est réservée aux réglages et sa synthèse générale
-est intitulée **Synthèse des réglages** ; elle affiche les consignes pH et
-désinfection adaptées au traitement sélectionné.
+Le Tableau de bord regroupe désormais l’état, les commandes directes des
+équipements et quatre commandes de mode : automatique, hiver, régulation pH et
+traitement. Leur activation est accessible à l’Opérateur ; le mode Maintenance
+reste réservé à Configuration pour éviter de couper les sécurités par erreur.
+La page Piscine est réservée aux réglages et sa synthèse générale est intitulée
+**Synthèse des réglages** ; elle affiche les consignes pH et désinfection
+adaptées au traitement sélectionné.
 
 La compilation du firmware, les contrôles JavaScript, l’image SPIFFS, les
 ressources minifiées et le paquet ZIP ont été validés. Le firmware et la

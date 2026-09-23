@@ -1496,3 +1496,37 @@ body:not(.menu-icons-remote) #page-pool-measures .dashboard-kpi-icon::before{fon
 .dashboard-equipment-feedback{margin-top:10px;}
 .dashboard-equipment-card.is-automatic{opacity:.72;}
 .dashboard-equipment-card.is-pending{cursor:progress;box-shadow:0 0 0 3px rgba(0,116,232,.09);}
+
+
+/* Tableau de bord : commandes de mode directes et typographie agrandie. */
+#page-pool-measures .dashboard-mode-tile.is-actionable{width:100%;font:inherit;cursor:pointer;}
+#page-pool-measures .dashboard-mode-tile.is-actionable:not(:disabled):hover{background:var(--primary-soft);}
+#page-pool-measures .dashboard-mode-tile.is-actionable:focus-visible{outline:3px solid color-mix(in srgb,var(--primary) 35%,transparent);outline-offset:2px;}
+#page-pool-measures .dashboard-mode-tile:disabled{cursor:default;}
+#page-pool-measures .dashboard-mode-status{display:block;min-height:20px;margin-top:10px;font-size:14px;font-weight:500;}
+#page-pool-measures .dashboard-overall-state{font-size:19px;}
+#page-pool-measures .dashboard-hero-copy p{font-size:15px;line-height:1.5;}
+#page-pool-measures .dashboard-hero-filtration>strong{font-size:14px;}
+#page-pool-measures .dashboard-state-pill{font-size:13.5px;}
+#page-pool-measures .dashboard-hero-copy .dashboard-panel-note{font-size:13.5px;}
+#page-pool-measures .dashboard-current-mode small{font-size:13px;}
+#page-pool-measures .dashboard-current-mode strong{font-size:15px;}
+#page-pool-measures .dashboard-connection-badge{font-size:14px;}
+#page-pool-measures .dashboard-panel-title h2{font-size:17px;}
+#page-pool-measures .dashboard-panel-count{font-size:13px;}
+#page-pool-measures .dashboard-panel-link{font-size:14px;}
+#page-pool-measures .dashboard-mode-tile strong,
+#page-pool-measures .dashboard-equipment-card strong{font-size:15px;}
+#page-pool-measures .dashboard-mode-tile span:not(.dashboard-toggle),
+#page-pool-measures .dashboard-equipment-state{font-size:14.5px;}
+#page-pool-measures .dashboard-kpi-label{font-size:14px;}
+#page-pool-measures .dashboard-kpi-value{font-size:24px;}
+#page-pool-measures .dashboard-kpi-range{font-size:12px;}
+#page-pool-measures .dashboard-alarm-row strong{font-size:14px;}
+#page-pool-measures .dashboard-alarm-row>span,
+#page-pool-measures .dashboard-alarm-row>div>span,
+#page-pool-measures .dashboard-alarm-row>span:last-child,
+#page-pool-measures .dashboard-alarm-row>div>span:last-child{font-size:14.5px;}
+#page-pool-measures .dashboard-diagnostics>summary{font-size:14.5px;}
+
+#page-pool-measures .header-status-label{font-size:14px;}#page-pool-measures .header-status-value{font-size:14.5px;}

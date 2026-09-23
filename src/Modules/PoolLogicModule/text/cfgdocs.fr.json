@@ -84,6 +84,12 @@
       "help_t": "cfgdocs.poollogic.devices.swg_slot.help",
       "enum_set": "poollogic_device_slot"
     },
+    "poollogic/filtration/filtr_duration_minute": {
+      "type": "UInt16",
+      "label_t": "cfgdocs.poollogic.filtration.filtr_duration_minute.label",
+      "help_t": "cfgdocs.poollogic.filtration.filtr_duration_minute.help",
+      "unit": "min"
+    },
     "poollogic/filtration/filtr_start_minute": {
       "type": "UInt16",
       "label_t": "cfgdocs.poollogic.filtration.filtr_start_minute.label",
@@ -93,12 +99,6 @@
       "type": "UInt16",
       "label_t": "cfgdocs.poollogic.filtration.filtr_stop_minute.label",
       "help_t": "cfgdocs.poollogic.filtration.filtr_stop_minute.help"
-    },
-    "poollogic/filtration/filtr_duration_minute": {
-      "type": "UInt16",
-      "label_t": "cfgdocs.poollogic.filtration.filtr_duration_minute.label",
-      "help_t": "cfgdocs.poollogic.filtration.filtr_duration_minute.help",
-      "unit": "min"
     },
     "poollogic/heater/heater_auto_mode": {
       "type": "Bool",
@@ -116,11 +116,6 @@
       "label_t": "cfgdocs.poollogic.modes.auto_mode.label",
       "help_t": "cfgdocs.poollogic.modes.auto_mode.help"
     },
-    "poollogic/modes/robot_auto_mode": {
-      "type": "Bool",
-      "label_t": "cfgdocs.poollogic.modes.robot_auto_mode.label",
-      "help_t": "cfgdocs.poollogic.modes.robot_auto_mode.help"
-    },
     "poollogic/modes/disinfection_type": {
       "type": "UInt8",
       "label_t": "cfgdocs.poollogic.modes.disinfection_type.label",
@@ -131,6 +126,16 @@
       "type": "Bool",
       "label_t": "cfgdocs.poollogic.modes.enabled.label",
       "help_t": "cfgdocs.poollogic.modes.enabled.help"
+    },
+    "poollogic/modes/robot_auto_mode": {
+      "type": "Bool",
+      "label_t": "cfgdocs.poollogic.modes.robot_auto_mode.label",
+      "help_t": "cfgdocs.poollogic.modes.robot_auto_mode.help"
+    },
+    "poollogic/modes/treatment_auto_mode": {
+      "type": "Bool",
+      "label_t": "cfgdocs.poollogic.modes.treatment_auto_mode.label",
+      "help_t": "cfgdocs.poollogic.modes.treatment_auto_mode.help"
     },
     "poollogic/modes/winter_mode": {
       "type": "Bool",
@@ -275,17 +280,17 @@
       "help_t": "cfgdocs.poollogic.robot.robot_dur_min.help",
       "unit": "min"
     },
-    "poollogic/safety/freeze_hold_t": {
-      "type": "Float",
-      "label_t": "cfgdocs.poollogic.safety.freeze_hold_t.label",
-      "help_t": "cfgdocs.poollogic.safety.freeze_hold_t.help",
-      "unit": "C"
-    },
     "poollogic/safety/flow_start_dly_s": {
       "type": "UInt8",
       "label_t": "cfgdocs.poollogic.safety.flow_start_dly_s.label",
       "help_t": "cfgdocs.poollogic.safety.flow_start_dly_s.help",
       "unit": "s"
+    },
+    "poollogic/safety/freeze_hold_t": {
+      "type": "Float",
+      "label_t": "cfgdocs.poollogic.safety.freeze_hold_t.label",
+      "help_t": "cfgdocs.poollogic.safety.freeze_hold_t.help",
+      "unit": "C"
     },
     "poollogic/safety/psi_high_th": {
       "type": "Float",

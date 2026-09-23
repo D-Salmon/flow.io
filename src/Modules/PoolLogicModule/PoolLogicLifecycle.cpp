@@ -392,6 +392,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
     // even though the variables are declared on a single facade class.
     enabledVar_.moduleName = kCfgModuleModes;
     autoModeVar_.moduleName = kCfgModuleModes;
+    treatmentAutoModeVar_.moduleName = kCfgModuleModes;
     winterModeVar_.moduleName = kCfgModuleModes;
     phAutoModeVar_.moduleName = kCfgModulePh;
     orpAutoModeVar_.moduleName = kCfgModuleChlorine;
@@ -475,6 +476,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
     cfg.registerVar(enabledVar_, kCfgModuleId, kCfgBranchModes);
 
     cfg.registerVar(autoModeVar_, kCfgModuleId, kCfgBranchModes);
+    cfg.registerVar(treatmentAutoModeVar_, kCfgModuleId, kCfgBranchModes);
     cfg.registerVar(winterModeVar_, kCfgModuleId, kCfgBranchModes);
     cfg.registerVar(phAutoModeVar_, kCfgModuleId, kCfgBranchPh);
     cfg.registerVar(orpAutoModeVar_, kCfgModuleId, kCfgBranchChlorine);
@@ -1174,6 +1176,8 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
         cmdSvc->registerHandler(cmdSvc->ctx, "poollogic.device.write", &PoolLogicModule::cmdDeviceWriteStatic_, this);
         static constexpr const char* kMqttControlCmds[] = {
             "poollogic.auto_mode.toggle",
+            "poollogic.treatment_auto_mode.set",
+            "poollogic.treatment_auto_mode.toggle",
             "poollogic.ph_auto_mode.set",
             "poollogic.ph_auto_mode.toggle",
             "poollogic.orp_auto_mode.set",
@@ -1622,6 +1626,12 @@ void PoolLogicModule::onEvent_(const Event& e)
                 portENTER_CRITICAL(&pendingMux_);
                 pendingFiltrationReconcile_ = true;
                 portEXIT_CRITICAL(&pendingMux_);
+            } else if (strcmp(p->nvsKey, NvsKeys::PoolLogic::TreatmentAutoMode) == 0) {
+                // A treatment mode change always starts from stopped outputs.
+                (void)writeDeviceDesired_(orpPumpDeviceSlot_, false);
+                if (!sharedDisinfectionDevice_()) (void)writeDeviceDesired_(swgDeviceSlot_, false);
+                resetTemporalPidState_(orpPidState_, millis());
+                orpPidEnabled_ = false;
             } else if (strcmp(p->nvsKey, NvsKeys::PoolLogic::DisinfectionType) == 0) {
                 if (disinfectionType_ > DisinfectionDisabled) disinfectionType_ = DisinfectionChlorineBromine;
                 (void)writeDeviceDesired_(orpPumpDeviceSlot_, false);

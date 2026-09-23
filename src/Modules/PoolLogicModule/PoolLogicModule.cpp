@@ -32,6 +32,7 @@ static void poolLogicCfgDocsAnchor_(PoolLogicModule& self)
 {
     self.enabledVar_.moduleName = kCfgModuleModes;
     self.autoModeVar_.moduleName = kCfgModuleModes;
+    self.treatmentAutoModeVar_.moduleName = kCfgModuleModes;
     self.winterModeVar_.moduleName = kCfgModuleModes;
     self.phAutoModeVar_.moduleName = kCfgModulePh;
     self.orpAutoModeVar_.moduleName = kCfgModuleChlorine;
