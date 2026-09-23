@@ -71,6 +71,7 @@
     "menu.network": "Réseau",
     "menu.info": "Informations",
     "menu.pool": "Piscine",
+    "menu.poolSettings": "Réglages piscine",
     "pool.title": "État général",
     "pool.title.mode": "Piscine · {mode}",
     "pool.overview.title": "État Général",

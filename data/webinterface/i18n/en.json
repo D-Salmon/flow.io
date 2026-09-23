@@ -71,6 +71,7 @@
     "menu.network": "Network",
     "menu.info": "About",
     "menu.pool": "Pool",
+    "menu.poolSettings": "Pool settings",
     "pool.title": "General status",
     "pool.title.mode": "Pool · {mode}",
     "pool.overview.title": "General Status",

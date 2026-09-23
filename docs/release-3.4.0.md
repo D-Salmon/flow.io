@@ -32,6 +32,10 @@ ou des relais.
   n’est affectée. Le fond arrondi des badges **Non câblé**, **Temporairement
   indisponible**, **Actif** et **Erreur** est défini dans les styles communs afin
   de rester visible sans avoir préalablement ouvert la page Entrées/Sorties.
+- dans **Affectation des relais**, le badge décrit l’affectation physique du
+  canal CH. Le relais de désinfection commun reste donc indiqué **Actif**
+  lorsqu’il est correctement affecté : selon le traitement sélectionné, ce
+  même relais commande la pompe doseuse ou l’électrolyseur.
 
 ## Comptes Web et rôles
 
@@ -154,6 +158,10 @@ La pile typographique reprend exactement celle de la maquette du fork, avec la
 police système native de chaque appareil. L’état sain est nommé **État normal**
 et la carte d’état ne contient plus de raccourcis redondants vers Piscine et le
 Journal.
+
+Dans la barre latérale, **Piscine** devient **Réglages piscine** afin de mieux
+distinguer cette page de réglages du Tableau de bord. Le titre de la page reste
+**Piscine**.
 
 En mode sombre, les boutons principaux utilisent maintenant un fond bleu/cyan
 plein. Les boutons secondaires ont un fond bleu sombre et une bordure claire ;

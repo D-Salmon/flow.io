@@ -3562,11 +3562,17 @@
         const assetSlot = poolConfigAssetSlot(moduleName, spec);
         const asset = poolAsset(assetSlot);
         if (asset) {
+          // In the relay-assignment card, the badge describes whether the
+          // physical relay is assigned. In particular, the shared disinfection
+          // relay remains assigned whether it drives a dosing pump or the SWG.
+          const badgeState = moduleName === 'poollogic/devices' && asset.state === 'disabled'
+            ? 'active'
+            : asset.state;
           const badge = document.createElement('span');
           badge.className = 'pool-setting-state io-state-badge ' +
-            (asset.state === 'active' ? 'is-active' :
-              ((asset.state === 'hardware_missing' || asset.state === 'safety_blocked') ? 'is-error' : 'is-sleeping'));
-          badge.textContent = poolAssetStateLabel(asset);
+            (badgeState === 'active' ? 'is-active' :
+              ((badgeState === 'hardware_missing' || badgeState === 'safety_blocked') ? 'is-error' : 'is-sleeping'));
+          badge.textContent = badgeState === 'active' ? 'Actif' : poolAssetStateLabel(asset);
           label.appendChild(badge);
         }
         const isPressureMonitoring = moduleName === 'poollogic/sensors' && spec.key === 'psi_monitoring';
