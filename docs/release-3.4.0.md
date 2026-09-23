@@ -29,7 +29,9 @@ ou des relais.
 - dans **Affectation des sondes**, une surveillance de pression ou un retour
   contacteur désactivé reprend le badge gris **Non câblé** de la sonde de débit.
   La mention **Entrée numérique** des retours est masquée tant qu’aucune entrée
-  n’est affectée.
+  n’est affectée. Le fond arrondi des badges **Non câblé**, **Temporairement
+  indisponible**, **Actif** et **Erreur** est défini dans les styles communs afin
+  de rester visible sans avoir préalablement ouvert la page Entrées/Sorties.
 
 ## Comptes Web et rôles
 
