@@ -148,6 +148,20 @@
       return 'Temporairement indisponible';
     }
 
+    function poolConfigUpdateWiringBadge(badge, wired, asset, wiredLabel) {
+      if (!badge) return;
+      if (!wired) {
+        badge.className = 'pool-setting-state io-state-badge is-sleeping';
+        badge.textContent = 'Non câblé';
+        return;
+      }
+      const state = String(asset && asset.state || 'active');
+      badge.className = 'pool-setting-state io-state-badge ' +
+        (state === 'active' ? 'is-active' :
+          ((state === 'hardware_missing' || state === 'safety_blocked') ? 'is-error' : 'is-sleeping'));
+      badge.textContent = asset ? poolAssetStateLabel(asset) : (wiredLabel || 'Activé');
+    }
+
     function poolConfigAssetSlot(moduleName, spec) {
       const key = spec && spec.key;
       if (moduleName === 'poollogic/sensors') {
@@ -3438,6 +3452,10 @@
           const heading = document.createElement('div');
           heading.className = 'pool-setting-label';
           heading.textContent = spec.label;
+          const feedbackAsset = poolAsset(poolConfigAssetSlot(moduleName, spec));
+          const feedbackBadge = document.createElement('span');
+          poolConfigUpdateWiringBadge(feedbackBadge, Number(data[spec.key]) !== 65535, feedbackAsset, 'Câblé');
+          heading.appendChild(feedbackBadge);
           field.appendChild(heading);
 
           const modeRow = document.createElement('div');
@@ -3511,8 +3529,10 @@
           const syncFeedback = () => {
             const enabled = Number(input.value) !== 65535;
             if (enabled) lastActiveHigh = mode.value === 'closed';
+            inputLabel.hidden = !enabled;
             modeRow.hidden = !enabled;
             mode.disabled = !enabled;
+            poolConfigUpdateWiringBadge(feedbackBadge, enabled, feedbackAsset, 'Câblé');
           };
           input.addEventListener('change', syncFeedback);
           mode.addEventListener('change', syncFeedback);
@@ -3549,6 +3569,13 @@
           badge.textContent = poolAssetStateLabel(asset);
           label.appendChild(badge);
         }
+        const isPressureMonitoring = moduleName === 'poollogic/sensors' && spec.key === 'psi_monitoring';
+        let pressureMonitoringBadge = null;
+        if (isPressureMonitoring) {
+          pressureMonitoringBadge = document.createElement('span');
+          poolConfigUpdateWiringBadge(pressureMonitoringBadge, toBool(fieldData[spec.key]), null, 'Activé');
+          label.appendChild(pressureMonitoringBadge);
+        }
         const control = document.createElement(spec.type === 'bool' || spec.type === 'enum' ? 'select' : 'input');
         control.id = controlId;
         control.className = 'pool-setting-control';
@@ -3557,7 +3584,7 @@
         if (spec.type === 'bool') {
           [
             { value: 'true', label: 'Activé' },
-            { value: 'false', label: 'Désactivé' }
+            { value: 'false', label: isPressureMonitoring ? 'Désactivé / non câblé' : 'Désactivé' }
           ].forEach((entry) => {
             const option = document.createElement('option');
             option.value = entry.value;
@@ -3565,6 +3592,11 @@
             control.appendChild(option);
           });
           control.value = toBool(fieldData[spec.key]) ? 'true' : 'false';
+          if (isPressureMonitoring) {
+            control.addEventListener('change', () => {
+              poolConfigUpdateWiringBadge(pressureMonitoringBadge, control.value === 'true', null, 'Activé');
+            });
+          }
         } else if (spec.type === 'enum') {
           (spec.options || []).forEach((entry) => {
             const option = document.createElement('option');

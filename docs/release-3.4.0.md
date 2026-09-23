@@ -26,6 +26,10 @@ ou des relais.
   désactivé, la carte ORP est masquée et les sorties de désinfection sont
   explicitement forcées à l'arrêt. La synthèse est positionnée juste avant
   **Affectation des sondes** et **Affectation des relais**.
+- dans **Affectation des sondes**, une surveillance de pression ou un retour
+  contacteur désactivé reprend le badge gris **Non câblé** de la sonde de débit.
+  La mention **Entrée numérique** des retours est masquée tant qu’aucune entrée
+  n’est affectée.
 
 ## Comptes Web et rôles
 
