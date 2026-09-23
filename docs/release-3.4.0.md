@@ -150,7 +150,9 @@ plein. Les boutons secondaires ont un fond bleu sombre et une bordure claire ;
 les états survolé, désactivé et les actions dangereuses conservent ainsi un
 contraste lisible sur toutes les cartes. Les quatre boutons de mode du Tableau
 de bord restent délimités au repos et prennent une teinte verte lorsqu’ils sont
-actifs, sans dépendre du survol pour être visibles.
+actifs, sans dépendre du survol pour être visibles. Les boutons de la carte
+**Équipements** suivent la même présentation ; la filtration active conserve
+sa teinte bleue et les autres équipements actifs leur teinte verte.
 
 ## Nouveau partitionnement
 

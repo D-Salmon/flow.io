@@ -1515,6 +1515,12 @@ body:not(.menu-icons-remote) #page-pool-measures .dashboard-kpi-icon::before{fon
 :root[data-theme="dark"] #page-pool-measures .dashboard-mode-tile.is-actionable.is-on{background:rgba(38,137,92,.2);border-color:#3c9b70;}
 :root[data-theme="dark"] #page-pool-measures .dashboard-mode-tile.is-actionable:not(:disabled):hover{background:#214d70;border-color:#79d2ff;box-shadow:0 0 0 2px rgba(121,210,255,.11);}
 :root[data-theme="dark"] #page-pool-measures .dashboard-mode-tile.is-actionable.is-on:not(:disabled):hover{background:rgba(46,164,108,.28);border-color:#69d79c;}
+:root[data-theme="dark"] #page-pool-measures .dashboard-equipment-card.is-actionable{background:#172c42;border:1px solid #426889;box-shadow:inset 0 0 0 1px rgba(121,210,255,.04);}
+:root[data-theme="dark"] #page-pool-measures .dashboard-equipment-card.is-actionable.is-on{background:rgba(38,137,92,.2);border-color:#3c9b70;}
+:root[data-theme="dark"] #page-pool-measures .dashboard-equipment-card.is-actionable.is-equipment-fil.is-on{background:rgba(21,151,212,.22);border-color:#3a9fce;}
+:root[data-theme="dark"] #page-pool-measures .dashboard-equipment-card.is-actionable:not(:disabled):hover{background:#214d70;border-color:#79d2ff;box-shadow:0 0 0 2px rgba(121,210,255,.11);}
+:root[data-theme="dark"] #page-pool-measures .dashboard-equipment-card.is-actionable.is-on:not(:disabled):hover{background:rgba(46,164,108,.28);border-color:#69d79c;}
+:root[data-theme="dark"] #page-pool-measures .dashboard-equipment-card.is-actionable.is-equipment-fil.is-on:not(:disabled):hover{background:rgba(21,151,212,.3);border-color:#79d2ff;}
 #page-pool-measures .dashboard-mode-status{display:block;min-height:20px;margin-top:10px;font-size:14px;font-weight:500;}
 #page-pool-measures .dashboard-overall-state{font-size:19px;}
 #page-pool-measures .dashboard-hero-copy p{font-size:15px;line-height:1.5;}
