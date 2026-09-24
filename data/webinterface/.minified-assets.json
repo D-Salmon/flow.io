@@ -10,18 +10,18 @@
       "gzip_bytes": 785
     },
     "sh.html": {
-      "source_sha256": "56bf5c3e44e2e32463e6c5ab66f0518b030c5d2ad5abf16b2aa977eb762231b4",
-      "gzip_sha256": "60e7d8f8a3fb09726807a4b34e2baf8c44b45d072dc9c74461b9c0bc2cf8dea2",
-      "original_bytes": 56863,
-      "minified_bytes": 47384,
-      "gzip_bytes": 9626
+      "source_sha256": "abd73f4b42d06a2dc176811939c9e6d2130629bb247fe2ba7972cc37a990c26e",
+      "gzip_sha256": "a2e7547bf9178c68e296e66612f8b680ad081787ec22927374147bfd68dcd871",
+      "original_bytes": 56726,
+      "minified_bytes": 47247,
+      "gzip_bytes": 9608
     },
     "app.js": {
-      "source_sha256": "45a27dbc8e30442b747870737289fd41804981816c29ffb444203829c58bfe98",
-      "gzip_sha256": "19b443b926521c3893a53272e61a3c9bb6ed5281d6a4978bae52b667be59b228",
-      "original_bytes": 151298,
-      "minified_bytes": 112701,
-      "gzip_bytes": 27213
+      "source_sha256": "bdc373defcc9b621bef048de40d8427d532ed212b763866f6e151ea821c2bc09",
+      "gzip_sha256": "3d058fa6d8e731503fc3d2da1e61f492e135262273b232ea0497277c486868c9",
+      "original_bytes": 151460,
+      "minified_bytes": 112853,
+      "gzip_bytes": 27232
     },
     "network.js": {
       "source_sha256": "0beb14a86761eb84e8beade7849e06368b4937bad267514988322faff2f6a5eb",
@@ -101,11 +101,11 @@
       "gzip_bytes": 9468
     },
     "app-core.css": {
-      "source_sha256": "1d8498ffbc9598b9c5ef46d72b386cabcefcd0bc350a52993d3fce1b0d180cd2",
-      "gzip_sha256": "f15abe84a437653561b39920d8c83662eaef8085cf158bff5f6257a10d7b97a8",
-      "original_bytes": 169624,
-      "minified_bytes": 164647,
-      "gzip_bytes": 29392
+      "source_sha256": "0dbffbce29ba2248d72d1423c9cb04d64832c99980ff6bd10f8936ef9f09277a",
+      "gzip_sha256": "eac23583cd6f559bdaab7df12429c874f6bb5928e751504e01ca99bc940892e5",
+      "original_bytes": 169791,
+      "minified_bytes": 164814,
+      "gzip_bytes": 29425
     },
     "network.css": {
       "source_sha256": "564c3a2d3b6b3cdac53c4eb74dd7d64dc3ac25f4c9bac95f0db6fa0791647c7b",

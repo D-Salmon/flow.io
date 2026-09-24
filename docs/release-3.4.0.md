@@ -147,6 +147,12 @@ Le survol ou la prise de focus d’une entrée du menu anticipe aussi son charge
 Les données dynamiques ne sont interrogées qu’à l’ouverture de la page afin de
 ne pas augmenter la charge du contrôleur.
 
+Le bloc de session du menu latéral affiche une grande initiale entourée d’un
+halo, suivie uniquement du statut **Utilisateur** ou **Administrateur**. Le nom
+du compte n’est pas affiché. L’action placée en dessous devient **Se déconnecter**
+pour une session identifiée ou **Se connecter comme administrateur** pour
+l’accès utilisateur local.
+
 ## Nouveau Tableau de bord
 
 Le Tableau de bord reprend l’organisation claire de la proposition du fork :

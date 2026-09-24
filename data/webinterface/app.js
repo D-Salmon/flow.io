@@ -3566,21 +3566,22 @@ ac_unit: '\u{eb3b}',
       });
       const account = document.getElementById('drawerAccount');
       if (account) account.hidden = false;
-      const name = document.getElementById('accountName');
       const role = document.getElementById('accountRole');
       const avatar = document.getElementById('accountAvatar');
       const logout = document.getElementById('accountLogout');
-      if (name) name.textContent = authSession.local_operator === true ?
-        'Se connecter comme administrateur' : (authSession.username || '-');
       if (role) role.textContent = authSession.role === 'admin' && authSession.local_operator !== true ?
         'Administrateur' : 'Utilisateur';
-      if (avatar) avatar.textContent = authSession.local_operator === true ? 'A' :
+      if (avatar) avatar.textContent = authSession.local_operator === true ? 'U' :
         (authSession.username || '?').charAt(0).toUpperCase();
-      if (logout && authSession.local_operator === true) {
-        logout.hidden = true;
-      } else if (logout) {
-        logout.hidden = false;
+      if (logout) {
+        const logoutLabel = authSession.local_operator === true ?
+          'Se connecter comme administrateur' : 'Se déconnecter';
+        logout.textContent = logoutLabel;
+        logout.title = logoutLabel;
+        logout.setAttribute('aria-label', logoutLabel);
       }
+      const accountOpen = document.getElementById('accountOpen');
+      if (accountOpen) accountOpen.disabled = authSession.local_operator !== true && authSession.role !== 'admin';
       refreshAppHeader(getActivePageId());
       return authSession;
     }
@@ -3657,7 +3658,7 @@ ac_unit: '\u{eb3b}',
     }
 
     const accountLogout=document.getElementById('accountLogout'); if(accountLogout) accountLogout.addEventListener('click',logoutSession);
-    const accountOpen=document.getElementById('accountOpen'); if(accountOpen) accountOpen.addEventListener('click',()=>{if(authSession&&authSession.role==='admin')showPage('page-users');else window.location.assign('/login');});
+    const accountOpen=document.getElementById('accountOpen'); if(accountOpen) accountOpen.addEventListener('click',()=>{if(authSession&&authSession.role==='admin')showPage('page-users');else if(authSession&&authSession.local_operator===true)window.location.assign('/login');});
     const userCancel=document.getElementById('userFormCancel'); if(userCancel) userCancel.addEventListener('click',resetUserForm);
     const userForm=document.getElementById('userForm'); if(userForm) userForm.addEventListener('submit',async(event)=>{event.preventDefault();const username=document.getElementById('userUsername').value.trim(),password=document.getElementById('userPassword').value,role=document.getElementById('userRole').value,status=document.getElementById('usersStatus');try{await fetchOkJson('/api/auth/users',createFormPostOptions({username,password,role}),'Enregistrement refusé');resetUserForm();await loadUsers();if(status)status.textContent='Compte enregistré.';}catch(error){if(status)status.textContent=error.message||'Enregistrement refusé.';}});
     const ownPasswordForm=document.getElementById('ownPasswordForm'); if(ownPasswordForm) ownPasswordForm.addEventListener('submit',async(event)=>{event.preventDefault();const input=document.getElementById('ownPassword'),status=document.getElementById('ownPasswordStatus');try{await fetchOkJson('/api/auth/password',createFormPostOptions({password:input.value}),'Modification refusée');input.value='';if(status)status.textContent='Mot de passe modifié.';}catch(error){if(status)status.textContent=error.message||'Modification refusée.';}});
