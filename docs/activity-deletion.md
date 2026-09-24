@@ -10,7 +10,9 @@
 
 Les POST `/api/activity/delete` (paramètre formulaire `ids`, identifiants séparés
 par des virgules, maximum 768) et `/api/activity/purge` exigent l’administrateur
-et passent par le contrôle CSRF commun. Ils répondent 202 avec `delete_id`.
+et passent par la session Web ainsi que le contrôle CSRF commun. Les boutons de
+suppression sont masqués en mode utilisateur. Les routes répondent 202 avec
+`delete_id`.
 L’interface interroge `/api/activity/status` : `delete_state` vaut 1 pendant le
 traitement, 2 à sa réussite et 3 en cas d’échec, éventuellement partiel.
 Un délai dépassé ou une réponse perdue n’est jamais annoncé comme une réussite.

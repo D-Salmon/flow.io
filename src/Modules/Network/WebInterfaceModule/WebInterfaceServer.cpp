@@ -6049,10 +6049,9 @@ void WebInterfaceModule::startServer_()
     auto deleteActivity = [this](AsyncWebServerRequest* request) {
         HttpLatencyScope latency(request, "/api/activity/delete");
         noteHttpActivity_();
-        if (!webRequestAuthorized_(request)) {
-            request->send(403, "application/json", "{\"ok\":false,\"error\":\"Administrateur requis\"}");
-            return;
-        }
+        // authGate_ already requires an administrator session for mutating
+        // /api/activity/* routes. Do not repeat the obsolete HTTP Basic check
+        // here: the current web interface authenticates with flowio_session.
         if (!activityLog_ && services_) {
             activityLog_ = services_->get<ActivityLogService>(ServiceId::ActivityLog);
         }

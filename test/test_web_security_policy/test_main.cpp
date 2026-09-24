@@ -154,6 +154,8 @@ void test_local_operator_sensitive_routes_require_admin()
     TEST_ASSERT_TRUE(webRouteRequiresAdmin(WebRouteMethod::Get, "/api/cfgdoc/index"));
     TEST_ASSERT_TRUE(webRouteRequiresAdmin(WebRouteMethod::Get, "/api/auth/users"));
     TEST_ASSERT_TRUE(webRouteRequiresAdmin(WebRouteMethod::Post, "/api/system/reboot"));
+    TEST_ASSERT_TRUE(webRouteRequiresAdmin(WebRouteMethod::Post, "/api/activity/purge"));
+    TEST_ASSERT_TRUE(webRouteRequiresAdmin(WebRouteMethod::Post, "/api/activity/delete"));
     TEST_ASSERT_TRUE(webRouteRequiresAdmin(WebRouteMethod::Get, "/rescue"));
     TEST_ASSERT_TRUE(webRouteRequiresAdmin(WebRouteMethod::Post, "/api/flowcfg/apply"));
     TEST_ASSERT_FALSE(webRouteRequiresAdmin(WebRouteMethod::Get, "/api/flowcfg/module"));

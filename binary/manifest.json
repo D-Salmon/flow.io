@@ -1,7 +1,7 @@
 {
   "schema": "flowio.firmware-manifest.v2",
-  "generated_at": "2026-09-23T22:11:24+02:00",
-  "release": "2026.09.23",
+  "generated_at": "2026-09-24T07:24:31+02:00",
+  "release": "2026.09.24",
   "artifacts": {
     "nextion": [
       {
@@ -34,13 +34,13 @@
         "title": "flowios3",
         "label": "flowios3",
         "version": "3.4.0",
-        "build_date": "2026-09-23T21:13:12+02:00",
+        "build_date": "2026-09-24T07:24:13+02:00",
         "target": "flowios3",
         "path": "flowios3-3.4.0.bin",
         "kind": "esp32-firmware",
         "route": "/fwupdate/waveshare",
-        "size": 2295600,
-        "sha256": "e10c9430672a48c79224c55e97608db214002ad5f3e9bdc81ea782e482af73b3"
+        "size": 2295488,
+        "sha256": "dfe2cff73305f537af0c9bd6a0a49282d3dd4b56984aaf72d6f7822be71effc7"
       }
     ],
     "spiffs": [
@@ -48,13 +48,13 @@
         "title": "flowios3-spiffs",
         "label": "flowios3-spiffs",
         "version": "3.4.0",
-        "build_date": "2026-09-23T22:11:24+02:00",
+        "build_date": "2026-09-24T07:24:31+02:00",
         "target": "spiffs",
         "path": "flowios3-spiffs-3.4.0.bin",
         "kind": "esp32-spiffs",
         "route": "/fwupdate/spiffs",
         "size": 1572864,
-        "sha256": "c13d04042709a68a72f3fdee979be5d3554cfdc6499ea6e68ab6cbac0376199b"
+        "sha256": "d7dc86d2a7f13187c35eedff7896c43671f6eb118a011044c8ffcb5f5eb83824"
       }
     ]
   }

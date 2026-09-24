@@ -438,7 +438,12 @@
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: all ? '' : 'ids=' + encodeURIComponent(ids.join(','))
           }, fetch); // Keep CSRF protection, but never automatically retry a destructive POST.
-          if (!response.ok) throw new Error('HTTP ' + response.status);
+          if (!response.ok) {
+            if (response.status === 401 || response.status === 403) {
+              throw new Error('connexion administrateur requise ou expirée.');
+            }
+            throw new Error('HTTP ' + response.status);
+          }
           const payload = await response.json();
           if (!payload.ok || !payload.delete_id) throw new Error('Confirmation absente : firmware compatible requis.');
           while (true) {
