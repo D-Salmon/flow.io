@@ -2126,6 +2126,21 @@
       }));
     }
 
+    async function dashboardAcknowledgeAlarm(id, button) {
+      if (!id) return;
+      if (button) button.disabled = true;
+      try {
+        await fetchOkJson(
+          '/api/runtime/alarm_reset',
+          createFormPostOptions({ id }),
+          tr('pool.alarm.ackFailed', 'Acquittement refusé')
+        );
+        await refreshDashboardOverview(true);
+      } finally {
+        if (button) button.disabled = false;
+      }
+    }
+
     function dashboardSchedule(filtration) {
       const data = filtration && typeof filtration === 'object' ? filtration : {};
       if (Number.isFinite(Number(data.filtr_start_minute)) && Number.isFinite(Number(data.filtr_stop_minute))) {
@@ -2241,9 +2256,17 @@
         const modeTiles = [
           { key: 'automatic', command: 'automatic', label: 'Mode auto', on: automatic, available: Object.prototype.hasOwnProperty.call(modes, 'auto_mode') },
           { key: 'winter', command: 'winter', label: 'Mode hiver', on: winter, available: poolLogicEnabled && Object.prototype.hasOwnProperty.call(modes, 'winter_mode') },
-          { key: 'ph', command: 'ph', label: 'pH auto', on: phAuto, available: phAutoAvailable },
-          { key: 'treatment', command: chlorineTreatment ? 'chlorine' : 'treatment', label: 'Désinfection auto', on: treatmentAuto, available: treatmentAutoAvailable }
+          { key: 'ph', command: 'ph', label: 'pH auto', on: phAuto, available: phAutoAvailable }
         ];
+        if (treatmentAvailable) {
+          modeTiles.push({
+            key: 'treatment',
+            command: chlorineTreatment ? 'chlorine' : 'treatment',
+            label: poolDashboardTreatmentAutoLabel(disinfectionTypeForMode),
+            on: treatmentAuto,
+            available: treatmentAutoAvailable
+          });
+        }
         modeTiles.forEach((item) => dashboardModeGrid.appendChild(
           dashboardCreateModeTile(item.key, item.label, item.on, item.available, item.command)
         ));
@@ -2420,16 +2443,15 @@
         : [];
       const alarmRows = detailedAlarms.length
         ? detailedAlarms.map((alarm) => ({
+            id: alarm.id,
             label: alarm.label,
-            state: alarm.conditionTrue
-              ? tr('pool.alarm.state.activeCondition', 'Condition active')
-              : tr('pool.alarm.state.latched', 'Alarme mémorisée')
+            canAcknowledge: alarm.latched && !alarm.conditionTrue
           }))
         : (slotAlarms.length
-            ? slotAlarms
+            ? slotAlarms.map((alarm) => ({ label: alarm.label, canAcknowledge: false }))
             : alarmCodes.map((code) => ({
                 label: code.replace(/^alarm_/, tr('dashboard.alarm.generic', 'Alarme').trim() + ' '),
-                state: tr('pool.alarm.state.activeCondition', 'Condition active')
+                canAcknowledge: false
               })));
       const alarmCount = Math.max(Number(alarmDomain.cnt) || 0, alarmRows.length);
       if (dashboardAlarmCount) {
@@ -2444,10 +2466,17 @@
             row.className = 'dashboard-alarm-row is-alert';
             const label = document.createElement('strong');
             label.textContent = alarm.label;
-            const state = document.createElement('span');
-            state.innerHTML = '<i aria-hidden="true"></i>' + alarm.state;
             row.appendChild(label);
-            row.appendChild(state);
+            if (alarm.canAcknowledge) {
+              const acknowledge = document.createElement('button');
+              acknowledge.type = 'button';
+              acknowledge.className = 'dashboard-alarm-ack';
+              acknowledge.textContent = tr('pool.alarm.acknowledge', 'Acquitter');
+              acknowledge.addEventListener('click', () => {
+                dashboardAcknowledgeAlarm(alarm.id, acknowledge).catch(() => {});
+              });
+              row.appendChild(acknowledge);
+            }
             dashboardAlarmList.appendChild(row);
           });
         } else if (alarmCount > 0) {
@@ -2455,10 +2484,7 @@
           row.className = 'dashboard-alarm-row is-alert';
           const label = document.createElement('strong');
           label.textContent = tr('pool.alarm.defaultLabel', 'Alarme piscine');
-          const state = document.createElement('span');
-          state.innerHTML = '<i aria-hidden="true"></i>' + tr('pool.alarm.state.activeCondition', 'Condition active');
           row.appendChild(label);
-          row.appendChild(state);
           dashboardAlarmList.appendChild(row);
         } else {
           const empty = document.createElement('div');
@@ -2542,6 +2568,14 @@
       if (n === 2) return tr('pool.disinfection.o2.title', 'Oxygène actif');
       if (n === 3) return tr('pool.disinfection.disabled', 'Aucun traitement automatique');
       return tr('pool.state.unknown', 'Inconnu');
+    }
+
+    function poolDashboardTreatmentAutoLabel(value) {
+      const n = Number(value);
+      if (n === 0) return 'Pompe chlore / brome auto';
+      if (n === 1) return 'Électrolyseur auto';
+      if (n === 2) return 'Pompe oxygène actif auto';
+      return 'Désinfection auto';
     }
 
     function poolConfigBoolLabel(value, activeText, inactiveText) {

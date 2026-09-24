@@ -178,14 +178,19 @@ filtration en marche en bleu. La carte **Détails techniques personnalisables**,
 devenue redondante, a été retirée du Tableau de bord.
 Les quatre interrupteurs de mode sont maintenant de vraies commandes :
 **Mode auto** bascule entre Automatique et Manuel sécurisé, puis **Mode hiver**,
-**pH auto** et **Désinfection auto** se règlent directement. Activer **Mode auto**
-active également pH auto et l'automatisation du traitement sélectionné ; avec
-**Aucun traitement de l’eau**, seule la régulation pH est activée. Le traitement
-automatique possède un réglage persistant propre à l’électrolyse et à l’oxygène
-actif ; le chlore conserve sa régulation ORP dédiée. Le mode Maintenance reste
-disponible uniquement dans Configuration. En Manuel sécurisé, pH et traitement
-peuvent rester automatiques lorsque la filtration a été mise en marche
-manuellement ; aucune régulation ne peut alors démarrer la filtration.
+**pH auto** et l’automatisation du traitement se règlent directement. Son
+intitulé suit le traitement sélectionné : **Pompe chlore / brome auto**,
+**Électrolyseur auto** ou **Pompe oxygène actif auto**. Avec **Aucun traitement
+de l’eau**, cette commande disparaît du Tableau de bord. Activer **Mode auto**
+active également pH auto et l’automatisation du traitement sélectionné ; quitter
+le mode automatique coupe ces deux automatismes. Le traitement automatique
+possède un réglage persistant propre à l’électrolyse et à l’oxygène actif ; le
+chlore/brome conserve sa régulation ORP dédiée. Le mode Maintenance reste
+disponible uniquement dans Configuration.
+
+Les alarmes dont la cause est encore présente n’affichent plus la mention
+redondante « Condition active ». Lorsque la cause a disparu mais que l’alarme
+reste mémorisée, la seule action proposée est **Acquitter**.
 
 Tous les textes du Tableau de bord ont été agrandis : titres de cartes à 17 px,
 libellés principaux à 15 px, états à 14,5 px et mesures à 24 px. Le robot dispose désormais d'un réglage Activé / Désactivé dans sa carte Piscine ; le robot, le chauffage et le remplissage sont masqués du Tableau de bord lorsqu'ils sont désactivés. Les graisses,

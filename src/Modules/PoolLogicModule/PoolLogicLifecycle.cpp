@@ -1622,30 +1622,34 @@ void PoolLogicModule::onEvent_(const Event& e)
         if (p->moduleId == (uint8_t)ConfigModuleId::PoolLogic &&
             p->localBranchId == kCfgBranchModes &&
             p->nvsKey) {
-            if (strcmp(p->nvsKey, NvsKeys::PoolLogic::AutoMode) == 0 && autoMode_) {
+            if (strcmp(p->nvsKey, NvsKeys::PoolLogic::AutoMode) == 0) {
                 portENTER_CRITICAL(&pendingMux_);
                 pendingFiltrationReconcile_ = true;
                 portEXIT_CRITICAL(&pendingMux_);
 
-                // Entering full automatic mode enables every applicable water
-                // regulation. Their normal freshness, filtration, timing, and
-                // safety interlocks still decide whether an output may run.
+                // Keep the subordinate regulation modes aligned with the
+                // operating mode, regardless of which client changed it.
                 if (cfgStore_) {
-                    if (!phAutoMode_) {
-                        (void)cfgStore_->set(phAutoModeVar_, true);
-                        phAutoMode_ = true;
+                    if (phAutoMode_ != autoMode_) {
+                        (void)cfgStore_->set(phAutoModeVar_, autoMode_);
+                        phAutoMode_ = autoMode_;
                     }
-                    if (disinfectionType_ == DisinfectionChlorineBromine && !orpAutoMode_) {
-                        (void)cfgStore_->set(orpAutoModeVar_, true);
-                        orpAutoMode_ = true;
-                    } else if ((disinfectionType_ == DisinfectionSwg ||
-                                disinfectionType_ == DisinfectionActiveOxygen) &&
-                               !treatmentAutoMode_) {
-                        (void)cfgStore_->set(treatmentAutoModeVar_, true);
-                        treatmentAutoMode_ = true;
+                    const bool orpShouldBeAuto = autoMode_ &&
+                                                 disinfectionType_ == DisinfectionChlorineBromine;
+                    if (orpAutoMode_ != orpShouldBeAuto) {
+                        (void)cfgStore_->set(orpAutoModeVar_, orpShouldBeAuto);
+                        orpAutoMode_ = orpShouldBeAuto;
+                    }
+                    const bool treatmentShouldBeAuto = autoMode_ &&
+                                                       (disinfectionType_ == DisinfectionSwg ||
+                                                        disinfectionType_ == DisinfectionActiveOxygen);
+                    if (treatmentAutoMode_ != treatmentShouldBeAuto) {
+                        (void)cfgStore_->set(treatmentAutoModeVar_, treatmentShouldBeAuto);
+                        treatmentAutoMode_ = treatmentShouldBeAuto;
                     }
                 }
-                LOGI("PoolLogic automatic mode enabled with pH and selected treatment automation");
+                LOGI("PoolLogic automatic mode %s with pH and selected treatment automation aligned",
+                     autoMode_ ? "enabled" : "disabled");
             } else if (strcmp(p->nvsKey, NvsKeys::PoolLogic::TreatmentAutoMode) == 0) {
                 // A treatment mode change always starts from stopped outputs.
                 (void)writeDeviceDesired_(orpPumpDeviceSlot_, false);
