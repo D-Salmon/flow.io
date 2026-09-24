@@ -31,11 +31,11 @@
       "gzip_bytes": 5710
     },
     "activity.js": {
-      "source_sha256": "54046b57fa6b4674be75dde1b89f5cfc172122c1c34fdeb744ebc08319805467",
-      "gzip_sha256": "e7fdfc5c8be5680add0773bf8104cae95c300d4e6befe861606a1f82b0e8e1e3",
-      "original_bytes": 25945,
-      "minified_bytes": 19092,
-      "gzip_bytes": 5586
+      "source_sha256": "d8e6de0e8175c21cec21edd2674541ed6078a84f541efff2f214b1de958f4f21",
+      "gzip_sha256": "4c15bda97baf8e290d62ffde51b9ae5aa5678db9c12b84a27a988eea98c57870",
+      "original_bytes": 27100,
+      "minified_bytes": 19962,
+      "gzip_bytes": 5799
     },
     "io-summary.js": {
       "source_sha256": "015c793343a5e196fe2a63502933fd8fdb571df757b270f7345ec554b1073ff7",
@@ -87,18 +87,18 @@
       "gzip_bytes": 23804
     },
     "i18n/fr.json": {
-      "source_sha256": "d6e956fd954ed7308c3cf8a38db5fb900aee0c27933867a416bb6bedd90fc972",
-      "gzip_sha256": "9b0b721b725921ebdb92b3661c772596619ad1c599b54597b846ebc02abd8e70",
-      "original_bytes": 42207,
-      "minified_bytes": 37892,
-      "gzip_bytes": 10385
+      "source_sha256": "cb76e06fc68869c5d5650521a8bac4c3ec194a3daa899d44d203d298d5161ea2",
+      "gzip_sha256": "11ff72c6939991704b0269dc1f188477a2229bab458f540747f367ba97959654",
+      "original_bytes": 42734,
+      "minified_bytes": 38359,
+      "gzip_bytes": 10472
     },
     "i18n/en.json": {
-      "source_sha256": "340714daea81cc9117c4c279c8efe9b076f9b4685caaac44a85c4b902832ebff",
-      "gzip_sha256": "ea29ce7f2a330db7758c01e6783eb60a0c5456b03b70c98e6d7c7f209d68edec",
-      "original_bytes": 39597,
-      "minified_bytes": 35282,
-      "gzip_bytes": 9378
+      "source_sha256": "de1d6e286695e6671aa21014b6dbde8bcf6e6567ce72efd283ec89972de8d4af",
+      "gzip_sha256": "ef01bfd234e2c6594ce2f37ae5a04f64d7870c51ee20cd097b627537cb05cb6d",
+      "original_bytes": 40123,
+      "minified_bytes": 35748,
+      "gzip_bytes": 9468
     },
     "app-core.css": {
       "source_sha256": "cee3ecbe0be1798c634ee3c3ca6d9d80bd2c03b267b8961a8f77aa8d0427e944",

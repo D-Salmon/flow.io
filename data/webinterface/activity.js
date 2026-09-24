@@ -214,6 +214,27 @@
         if (summaryEquipment) summaryEquipment.textContent = String(items.filter(isEquipment).length);
       }
 
+      function countLabel(count, singularKey, singular, pluralKey, plural) {
+        return count + ' ' + tr(count === 1 ? singularKey : pluralKey, count === 1 ? singular : plural);
+      }
+
+      function periodSummary(events) {
+        const items = Array.isArray(events) ? events : [];
+        return countLabel(items.length,
+          'activity.status.periodEvent.one', 'événement sur la période',
+          'activity.status.periodEvent.other', 'événements sur la période')
+          + tr('activity.status.includes', ', dont ')
+          + countLabel(items.filter(isAlert).length,
+            'activity.status.alert.one', 'alerte', 'activity.status.alert.other', 'alertes') + ', '
+          + countLabel(items.filter(isManual).length,
+            'activity.status.manual.one', 'action manuelle',
+            'activity.status.manual.other', 'actions manuelles')
+          + tr('activity.status.and', ' et ')
+          + countLabel(items.filter(isEquipment).length,
+            'activity.status.equipment.one', 'équipement',
+            'activity.status.equipment.other', 'équipements');
+      }
+
       function makeBadge(text, className) {
         const badge = document.createElement('span');
         badge.className = 'activity-badge ' + String(className || '');
@@ -294,8 +315,9 @@
         if (!listEl) return;
         listEl.innerHTML = '';
         updateRange();
-        const periodEvents = (Array.isArray(events) ? events : []).filter(isInWindow);
-        updateSummary(periodEvents);
+        const allEvents = Array.isArray(events) ? events : [];
+        const periodEvents = allEvents.filter(isInWindow);
+        updateSummary(allEvents);
         const filtered = periodEvents.filter(matchesFilter).sort((left, right) => {
           const leftEpoch = Number(left.epoch_s) || 0;
           const rightEpoch = Number(right.epoch_s) || 0;
@@ -343,8 +365,11 @@
         }
 
         if (statusEl) {
-          let status = filtered.length + ' ' + tr('activity.status.visible', 'événement(s) affiché(s)')
-            + ' · ' + periodEvents.length + ' ' + tr('activity.status.period', 'sur la période');
+          let status = periodSummary(periodEvents);
+          if (filter !== 'all') {
+            status = filtered.length + ' ' + tr('activity.status.visible', 'événement(s) affiché(s)')
+              + ' · ' + status;
+          }
           const dropped = (Number(stats && stats.dropped) || 0) + (Number(stats && stats.persist_dropped) || 0);
           if (dropped > 0) status += ' · ' + dropped + ' ' + tr('activity.status.dropped', 'non conservé(s)');
           statusEl.textContent = status;

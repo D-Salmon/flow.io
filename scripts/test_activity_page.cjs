@@ -183,9 +183,24 @@ async function main() {
   assert.match(classified.elements.get('activityDeleteBtn').textContent, /\(2\)/,
     'Manuel includes explicit and legacy manual actions');
   assert.equal(classified.elements.get('activitySummaryManual').textContent, '2');
+
+  const now = Math.floor(Date.now() / 1000);
+  const summaries = setup(async () => result({ available: true, count: 4, complete: true, events: [
+    { seq: 61, epoch_s: now, domain_name: 'alarm', severity_name: 'warning' },
+    { seq: 62, epoch_s: now, source_name: 'manual' },
+    { seq: 63, epoch_s: now, domain_name: 'pooldevice', role_name: 'filtration' },
+    { seq: 64, epoch_s: now - 14400, domain_name: 'alarm', severity_name: 'warning' }
+  ] }));
+  await summaries.page.show();
+  assert.equal(summaries.elements.get('activitySummaryTotal').textContent, '4',
+    'header summary covers the complete loaded journal, beyond the displayed period');
+  assert.equal(summaries.elements.get('activitySummaryAlerts').textContent, '2');
+  assert.match(summaries.status.textContent,
+    /3 événements sur la période, dont 1 alerte, 1 action manuelle et 1 équipement/);
   console.log('Post-delete refresh: immediate view update, slow reload and reload failure OK');
   console.log('Activity deletion: confirmation, selection, clear-all and persistence failure OK');
   console.log('Activity filters: automatic and manual classification OK');
+  console.log('Activity summaries: complete journal header and detailed period status OK');
   console.log('Activity page: concurrency, cancellation, errors, timeout and pagination OK');
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

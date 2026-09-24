@@ -131,6 +131,11 @@ administrateur de l’interface Web. Les commandes sont masquées pour
 l’utilisateur local et ne dépendent plus de l’ancien contrôle HTTP Basic qui
 provoquait une erreur 403 malgré une connexion administrateur valide.
 
+Les compteurs du bandeau supérieur portent sur l’ensemble des événements
+présents dans le journal chargé. La ligne **Chronologie** détaille séparément la
+période de trois heures affichée : nombre total, alertes, actions manuelles et
+événements d’équipement.
+
 ## Nouveau Tableau de bord
 
 Le Tableau de bord reprend l’organisation claire de la proposition du fork :
