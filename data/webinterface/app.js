@@ -2068,7 +2068,52 @@ ac_unit: '\u{eb3b}',
       return 'page-pool-measures';
     }
 
-    menuItems.forEach((item) => item.addEventListener('click', () => showPage(item.dataset.page)));
+    const backgroundPageAssets = {
+      'page-pool-measures': [['pool.js', 'script']],
+      'page-pool': [['pool.js', 'script']],
+      'page-activity-log': [['activity.css', 'style'], ['activity.js', 'script']],
+      'page-io-summary': [['io-summary.css', 'style'], ['io-summary.js', 'script']],
+      'page-info': [['info.js', 'script']],
+      'page-calibration': [['calibration.css', 'style'], ['calibration.js', 'script']],
+      'page-wifi': [['network.css', 'style'], ['network.js', 'script']],
+      'page-control': [['config.js', 'script']],
+      'page-system': [['updates.js', 'script']]
+    };
+
+    function prefetchPageAssets(pageId) {
+      if (!window.FlowWebCore || typeof window.FlowWebCore.prefetchAsset !== 'function') {
+        return Promise.resolve();
+      }
+      const assets = backgroundPageAssets[pageId] || [];
+      return assets.reduce((chain, asset) => chain.then(() =>
+        window.FlowWebCore.prefetchAsset(assetUrl('/webinterface/' + asset[0]), asset[1])
+      ), Promise.resolve());
+    }
+
+    function scheduleBackgroundPagePrefetch() {
+      const run = async () => {
+        if (document.hidden || (navigator.connection && navigator.connection.saveData)) return;
+        const pageIds = ['page-pool-measures', 'page-activity-log', 'page-io-summary', 'page-info'];
+        if (authSession && authSession.role === 'admin') {
+          pageIds.push('page-calibration', 'page-wifi', 'page-system', 'page-control');
+        }
+        for (const pageId of pageIds) {
+          await prefetchPageAssets(pageId).catch(() => {});
+          await waitMs(120);
+        }
+      };
+      if (typeof window.requestIdleCallback === 'function') {
+        window.requestIdleCallback(() => { run().catch(() => {}); }, { timeout: 3500 });
+      } else {
+        setTimeout(() => { run().catch(() => {}); }, 2200);
+      }
+    }
+
+    menuItems.forEach((item) => {
+      item.addEventListener('click', () => showPage(item.dataset.page));
+      item.addEventListener('pointerenter', () => { prefetchPageAssets(item.dataset.page).catch(() => {}); }, { once: true });
+      item.addEventListener('focus', () => { prefetchPageAssets(item.dataset.page).catch(() => {}); }, { once: true });
+    });
 
     menuToggles.forEach((btn) => btn.addEventListener('click', () => {
       if (isMobileLayout()) {
@@ -3562,7 +3607,7 @@ ac_unit: '\u{eb3b}',
       const host = document.getElementById('historyChart');
       if (!host) return;
       const rows = (days || []).filter((d) => d && d.valid).slice().reverse();
-      if (!rows.length) { host.textContent = 'Aucune journée complète disponible.'; return; }
+      if (!rows.length) { host.textContent = 'Aucune donnée historique disponible.'; return; }
       const series = [
         ['ph','ph','#0f9d8a'],['orp','orp','#8b5cf6'],
         ['water_temp','water','#1687d8'],['air_temp','air','#ef8b2c']
@@ -3577,7 +3622,7 @@ ac_unit: '\u{eb3b}',
         let points=''; values.forEach((value,index)=>{if(!Number.isFinite(value))return;const x=left+(width-left-right)*(rows.length===1?.5:index/(rows.length-1));const y=top+(height-top-bottom)*(1-(value-min)/(max-min));points+=x.toFixed(1)+','+y.toFixed(1)+' ';});
         svg+='<polyline class="line '+entry[1]+'" points="'+points.trim()+'"/>';
       });
-      rows.forEach((d,index)=>{const x=left+(width-left-right)*(rows.length===1?.5:index/(rows.length-1));const raw=String(d.date||'');const label=raw.length===8?raw.slice(6)+'/'+raw.slice(4,6):raw;svg+='<text class="axis-label" text-anchor="middle" x="'+x+'" y="'+(height-10)+'">'+label+'</text>';});
+      rows.forEach((d,index)=>{const x=left+(width-left-right)*(rows.length===1?.5:index/(rows.length-1));const raw=String(d.date||'');const label=d.current?'Aujourd’hui':(raw.length===8?raw.slice(6)+'/'+raw.slice(4,6):raw);svg+='<text class="axis-label" text-anchor="middle" x="'+x+'" y="'+(height-10)+'">'+label+'</text>';});
       host.innerHTML=svg+'</svg>';
     }
 
@@ -3586,13 +3631,16 @@ ac_unit: '\u{eb3b}',
       if (status) status.textContent = 'Chargement…';
       try {
         const data = await fetchOkJson('/api/pool/history', { cache: 'no-store' }, 'Historique indisponible');
-        const summary = data.summary || {}, days = Array.isArray(data.days) ? data.days : [];
+        const summary = data.summary || {}, completedDays = Array.isArray(data.days) ? data.days : [];
+        const days = [];
+        if (data.today && data.today.valid) days.push(Object.assign({}, data.today, { current: true }));
+        completedDays.filter(d=>d&&d.valid).forEach(d=>days.push(d));
         document.getElementById('historyFiltration').textContent = Number(summary.filtration_h || 0).toFixed(1)+' h';
         document.getElementById('historyFiltrationAverage').textContent = Number(summary.filtration_daily_h || 0).toFixed(1)+' h/j';
         document.getElementById('historyRefill').textContent = Number(summary.refill_l || 0).toFixed(1)+' L';
         document.getElementById('historyDays').textContent = String(summary.available_days || 0)+' / 7';
-        const tbody=document.getElementById('historyTableBody'); if(tbody){tbody.innerHTML='';days.filter(d=>d&&d.valid).forEach(d=>{const tr=document.createElement('tr');const raw=String(d.date||'');const date=raw.length===8?raw.slice(6)+'/'+raw.slice(4,6)+'/'+raw.slice(0,4):raw;const setpoints=historyNumber(d.ph_setpoint,'avg',2)+' / '+historyNumber(d.orp_setpoint,'avg',0)+' / '+historyNumber(d.heater_setpoint,'avg',1)+' °C';tr.innerHTML='<td>'+date+'</td><td>'+historyRange(d.ph,2,'')+'</td><td>'+historyRange(d.orp,0,' mV')+'</td><td>'+historyRange(d.water_temp,1,' °C')+'</td><td>'+historyRange(d.air_temp,1,' °C')+'</td><td>'+setpoints+'</td><td>'+Number(d.filtration_min||0)+' min</td><td>'+Number(d.heating_min||0)+' min</td><td>'+Number(d.refill_l||0).toFixed(1)+' L · '+Number(d.refill_events||0)+' cycle(s)</td>';tbody.appendChild(tr);});}
-        renderHistoryChart(days); if(status) status.textContent='Historique local à jour.';
+        const tbody=document.getElementById('historyTableBody'); if(tbody){tbody.innerHTML='';days.forEach(d=>{const tr=document.createElement('tr');if(d.current)tr.className='history-current-row';const raw=String(d.date||'');const date=raw.length===8?raw.slice(6)+'/'+raw.slice(4,6)+'/'+raw.slice(0,4):raw;const dateCell=d.current?'<span class="history-current-date"><strong>Aujourd’hui</strong><small>Journée en cours</small></span>':date;const setpoints=historyNumber(d.ph_setpoint,'avg',2)+' / '+historyNumber(d.orp_setpoint,'avg',0)+' / '+historyNumber(d.heater_setpoint,'avg',1)+' °C';tr.innerHTML='<td>'+dateCell+'</td><td>'+historyRange(d.ph,2,'')+'</td><td>'+historyRange(d.orp,0,' mV')+'</td><td>'+historyRange(d.water_temp,1,' °C')+'</td><td>'+historyRange(d.air_temp,1,' °C')+'</td><td>'+setpoints+'</td><td>'+Number(d.filtration_min||0)+' min</td><td>'+Number(d.heating_min||0)+' min</td><td>'+Number(d.refill_l||0).toFixed(1)+' L · '+Number(d.refill_events||0)+' cycle(s)</td>';tbody.appendChild(tr);});}
+        renderHistoryChart(days); if(status) status.textContent=data.today&&data.today.valid?'Historique local à jour · journée en cours incluse.':'Historique local à jour.';
       } catch (error) { if(status) status.textContent='Historique indisponible pour le moment.'; }
     }
 
@@ -3633,6 +3681,7 @@ ac_unit: '\u{eb3b}',
       refreshAppHeaderWifi(true).catch(() => {});
       refreshAppHeaderTime(true).catch(() => {});
       showPage(initialPageId, { deferHeavyMs: 260 });
+      scheduleBackgroundPagePrefetch();
     };
     if (typeof window.requestAnimationFrame === 'function') {
       window.requestAnimationFrame(() => {

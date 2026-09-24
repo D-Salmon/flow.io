@@ -136,6 +136,17 @@ présents dans le journal chargé. La ligne **Chronologie** détaille séparéme
 période de trois heures affichée : nombre total, alertes, actions manuelles et
 événements d’équipement.
 
+La page **Historique** inclut maintenant la journée en cours avant les sept
+journées closes. Elle est identifiée par « Aujourd’hui — Journée en cours » dans
+le tableau et par « Aujourd’hui » dans le graphique ; les indicateurs sur sept
+jours continuent de porter uniquement sur les journées terminées.
+
+Après l’ouverture de l’interface, les modules JavaScript et CSS des autres pages
+accessibles sont préchargés en arrière-plan, à faible priorité et séquentiellement.
+Le survol ou la prise de focus d’une entrée du menu anticipe aussi son chargement.
+Les données dynamiques ne sont interrogées qu’à l’ouverture de la page afin de
+ne pas augmenter la charge du contrôleur.
+
 ## Nouveau Tableau de bord
 
 Le Tableau de bord reprend l’organisation claire de la proposition du fork :

@@ -3,6 +3,7 @@
   var themeKey = 'flow_web_theme';
   var scriptLoads = new Map();
   var cssLoads = new Map();
+  var prefetchedAssets = new Set();
   var csrfToken = '';
 
   function sleep(ms) {
@@ -226,6 +227,29 @@
     return promise;
   }
 
+  function prefetchAsset(href, kind) {
+    var url = String(href || '').trim();
+    if (!url || prefetchedAssets.has(url)) return Promise.resolve(false);
+    prefetchedAssets.add(url);
+    return new Promise(function (resolve) {
+      var link = document.createElement('link');
+      var settled = false;
+      var finish = function (loaded) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(loaded);
+      };
+      var timer = setTimeout(function () { finish(false); }, 12000);
+      link.rel = 'prefetch';
+      link.href = url;
+      link.as = kind === 'style' ? 'style' : 'script';
+      link.onload = function () { finish(true); };
+      link.onerror = function () { finish(false); };
+      document.head.appendChild(link);
+    });
+  }
+
   async function fetchShellMarkup(url) {
     var res = await supervisorFetch(url, { cache: 'no-store' }, { retries: 4 });
     if (!res.ok) throw new Error('shell');
@@ -302,6 +326,7 @@
     supervisorFetch: supervisorFetch,
     loadScriptOnce: loadScriptOnce,
     loadCssOnce: loadCssOnce,
+    prefetchAsset: prefetchAsset,
     bootstrap: bootstrap,
     applyStoredTheme: applyStoredTheme,
     setBootStatus: setBootStatus
