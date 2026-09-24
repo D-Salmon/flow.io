@@ -566,7 +566,7 @@ AlarmCondState PoolLogicModule::condPsiLowStatic_(void* ctx, uint32_t nowMs)
 {
     PoolLogicModule* self = static_cast<PoolLogicModule*>(ctx);
     if (!self || !self->enabled_) return AlarmCondState::False;
-    if (!self->pressureMonitoringEnabled_) return AlarmCondState::False;
+    if (!self->pressureMonitoringEnabled_ || self->psiIoId_ == IO_ID_INVALID) return AlarmCondState::False;
     if (!self->filtrationFsm_.on) return AlarmCondState::False;
     const uint32_t runSec = self->stateUptimeSec_(self->filtrationFsm_, nowMs);
     if (runSec <= self->psiStartupDelaySec_) return AlarmCondState::False;
@@ -583,7 +583,7 @@ AlarmCondState PoolLogicModule::condPsiHighStatic_(void* ctx, uint32_t)
 {
     PoolLogicModule* self = static_cast<PoolLogicModule*>(ctx);
     if (!self || !self->enabled_) return AlarmCondState::False;
-    if (!self->pressureMonitoringEnabled_) return AlarmCondState::False;
+    if (!self->pressureMonitoringEnabled_ || self->psiIoId_ == IO_ID_INVALID) return AlarmCondState::False;
     if (!self->filtrationFsm_.on) return AlarmCondState::False;
 
     float psi = 0.0f;
@@ -597,7 +597,7 @@ AlarmCondState PoolLogicModule::condPsiHighStatic_(void* ctx, uint32_t)
 AlarmCondState PoolLogicModule::condNoFlowStatic_(void* ctx, uint32_t nowMs)
 {
     PoolLogicModule* self = static_cast<PoolLogicModule*>(ctx);
-    if (!self || !self->enabled_ || !self->flowSwitchEnabled_) return AlarmCondState::False;
+    if (!self || !self->enabled_ || !self->flowSwitchEnabled_ || self->flowSwitchIoId_ == IO_ID_INVALID) return AlarmCondState::False;
     if (!self->filtrationFsm_.on) return AlarmCondState::False;
     const uint32_t runSec = self->stateUptimeSec_(self->filtrationFsm_, nowMs);
     if (runSec <= self->flowSwitchStartupDelaySec_) return AlarmCondState::False;
@@ -614,6 +614,7 @@ AlarmCondState PoolLogicModule::condPhTankLowStatic_(void* ctx, uint32_t)
     PoolLogicModule* self = static_cast<PoolLogicModule*>(ctx);
     if (!self || !self->enabled_) return AlarmCondState::False;
 
+    if (self->phLevelIoId_ == IO_ID_INVALID) return AlarmCondState::False;
     bool low = false;
     if (!self->loadDigitalSensor_(self->phLevelIoId_, low)) {
         return AlarmCondState::Unknown;
@@ -626,6 +627,7 @@ AlarmCondState PoolLogicModule::condChlorineTankLowStatic_(void* ctx, uint32_t)
     PoolLogicModule* self = static_cast<PoolLogicModule*>(ctx);
     if (!self || !self->enabled_) return AlarmCondState::False;
 
+    if (self->chlorineLevelIoId_ == IO_ID_INVALID) return AlarmCondState::False;
     bool low = false;
     if (!self->loadDigitalSensor_(self->chlorineLevelIoId_, low)) {
         return AlarmCondState::Unknown;
@@ -638,6 +640,7 @@ AlarmCondState PoolLogicModule::condWaterTemperatureUnavailableStatic_(void* ctx
     PoolLogicModule* self = static_cast<PoolLogicModule*>(ctx);
     if (!self || !self->enabled_ || !self->autoMode_) return AlarmCondState::False;
 
+    if (self->waterTempIoId_ == IO_ID_INVALID) return AlarmCondState::False;
     float waterTemp = 0.0f;
     uint32_t tsMs = 0U;
     if (!self->loadAnalogSensor_(self->waterTempIoId_, waterTemp, &tsMs)) {
@@ -654,6 +657,7 @@ AlarmCondState PoolLogicModule::condWaterLevelLowStatic_(void* ctx, uint32_t)
     PoolLogicModule* self = static_cast<PoolLogicModule*>(ctx);
     if (!self || !self->enabled_) return AlarmCondState::False;
 
+    if (self->levelIoId_ == IO_ID_INVALID) return AlarmCondState::False;
     bool low = false;
     if (!self->loadDigitalSensor_(self->levelIoId_, low)) {
         return AlarmCondState::Unknown;

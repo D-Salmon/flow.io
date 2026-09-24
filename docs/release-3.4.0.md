@@ -153,6 +153,18 @@ du compte n’est pas affiché. L’action placée en dessous devient **Se déco
 pour une session identifiée ou **Se connecter comme administrateur** pour
 l’accès utilisateur local.
 
+
+Le Tableau de bord n'affiche désormais que les alarmes réellement actives, toutes
+en rouge. Les contrôles au repos, les sondes non câblées et les états inconnus ne
+sont plus présentés comme des alarmes. Le firmware neutralise explicitement les
+alarmes associées à une entrée déclarée non câblée.
+
+Les titres d'alarme visibles dans le journal et le Tableau de bord sont harmonisés
+en français, notamment **Niveau bassin bas**, **Température d'eau indisponible**,
+**Durée maximale pompe pH dépassée** et **Durée maximale désinfection dépassée**.
+Le portail propose désormais **Se connecter sans s'identifier** pour l'accès
+utilisateur local.
+
 ## Nouveau Tableau de bord
 
 Le Tableau de bord reprend l’organisation claire de la proposition du fork :

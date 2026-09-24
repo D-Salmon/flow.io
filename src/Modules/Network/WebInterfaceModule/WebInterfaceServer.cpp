@@ -187,7 +187,7 @@ static const char kLoginPageHtml[] PROGMEM = R"HTML(<!doctype html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>flow.io — Connexion</title><style>
 :root{color-scheme:light dark;font-family:Inter,Segoe UI,Arial,sans-serif}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#eef8fc;color:#071a35}.card{width:min(92vw,430px);padding:36px;border:1px solid #cbddeb;border-radius:22px;background:#fff;box-shadow:0 24px 70px #19628b26}h1{margin:0 0 8px;text-align:center}.brand{font-size:30px;font-weight:800;color:#079ec0;text-align:center;margin-bottom:25px}.sub{color:#61758d;text-align:center;margin:0 0 28px}label{display:block;font-weight:700;margin:16px 0 7px}input{width:100%;padding:14px;border:1px solid #b9cede;border-radius:10px;font:inherit}button{width:100%;padding:14px;margin-top:24px;border:0;border-radius:10px;background:#078fc4;color:#fff;font:inherit;font-weight:800;cursor:pointer}.local{display:block;margin-top:12px;padding:13px;text-align:center;border:1px solid #078fc4;border-radius:10px;color:#0782b3;text-decoration:none;font-weight:800}.status{min-height:22px;text-align:center;color:#b4233a;margin-top:12px}@media(prefers-color-scheme:dark){body{background:#07111f;color:#edf5ff}.card{background:#111c2b;border-color:#2c405a}.sub{color:#a9b9cf}input{background:#0b1726;color:#edf5ff;border-color:#3a526e}.local{color:#66c9ef}}
-</style></head><body><form class="card" id="f" method="post" action="/api/auth/login"><div class="brand">〰 flow.io</div><h1>Connexion administrateur</h1><p class="sub">Identifiez-vous pour accéder aux réglages sensibles.</p><label for="u">Identifiant</label><input id="u" name="username" autocomplete="username" required autofocus><label for="p">Mot de passe</label><input id="p" name="password" type="password" autocomplete="current-password" required><button>Se connecter</button><a id="local" class="local" href="/webinterface">Continuer comme opérateur local</a><div class="status" id="s"></div></form><script>
+</style></head><body><form class="card" id="f" method="post" action="/api/auth/login"><div class="brand">〰 flow.io</div><h1>Connexion administrateur</h1><p class="sub">Identifiez-vous pour accéder aux réglages sensibles.</p><label for="u">Identifiant</label><input id="u" name="username" autocomplete="username" required autofocus><label for="p">Mot de passe</label><input id="p" name="password" type="password" autocomplete="current-password" required><button>Se connecter</button><a id="local" class="local" href="/webinterface">Se connecter sans s'identifier</a><div class="status" id="s"></div></form><script>
 const f=document.getElementById('f'),s=document.getElementById('s'),l=document.getElementById('local');fetch('/api/auth/session',{cache:'no-store'}).then(r=>r.json()).then(x=>{l.hidden=x.local_operator!==true;}).catch(()=>{l.hidden=true;});f.addEventListener('submit',async e=>{e.preventDefault();s.textContent='Connexion…';const b=new URLSearchParams(new FormData(f));try{const r=await fetch('/api/auth/login',{method:'POST',body:b});if(!r.ok)throw 0;location.replace('/webinterface');}catch(_){s.textContent='Identifiant ou mot de passe incorrect.';}});
 </script></body></html>)HTML";
 
@@ -2411,13 +2411,13 @@ constexpr bool kWaveshareAlarmDashboardDefaultEnabled[kWaveshareDashboardSlotCou
     false,
 };
 constexpr const char* kWaveshareAlarmDashboardDefaultLabels[kWaveshareDashboardSlotCount] = {
-    "PSI bas",
-    "PSI haut",
-    "pH vide",
-    "Chlore vide",
-    "pH uptime",
-    "ORP uptime",
-    "Eau basse",
+    "Pression basse",
+    "Pression haute",
+    "Niveau pH bas",
+    "Niveau désinfectant bas",
+    "Durée max pompe pH",
+    "Durée max désinfection",
+    "Niveau bassin bas",
     "",
 };
 constexpr uint8_t kWaveshareAlarmDashboardDefaultColorIds[kWaveshareDashboardSlotCount] = {
@@ -2450,13 +2450,13 @@ const char* waveshareDashboardColorHex_(uint8_t colorId, uint8_t slot)
 const char* waveshareAlarmDashboardLabel_(uint16_t alarmId)
 {
     switch ((AlarmId)alarmId) {
-        case AlarmId::PoolPsiLow: return "PSI bas";
-        case AlarmId::PoolPsiHigh: return "PSI haut";
-        case AlarmId::PoolPhTankLow: return "pH vide";
-        case AlarmId::PoolChlorineTankLow: return "Chlore vide";
-        case AlarmId::PoolPhPumpMaxUptime: return "pH uptime";
-        case AlarmId::PoolChlorinePumpMaxUptime: return "ORP uptime";
-        case AlarmId::PoolWaterLevelLow: return "Eau basse";
+        case AlarmId::PoolPsiLow: return "Pression basse";
+        case AlarmId::PoolPsiHigh: return "Pression haute";
+        case AlarmId::PoolPhTankLow: return "Niveau pH bas";
+        case AlarmId::PoolChlorineTankLow: return "Niveau désinfectant bas";
+        case AlarmId::PoolPhPumpMaxUptime: return "Durée max pompe pH";
+        case AlarmId::PoolChlorinePumpMaxUptime: return "Durée max désinfection";
+        case AlarmId::PoolWaterLevelLow: return "Niveau bassin bas";
         case AlarmId::None:
         default: return "Alarme";
     }
@@ -3678,6 +3678,34 @@ bool waveshareReadAlarmDashboardSlotState_(const AlarmService* alarmSvc,
     out.conditionKnown = condition != (uint8_t)AlarmCondState::Unknown;
     out.conditionTrue = condition == (uint8_t)AlarmCondState::True;
     return true;
+}
+
+void sendWaveshareActiveAlarmsResponse_(AsyncResponseStream& response, const AlarmService* alarmSvc)
+{
+    if (!alarmSvc || !alarmSvc->listIds || !alarmSvc->readState) return;
+
+    AlarmId ids[Limits::Alarm::MaxAlarms]{};
+    const uint8_t count = alarmSvc->listIds(alarmSvc->ctx, ids, (uint8_t)Limits::Alarm::MaxAlarms);
+    bool first = true;
+    for (uint8_t i = 0U; i < count; ++i) {
+        AlarmState state{};
+        if (!alarmSvc->readState(alarmSvc->ctx, ids[i], &state) || !state.active) continue;
+        if (!first) response.print(',');
+        response.print("{\"id\":");
+        response.print((unsigned)state.id);
+        response.print(",\"code\":");
+        printJsonEscaped_(response, state.code);
+        response.print(",\"label\":");
+        printJsonEscaped_(response, state.title);
+        response.print(",\"latched\":");
+        response.print(state.active && state.condition == AlarmCondState::False ? "true" : "false");
+        response.print(",\"condition_known\":");
+        response.print(state.condition != AlarmCondState::Unknown ? "true" : "false");
+        response.print(",\"condition_true\":");
+        response.print(state.condition == AlarmCondState::True ? "true" : "false");
+        response.print("}");
+        first = false;
+    }
 }
 
 void sendWaveshareDashboardSlotsResponse_(AsyncResponseStream& response,
@@ -7778,6 +7806,11 @@ void WebInterfaceModule::startServer_()
         {
             const AlarmService* alarmSvc = services_ ? services_->get<AlarmService>(ServiceId::Alarm) : nullptr;
             sendWaveshareAlarmDashboardSlotsResponse_(*response, firstAlarmSlot, cfgStore_, alarmSvc);
+        }
+        response->print("],\"active_alarms\":[");
+        {
+            const AlarmService* alarmSvc = services_ ? services_->get<AlarmService>(ServiceId::Alarm) : nullptr;
+            sendWaveshareActiveAlarmsResponse_(*response, alarmSvc);
         }
         response->print("]}");
         request->send(response);

@@ -2563,13 +2563,13 @@ const char* HMIModule::alarmLabelShortForId_(AlarmId id) const
 {
     const bool en = runtimeUiIsEnglishLang(localeLang_);
     switch (id) {
-        case AlarmId::PoolPsiLow: return en ? "Low PSI" : "PSI bas";
-        case AlarmId::PoolPsiHigh: return en ? "High PSI" : "PSI haut";
-        case AlarmId::PoolPhTankLow: return en ? "pH empty" : "pH vide";
-        case AlarmId::PoolChlorineTankLow: return en ? "Chlorine empty" : "Chlore vide";
-        case AlarmId::PoolPhPumpMaxUptime: return en ? "pH uptime" : "pH uptime";
-        case AlarmId::PoolChlorinePumpMaxUptime: return en ? "ORP uptime" : "ORP uptime";
-        case AlarmId::PoolWaterLevelLow: return en ? "Low water" : "Eau basse";
+        case AlarmId::PoolPsiLow: return en ? "Low pressure" : "Pression basse";
+        case AlarmId::PoolPsiHigh: return en ? "High pressure" : "Pression haute";
+        case AlarmId::PoolPhTankLow: return en ? "pH level low" : "Niveau pH bas";
+        case AlarmId::PoolChlorineTankLow: return en ? "Disinfectant low" : "Niveau désinfectant bas";
+        case AlarmId::PoolPhPumpMaxUptime: return en ? "pH max runtime" : "Durée max pompe pH";
+        case AlarmId::PoolChlorinePumpMaxUptime: return en ? "Disinfection max runtime" : "Durée max désinfection";
+        case AlarmId::PoolWaterLevelLow: return en ? "Pool level low" : "Niveau bassin bas";
         default: return "";
     }
 }

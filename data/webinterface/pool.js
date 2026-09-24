@@ -2114,6 +2114,18 @@
       }));
     }
 
+    function dashboardNormalizeActiveAlarms(slotPayload) {
+      const alarms = Array.isArray(slotPayload && slotPayload.active_alarms) ? slotPayload.active_alarms : [];
+      return alarms.map((alarm) => ({
+        id: Number(alarm && alarm.id) || 0,
+        label: String(alarm && alarm.label ? alarm.label : '').trim() || tr('pool.alarm.defaultLabel', 'Alarme piscine'),
+        code: String(alarm && alarm.code ? alarm.code : '').trim(),
+        latched: !!(alarm && alarm.latched),
+        conditionKnown: !!(alarm && alarm.condition_known),
+        conditionTrue: !!(alarm && alarm.condition_true)
+      }));
+    }
+
     function dashboardSchedule(filtration) {
       const data = filtration && typeof filtration === 'object' ? filtration : {};
       if (Number.isFinite(Number(data.filtr_start_minute)) && Number.isFinite(Number(data.filtr_stop_minute))) {
@@ -2401,34 +2413,54 @@
           : tr('dashboard.filtration.hint.unavailable', 'Plage calculée indisponible.');
       }
 
-      const configuredAlarmSlots = dashboardNormalizeAlarmSlots(payload.slotPayload).filter((slot) => slot.enabled);
-      const slotAlarms = poolConfigActiveAlarms(configuredAlarmSlots);
-      const alarmCodes = Array.isArray(alarmDomain.codes) ? alarmDomain.codes.map((code) => String(code || '').trim()).filter(Boolean) : [];
-      const alarmCount = Math.max(Number(alarmDomain.cnt) || 0, slotAlarms.length, alarmCodes.length);
-      const alarmRows = slotAlarms.length
-        ? slotAlarms
-        : alarmCodes.map((code) => ({ label: code.replace(/^alarm_/, tr('dashboard.alarm.generic', 'Alarme').trim() + ' '), state: tr('pool.alarm.state.activeCondition', 'condition active') }));
+      const detailedAlarms = dashboardNormalizeActiveAlarms(payload.slotPayload);
+      const slotAlarms = poolConfigActiveAlarms(dashboardNormalizeAlarmSlots(payload.slotPayload));
+      const alarmCodes = Array.isArray(alarmDomain.codes)
+        ? alarmDomain.codes.map((code) => String(code || '').trim()).filter(Boolean)
+        : [];
+      const alarmRows = detailedAlarms.length
+        ? detailedAlarms.map((alarm) => ({
+            label: alarm.label,
+            state: alarm.conditionTrue
+              ? tr('pool.alarm.state.activeCondition', 'Condition active')
+              : tr('pool.alarm.state.latched', 'Alarme mémorisée')
+          }))
+        : (slotAlarms.length
+            ? slotAlarms
+            : alarmCodes.map((code) => ({
+                label: code.replace(/^alarm_/, tr('dashboard.alarm.generic', 'Alarme').trim() + ' '),
+                state: tr('pool.alarm.state.activeCondition', 'Condition active')
+              })));
+      const alarmCount = Math.max(Number(alarmDomain.cnt) || 0, alarmRows.length);
       if (dashboardAlarmCount) {
         dashboardAlarmCount.textContent = String(alarmCount);
         dashboardAlarmCount.className = 'dashboard-panel-count ' + (alarmCount ? 'is-alert' : 'is-ok');
       }
       if (dashboardAlarmList) {
         dashboardAlarmList.innerHTML = '';
-        if (configuredAlarmSlots.length) {
-          configuredAlarmSlots.forEach((alarm) => {
-            const active = alarm.conditionTrue || alarm.latched;
-            const known = alarm.available && alarm.conditionKnown;
+        if (alarmRows.length) {
+          alarmRows.forEach((alarm) => {
             const row = document.createElement('div');
-            row.className = 'dashboard-alarm-row ' + (active ? 'is-alert' : (known ? 'is-ok' : 'is-unknown'));
+            row.className = 'dashboard-alarm-row is-alert';
             const label = document.createElement('strong');
-            label.textContent = alarm.label || tr('pool.alarm.defaultLabel', 'Alarme piscine');
+            label.textContent = alarm.label;
             const state = document.createElement('span');
-            state.innerHTML = '<i aria-hidden="true"></i>' + (active ? (alarm.conditionTrue ? 'Condition active' : 'Alarme mémorisée') : (known ? 'Normal' : 'Indisponible'));
+            state.innerHTML = '<i aria-hidden="true"></i>' + alarm.state;
             row.appendChild(label);
             row.appendChild(state);
             dashboardAlarmList.appendChild(row);
           });
-        } else if (!alarmCount) {
+        } else if (alarmCount > 0) {
+          const row = document.createElement('div');
+          row.className = 'dashboard-alarm-row is-alert';
+          const label = document.createElement('strong');
+          label.textContent = tr('pool.alarm.defaultLabel', 'Alarme piscine');
+          const state = document.createElement('span');
+          state.innerHTML = '<i aria-hidden="true"></i>' + tr('pool.alarm.state.activeCondition', 'Condition active');
+          row.appendChild(label);
+          row.appendChild(state);
+          dashboardAlarmList.appendChild(row);
+        } else {
           const empty = document.createElement('div');
           empty.className = 'dashboard-alarm-empty';
           empty.innerHTML = '<span class="ui-msr" aria-hidden="true">verified</span>';
@@ -2436,26 +2468,6 @@
           text.textContent = tr('dashboard.alarm.none', 'Aucune alarme active');
           empty.appendChild(text);
           dashboardAlarmList.appendChild(empty);
-        } else {
-          const rows = alarmRows.length ? alarmRows : [{ label: tr('pool.alarm.defaultLabel', 'Alarme piscine'), state: tr('pool.alarm.state.activeCondition', 'condition active') }];
-          rows.forEach((alarm) => {
-            const row = document.createElement('div');
-            row.className = 'dashboard-alarm-row is-alert';
-            const icon = document.createElement('span');
-            icon.className = 'ui-msr';
-            icon.setAttribute('aria-hidden', 'true');
-            icon.textContent = 'warning';
-            const copy = document.createElement('div');
-            const label = document.createElement('strong');
-            label.textContent = alarm.label;
-            const state = document.createElement('span');
-            state.textContent = alarm.state;
-            copy.appendChild(label);
-            copy.appendChild(state);
-            row.appendChild(icon);
-            row.appendChild(copy);
-            dashboardAlarmList.appendChild(row);
-          });
         }
       }
       if (alarmCount > 0) {

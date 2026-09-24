@@ -221,13 +221,13 @@ constexpr bool kAlarmDefaultEnabled[TFTModuleS3::AlarmDashboardSlotCount] = {
 };
 
 constexpr const char* kAlarmDefaultLabels[TFTModuleS3::AlarmDashboardSlotCount] = {
-    "PSI bas",
-    "PSI haut",
-    "pH vide",
-    "Chlore vide",
-    "pH uptime",
-    "ORP uptime",
-    "Eau basse",
+    "Pression basse",
+    "Pression haute",
+    "Niveau pH bas",
+    "Niveau désinfectant bas",
+    "Durée max pompe pH",
+    "Durée max désinfection",
+    "Niveau bassin bas",
     "",
 };
 
@@ -1643,13 +1643,13 @@ uint16_t TFTModuleS3::dashboardColor_(uint8_t colorId, uint8_t slot) const
 const char* TFTModuleS3::alarmIdLabel_(uint16_t alarmId) const
 {
     switch ((AlarmId)alarmId) {
-        case AlarmId::PoolPsiLow: return "PSI bas";
-        case AlarmId::PoolPsiHigh: return "PSI haut";
-        case AlarmId::PoolPhTankLow: return "pH vide";
-        case AlarmId::PoolChlorineTankLow: return "Chlore vide";
-        case AlarmId::PoolPhPumpMaxUptime: return "pH uptime";
-        case AlarmId::PoolChlorinePumpMaxUptime: return "ORP uptime";
-        case AlarmId::PoolWaterLevelLow: return "Eau basse";
+        case AlarmId::PoolPsiLow: return "Pression basse";
+        case AlarmId::PoolPsiHigh: return "Pression haute";
+        case AlarmId::PoolPhTankLow: return "Niveau pH bas";
+        case AlarmId::PoolChlorineTankLow: return "Niveau désinfectant bas";
+        case AlarmId::PoolPhPumpMaxUptime: return "Durée max pompe pH";
+        case AlarmId::PoolChlorinePumpMaxUptime: return "Durée max désinfection";
+        case AlarmId::PoolWaterLevelLow: return "Niveau bassin bas";
         case AlarmId::None:
         default: return "Alarme";
     }

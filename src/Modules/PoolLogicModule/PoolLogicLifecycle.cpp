@@ -1219,7 +1219,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
             1000,
             60000,
             "psi_low",
-            "Low pressure",
+            "Pression de filtration basse",
             "poollogic"
         };
         if (!alarmSvc_->registerAlarm(alarmSvc_->ctx, &psiLowAlarm, &PoolLogicModule::condPsiLowStatic_, this)) {
@@ -1234,7 +1234,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
             1000,
             60000,
             "psi_high",
-            "High pressure",
+            "Pression de filtration haute",
             "poollogic"
         };
         if (!alarmSvc_->registerAlarm(alarmSvc_->ctx, &psiHighAlarm, &PoolLogicModule::condPsiHighStatic_, this)) {
@@ -1249,7 +1249,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
             1000,
             60000,
             "ph_tank_low",
-            "pH tank low",
+            "Niveau produit pH bas",
             "poollogic"
         };
         if (!alarmSvc_->registerAlarm(alarmSvc_->ctx, &phTankLowAlarm, &PoolLogicModule::condPhTankLowStatic_, this)) {
@@ -1264,7 +1264,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
             1000,
             60000,
             "chlorine_tank_low",
-            "Chlorine tank low",
+            "Niveau désinfectant bas",
             "poollogic"
         };
         if (!alarmSvc_->registerAlarm(alarmSvc_->ctx, &chlorineTankLowAlarm, &PoolLogicModule::condChlorineTankLowStatic_, this)) {
@@ -1279,7 +1279,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
             1000,
             60000,
             "ph_pump_max_uptime",
-            "pH pump max uptime reached",
+            "Durée maximale pompe pH dépassée",
             "poollogic"
         };
         if (!alarmSvc_->registerAlarm(alarmSvc_->ctx, &phPumpMaxUptimeAlarm, &PoolLogicModule::condPhPumpMaxUptimeStatic_, this)) {
@@ -1294,7 +1294,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
             1000,
             60000,
             "chlorine_pump_uptime",
-            "Chlorine pump max uptime reached",
+            "Durée maximale désinfection dépassée",
             "poollogic"
         };
         if (!alarmSvc_->registerAlarm(alarmSvc_->ctx, &chlorinePumpMaxUptimeAlarm, &PoolLogicModule::condChlorinePumpMaxUptimeStatic_, this)) {
@@ -1309,7 +1309,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
             1000,
             60000,
             "pool_water_level_low",
-            "Pool water level low",
+            "Niveau bassin bas",
             "poollogic"
         };
         if (!alarmSvc_->registerAlarm(alarmSvc_->ctx, &waterLevelLowAlarm, &PoolLogicModule::condWaterLevelLowStatic_, this)) {
@@ -1324,7 +1324,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
             1000,
             60UL * 60UL * 1000UL,
             "water_temp_unavailable",
-            "Water temperature unavailable",
+            "Température d'eau indisponible",
             "poollogic"
         };
         if (!alarmSvc_->registerAlarm(alarmSvc_->ctx,
@@ -1342,7 +1342,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
             1000,
             60000,
             "filtr_cont_mismatch",
-            "Filtration contactor feedback mismatch",
+            "Défaut retour contacteur filtration",
             "poollogic"
         };
         if (!alarmSvc_->registerAlarm(alarmSvc_->ctx,
@@ -1360,7 +1360,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
             1000,
             60000,
             "swg_contactor_mismatch",
-            "Chlorine generator contactor feedback mismatch",
+            "Défaut retour contacteur électrolyseur",
             "poollogic"
         };
         if (!alarmSvc_->registerAlarm(alarmSvc_->ctx,
@@ -1378,7 +1378,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
             1000,
             60000,
             "no_flow",
-            "No filtration flow",
+            "Débit de filtration absent",
             "poollogic"
         };
         if (!alarmSvc_->registerAlarm(alarmSvc_->ctx, &noFlowAlarm, &PoolLogicModule::condNoFlowStatic_, this)) {

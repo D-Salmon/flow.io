@@ -19,31 +19,31 @@
       "flags": [
         {
           "mask": 1,
-          "label": "Pression Filtration Basse"
+          "label": "Pression de filtration basse"
         },
         {
           "mask": 2,
-          "label": "Pression Filtration Haute"
+          "label": "Pression de filtration haute"
         },
         {
           "mask": 4,
-          "label": "Bidon pH bas"
+          "label": "Niveau produit pH bas"
         },
         {
           "mask": 8,
-          "label": "Bidon chlore bas"
+          "label": "Niveau d\u00e9sinfectant bas"
         },
         {
           "mask": 16,
-          "label": "Pompe pH dur\u00e9e max atteinte"
+          "label": "Dur\u00e9e maximale pompe pH d\u00e9pass\u00e9e"
         },
         {
           "mask": 32,
-          "label": "Pompe Orp dur\u00e9e max atteinte"
+          "label": "Dur\u00e9e maximale d\u00e9sinfection d\u00e9pass\u00e9e"
         },
         {
           "mask": 64,
-          "label": "Niveau d'eau bas dans le bassin"
+          "label": "Niveau bassin bas"
         }
       ],
       "display": "flags",
@@ -70,31 +70,31 @@
       "flags": [
         {
           "mask": 1,
-          "label": "Pression Filtration Basse"
+          "label": "Pression de filtration basse"
         },
         {
           "mask": 2,
-          "label": "Pression Filtration Haute"
+          "label": "Pression de filtration haute"
         },
         {
           "mask": 4,
-          "label": "Bidon pH bas"
+          "label": "Niveau produit pH bas"
         },
         {
           "mask": 8,
-          "label": "Bidon chlore bas"
+          "label": "Niveau d\u00e9sinfectant bas"
         },
         {
           "mask": 16,
-          "label": "Pompe pH dur\u00e9e max atteinte"
+          "label": "Dur\u00e9e maximale pompe pH d\u00e9pass\u00e9e"
         },
         {
           "mask": 32,
-          "label": "Pompe Orp dur\u00e9e max atteinte"
+          "label": "Dur\u00e9e maximale d\u00e9sinfection d\u00e9pass\u00e9e"
         },
         {
           "mask": 64,
-          "label": "Niveau d'eau bas dans le bassin"
+          "label": "Niveau bassin bas"
         }
       ],
       "display": "flags",
@@ -121,31 +121,31 @@
       "flags": [
         {
           "mask": 1,
-          "label": "Pression Filtration Basse"
+          "label": "Pression de filtration basse"
         },
         {
           "mask": 2,
-          "label": "Pression Filtration Haute"
+          "label": "Pression de filtration haute"
         },
         {
           "mask": 4,
-          "label": "Bidon pH bas"
+          "label": "Niveau produit pH bas"
         },
         {
           "mask": 8,
-          "label": "Bidon chlore bas"
+          "label": "Niveau d\u00e9sinfectant bas"
         },
         {
           "mask": 16,
-          "label": "Pompe pH dur\u00e9e max atteinte"
+          "label": "Dur\u00e9e maximale pompe pH d\u00e9pass\u00e9e"
         },
         {
           "mask": 32,
-          "label": "Pompe Orp dur\u00e9e max atteinte"
+          "label": "Dur\u00e9e maximale d\u00e9sinfection d\u00e9pass\u00e9e"
         },
         {
           "mask": 64,
-          "label": "Niveau d'eau bas dans le bassin"
+          "label": "Niveau bassin bas"
         }
       ],
       "display": "flags",

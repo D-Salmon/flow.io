@@ -155,10 +155,10 @@ réglages persistants des versions précédentes restent compatibles.
 Le dossier `binary` contient le firmware, l’interface Web associée et le paquet
 complet A/B :
 
-- `binary/flowios3-3.4.0.bin` — `2 295 904` octets — SHA-256
-  `2e0de5e7f44f7855cba661c6b2e537b65853417e1f9e7d0ac8e8d32e4ab8e9cf` ;
+- `binary/flowios3-3.4.0.bin` — `2 296 688` octets — SHA-256
+  `1ecb1068b65192f4b4a9cc54db440f782bbfe2a73dadc4c15ab49390e1767aef` ;
 - `binary/flowios3-spiffs-3.4.0.bin` — `1 572 864` octets — SHA-256
-  `230930a278df4add1798f9d0cb2509a6455dd0ee4c792d9b5d58b681988f325f` ;
+  `3d628a22418e8152b4b1b7d340c291cd87dd97ac3624708e1255782d1ee55630` ;
 - `binary/flowio-3.4.0.zip` — paquet atomique contenant manifeste, firmware et
   SPIFFS.
 
