@@ -105,8 +105,8 @@ bool extractUrlFilename_(const char* url, char* out, size_t outLen)
 }  // namespace
 
 FirmwareUpdateModule::FirmwareUpdateModule(const BoardSpec& board)
+    : localReleaseMutex_(xSemaphoreCreateMutex())
 {
-    localReleaseMutex_ = xSemaphoreCreateMutex();
     const SupervisorBoardSpec& boardCfg = supervisorBoardSpec_(board);
     const UartSpec& panelUart = panelUartSpec_(board);
     flowIoEnablePin_ = boardCfg.update.flowIoEnablePin;
