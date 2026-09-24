@@ -156,7 +156,7 @@ def verify_profile_and_safety_defaults() -> None:
         ("robot automation default-off", "bool robotAutoMode_ = false;", pool_header),
         ("pressure monitoring default-off", "bool pressureMonitoringEnabled_ = false;", pool_header),
         ("robot automation gate", "robotAutoMode_ && filtrationFsm_.on", pool_control),
-        ("pressure safety bypass when disabled", "if (!self->pressureMonitoringEnabled_)", pool_control),
+        ("pressure safety bypass when disabled or not wired", "if (!self->pressureMonitoringEnabled_ || self->psiIoId_ == IO_ID_INVALID)", pool_control),
         ("robot Home Assistant switch", '"pl_robot_auto"', pool_lifecycle),
         ("pressure Home Assistant switch", '"pl_psi_monitor"', pool_lifecycle),
         ("water-temperature alarm id", "PoolWaterTemperatureUnavailable = 1009", alarm_ids),
