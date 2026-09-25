@@ -54,7 +54,6 @@
       const dashboardOptimisticModes = Object.create(null);
       const dashboardOptimisticEquipment = Object.create(null);
       let dashboardOptimisticModeSeq = 0;
-      const dashboardOptimisticEquipmentSeq = Object.create(null);
 
     const poolMeasuresRefreshBtn = document.getElementById('poolMeasuresRefresh');
     const poolMeasuresDomains = document.getElementById('poolMeasuresDomains');
@@ -1953,11 +1952,50 @@
       Object.keys(dashboardOptimisticModes).forEach((key) => delete dashboardOptimisticModes[key]);
     }
 
+    function dashboardModeValueMatches(key, desired) {
+      const payload = dashboardLastOverviewPayload || {};
+      const modes = payload.modes || {};
+      const phConfig = payload.phConfig || {};
+      const chlorineConfig = payload.chlorineConfig || {};
+      let current;
+      if (key === 'automatic') {
+        if (!Object.prototype.hasOwnProperty.call(modes, 'auto_mode')) return false;
+        current = toBool(modes.enabled) && toBool(modes.auto_mode);
+      } else if (key === 'winter') {
+        if (!Object.prototype.hasOwnProperty.call(modes, 'winter_mode')) return false;
+        current = toBool(modes.enabled) && toBool(modes.winter_mode);
+      } else if (key === 'ph') {
+        if (!Object.prototype.hasOwnProperty.call(phConfig, 'ph_auto_mode')) return false;
+        current = toBool(phConfig.ph_auto_mode);
+      } else if (key === 'treatment') {
+        const disinfectionType = Number.parseInt(modes.disinfection_type, 10);
+        if (disinfectionType === 0) {
+          if (!Object.prototype.hasOwnProperty.call(chlorineConfig, 'dis_auto_mode')) return false;
+          current = toBool(chlorineConfig.dis_auto_mode);
+        } else {
+          if (!Object.prototype.hasOwnProperty.call(modes, 'treatment_auto_mode')) return false;
+          current = toBool(modes.treatment_auto_mode);
+        }
+      } else {
+        return false;
+      }
+      return current === !!desired;
+    }
+
+    async function confirmDashboardModeValue(key, desired) {
+      for (const delay of [120, 180, 300, 500]) {
+        await waitMs(delay);
+        await refreshDashboardOverviewDomains(3, true).catch(() => {});
+        if (dashboardModeValueMatches(key, desired)) return true;
+      }
+      return false;
+    }
+
     async function applyDashboardMode(key, commandMode, desired, label) {
       if (!commandMode || dashboardModeActionBusy) return false;
       dashboardModeActionBusy = key;
       const optimisticSeq = ++dashboardOptimisticModeSeq;
-      let accepted = false;
+      let confirmed = false;
       setDashboardOptimisticMode(key, desired);
       if (dashboardModeStatus) {
         dashboardModeStatus.className = 'dashboard-mode-status is-pending';
@@ -1970,10 +2008,12 @@
           'Commande refusée',
           fetchFlowRemoteQueued
         );
-        accepted = true;
+        confirmed = await confirmDashboardModeValue(key, desired);
         if (dashboardModeStatus) {
-          dashboardModeStatus.className = 'dashboard-mode-status is-ok';
-          dashboardModeStatus.textContent = label + ' : ' + (desired ? 'actif' : 'arrêt') + '.';
+          dashboardModeStatus.className = 'dashboard-mode-status ' + (confirmed ? 'is-ok' : 'is-error');
+          dashboardModeStatus.textContent = confirmed
+            ? label + ' : ' + (desired ? 'actif' : 'arrêt') + '.'
+            : 'Commande acceptée, état non confirmé.';
         }
         return true;
       } catch (err) {
@@ -1984,15 +2024,8 @@
         return false;
       } finally {
         dashboardModeActionBusy = '';
-        if (!accepted) clearDashboardOptimisticModes();
+        if (dashboardOptimisticModeSeq === optimisticSeq) clearDashboardOptimisticModes();
         renderDashboardCachedOverview();
-        if (accepted) {
-          refreshDashboardOverviewDomains(3, true).catch(() => {}).finally(() => {
-            if (dashboardOptimisticModeSeq !== optimisticSeq) return;
-            clearDashboardOptimisticModes();
-            renderDashboardCachedOverview();
-          });
-        }
       }
     }
 
@@ -2718,9 +2751,6 @@
     async function commandPoolEquipment(def, desired) {
       if (!def || poolEquipmentCommandBusy) return false;
       poolEquipmentCommandBusy = def.key;
-      const optimisticSeq = (dashboardOptimisticEquipmentSeq[def.key] || 0) + 1;
-      dashboardOptimisticEquipmentSeq[def.key] = optimisticSeq;
-      let accepted = false;
       let confirmed = false;
       dashboardOptimisticEquipment[def.key] = !!desired;
       poolEquipmentSetStatus(
@@ -2740,18 +2770,24 @@
           tr('pool.control.error.generic', 'Commande refusée.'),
           fetchFlowRemoteQueued
         );
-        accepted = true;
-        await waitMs(350);
-        const poolResult = await fetchFlowStatusDomain('pool', true, 'equipment-command').catch(() => null);
-        if (poolResult && poolResult.pool && typeof poolResult.pool === 'object') {
-          poolConfigLiveState = { ...poolResult.pool };
-          confirmed = typeof poolResult.pool[def.stateKey] === 'boolean';
-          if (dashboardLastOverviewPayload) dashboardLastOverviewPayload.poolDomain = poolResult;
-          if (typeof poolConfigLiveState.lgt === 'boolean') dashboardLightsOn = poolConfigLiveState.lgt;
+        for (const delay of [120, 180, 300, 500]) {
+          await waitMs(delay);
+          const poolResult = await fetchFlowStatusDomain('pool', true, 'equipment-command').catch(() => null);
+          if (poolResult && poolResult.pool && typeof poolResult.pool === 'object') {
+            poolConfigLiveState = { ...poolResult.pool };
+            confirmed = Object.prototype.hasOwnProperty.call(poolResult.pool, def.stateKey)
+              && typeof poolResult.pool[def.stateKey] === 'boolean'
+              && poolResult.pool[def.stateKey] === !!desired;
+            if (dashboardLastOverviewPayload) dashboardLastOverviewPayload.poolDomain = poolResult;
+            if (typeof poolConfigLiveState.lgt === 'boolean') dashboardLightsOn = poolConfigLiveState.lgt;
+          }
+          if (confirmed) break;
         }
         poolEquipmentSetStatus(
-          tr('pool.control.applied', 'Commande appliquée') + ' · ' + tr(def.labelKey, def.label) + '.',
-          'ok'
+          confirmed
+            ? tr('pool.control.applied', 'Commande appliquée') + ' · ' + tr(def.labelKey, def.label) + '.'
+            : tr('pool.control.unconfirmed', 'Commande acceptée, état non confirmé.') + ' · ' + tr(def.labelKey, def.label) + '.',
+          confirmed ? 'ok' : 'error'
         );
         return true;
       } catch (err) {
@@ -2762,18 +2798,9 @@
           renderPoolEquipmentControl(poolConfigModulesCache, poolConfigLiveState);
         }
         renderDashboardEquipmentStatus();
-        if (!accepted || confirmed) {
-          delete dashboardOptimisticEquipment[def.key];
-        }
+        delete dashboardOptimisticEquipment[def.key];
         poolEquipmentCommandBusy = '';
         renderDashboardCachedOverview();
-        if (getActivePageId() === 'page-pool-measures' && !confirmed && accepted) {
-          refreshDashboardOverviewDomains(2, true).catch(() => {}).finally(() => {
-            if (dashboardOptimisticEquipmentSeq[def.key] !== optimisticSeq) return;
-            delete dashboardOptimisticEquipment[def.key];
-            renderDashboardCachedOverview();
-          });
-        }
       }
     }
 

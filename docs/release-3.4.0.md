@@ -24,6 +24,10 @@ ou des relais.
   temps réel, seuls l’état des équipements ou les modules de mode concernés sont
   relus ; la relecture complète reste réservée à l’ouverture, à l’actualisation
   générale et au contrôle périodique ;
+- une relecture n’est considérée comme une confirmation que si elle contient la
+  valeur demandée. Jusqu’à quatre lectures ciblées et espacées couvrent le bref
+  délai de propagation ; si la valeur reste différente, l’interface l’indique
+  au lieu d’afficher à tort que la commande est appliquée ;
 - la page **Piscine** est recentrée sur les réglages : les cartes redondantes
   **État général** et **Contrôle des équipements** sont supprimées, et
   **Conditions générales** devient **Synthèse des réglages**. Les consignes pH
