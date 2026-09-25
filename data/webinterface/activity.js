@@ -36,6 +36,7 @@
       const summaryFilterBtns = Array.from(document.querySelectorAll('[data-activity-summary-filter]'));
       let filter = 'all';
       let windowShiftHours = 0;
+      let showWholeJournal = false;
       let eventsCache = [];
       let statsCache = null;
       let activeJob = null;
@@ -84,6 +85,7 @@
       }
 
       function isInWindow(event) {
+        if (showWholeJournal) return true;
         const date = eventDate(event);
         if (!date) return windowShiftHours === 0;
         const end = Date.now() - (windowShiftHours * 3 * 3600000);
@@ -198,6 +200,12 @@
 
       function updateRange() {
         if (!rangeEl) return;
+        if (showWholeJournal) {
+          rangeEl.textContent = tr('activity.range.all', 'Tout le journal');
+          if (prevBtn) prevBtn.disabled = true;
+          if (nextBtn) nextBtn.disabled = true;
+          return;
+        }
         const end = new Date(Date.now() - (windowShiftHours * 3 * 3600000));
         const start = new Date(end.getTime() - (3 * 3600000));
         rangeEl.textContent = start.toLocaleDateString(currentWebLocaleTag(), { day: 'numeric', month: 'short' }) + ' · '
@@ -222,8 +230,10 @@
       function periodSummary(events) {
         const items = Array.isArray(events) ? events : [];
         return countLabel(items.length,
-          'activity.status.periodEvent.one', 'événement sur la période',
-          'activity.status.periodEvent.other', 'événements sur la période')
+          showWholeJournal ? 'activity.status.journalEvent.one' : 'activity.status.periodEvent.one',
+          showWholeJournal ? 'événement dans le journal' : 'événement sur la période',
+          showWholeJournal ? 'activity.status.journalEvent.other' : 'activity.status.periodEvent.other',
+          showWholeJournal ? 'événements dans le journal' : 'événements sur la période')
           + tr('activity.status.includes', ', dont ')
           + countLabel(items.filter(isAlert).length,
             'activity.status.alert.one', 'alerte', 'activity.status.alert.other', 'alertes') + ', '
@@ -331,8 +341,12 @@
           const empty = document.createElement('div');
           empty.className = 'activity-empty';
           empty.innerHTML = '<span class="ui-msr" aria-hidden="true">event_busy</span><strong></strong><small></small>';
-          empty.querySelector('strong').textContent = tr('activity.empty.title', 'Aucune activité sur cette période');
-          empty.querySelector('small').textContent = tr('activity.empty.detail', 'Essayez un autre filtre ou consultez la période précédente.');
+          empty.querySelector('strong').textContent = showWholeJournal
+            ? tr('activity.empty.journalTitle', 'Aucune activité correspondante dans le journal')
+            : tr('activity.empty.title', 'Aucune activité sur cette période');
+          empty.querySelector('small').textContent = showWholeJournal
+            ? tr('activity.empty.journalDetail', 'Essayez un autre filtre.')
+            : tr('activity.empty.detail', 'Essayez un autre filtre ou consultez la période précédente.');
           listEl.appendChild(empty);
         } else {
           const groups = [];
@@ -522,17 +536,20 @@
         render(eventsCache, statsCache);
       });
       if (prevBtn) prevBtn.addEventListener('click', () => {
+        showWholeJournal = false;
         windowShiftHours += 1;
         selected.clear(); updateSelection();
         render(eventsCache, statsCache);
       });
       if (nextBtn) nextBtn.addEventListener('click', () => {
+        showWholeJournal = false;
         windowShiftHours = Math.max(0, windowShiftHours - 1);
         selected.clear(); updateSelection();
         render(eventsCache, statsCache);
       });
-      function setFilter(nextFilter) {
+      function setFilter(nextFilter, wholeJournal) {
         filter = String(nextFilter || 'all');
+        showWholeJournal = wholeJournal === true;
         selected.clear(); updateSelection();
         filterBtns.forEach((item) => {
           const active = String(item.dataset.activityFilter || 'all') === filter;
@@ -546,8 +563,8 @@
         });
         render(eventsCache, statsCache);
       }
-      filterBtns.forEach((button) => button.addEventListener('click', () => setFilter(button.dataset.activityFilter)));
-      summaryFilterBtns.forEach((button) => button.addEventListener('click', () => setFilter(button.dataset.activitySummaryFilter)));
+      filterBtns.forEach((button) => button.addEventListener('click', () => setFilter(button.dataset.activityFilter, false)));
+      summaryFilterBtns.forEach((button) => button.addEventListener('click', () => setFilter(button.dataset.activitySummaryFilter, true)));
 
       return {
         show: function (busy) { visible = true; return refresh(busy); },

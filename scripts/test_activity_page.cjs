@@ -219,6 +219,14 @@ async function main() {
   assert.equal(summaries.elements.get('activitySummaryAlerts').textContent, '2');
   assert.match(summaries.status.textContent,
     /3 événements sur la période, dont 1 alerte, 1 action manuelle et 1 équipement/);
+  summaries.summaryFilters.find(button => button.dataset.activitySummaryFilter === 'alerts').listeners.click();
+  summaries.elements.get('activitySelectVisibleBtn').listeners.click();
+  assert.match(summaries.elements.get('activityDeleteBtn').textContent, /\(2\)/,
+    'summary tiles show every matching event in the complete journal, including older periods');
+  assert.equal(summaries.elements.get('activityRangeText').textContent, 'Tout le journal');
+  assert.equal(summaries.elements.get('activityPrevBtn').disabled, true);
+  assert.equal(summaries.elements.get('activityNextBtn').disabled, true);
+  assert.match(summaries.status.textContent, /4 événements dans le journal, dont 2 alertes/);
   console.log('Post-delete refresh: immediate view update, slow reload and reload failure OK');
   console.log('Activity deletion: confirmation, selection, clear-all and persistence failure OK');
   console.log('Activity filters: automatic and manual classification OK');

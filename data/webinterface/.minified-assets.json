@@ -31,11 +31,11 @@
       "gzip_bytes": 5710
     },
     "activity.js": {
-      "source_sha256": "3f6b3fc53f5981816f13caa9f866b60f29e6af0f760fd0a8b4ab32e6380b3413",
-      "gzip_sha256": "82ee7373964cdc39a4a85c228245b1279a9eff308c2059fca63ba6875571100b",
-      "original_bytes": 27831,
-      "minified_bytes": 20550,
-      "gzip_bytes": 5879
+      "source_sha256": "8b63f846d4e4d360f8d563aefe358c2d8ad43c191c5c770d7dee9e273a25e552",
+      "gzip_sha256": "9e6d74fcde1f569d5e030d7adc5bd901c944ea38866c8da0d38004f1e9202062",
+      "original_bytes": 28749,
+      "minified_bytes": 21254,
+      "gzip_bytes": 6007
     },
     "io-summary.js": {
       "source_sha256": "015c793343a5e196fe2a63502933fd8fdb571df757b270f7345ec554b1073ff7",
@@ -87,18 +87,18 @@
       "gzip_bytes": 23804
     },
     "i18n/fr.json": {
-      "source_sha256": "cb76e06fc68869c5d5650521a8bac4c3ec194a3daa899d44d203d298d5161ea2",
-      "gzip_sha256": "11ff72c6939991704b0269dc1f188477a2229bab458f540747f367ba97959654",
-      "original_bytes": 42734,
-      "minified_bytes": 38359,
-      "gzip_bytes": 10472
+      "source_sha256": "2f83bd555e17f3efa502f711220e885912e25501fa9024def1d27fdb6bb8af6f",
+      "gzip_sha256": "38bc4db22029fd0d5b73158be24e8fc90ca4ea6f8439133263823bb2c851e475",
+      "original_bytes": 43074,
+      "minified_bytes": 38669,
+      "gzip_bytes": 10521
     },
     "i18n/en.json": {
-      "source_sha256": "de1d6e286695e6671aa21014b6dbde8bcf6e6567ce72efd283ec89972de8d4af",
-      "gzip_sha256": "ef01bfd234e2c6594ce2f37ae5a04f64d7870c51ee20cd097b627537cb05cb6d",
-      "original_bytes": 40123,
-      "minified_bytes": 35748,
-      "gzip_bytes": 9468
+      "source_sha256": "966f88e76acc1f802a8ab1b50163bf5c208fdfccd12dbf3b66096d30e04a1dfc",
+      "gzip_sha256": "59440e5ae73c50af58f848b6bc7c5065237f8482fe7dc54e3e86ae3f1e5bb212",
+      "original_bytes": 40431,
+      "minified_bytes": 36026,
+      "gzip_bytes": 9523
     },
     "app-core.css": {
       "source_sha256": "4248012cf0fc6d90da9b653048d915a4ae798e29256d52c62bd71ef36882e2cf",
