@@ -551,6 +551,7 @@ private:
                            bool* heldOut = nullptr) const;
     bool loadDigitalSensor_(IoId ioId, bool& out) const;
     void updateSensorHold_();
+    void alignSubordinateAutomationModes_();
     void resetTemporalPidState_(TemporalPidState& st, uint32_t nowMs);
     bool stepTemporalPid_(TemporalPidState& st,
                           float input,

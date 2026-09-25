@@ -1419,12 +1419,12 @@ void PoolLogicModule::onConfigLoaded(ConfigStore&, ServiceRegistry& services)
     startupActivityPending_ = true;
     startupActivitySinceMs_ = millis();
 
-    if (!enabled_) return;
-
     if (disinfectionType_ > DisinfectionDisabled) {
         disinfectionType_ = DisinfectionChlorineBromine;
         if (cfgStore_) (void)cfgStore_->set(disinfectionTypeVar_, disinfectionType_);
     }
+    alignSubordinateAutomationModes_();
+    if (!enabled_) return;
     if (swgControlMode_ > SwgControlContinuous) {
         swgControlMode_ = SwgControlContinuous;
         if (cfgStore_) (void)cfgStore_->set(swgControlModeVar_, swgControlMode_);
@@ -1480,6 +1480,31 @@ void PoolLogicModule::onConfigLoaded(ConfigStore&, ServiceRegistry& services)
     portENTER_CRITICAL(&pendingMux_);
     pendingDailyRecalc_ = true;
     portEXIT_CRITICAL(&pendingMux_);
+}
+
+void PoolLogicModule::alignSubordinateAutomationModes_()
+{
+    if (!cfgStore_) return;
+
+    const bool automatic = enabled_ && autoMode_;
+    const bool phShouldBeAuto = automatic;
+    const bool orpShouldBeAuto = automatic && disinfectionType_ == DisinfectionChlorineBromine;
+    const bool treatmentShouldBeAuto = automatic &&
+                                       (disinfectionType_ == DisinfectionSwg ||
+                                        disinfectionType_ == DisinfectionActiveOxygen);
+
+    if (phAutoMode_ != phShouldBeAuto) {
+        (void)cfgStore_->set(phAutoModeVar_, phShouldBeAuto);
+        phAutoMode_ = phShouldBeAuto;
+    }
+    if (orpAutoMode_ != orpShouldBeAuto) {
+        (void)cfgStore_->set(orpAutoModeVar_, orpShouldBeAuto);
+        orpAutoMode_ = orpShouldBeAuto;
+    }
+    if (treatmentAutoMode_ != treatmentShouldBeAuto) {
+        (void)cfgStore_->set(treatmentAutoModeVar_, treatmentShouldBeAuto);
+        treatmentAutoMode_ = treatmentShouldBeAuto;
+    }
 }
 
 bool PoolLogicModule::activityTimeReady_() const
@@ -1622,35 +1647,21 @@ void PoolLogicModule::onEvent_(const Event& e)
         if (p->moduleId == (uint8_t)ConfigModuleId::PoolLogic &&
             p->localBranchId == kCfgBranchModes &&
             p->nvsKey) {
-            if (strcmp(p->nvsKey, NvsKeys::PoolLogic::AutoMode) == 0) {
+            if (strcmp(p->nvsKey, NvsKeys::PoolLogic::AutoMode) == 0 ||
+                strcmp(p->nvsKey, NvsKeys::PoolLogic::Enabled) == 0) {
                 portENTER_CRITICAL(&pendingMux_);
                 pendingFiltrationReconcile_ = true;
                 portEXIT_CRITICAL(&pendingMux_);
 
                 // Keep the subordinate regulation modes aligned with the
                 // operating mode, regardless of which client changed it.
-                if (cfgStore_) {
-                    if (phAutoMode_ != autoMode_) {
-                        (void)cfgStore_->set(phAutoModeVar_, autoMode_);
-                        phAutoMode_ = autoMode_;
-                    }
-                    const bool orpShouldBeAuto = autoMode_ &&
-                                                 disinfectionType_ == DisinfectionChlorineBromine;
-                    if (orpAutoMode_ != orpShouldBeAuto) {
-                        (void)cfgStore_->set(orpAutoModeVar_, orpShouldBeAuto);
-                        orpAutoMode_ = orpShouldBeAuto;
-                    }
-                    const bool treatmentShouldBeAuto = autoMode_ &&
-                                                       (disinfectionType_ == DisinfectionSwg ||
-                                                        disinfectionType_ == DisinfectionActiveOxygen);
-                    if (treatmentAutoMode_ != treatmentShouldBeAuto) {
-                        (void)cfgStore_->set(treatmentAutoModeVar_, treatmentShouldBeAuto);
-                        treatmentAutoMode_ = treatmentShouldBeAuto;
-                    }
-                }
+                alignSubordinateAutomationModes_();
                 LOGI("PoolLogic automatic mode %s with pH and selected treatment automation aligned",
                      autoMode_ ? "enabled" : "disabled");
             } else if (strcmp(p->nvsKey, NvsKeys::PoolLogic::TreatmentAutoMode) == 0) {
+                if ((!enabled_ || !autoMode_) && treatmentAutoMode_) {
+                    alignSubordinateAutomationModes_();
+                }
                 // A treatment mode change always starts from stopped outputs.
                 (void)writeDeviceDesired_(orpPumpDeviceSlot_, false);
                 if (!sharedDisinfectionDevice_()) (void)writeDeviceDesired_(swgDeviceSlot_, false);
@@ -1660,10 +1671,7 @@ void PoolLogicModule::onEvent_(const Event& e)
                 if (disinfectionType_ > DisinfectionDisabled) disinfectionType_ = DisinfectionChlorineBromine;
                 (void)writeDeviceDesired_(orpPumpDeviceSlot_, false);
                 if (!sharedDisinfectionDevice_()) (void)writeDeviceDesired_(swgDeviceSlot_, false);
-                if (disinfectionType_ == DisinfectionChlorineBromine && !orpAutoMode_ && cfgStore_) {
-                    (void)cfgStore_->set(orpAutoModeVar_, true);
-                    orpAutoMode_ = true;
-                }
+                alignSubordinateAutomationModes_();
                 resetTemporalPidState_(orpPidState_, millis());
                 orpPidEnabled_ = false;
                 LOGI("PoolLogic disinfection changed: %s", disinfectionTypeStr_(disinfectionType_));
@@ -1673,6 +1681,13 @@ void PoolLogicModule::onEvent_(const Event& e)
         if (p->moduleId == (uint8_t)ConfigModuleId::PoolLogic &&
             p->localBranchId == kCfgBranchPh &&
             p->nvsKey) {
+            if (strcmp(p->nvsKey, NvsKeys::PoolLogic::PhAutoMode) == 0 &&
+                (!enabled_ || !autoMode_) && phAutoMode_) {
+                alignSubordinateAutomationModes_();
+                phPidEnabled_ = false;
+                resetTemporalPidState_(phPidState_, millis());
+                return;
+            }
             if (strcmp(p->nvsKey, NvsKeys::PoolLogic::PhAutoMode) == 0 && phAutoMode_) {
                 // Global business rule: entering pH auto starts from a safe stopped pump.
                 if (!writeDeviceDesired_(phPumpDeviceSlot_, false)) {
@@ -1686,6 +1701,13 @@ void PoolLogicModule::onEvent_(const Event& e)
         if (p->moduleId == (uint8_t)ConfigModuleId::PoolLogic &&
             p->localBranchId == kCfgBranchChlorine &&
             p->nvsKey) {
+            if (strcmp(p->nvsKey, NvsKeys::PoolLogic::OrpAutoMode) == 0 &&
+                (!enabled_ || !autoMode_) && orpAutoMode_) {
+                alignSubordinateAutomationModes_();
+                orpPidEnabled_ = false;
+                resetTemporalPidState_(orpPidState_, millis());
+                return;
+            }
             if (strcmp(p->nvsKey, NvsKeys::PoolLogic::OrpAutoMode) == 0 && orpAutoMode_) {
                 // Global business rule: entering disinfection auto starts from a safe stopped pump.
                 if (!writeDeviceDesired_(orpPumpDeviceSlot_, false)) {

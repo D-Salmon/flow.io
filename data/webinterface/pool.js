@@ -283,7 +283,6 @@
         Object.freeze({ key: 'winter_mode', type: 'bool', label: 'Mode hiver' })
       ]),
       'poollogic/ph': Object.freeze([
-        Object.freeze({ key: 'ph_auto_mode', type: 'bool', label: 'Régulation pH automatique' }),
         Object.freeze({
           key: 'ph_dose_plus',
           type: 'enum',
@@ -299,7 +298,6 @@
         Object.freeze({ key: 'ph_kd', type: 'number', label: 'Gain dérivé Kd', min: 0, step: 0.001 })
       ]),
       'poollogic/chlorine': Object.freeze([
-        Object.freeze({ key: 'dis_auto_mode', type: 'bool', label: 'Régulation ORP automatique' }),
         Object.freeze({ key: 'dis_window_ms', type: 'number', label: 'Fenêtre de dosage', min: 1, max: 180, step: 1, scale: 60000, unit: 'min' }),
         Object.freeze({ key: 'dis_kp', type: 'number', label: 'Gain proportionnel Kp', min: 0, step: 0.001 }),
         Object.freeze({ key: 'dis_ki', type: 'number', label: 'Gain intégral Ki', min: 0, step: 0.001 }),
@@ -2337,15 +2335,15 @@
         const modeTiles = [
           { key: 'automatic', command: 'automatic', label: 'Mode auto', on: automatic, available: Object.prototype.hasOwnProperty.call(modes, 'auto_mode') },
           { key: 'winter', command: 'winter', label: 'Mode hiver', on: winter, available: poolLogicEnabled && Object.prototype.hasOwnProperty.call(modes, 'winter_mode') },
-          { key: 'ph', command: 'ph', label: 'pH auto', on: phAuto, available: phAutoAvailable }
+          { key: 'ph', command: 'ph', label: 'pH auto', on: automatic && phAuto, available: automatic && phAutoAvailable }
         ];
         if (treatmentAvailable) {
           modeTiles.push({
             key: 'treatment',
             command: chlorineTreatment ? 'chlorine' : 'treatment',
             label: poolDashboardTreatmentAutoLabel(disinfectionTypeForMode),
-            on: treatmentAuto,
-            available: treatmentAutoAvailable
+            on: automatic && treatmentAuto,
+            available: automatic && treatmentAutoAvailable
           });
         }
         modeTiles.forEach((item) => dashboardModeGrid.appendChild(
@@ -2432,8 +2430,10 @@
             pool[def.key] === true
           );
           const blockedByAutomatic = available && automatic && equipmentDef.automatic;
+          const blockedByCirculation = available && !on &&
+            (def.key === 'rbt' || def.key === 'htr') && pool.fil !== true;
           const pending = poolEquipmentCommandBusy === def.equipmentKey;
-          const actionable = available && !blockedByAutomatic && !poolEquipmentCommandBusy;
+          const actionable = available && !blockedByAutomatic && !blockedByCirculation && !poolEquipmentCommandBusy;
           if (available) equipmentAvailableCount += 1;
           if (on) equipmentOnCount += 1;
 
@@ -2444,12 +2444,16 @@
             ? def.label + ' · ' + (centralAsset ? poolAssetStateLabel(centralAsset) : tr('dashboard.equipment.unavailable', 'Indisponible'))
             : (blockedByAutomatic
               ? def.label + ' · ' + tr('pool.control.automatic', 'Piloté automatiquement')
+              : (blockedByCirculation
+                ? def.label + ' · ' + tr('pool.control.filtrationRequired', 'Filtration requise')
               : (on
                 ? tr('pool.control.action.stopEquipment', 'Arrêter') + ' · ' + def.label
-                : tr('pool.control.action.startEquipment', 'Démarrer') + ' · ' + def.label)));
+                : tr('pool.control.action.startEquipment', 'Démarrer') + ' · ' + def.label))));
           card.title = blockedByAutomatic
             ? tr('pool.control.automatic', 'Piloté automatiquement')
-            : (!available && centralAsset ? poolAssetStateLabel(centralAsset) : '');
+            : (blockedByCirculation
+              ? tr('pool.control.filtrationRequired', 'Filtration requise')
+              : (!available && centralAsset ? poolAssetStateLabel(centralAsset) : ''));
           if (actionable) {
             card.addEventListener('click', () => {
               commandPoolEquipment(equipmentDef, !on).catch(() => {});
@@ -2471,9 +2475,11 @@
             ? tr('pool.control.pending', 'Commande…')
             : (!available
               ? (centralAsset ? poolAssetStateLabel(centralAsset) : tr('dashboard.equipment.unavailable', 'Indisponible'))
+              : (blockedByCirculation
+                ? tr('pool.control.filtrationRequired', 'Filtration requise')
               : (on
                 ? (commandOnly ? tr('dashboard.equipment.commanded', 'Commandé') : tr('dashboard.equipment.on', 'En marche'))
-                : tr('dashboard.equipment.off', 'À l’arrêt'))));
+                : tr('dashboard.equipment.off', 'À l’arrêt')))));
           copy.appendChild(label);
           copy.appendChild(state);
           const toggle = document.createElement('span');
@@ -4368,6 +4374,14 @@
     }
 
     function poolConfigChemistryTargetState(measured, target, tolerance, unit) {
+      if (measured === null || typeof measured === 'undefined' || measured === '' ||
+          target === null || typeof target === 'undefined' || target === '') {
+        return {
+          kind: 'unavailable',
+          label: tr('pool.chemistry.sensorUnavailable', 'Sonde indisponible'),
+          note: tr('pool.chemistry.comparisonUnavailable', 'Comparaison à la consigne impossible.')
+        };
+      }
       const current = Number(measured);
       const setpoint = Number(target);
       if (!Number.isFinite(current) || !Number.isFinite(setpoint)) {
@@ -4396,6 +4410,13 @@
     }
 
     function poolConfigPressureState(measured, lowValue, highValue, monitoringEnabled) {
+      if (measured === null || typeof measured === 'undefined' || measured === '') {
+        return {
+          kind: 'unavailable',
+          label: tr('pool.chemistry.sensorUnavailable', 'Sonde indisponible'),
+          note: tr('pool.chemistry.pressureUnavailable', 'La pression hydraulique ne peut pas être contrôlée.')
+        };
+      }
       const current = Number(measured);
       const low = Number(lowValue);
       const high = Number(highValue);
@@ -4656,10 +4677,6 @@
             featured: true,
             editable: { module: 'poollogic/ph', key: 'ph_setpoint', type: 'number', value: ph.ph_setpoint, min: 6, max: 8, step: 0.01 }
           },
-          {
-            label: 'Régulation',
-            editable: { module: 'poollogic/ph', key: 'ph_auto_mode', type: 'bool', value: ph.ph_auto_mode }
-          },
           { label: 'Correcteur', value: toBool(ph.ph_dose_plus) ? 'pH+' : 'pH−' },
           { label: 'Pompe', value: poolConfigBoolLabel(live.php, 'En marche', 'Arrêt') }
         ]
@@ -4678,10 +4695,6 @@
               label: 'Consigne',
               featured: true,
               editable: { module: 'poollogic/chlorine', key: 'dis_setpoint', type: 'number', value: chlorine.dis_setpoint, min: 300, max: 900, step: 1, unit: 'mV' }
-            },
-            {
-              label: 'Régulation',
-              editable: { module: 'poollogic/chlorine', key: 'dis_auto_mode', type: 'bool', value: chlorine.dis_auto_mode }
             },
             {
               label: swgSelected ? 'Électrolyseur' : 'Pompe',
@@ -4800,7 +4813,6 @@
       metrics.className = 'pool-metric-grid';
       if (selected && selectedDef.module) {
         if (selectedDef.key === 'chlorine') {
-          poolConfigAppendMetric(metrics, tr('pool.metric.autoOrp', 'Auto ORP'), poolConfigBoolLabel(data.dis_auto_mode), { module: selectedDef.module, key: 'dis_auto_mode' });
           poolConfigAppendMetric(metrics, tr('pool.metric.window', 'Fenêtre'), poolConfigFormatValue(selectedDef.module, 'dis_window_ms', data.dis_window_ms), { module: selectedDef.module, key: 'dis_window_ms' });
         } else if (selectedDef.key === 'o2') {
           poolConfigAppendMetric(metrics, tr('pool.metric.poolVolume', 'Volume bassin'), poolConfigFormatValue(selectedDef.module, 'pool_volume_m3', data.pool_volume_m3), { featured: true });

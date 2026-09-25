@@ -421,7 +421,7 @@ bool PoolLogicModule::stepO2Protocol_(bool filtrationDesired,
     requestFiltrationOut = false;
     pumpDesiredOut = false;
 
-    if (!isDisinfectionType_(DisinfectionActiveOxygen) || !treatmentAutoMode_) {
+    if (!enabled_ || !autoMode_ || !isDisinfectionType_(DisinfectionActiveOxygen) || !treatmentAutoMode_) {
         o2LastProgressMs_ = 0;
         if (o2PendingMl_ <= kO2DoseEpsilonMl) {
             o2PendingMl_ = 0.0f;
@@ -1061,6 +1061,8 @@ void PoolLogicModule::applyDeviceControl_(uint8_t deviceSlot,
 
 void PoolLogicModule::runControlLoop_(uint32_t nowMs)
 {
+    const bool automationEnabled = enabled_ && autoMode_;
+
     // The loop always starts by refreshing observed actuator states so all
     // subsequent decisions are based on the latest physical feedback.
     bool filtrationStarted = false;
@@ -1217,7 +1219,7 @@ void PoolLogicModule::runControlLoop_(uint32_t nowMs)
 
     // PID regulation is armed only after filtration has been stable long enough
     // to avoid reacting to startup transients.
-    if (filtrationFsm_.on && !winterMode_) {
+    if (automationEnabled && filtrationFsm_.on && !winterMode_) {
         const uint32_t runMin = stateUptimeSec_(filtrationFsm_, nowMs) / 60U;
 
         if (phAutoMode_ && !phPidEnabled_ && runMin >= delayPidsMin_) {
@@ -1255,10 +1257,10 @@ void PoolLogicModule::runControlLoop_(uint32_t nowMs)
     }
     // Manual forcing relies on *_auto_mode=false. In that case, PID must not
     // keep a stale enabled state that could override manual requests.
-    if (!phAutoMode_ && phPidEnabled_) {
+    if ((!automationEnabled || !phAutoMode_) && phPidEnabled_) {
         phPidEnabled_ = false;
     }
-    if (!orpAutoMode_ && orpPidEnabled_) {
+    if ((!automationEnabled || !orpAutoMode_) && orpPidEnabled_) {
         orpPidEnabled_ = false;
     }
 
@@ -1404,7 +1406,7 @@ void PoolLogicModule::runControlLoop_(uint32_t nowMs)
 
     const DeviceFsm& swgControlFsm = sharedDisinfectionDevice_() ? orpPumpFsm_ : swgFsm_;
     bool swgDesired = swgControlFsm.on;
-    if (treatmentAutoMode_) {
+    if (automationEnabled && treatmentAutoMode_) {
         swgDesired = false;
         if (isDisinfectionType_(DisinfectionSwg) && filtrationFsm_.on) {
             if (swgControlMode_ == SwgControlOrp) {
@@ -1567,7 +1569,7 @@ void PoolLogicModule::runControlLoop_(uint32_t nowMs)
     // filtration state, alarm state, and sensor freshness.
     bool phPumpDesired = phPumpFsm_.on;
     bool orpPumpDesired = orpPumpFsm_.on;
-    if (phAutoMode_ || orpAutoMode_) {
+    if (automationEnabled && (phAutoMode_ || orpAutoMode_)) {
         if (filtrationDesired) {
             if (phAutoMode_) {
                 const bool phAllowed = phPidEnabled_ && phFresh && !circulationSafetyError && !phTankLowError_;
@@ -1673,6 +1675,13 @@ void PoolLogicModule::runControlLoop_(uint32_t nowMs)
         phPumpDesired = false;
         orpPumpDesired = false;
         swgDesired = false;
+        robotDesired = false;
+        heaterDesired = false;
+    }
+
+    // Robot and heater require confirmed water circulation. This also stops a
+    // manually started output if filtration is subsequently turned off.
+    if (!filtrationFsm_.on) {
         robotDesired = false;
         heaterDesired = false;
     }

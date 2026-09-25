@@ -286,6 +286,7 @@ bool PoolLogicModule::cmdAutoModeSet_(const CommandRequest& req, char* reply, si
     enabled_ = true;
     (void)cfgStore_->set(autoModeVar_, requested);
     autoMode_ = requested;
+    alignSubordinateAutomationModes_();
 
     snprintf(reply, replyLen, "{\"ok\":true,\"value\":%s}", requested ? "true" : "false");
     return true;
@@ -465,6 +466,50 @@ bool PoolLogicModule::cmdMqttControl_(const CommandRequest& req, char* reply, si
         return writeDeviceValue(where, slot, !current, forceManualAutoMode, clearDosingModeKey);
     };
 
+    auto heaterStartAllowed = [&](const char* where, bool requested) -> bool {
+        if (!requested) return true;
+        bool filtrationOn = false;
+        if (!readDeviceActualOn_(filtrationDeviceSlot_, filtrationOn)) {
+            writeCmdError_(reply, replyLen, where, ErrorCode::NotReady);
+            return false;
+        }
+        if (!filtrationOn) {
+            writeCmdError_(reply, replyLen, where, ErrorCode::InterlockBlocked);
+            return false;
+        }
+        return true;
+    };
+
+    auto writeHeaterFromArgs = [&](const char* where) -> bool {
+        JsonObjectConst args;
+        if (!parseCmdArgsObject_(req, args)) {
+            writeCmdError_(reply, replyLen, where, ErrorCode::MissingArgs);
+            return false;
+        }
+        if (args["value"].isUnbound()) {
+            writeCmdError_(reply, replyLen, where, ErrorCode::MissingValue);
+            return false;
+        }
+        bool requested = false;
+        if (!parseBoolValue_(args["value"], requested)) {
+            writeCmdError_(reply, replyLen, where, ErrorCode::MissingValue);
+            return false;
+        }
+        if (!heaterStartAllowed(where, requested)) return false;
+        return writeDeviceValue(where, heaterDeviceSlot_, requested, false, nullptr);
+    };
+
+    auto toggleHeaterValue = [&](const char* where) -> bool {
+        bool current = false;
+        if (!readDeviceActualOn_(heaterDeviceSlot_, current)) {
+            writeCmdError_(reply, replyLen, where, ErrorCode::NotReady);
+            return false;
+        }
+        const bool requested = !current;
+        if (!heaterStartAllowed(where, requested)) return false;
+        return writeDeviceValue(where, heaterDeviceSlot_, requested, false, nullptr);
+    };
+
     auto disinfectionCommandAllowed = [&](bool swgCommand) -> bool {
         if (swgCommand) return isDisinfectionType_(DisinfectionSwg);
         return isDisinfectionType_(DisinfectionChlorineBromine) ||
@@ -639,10 +684,10 @@ bool PoolLogicModule::cmdMqttControl_(const CommandRequest& req, char* reply, si
         return toggleRobotManualValue("poollogic.robot.toggle");
     }
     if (strcmp(cmdName, "poollogic.heater.write") == 0) {
-        return writeDeviceFromArgs("poollogic.heater.write", heaterDeviceSlot_, false, nullptr);
+        return writeHeaterFromArgs("poollogic.heater.write");
     }
     if (strcmp(cmdName, "poollogic.heater.toggle") == 0) {
-        return toggleDeviceValue("poollogic.heater.toggle", heaterDeviceSlot_, false, nullptr);
+        return toggleHeaterValue("poollogic.heater.toggle");
     }
     if (strcmp(cmdName, "poollogic.chlorine_generator.write") == 0 || strcmp(cmdName, "poollogic.swg.write") == 0) {
         return writeDisinfectionFromArgs("poollogic.chlorine_generator.write", true, nullptr);
