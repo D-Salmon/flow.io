@@ -13,6 +13,8 @@
 #include <ArduinoJson.h>
 #include <ctype.h>
 #include <math.h>
+#include <memory>
+#include <new>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -500,24 +502,20 @@ uint8_t ConfigMenuModel::moduleRowCount_(const char* module) const
 {
     if (!cfgSvc_ || !cfgSvc_->toJsonModule || !module || module[0] == '\0') return 0;
 
-    char* jsonBuf = (char*)malloc(Limits::Mqtt::Buffers::StateCfg);
+    const std::unique_ptr<char[]> jsonBuf(new (std::nothrow) char[Limits::Mqtt::Buffers::StateCfg]);
     if (!jsonBuf) return 0;
     jsonBuf[0] = '\0';
 
     bool truncated = false;
     const bool ok = cfgSvc_->toJsonModule(cfgSvc_->ctx,
                                           module,
-                                          jsonBuf,
+                                          jsonBuf.get(),
                                           Limits::Mqtt::Buffers::StateCfg,
                                           &truncated);
-    if (!ok || truncated) {
-        free(jsonBuf);
-        return 0;
-    }
+    if (!ok || truncated) return 0;
 
     JsonDocument doc(psramPreferredJsonAllocator());
-    const DeserializationError err = deserializeJson(doc, jsonBuf);
-    free(jsonBuf);
+    const DeserializationError err = deserializeJson(doc, jsonBuf.get());
     if (err || !doc.is<JsonObjectConst>()) return 0;
 
     uint8_t count = 0;
@@ -633,24 +631,20 @@ bool ConfigMenuModel::readModuleNameField_(const char* modulePath,
     out[0] = '\0';
     if (!cfgSvc_ || !cfgSvc_->toJsonModule) return false;
 
-    char* jsonBuf = (char*)malloc(Limits::Mqtt::Buffers::StateCfg);
+    const std::unique_ptr<char[]> jsonBuf(new (std::nothrow) char[Limits::Mqtt::Buffers::StateCfg]);
     if (!jsonBuf) return false;
     jsonBuf[0] = '\0';
 
     bool truncated = false;
     const bool ok = cfgSvc_->toJsonModule(cfgSvc_->ctx,
                                           modulePath,
-                                          jsonBuf,
+                                          jsonBuf.get(),
                                           Limits::Mqtt::Buffers::StateCfg,
                                           &truncated);
-    if (!ok || truncated) {
-        free(jsonBuf);
-        return false;
-    }
+    if (!ok || truncated) return false;
 
     JsonDocument doc(psramPreferredJsonAllocator());
-    const DeserializationError err = deserializeJson(doc, jsonBuf);
-    free(jsonBuf);
+    const DeserializationError err = deserializeJson(doc, jsonBuf.get());
     if (err || !doc.is<JsonObjectConst>()) return false;
 
     JsonObjectConst obj = doc.as<JsonObjectConst>();
@@ -709,24 +703,20 @@ bool ConfigMenuModel::configRowAt_(const char* module, uint8_t index, Row& out) 
     out = Row{};
     if (!cfgSvc_ || !cfgSvc_->toJsonModule || !module || module[0] == '\0') return false;
 
-    char* jsonBuf = (char*)malloc(Limits::Mqtt::Buffers::StateCfg);
+    const std::unique_ptr<char[]> jsonBuf(new (std::nothrow) char[Limits::Mqtt::Buffers::StateCfg]);
     if (!jsonBuf) return false;
     jsonBuf[0] = '\0';
 
     bool truncated = false;
     const bool ok = cfgSvc_->toJsonModule(cfgSvc_->ctx,
                                           module,
-                                          jsonBuf,
+                                          jsonBuf.get(),
                                           Limits::Mqtt::Buffers::StateCfg,
                                           &truncated);
-    if (!ok || truncated) {
-        free(jsonBuf);
-        return false;
-    }
+    if (!ok || truncated) return false;
 
     JsonDocument doc(psramPreferredJsonAllocator());
-    const DeserializationError err = deserializeJson(doc, jsonBuf);
-    free(jsonBuf);
+    const DeserializationError err = deserializeJson(doc, jsonBuf.get());
     if (err || !doc.is<JsonObjectConst>()) return false;
 
     uint8_t current = 0;
@@ -954,24 +944,20 @@ void ConfigMenuModel::buildModuleView_(ConfigMenuView& out) const
 {
     if (!cfgSvc_ || !cfgSvc_->toJsonModule || currentModule_[0] == '\0') return;
 
-    char* jsonBuf = (char*)malloc(Limits::Mqtt::Buffers::StateCfg);
+    const std::unique_ptr<char[]> jsonBuf(new (std::nothrow) char[Limits::Mqtt::Buffers::StateCfg]);
     if (!jsonBuf) return;
     jsonBuf[0] = '\0';
 
     bool truncated = false;
     const bool ok = cfgSvc_->toJsonModule(cfgSvc_->ctx,
                                           currentModule_,
-                                          jsonBuf,
+                                          jsonBuf.get(),
                                           Limits::Mqtt::Buffers::StateCfg,
                                           &truncated);
-    if (!ok || truncated) {
-        free(jsonBuf);
-        return;
-    }
+    if (!ok || truncated) return;
 
     JsonDocument doc(psramPreferredJsonAllocator());
-    const DeserializationError err = deserializeJson(doc, jsonBuf);
-    free(jsonBuf);
+    const DeserializationError err = deserializeJson(doc, jsonBuf.get());
     if (err || !doc.is<JsonObjectConst>()) return;
 
     const uint8_t first = (uint8_t)((uint16_t)pageIndex_ * RowsPerPage);
