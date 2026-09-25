@@ -52,7 +52,8 @@ ou des relais.
 
 - suppression des configurations, diagrammes, composants simulés et scripts
   Wokwi, qui n’étaient plus utilisés par aucun environnement PlatformIO ;
-- suppression de `compile_commands.json`, des outils ponctuels de migration et
+- suppression de `compile_commands.json`, des outils ponctuels de migration,
+  de la bibliothèque `ESP32_Flasher` jamais appelée, d’un doublon d’image et
   des documents décrivant les anciens profils déjà retirés ;
 - renommage des valeurs par défaut compilées pour refléter l’unique profil
   Waveshare. Les identifiants Wi-Fi et MQTT de démonstration sont remplacés par
