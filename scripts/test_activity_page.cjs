@@ -5,11 +5,16 @@ const fs = require('node:fs');
 const path = require('node:path');
 const source = fs.readFileSync(path.join(__dirname, '../data/webinterface/activity.js'), 'utf8');
 function element() {
-  return { textContent: '', disabled: false, childNodes: [], classList: { toggle() {} },
+  const classes = new Set();
+  const attributes = {};
+  return { textContent: '', disabled: false, childNodes: [], attributes, classList: {
+      toggle(name, force) { if (force) classes.add(name); else classes.delete(name); },
+      contains(name) { return classes.has(name); }
+    },
     set innerHTML(value) { this.childNodes = []; this.html = value; },
     get innerHTML() { return this.html || ''; },
     listeners: {},
-    appendChild(child) { this.childNodes.push(child); }, setAttribute() {},
+    appendChild(child) { this.childNodes.push(child); }, setAttribute(name, value) { attributes[name] = String(value); },
     addEventListener(name, handler) { this.listeners[name] = handler; }, querySelector() { return element(); } };
 }
 function setup(fetch, confirm = () => true) {
@@ -19,17 +24,23 @@ function setup(fetch, confirm = () => true) {
     button.dataset = { activityFilter: value };
     return button;
   });
+  const summaryFilters = ['all', 'alerts', 'manual', 'equipment'].map(value => {
+    const button = element();
+    button.dataset = { activitySummaryFilter: value };
+    return button;
+  });
   const timers = new Set();
   const context = { window: {}, AbortController, fetch, confirm,
     setTimeout(fn, delay) { if (delay === 1000) { queueMicrotask(fn); return fn; } timers.add(fn); return fn; }, clearTimeout(fn) { timers.delete(fn); },
     document: { getElementById(id) {
       if (!elements.has(id)) elements.set(id, element());
       return elements.get(id);
-    }, querySelectorAll: selector => selector === '[data-activity-filter]' ? filters : [], createElement: element, createTextNode: element } };
+    }, querySelectorAll: selector => selector === '[data-activity-filter]' ? filters
+      : selector === '[data-activity-summary-filter]' ? summaryFilters : [], createElement: element, createTextNode: element } };
   vm.runInNewContext(source, context);
   const page = context.window.FlowWebPages.activity.create({ tr: (_, text) => text,
     currentWebLocaleTag: () => 'fr-FR', fetchWithBusyRetry: fetch });
-  return { page, timers, elements, filters, status: elements.get('activityLogStatus'), button: elements.get('activityRefreshBtn') };
+  return { page, timers, elements, filters, summaryFilters, status: elements.get('activityLogStatus'), button: elements.get('activityRefreshBtn') };
 }
 const result = (payload) => ({ ok: true, json: async () => payload });
 const empty = { available: true, events: [], count: 0, complete: true };
@@ -183,6 +194,17 @@ async function main() {
   assert.match(classified.elements.get('activityDeleteBtn').textContent, /\(2\)/,
     'Manuel includes explicit and legacy manual actions');
   assert.equal(classified.elements.get('activitySummaryManual').textContent, '2');
+  classified.summaryFilters.find(button => button.dataset.activitySummaryFilter === 'alerts').listeners.click();
+  classified.elements.get('activitySelectVisibleBtn').listeners.click();
+  assert.match(classified.elements.get('activityDeleteBtn').textContent, /\(1\)/,
+    'Alert summary tile applies the alert filter');
+  assert.equal(classified.summaryFilters.find(button => button.dataset.activitySummaryFilter === 'alerts').attributes['aria-pressed'], 'true');
+  assert.equal(classified.filters.find(button => button.dataset.activityFilter === 'alerts').attributes['aria-pressed'], 'true');
+  classified.summaryFilters.find(button => button.dataset.activitySummaryFilter === 'all').listeners.click();
+  classified.elements.get('activitySelectVisibleBtn').listeners.click();
+  assert.match(classified.elements.get('activityDeleteBtn').textContent, /\(5\)/,
+    'Event summary tile restores the complete journal');
+  assert.equal(classified.summaryFilters.find(button => button.dataset.activitySummaryFilter === 'alerts').attributes['aria-pressed'], 'false');
 
   const now = Math.floor(Date.now() / 1000);
   const summaries = setup(async () => result({ available: true, count: 4, complete: true, events: [

@@ -33,6 +33,7 @@
       const summaryManual = document.getElementById('activitySummaryManual');
       const summaryEquipment = document.getElementById('activitySummaryEquipment');
       const filterBtns = Array.from(document.querySelectorAll('[data-activity-filter]'));
+      const summaryFilterBtns = Array.from(document.querySelectorAll('[data-activity-summary-filter]'));
       let filter = 'all';
       let windowShiftHours = 0;
       let eventsCache = [];
@@ -530,12 +531,23 @@
         selected.clear(); updateSelection();
         render(eventsCache, statsCache);
       });
-      filterBtns.forEach((button) => button.addEventListener('click', () => {
-        filter = String(button.dataset.activityFilter || 'all');
+      function setFilter(nextFilter) {
+        filter = String(nextFilter || 'all');
         selected.clear(); updateSelection();
-        filterBtns.forEach((item) => item.classList.toggle('is-active', item === button));
+        filterBtns.forEach((item) => {
+          const active = String(item.dataset.activityFilter || 'all') === filter;
+          item.classList.toggle('is-active', active);
+          item.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+        summaryFilterBtns.forEach((item) => {
+          const active = String(item.dataset.activitySummaryFilter || 'all') === filter;
+          item.classList.toggle('is-active', active);
+          item.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
         render(eventsCache, statsCache);
-      }));
+      }
+      filterBtns.forEach((button) => button.addEventListener('click', () => setFilter(button.dataset.activityFilter)));
+      summaryFilterBtns.forEach((button) => button.addEventListener('click', () => setFilter(button.dataset.activitySummaryFilter)));
 
       return {
         show: function (busy) { visible = true; return refresh(busy); },

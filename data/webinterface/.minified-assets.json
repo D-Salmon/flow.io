@@ -10,11 +10,11 @@
       "gzip_bytes": 785
     },
     "sh.html": {
-      "source_sha256": "abd73f4b42d06a2dc176811939c9e6d2130629bb247fe2ba7972cc37a990c26e",
-      "gzip_sha256": "a2e7547bf9178c68e296e66612f8b680ad081787ec22927374147bfd68dcd871",
-      "original_bytes": 56726,
-      "minified_bytes": 47247,
-      "gzip_bytes": 9608
+      "source_sha256": "0442944124073dd2dc05d02f1000d6c02205ad38cdc49281959d5d09a47854bd",
+      "gzip_sha256": "e22a4c93e824bf7366c4e62187e72268ecaea34c47d8b0260003b3d8e4b272c5",
+      "original_bytes": 57179,
+      "minified_bytes": 47700,
+      "gzip_bytes": 9647
     },
     "app.js": {
       "source_sha256": "bdc373defcc9b621bef048de40d8427d532ed212b763866f6e151ea821c2bc09",
@@ -31,11 +31,11 @@
       "gzip_bytes": 5710
     },
     "activity.js": {
-      "source_sha256": "d8e6de0e8175c21cec21edd2674541ed6078a84f541efff2f214b1de958f4f21",
-      "gzip_sha256": "4c15bda97baf8e290d62ffde51b9ae5aa5678db9c12b84a27a988eea98c57870",
-      "original_bytes": 27100,
-      "minified_bytes": 19962,
-      "gzip_bytes": 5799
+      "source_sha256": "3f6b3fc53f5981816f13caa9f866b60f29e6af0f760fd0a8b4ab32e6380b3413",
+      "gzip_sha256": "82ee7373964cdc39a4a85c228245b1279a9eff308c2059fca63ba6875571100b",
+      "original_bytes": 27831,
+      "minified_bytes": 20550,
+      "gzip_bytes": 5879
     },
     "io-summary.js": {
       "source_sha256": "015c793343a5e196fe2a63502933fd8fdb571df757b270f7345ec554b1073ff7",
@@ -115,11 +115,11 @@
       "gzip_bytes": 938
     },
     "activity.css": {
-      "source_sha256": "2f61402eb34b4fa0ef448b39c4de5ea546686d666563300ed40ba6e99af4b574",
-      "gzip_sha256": "b9919e69ce23c756276d903fa9c1ddd1ae83fe5612f37d0b6843b06a69d15416",
-      "original_bytes": 9433,
-      "minified_bytes": 9183,
-      "gzip_bytes": 2147
+      "source_sha256": "cf6543696229e32cc68daaba865f3254e6e2438ae8041ac6de8b7f4da02d3f6c",
+      "gzip_sha256": "861eb89cb2f5fe24c4ce2d15736acf5581854ddf884748bc7c65b3c662522e47",
+      "original_bytes": 9927,
+      "minified_bytes": 9676,
+      "gzip_bytes": 2274
     },
     "io-summary.css": {
       "source_sha256": "f8136674a2b545da7136f40e4d7d7540cc467efcb0db23a1b07ad98eafcbafa1",

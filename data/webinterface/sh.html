@@ -221,10 +221,10 @@
               <p data-i18n="activity.subtitle">Retrouvez les actions manuelles, les automatismes, les équipements et le cycle de vie des alarmes.</p>
             </div>
             <div class="activity-summary-grid" aria-label="Résumé de la période" data-i18n-aria-label="activity.summary.aria">
-              <div class="activity-summary-card is-total"><span class="ui-msr" aria-hidden="true">receipt_long</span><div><strong id="activitySummaryTotal">0</strong><small data-i18n="activity.summary.total">événements</small></div></div>
-              <div class="activity-summary-card is-alert"><span class="ui-msr" aria-hidden="true">notification_important</span><div><strong id="activitySummaryAlerts">0</strong><small data-i18n="activity.summary.alerts">alertes</small></div></div>
-              <div class="activity-summary-card is-manual"><span class="ui-msr" aria-hidden="true">touch_app</span><div><strong id="activitySummaryManual">0</strong><small data-i18n="activity.summary.manual">actions manuelles</small></div></div>
-              <div class="activity-summary-card is-equipment"><span class="ui-msr" aria-hidden="true">settings_input_component</span><div><strong id="activitySummaryEquipment">0</strong><small data-i18n="activity.summary.equipment">équipements</small></div></div>
+              <button class="activity-summary-card is-total is-active" type="button" data-activity-summary-filter="all" aria-pressed="true"><span class="ui-msr" aria-hidden="true">receipt_long</span><span class="activity-summary-copy"><strong id="activitySummaryTotal">0</strong><small data-i18n="activity.summary.total">événements</small></span></button>
+              <button class="activity-summary-card is-alert" type="button" data-activity-summary-filter="alerts" aria-pressed="false"><span class="ui-msr" aria-hidden="true">notification_important</span><span class="activity-summary-copy"><strong id="activitySummaryAlerts">0</strong><small data-i18n="activity.summary.alerts">alertes</small></span></button>
+              <button class="activity-summary-card is-manual" type="button" data-activity-summary-filter="manual" aria-pressed="false"><span class="ui-msr" aria-hidden="true">touch_app</span><span class="activity-summary-copy"><strong id="activitySummaryManual">0</strong><small data-i18n="activity.summary.manual">actions manuelles</small></span></button>
+              <button class="activity-summary-card is-equipment" type="button" data-activity-summary-filter="equipment" aria-pressed="false"><span class="ui-msr" aria-hidden="true">settings_input_component</span><span class="activity-summary-copy"><strong id="activitySummaryEquipment">0</strong><small data-i18n="activity.summary.equipment">équipements</small></span></button>
             </div>
           </section>
           <div class="activity-toolbar">

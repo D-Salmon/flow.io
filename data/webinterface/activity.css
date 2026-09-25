@@ -9,11 +9,14 @@
 .activity-overview h2{margin:0;color:var(--text);font-size:25px;line-height:1.2;}
 .activity-overview p{max-width:700px;margin:9px 0 0;color:var(--text-muted);font-size:14px;line-height:1.5;}
 .activity-summary-grid{position:relative;z-index:1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;}
-.activity-summary-card{display:grid;grid-template-columns:34px minmax(0,1fr);gap:8px;align-items:center;min-height:68px;padding:10px;border:1px solid var(--border);border-radius:12px;background:rgba(255,255,255,.78);}
+.activity-summary-card{display:grid;grid-template-columns:34px minmax(0,1fr);gap:8px;align-items:center;width:100%;min-height:68px;padding:10px;border:1px solid var(--border);border-radius:12px;background:rgba(255,255,255,.78);color:inherit;font:inherit;text-align:left;appearance:none;cursor:pointer;transition:border-color .15s ease,box-shadow .15s ease,transform .15s ease;}
 .activity-summary-card>.ui-msr{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;background:var(--primary-soft);color:var(--primary);font-size:20px;}
-.activity-summary-card div{min-width:0;display:grid;}
+.activity-summary-copy{min-width:0;display:grid;}
 .activity-summary-card strong{color:var(--text);font-size:22px;font-weight:900;line-height:1.05;}
 .activity-summary-card small{overflow:hidden;color:var(--text-muted);font-size:10px;font-weight:750;line-height:1.2;text-overflow:ellipsis;}
+.activity-summary-card:hover{border-color:var(--primary);transform:translateY(-1px);}
+.activity-summary-card:focus-visible{outline:3px solid var(--primary-soft);outline-offset:2px;border-color:var(--primary);}
+.activity-summary-card.is-active{border-color:var(--primary);box-shadow:0 0 0 2px var(--primary-soft),0 8px 18px rgba(7,26,53,.09);}
 .activity-summary-card.is-alert>.ui-msr{background:var(--state-alert-bg);color:var(--state-alert-fg);}
 .activity-summary-card.is-manual>.ui-msr{background:rgba(138,88,214,.12);color:#7040bd;}
 .activity-summary-card.is-equipment>.ui-msr{background:var(--state-ok-bg);color:var(--state-ok-fg);}
