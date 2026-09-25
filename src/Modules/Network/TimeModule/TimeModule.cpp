@@ -21,6 +21,7 @@
 #include <cstring>
 #include <cstdio>
 #include <cctype>
+#include <memory>
 #include <new>
 #include <sys/time.h>
 #define LOG_MODULE_ID ((LogModuleId)LogModuleIdValue::TimeModule)
@@ -2135,17 +2136,16 @@ bool TimeModule::persistSchedule_()
 {
     if (!cfgStore) return false;
     // Serialize on demand to avoid keeping a second 1.5 KB scheduler buffer in BSS.
-    char* persistBuf = static_cast<char*>(malloc(TIME_SCHED_BLOB_SIZE));
+    // RAII buffer: freed automatically on every return path, including future
+    // early returns added between allocation and use.
+    const std::unique_ptr<char[]> persistBuf(new (std::nothrow) char[TIME_SCHED_BLOB_SIZE]);
     if (!persistBuf) {
         LOGE("scheduler persist alloc failed (%u bytes)", (unsigned)TIME_SCHED_BLOB_SIZE);
         return false;
     }
 
-    const bool ok =
-        serializeSchedule_(persistBuf, TIME_SCHED_BLOB_SIZE) &&
-        cfgStore->set(scheduleBlobVar, persistBuf);
-    free(persistBuf);
-    return ok;
+    return serializeSchedule_(persistBuf.get(), TIME_SCHED_BLOB_SIZE) &&
+           cfgStore->set(scheduleBlobVar, persistBuf.get());
 }
 
 bool TimeModule::setSlot_(const TimeSchedulerSlot& slotDef)
