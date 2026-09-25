@@ -18,6 +18,10 @@ ou des relais.
 - le Tableau de bord permet maintenant de commander directement les
   équipements. Les commandes automatisées restent verrouillées en mode automatique
   et les sécurités matérielles demeurent prioritaires ;
+- les boutons de mode et d’équipement reflètent immédiatement la commande avec
+  un état de confirmation en cours. L’interface recale ensuite cet affichage sur
+  l’état réellement relu sur le contrôleur, sans attendre la relecture complète
+  de toutes les données du Tableau de bord ;
 - la page **Piscine** est recentrée sur les réglages : les cartes redondantes
   **État général** et **Contrôle des équipements** sont supprimées, et
   **Conditions générales** devient **Synthèse des réglages**. Les consignes pH

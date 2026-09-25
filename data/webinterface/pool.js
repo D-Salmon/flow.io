@@ -50,6 +50,11 @@
       let dashboardOverviewReqSeq = 0;
       let dashboardOverviewLoadedOnce = false;
       let dashboardModeActionBusy = "";
+      let dashboardLastOverviewPayload = null;
+      const dashboardOptimisticModes = Object.create(null);
+      const dashboardOptimisticEquipment = Object.create(null);
+      let dashboardOptimisticModeSeq = 0;
+      const dashboardOptimisticEquipmentSeq = Object.create(null);
 
     const poolMeasuresRefreshBtn = document.getElementById('poolMeasuresRefresh');
     const poolMeasuresDomains = document.getElementById('poolMeasuresDomains');
@@ -1921,9 +1926,39 @@
       return tile;
     }
 
+    function dashboardHasOptimisticValue(state, key) {
+      return Object.prototype.hasOwnProperty.call(state, key);
+    }
+
+    function dashboardOptimisticValue(state, key, fallback) {
+      return dashboardHasOptimisticValue(state, key) ? !!state[key] : !!fallback;
+    }
+
+    function renderDashboardCachedOverview() {
+      if (dashboardLastOverviewPayload && getActivePageId() === 'page-pool-measures') {
+        renderDashboardOverview(dashboardLastOverviewPayload);
+      }
+    }
+
+    function setDashboardOptimisticMode(key, desired) {
+      dashboardOptimisticModes[key] = !!desired;
+      if (key === 'automatic') {
+        dashboardOptimisticModes.ph = !!desired;
+        dashboardOptimisticModes.treatment = !!desired;
+      }
+      renderDashboardCachedOverview();
+    }
+
+    function clearDashboardOptimisticModes() {
+      Object.keys(dashboardOptimisticModes).forEach((key) => delete dashboardOptimisticModes[key]);
+    }
+
     async function applyDashboardMode(key, commandMode, desired, label) {
       if (!commandMode || dashboardModeActionBusy) return false;
       dashboardModeActionBusy = key;
+      const optimisticSeq = ++dashboardOptimisticModeSeq;
+      let accepted = false;
+      setDashboardOptimisticMode(key, desired);
       if (dashboardModeStatus) {
         dashboardModeStatus.className = 'dashboard-mode-status is-pending';
         dashboardModeStatus.textContent = 'Application · ' + label + '…';
@@ -1935,7 +1970,7 @@
           'Commande refusée',
           fetchFlowRemoteQueued
         );
-        await waitMs(250);
+        accepted = true;
         if (dashboardModeStatus) {
           dashboardModeStatus.className = 'dashboard-mode-status is-ok';
           dashboardModeStatus.textContent = label + ' : ' + (desired ? 'actif' : 'arrêt') + '.';
@@ -1949,7 +1984,13 @@
         return false;
       } finally {
         dashboardModeActionBusy = '';
-        await refreshDashboardOverview(true).catch(() => {});
+        if (!accepted) clearDashboardOptimisticModes();
+        renderDashboardCachedOverview();
+        refreshDashboardOverview(true).catch(() => {}).finally(() => {
+          if (dashboardOptimisticModeSeq !== optimisticSeq) return;
+          clearDashboardOptimisticModes();
+          renderDashboardCachedOverview();
+        });
       }
     }
 
@@ -2197,6 +2238,7 @@
     }
 
     function renderDashboardOverview(payload) {
+      dashboardLastOverviewPayload = payload;
       const pool = payload.poolDomain && payload.poolDomain.ok === true && payload.poolDomain.pool
         ? payload.poolDomain.pool
         : null;
@@ -2220,8 +2262,10 @@
       });
       const electrolysisFeedbackMonitored = Number(sensors.swg_fb_io_id) !== 65535;
       const poolLogicEnabled = Object.prototype.hasOwnProperty.call(modes, 'enabled') ? toBool(modes.enabled) : !!(pool && pool.has);
-      const automatic = poolLogicEnabled && (Object.prototype.hasOwnProperty.call(modes, 'auto_mode') ? toBool(modes.auto_mode) : !!(pool && pool.auto));
-      const winter = poolLogicEnabled && (Object.prototype.hasOwnProperty.call(modes, 'winter_mode') ? toBool(modes.winter_mode) : !!(pool && pool.wint));
+      const automaticActual = poolLogicEnabled && (Object.prototype.hasOwnProperty.call(modes, 'auto_mode') ? toBool(modes.auto_mode) : !!(pool && pool.auto));
+      const automatic = dashboardOptimisticValue(dashboardOptimisticModes, 'automatic', automaticActual);
+      const winterActual = poolLogicEnabled && (Object.prototype.hasOwnProperty.call(modes, 'winter_mode') ? toBool(modes.winter_mode) : !!(pool && pool.wint));
+      const winter = dashboardOptimisticValue(dashboardOptimisticModes, 'winter', winterActual);
       const modeTitle = !poolLogicEnabled
         ? tr('pool.mode.maintenance', 'Manuel / maintenance')
         : (automatic ? tr('pool.mode.automatic', 'Automatique') + (winter ? ' · ' + tr('dashboard.mode.winter', 'Hiver') : '') : tr('pool.mode.safeManual', 'Manuel sécurisé'));
@@ -2243,16 +2287,18 @@
       if (dashboardModeGrid) {
         dashboardModeGrid.innerHTML = '';
         const phAutoAvailable = Object.prototype.hasOwnProperty.call(phConfig, 'ph_auto_mode');
-        const phAuto = phAutoAvailable && toBool(phConfig.ph_auto_mode);
+        const phAutoActual = phAutoAvailable && toBool(phConfig.ph_auto_mode);
+        const phAuto = dashboardOptimisticValue(dashboardOptimisticModes, 'ph', phAutoActual);
         const disinfectionTypeForMode = Number.parseInt(modes.disinfection_type, 10);
         const treatmentAvailable = Number.isFinite(disinfectionTypeForMode) && disinfectionTypeForMode !== 3;
         const chlorineTreatment = disinfectionTypeForMode === 0;
         const treatmentAutoAvailable = treatmentAvailable && (chlorineTreatment
           ? Object.prototype.hasOwnProperty.call(chlorineConfig, 'dis_auto_mode')
           : Object.prototype.hasOwnProperty.call(modes, 'treatment_auto_mode'));
-        const treatmentAuto = treatmentAutoAvailable && toBool(chlorineTreatment
+        const treatmentAutoActual = treatmentAutoAvailable && toBool(chlorineTreatment
           ? chlorineConfig.dis_auto_mode
           : modes.treatment_auto_mode);
+        const treatmentAuto = dashboardOptimisticValue(dashboardOptimisticModes, 'treatment', treatmentAutoActual);
         const modeTiles = [
           { key: 'automatic', command: 'automatic', label: 'Mode auto', on: automatic, available: Object.prototype.hasOwnProperty.call(modes, 'auto_mode') },
           { key: 'winter', command: 'winter', label: 'Mode hiver', on: winter, available: poolLogicEnabled && Object.prototype.hasOwnProperty.call(modes, 'winter_mode') },
@@ -2345,7 +2391,11 @@
           const centralAsset = equipmentDef ? poolAsset(equipmentDef.slot) : null;
           const centralActive = !centralAsset || centralAsset.state === 'active';
           const available = !!pool && typeof pool[def.key] === 'boolean' && !!equipmentDef && centralActive;
-          const on = available && pool[def.key] === true;
+          const on = available && dashboardOptimisticValue(
+            dashboardOptimisticEquipment,
+            def.equipmentKey,
+            pool[def.key] === true
+          );
           const blockedByAutomatic = available && automatic && equipmentDef.automatic;
           const pending = poolEquipmentCommandBusy === def.equipmentKey;
           const actionable = available && !blockedByAutomatic && !poolEquipmentCommandBusy;
@@ -2406,7 +2456,9 @@
       renderDashboardEquipmentStatus();
 
       const lightsAvailable = !!pool && typeof pool.lgt === 'boolean';
-      dashboardLightsOn = lightsAvailable ? pool.lgt === true : null;
+      dashboardLightsOn = lightsAvailable
+        ? dashboardOptimisticValue(dashboardOptimisticEquipment, 'lights', pool.lgt === true)
+        : null;
       if (dashboardLightsShortcut) {
         dashboardLightsShortcut.disabled = !lightsAvailable || !!poolEquipmentCommandBusy;
         dashboardLightsShortcut.classList.toggle('is-on', dashboardLightsOn === true);
@@ -2631,12 +2683,18 @@
     async function commandPoolEquipment(def, desired) {
       if (!def || poolEquipmentCommandBusy) return false;
       poolEquipmentCommandBusy = def.key;
+      const optimisticSeq = (dashboardOptimisticEquipmentSeq[def.key] || 0) + 1;
+      dashboardOptimisticEquipmentSeq[def.key] = optimisticSeq;
+      let accepted = false;
+      let confirmed = false;
+      dashboardOptimisticEquipment[def.key] = !!desired;
       poolEquipmentSetStatus(
         (desired ? tr('pool.control.starting', 'Mise en marche') : tr('pool.control.stopping', 'Arrêt'))
           + ' · ' + tr(def.labelKey, def.label) + '…',
         'pending'
       );
       renderDashboardEquipmentStatus();
+      renderDashboardCachedOverview();
       if (getActivePageId() === 'page-pool') {
         renderPoolEquipmentControl(poolConfigModulesCache, poolConfigLiveState);
       }
@@ -2647,10 +2705,13 @@
           tr('pool.control.error.generic', 'Commande refusée.'),
           fetchFlowRemoteQueued
         );
+        accepted = true;
         await waitMs(350);
         const poolResult = await fetchFlowStatusDomain('pool', true, 'equipment-command').catch(() => null);
         if (poolResult && poolResult.pool && typeof poolResult.pool === 'object') {
           poolConfigLiveState = { ...poolResult.pool };
+          confirmed = typeof poolResult.pool[def.stateKey] === 'boolean';
+          if (dashboardLastOverviewPayload) dashboardLastOverviewPayload.poolDomain = poolResult;
           if (typeof poolConfigLiveState.lgt === 'boolean') dashboardLightsOn = poolConfigLiveState.lgt;
         }
         poolEquipmentSetStatus(
@@ -2662,13 +2723,21 @@
         poolEquipmentSetStatus(poolEquipmentErrorText(err), 'error');
         return false;
       } finally {
-        poolEquipmentCommandBusy = '';
         if (getActivePageId() === 'page-pool') {
           renderPoolEquipmentControl(poolConfigModulesCache, poolConfigLiveState);
         }
         renderDashboardEquipmentStatus();
+        if (!accepted || confirmed) {
+          delete dashboardOptimisticEquipment[def.key];
+        }
+        poolEquipmentCommandBusy = '';
+        renderDashboardCachedOverview();
         if (getActivePageId() === 'page-pool-measures') {
-          refreshDashboardOverview(true).catch(() => {});
+          refreshDashboardOverview(true).catch(() => {}).finally(() => {
+            if (dashboardOptimisticEquipmentSeq[def.key] !== optimisticSeq) return;
+            delete dashboardOptimisticEquipment[def.key];
+            renderDashboardCachedOverview();
+          });
         }
       }
     }
