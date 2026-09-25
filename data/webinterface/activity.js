@@ -212,6 +212,7 @@
           + start.toLocaleTimeString(currentWebLocaleTag(), { hour: '2-digit', minute: '2-digit' }) + ' — '
           + end.toLocaleDateString(currentWebLocaleTag(), { day: 'numeric', month: 'short' }) + ' · '
           + end.toLocaleTimeString(currentWebLocaleTag(), { hour: '2-digit', minute: '2-digit' });
+        if (prevBtn) prevBtn.disabled = false;
         if (nextBtn) nextBtn.disabled = windowShiftHours === 0;
       }
 

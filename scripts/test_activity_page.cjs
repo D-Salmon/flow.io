@@ -227,6 +227,11 @@ async function main() {
   assert.equal(summaries.elements.get('activityPrevBtn').disabled, true);
   assert.equal(summaries.elements.get('activityNextBtn').disabled, true);
   assert.match(summaries.status.textContent, /4 événements dans le journal, dont 2 alertes/);
+  summaries.filters.find(button => button.dataset.activityFilter === 'all').listeners.click();
+  assert.equal(summaries.elements.get('activityPrevBtn').disabled, false,
+    'returning to the three-hour view re-enables previous-period navigation');
+  assert.equal(summaries.elements.get('activityNextBtn').disabled, true,
+    'the next-period button remains disabled on the current period');
   console.log('Post-delete refresh: immediate view update, slow reload and reload failure OK');
   console.log('Activity deletion: confirmation, selection, clear-all and persistence failure OK');
   console.log('Activity filters: automatic and manual classification OK');
