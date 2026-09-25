@@ -618,7 +618,7 @@
     }
 
     async function refreshDashboardLiveDomains(domains) {
-      const tasks = [refreshDashboardOverview(true)];
+      const tasks = [refreshDashboardOverviewDomains(domains, true)];
       [['mode', 1], ['equipements', 2], ['alarm', 4], ['sondes', 8]].forEach(([domain, mask]) => {
         if ((domains & mask) && poolMeasureDomainState[domain] && poolMeasureDomainState[domain].active) {
           tasks.push(loadPoolMeasureDomain(domain, true));
@@ -1986,11 +1986,13 @@
         dashboardModeActionBusy = '';
         if (!accepted) clearDashboardOptimisticModes();
         renderDashboardCachedOverview();
-        refreshDashboardOverview(true).catch(() => {}).finally(() => {
-          if (dashboardOptimisticModeSeq !== optimisticSeq) return;
-          clearDashboardOptimisticModes();
-          renderDashboardCachedOverview();
-        });
+        if (accepted) {
+          refreshDashboardOverviewDomains(3, true).catch(() => {}).finally(() => {
+            if (dashboardOptimisticModeSeq !== optimisticSeq) return;
+            clearDashboardOptimisticModes();
+            renderDashboardCachedOverview();
+          });
+        }
       }
     }
 
@@ -2596,6 +2598,39 @@
       renderDashboardOverview(payload);
     }
 
+    async function refreshDashboardOverviewDomains(domains, forceRefresh) {
+      const mask = Number(domains) & 15;
+      if (!dashboardLastOverviewPayload || mask === 15) {
+        return refreshDashboardOverview(!!forceRefresh);
+      }
+
+      const reqSeq = ++dashboardOverviewReqSeq;
+      const payload = dashboardLastOverviewPayload;
+      const tasks = [];
+      const add = (key, promise) => tasks.push(
+        promise.then((value) => ({ key, value })).catch(() => ({ key, value: null }))
+      );
+
+      if (mask & 11) add('poolDomain', fetchFlowStatusDomain('pool', !!forceRefresh, 'dashboard-targeted'));
+      if (mask & 4) add('alarmDomain', fetchFlowStatusDomain('alarm', !!forceRefresh, 'dashboard-targeted'));
+      if (mask & 12) add('slotPayload', fetchPoolDashboardSlots());
+      if (mask & 1) {
+        add('modes', poolConfigFetchModule('poollogic/modes'));
+        add('phConfig', poolConfigFetchModule('poollogic/ph'));
+        add('chlorineConfig', poolConfigFetchModule('poollogic/chlorine'));
+      }
+
+      const results = await Promise.all(tasks);
+      if (reqSeq !== dashboardOverviewReqSeq) return;
+      results.forEach(({ key, value }) => {
+        if (!value) return;
+        payload[key] = key === 'modes' || key === 'phConfig' || key === 'chlorineConfig'
+          ? (value.data || {})
+          : value;
+      });
+      renderDashboardOverview(payload);
+    }
+
     async function refreshPoolMeasures(forceRefresh) {
       await Promise.all([
         refreshDashboardOverview(!!forceRefresh),
@@ -2732,8 +2767,8 @@
         }
         poolEquipmentCommandBusy = '';
         renderDashboardCachedOverview();
-        if (getActivePageId() === 'page-pool-measures') {
-          refreshDashboardOverview(true).catch(() => {}).finally(() => {
+        if (getActivePageId() === 'page-pool-measures' && !confirmed && accepted) {
+          refreshDashboardOverviewDomains(2, true).catch(() => {}).finally(() => {
             if (dashboardOptimisticEquipmentSeq[def.key] !== optimisticSeq) return;
             delete dashboardOptimisticEquipment[def.key];
             renderDashboardCachedOverview();

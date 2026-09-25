@@ -20,8 +20,10 @@ ou des relais.
   et les sécurités matérielles demeurent prioritaires ;
 - les boutons de mode et d’équipement reflètent immédiatement la commande avec
   un état de confirmation en cours. L’interface recale ensuite cet affichage sur
-  l’état réellement relu sur le contrôleur, sans attendre la relecture complète
-  de toutes les données du Tableau de bord ;
+  l’état réellement relu sur le contrôleur. Après une commande ou un événement
+  temps réel, seuls l’état des équipements ou les modules de mode concernés sont
+  relus ; la relecture complète reste réservée à l’ouverture, à l’actualisation
+  générale et au contrôle périodique ;
 - la page **Piscine** est recentrée sur les réglages : les cartes redondantes
   **État général** et **Contrôle des équipements** sont supprimées, et
   **Conditions générales** devient **Synthèse des réglages**. Les consignes pH
