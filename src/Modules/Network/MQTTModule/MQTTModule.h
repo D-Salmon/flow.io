@@ -14,7 +14,7 @@
 #include "Core/RuntimeUi.h"
 #include "Core/ServiceBinding.h"
 #include "Core/SystemLimits.h"
-#include "Core/WokwiDefaultOverrides.h"
+#include "Core/ConfigDefaults.h"
 #include "Core/RuntimeSnapshotProvider.h"
 #include "Modules/Network/MQTTModule/MqttConfigRouteProducer.h"
 #include "Core/Services/Services.h"

@@ -77,7 +77,6 @@ Le câblage fonctionnel courant utilise notamment :
 - [IOModule](modules/IOModule.md) : acquisition, conversion, calibration,
   affectations et valeurs d’exécution.
 - [Description du domaine piscine](integration/flowio-poollogic-business.md).
-- [Adaptation du domaine](integration/adaptation-domaine.md).
 
 Le raccordement de chaque sonde DS18B20 se choisit séparément dans
 `Piscine > Affectation des sondes`. La température d'eau peut utiliser une
@@ -183,7 +182,6 @@ restent à finaliser avant une série de production.
 ## Architecture logicielle
 
 - [Structure générale du programme](program_structure.md).
-- [Profils, cartes, domaines et application](core/profiles-board-domain-app.md).
 - [Architecture du cœur](core/architecture.md).
 - [Services entre modules](core/services.md).
 - [Modèle données et événements](core/data-event-model.md).
@@ -198,7 +196,7 @@ système.
 ## Anciens profils retirés en 3.2.0
 
 Les environnements `FlowIO`, `Supervisor`, `FlowConnectDisplay`, `Micronova` et
-les variantes Wokwi ont été retirés de cette branche. Seul `Waveshare-ESP32-S3`
+les anciennes variantes de simulation ont été retirés de cette branche. Seul `Waveshare-ESP32-S3`
 est compilable. Les sources exclusives de ces anciens profils ont été supprimées.
 
 Les documents suivants sont conservés uniquement comme archives de ces architectures :

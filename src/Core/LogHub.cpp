@@ -6,7 +6,7 @@
 #include "Core/BufferUsageTracker.h"
 #include "Core/ConfigStore.h"
 #include "Core/LogModuleIds.h"
-#include "Core/WokwiDefaultOverrides.h"
+#include "Core/ConfigDefaults.h"
 #include <Arduino.h>
 #include <esp_heap_caps.h>
 #include <stdio.h>

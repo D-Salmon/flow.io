@@ -510,10 +510,10 @@ automatismes. Les validations encore nécessaires sont décrites dans
 | `test` | tests natifs PlatformIO |
 | `binary` | artefacts publiés et manifeste |
 
-Les profils `FlowIO`, `Supervisor`, `FlowConnectDisplay`, `Micronova` et les
-profils Wokwi restent présents dans le code. Ils ne font pas partie du périmètre
-de validation de la version Waveshare 3.1.5 et ne doivent pas être utilisés pour
-déduire le câblage de la cible autonome actuelle.
+Le dépôt ne conserve qu’un profil compilable : `Waveshare-ESP32-S3`. Les
+anciens profils et les fichiers de simulation ont été retirés afin que le code,
+la documentation et les procédures de compilation décrivent la cible réellement
+livrée.
 
 ## Références utiles
 

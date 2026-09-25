@@ -375,7 +375,7 @@ Actions recommandées:
 
 - compléter la fiche `HMIModule.md` avec un chapitre Waveshare-S3
 - tests host du `ConfigMenuModel`
-- scénario Wokwi ou banc pour Nextion/UDP
+- scénario sur banc pour Nextion/UDP
 
 ### `hmi.buzzer` - 20/30 - Gate C
 
@@ -519,7 +519,7 @@ Risques:
 Actions recommandées:
 
 - créer fiche module avec routes principales, modes AP/STA et budget mémoire
-- tests HTTP host ou Wokwi sur endpoints critiques: `/health`, config, runtime,
+- tests HTTP host ou sur banc sur les endpoints critiques: `/health`, config, runtime,
   logs, update status
 - suivre taille binaire par module ou au moins par familles réseau/web
 
@@ -668,7 +668,7 @@ Risques:
 Actions recommandées:
 
 - tests host endpoints calibration/polarité/momentary
-- scénario Wokwi I2C/OneWire minimal
+- scénario matériel I2C/OneWire minimal
 - doc Waveshare IO à garder alignée avec `WaveshareBoard.h`
 
 ### `poollogic` - 24/30 - Gate B

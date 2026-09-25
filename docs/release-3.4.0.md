@@ -28,6 +28,7 @@ ou des relais.
   valeur demandée. Jusqu’à quatre lectures ciblées et espacées couvrent le bref
   délai de propagation ; si la valeur reste différente, l’interface l’indique
   au lieu d’afficher à tort que la commande est appliquée ;
+
 - la page **Piscine** est recentrée sur les réglages : les cartes redondantes
   **État général** et **Contrôle des équipements** sont supprimées, et
   **Conditions générales** devient **Synthèse des réglages**. Les consignes pH
@@ -46,6 +47,16 @@ ou des relais.
   canal CH. Le relais de désinfection commun reste donc indiqué **Actif**
   lorsqu’il est correctement affecté : selon le traitement sélectionné, ce
   même relais commande la pompe doseuse ou l’électrolyseur.
+
+## Nettoyage du dépôt
+
+- suppression des configurations, diagrammes, composants simulés et scripts
+  Wokwi, qui n’étaient plus utilisés par aucun environnement PlatformIO ;
+- suppression de `compile_commands.json`, des outils ponctuels de migration et
+  des documents décrivant les anciens profils déjà retirés ;
+- renommage des valeurs par défaut compilées pour refléter l’unique profil
+  Waveshare. Les identifiants Wi-Fi et MQTT de démonstration sont remplacés par
+  des valeurs neutres.
 
 ## Comptes Web et rôles
 

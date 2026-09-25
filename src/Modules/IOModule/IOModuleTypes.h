@@ -7,7 +7,7 @@
 #include <stdint.h>
 
 #include "Core/Services/IIO.h"
-#include "Core/WokwiDefaultOverrides.h"
+#include "Core/ConfigDefaults.h"
 
 typedef uint16_t BindingPointId;
 typedef BindingPointId PhysicalPortId;

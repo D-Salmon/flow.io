@@ -10,7 +10,7 @@
 #include "Core/ServiceBinding.h"
 #include "Modules/Network/MQTTModule/MqttConfigRouteProducer.h"
 #include "Core/NvsKeys.h"
-#include "Core/WokwiDefaultOverrides.h"
+#include "Core/ConfigDefaults.h"
 #include "Core/Services/Services.h"
 #include <WiFi.h>
 #include <ESPmDNS.h>

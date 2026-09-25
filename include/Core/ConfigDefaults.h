@@ -1,7 +1,7 @@
 #pragma once
 /**
- * @file WokwiDefaultOverrides.h
- * @brief Wrapper around generated compile-time defaults/overrides.
+ * @file ConfigDefaults.h
+ * @brief Wrapper around the Waveshare compile-time defaults.
  *
  * Macro families:
  * - FLOW_MODDEF_* : module-owned defaults (intrinsic behavior)
@@ -10,4 +10,4 @@
 
 #include "Domain/Calibration.h"
 #include "Core/SystemLimits.h"
-#include "Core/Generated/WokwiDefaultOverrides_Generated.h"
+#include "Core/Generated/ConfigDefaults_Generated.h"

@@ -11,7 +11,7 @@
 #include "Core/ServiceBinding.h"
 #include "Core/Services/Services.h"
 #include "Core/Runtime.h"
-#include "Core/WokwiDefaultOverrides.h"
+#include "Core/ConfigDefaults.h"
 #include <stdint.h>
 #include <stddef.h>
 
