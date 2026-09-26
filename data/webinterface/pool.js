@@ -194,7 +194,7 @@
       Object.freeze({ module: 'poollogic/ph', titleKey: 'pool.card.ph.title', title: 'Régulation pH', icon: 'science', noteKey: 'pool.card.ph.note', note: 'Consigne, sens de dosage et fenêtre de régulation de la pompe pH.' }),
       Object.freeze({ module: 'poollogic/heater', titleKey: 'pool.card.heater.title', title: 'Chauffage', icon: 'thermostat', noteKey: 'pool.card.heater.note', note: 'Le chauffage suit sa consigne seulement quand le mode automatique le permet.' }),
       Object.freeze({ module: 'poollogic/refill', titleKey: 'pool.card.refill.title', title: 'Maintien du niveau du bassin', icon: 'water_drop', noteKey: 'pool.card.refill.note', note: 'Commande uniquement le remplissage du bassin lorsque son niveau est bas, sans rapport avec les bidons pH ou chlore.' }),
-      Object.freeze({ module: 'poollogic/safety', titleKey: 'pool.card.safety.title', title: 'Protections', icon: 'health_and_safety', noteKey: 'pool.card.safety.note', note: 'Seuils de pression, hors gel et bascule hiver utilisés par les automatismes.' }),
+      Object.freeze({ module: 'poollogic/safety', titleKey: 'pool.card.safety.title', title: 'Protections hors-gel', icon: 'health_and_safety', noteKey: 'pool.card.safety.note', note: 'Utilisées par les automatismes.' }),
       Object.freeze({ module: 'poollogic/regulation', titleKey: 'pool.card.regulation.title', title: 'Régulation', icon: 'speed', noteKey: 'pool.card.regulation.note', note: 'Temporisations communes aux régulateurs pH et désinfection.' }),
       Object.freeze({ module: 'poollogic/robot', titleKey: 'pool.card.robot.title', title: 'Robot', icon: 'smart_toy', noteKey: 'pool.card.robot.note', note: 'Fenêtre de lancement et durée du nettoyage automatique.' }),
       Object.freeze({ module: 'poollogic/sensors', titleKey: 'pool.card.sensors.title', title: 'Affectation des sondes', icon: 'sensors', noteKey: 'pool.card.sensors.note', note: 'Entrées logiques utilisées pour les mesures et détecteurs de niveau.' }),
@@ -344,21 +344,7 @@
         Object.freeze({ key: 'pid_sample_ms', type: 'number', label: 'Période de calcul', min: 1, max: 300, step: 1, scale: 1000, unit: 's' })
       ]),
       'poollogic/safety': Object.freeze([
-        Object.freeze({ key: 'psi_low_th', type: 'number', label: 'Seuil de pression basse', min: 0, max: 5, step: 0.01, unit: 'bar' }),
-        Object.freeze({ key: 'psi_high_th', type: 'number', label: 'Seuil de pression haute', min: 0, max: 5, step: 0.01, unit: 'bar' }),
-        Object.freeze({ key: 'psi_start_dly_s', type: 'number', label: 'Délai de contrôle pression', min: 0, max: 600, step: 1, unit: 's' }),
         Object.freeze({ key: 'flow_start_dly_s', type: 'number', label: 'Délai de contrôle du débit', min: 0, max: 255, step: 1, unit: 's' }),
-        Object.freeze({
-          key: 'sensor_hold_wat',
-          type: 'enum',
-          label: 'Sonde température d’eau',
-          help: 'Choisissez Canalisation si la sonde mesure l’eau dans la tuyauterie : sa mesure sera figée lorsque la filtration s’arrête. Choisissez Bassin si elle reste immergée et continue à mesurer l’eau du bassin.',
-          options: Object.freeze([
-            Object.freeze({ value: true, label: 'Canalisation' }),
-            Object.freeze({ value: false, label: 'Bassin' })
-          ]),
-          read: (value) => String(value) === 'true'
-        }),
         Object.freeze({ key: 'winter_start_t', type: 'number', label: 'Seuil de démarrage hors gel', min: -20, max: 10, step: 0.1, unit: '°C' }),
         Object.freeze({ key: 'freeze_hold_t', type: 'number', label: 'Température de maintien hors gel', min: -10, max: 15, step: 0.1, unit: '°C' })
       ]),
@@ -465,8 +451,7 @@
           options: poolDigitalIoOptions,
           ioAssignmentGroup: 'digital'
         }),
-        Object.freeze({ key: 'psi_monitoring', type: 'bool', label: 'Surveillance de pression' })
-      ]),
+]),
       'poollogic/devices': Object.freeze([
         Object.freeze({ key: 'binding_port', sourceModule: 'io/output/d00', type: 'enum', label: 'Pompe de filtration', options: poolRelayBindingOptions, ioAssignmentGroup: 'relay' }),
         Object.freeze({ key: 'binding_port', sourceModule: 'io/output/d02', type: 'enum', label: 'Désinfection', options: poolRelayBindingOptions, ioAssignmentGroup: 'relay' }),
@@ -3209,7 +3194,7 @@
         const edit = opts.editable;
         const wrap = document.createElement('div');
         wrap.className = 'pool-metric-control-wrap';
-        const control = document.createElement(edit.type === 'bool' ? 'select' : 'input');
+        const control = document.createElement((edit.type === 'bool' || edit.type === 'enum') ? 'select' : 'input');
         control.className = 'pool-metric-control';
         control.setAttribute('aria-label', String(label || ''));
         if (edit.type === 'bool') {
@@ -3223,6 +3208,14 @@
             control.appendChild(option);
           });
           control.value = toBool(edit.value) ? 'true' : 'false';
+        } else if (edit.type === 'enum') {
+          (edit.options || []).forEach((entry) => {
+            const option = document.createElement('option');
+            option.value = String(entry.value);
+            option.textContent = entry.label;
+            control.appendChild(option);
+          });
+          control.value = String(edit.value);
         } else {
           control.type = 'number';
           control.value = String(poolConfigEditorDisplayValue(edit, edit.value));
@@ -3773,7 +3766,7 @@
           badge.textContent = badgeState === 'active' ? 'Actif' : poolAssetStateLabel(asset);
           label.appendChild(badge);
         }
-        const isPressureMonitoring = moduleName === 'poollogic/sensors' && spec.key === 'psi_monitoring';
+        const isPressureMonitoring = spec.key === 'psi_monitoring';
         let pressureMonitoringBadge = null;
         if (isPressureMonitoring) {
           pressureMonitoringBadge = document.createElement('span');
@@ -4728,6 +4721,20 @@
         measurementLabel: 'Eau',
         measured: poolConfigLiveNumber(live.wat, 1, '°C'),
         metrics: [
+          {
+            label: 'Sonde eau',
+            featured: true,
+            editable: {
+              module: 'poollogic/safety',
+              key: 'sensor_hold_wat',
+              type: 'enum',
+              value: toBool(safety.sensor_hold_wat),
+              options: [
+                { value: true, label: 'Canalisation' },
+                { value: false, label: 'Bassin' }
+              ]
+            }
+          },
           { label: 'Air', value: poolConfigLiveNumber(live.air, 1, '°C') }
         ]
       });
@@ -4740,9 +4747,23 @@
         state: pressureState,
         measured: poolConfigLiveNumber(live.psi, 2, 'bar'),
         metrics: [
-          { label: tr('pool.chemistry.minimum', 'Minimum'), value: Number.isFinite(Number(safety.psi_low_th)) ? poolConfigLiveNumber(safety.psi_low_th, 2, 'bar') : '—' },
-          { label: tr('pool.chemistry.maximum', 'Maximum'), value: Number.isFinite(Number(safety.psi_high_th)) ? poolConfigLiveNumber(safety.psi_high_th, 2, 'bar') : '—' },
-          { label: tr('pool.chemistry.monitoring', 'Surveillance'), value: poolConfigBoolLabel(sensors.psi_monitoring, tr('pool.state.active', 'Actif'), tr('pool.state.disabled', 'Désactivé')), featured: true }
+          {
+            label: tr('pool.chemistry.monitoring', 'Surveillance'),
+            featured: true,
+            editable: { module: 'poollogic/sensors', key: 'psi_monitoring', type: 'bool', value: sensors.psi_monitoring }
+          },
+          {
+            label: 'Délai avant contrôle',
+            editable: { module: 'poollogic/safety', key: 'psi_start_dly_s', type: 'number', value: safety.psi_start_dly_s, min: 0, max: 600, step: 1, unit: 's' }
+          },
+          {
+            label: 'Seuil minimum',
+            editable: { module: 'poollogic/safety', key: 'psi_low_th', type: 'number', value: safety.psi_low_th, min: 0, max: 5, step: 0.01, unit: 'bar' }
+          },
+          {
+            label: 'Seuil maximum',
+            editable: { module: 'poollogic/safety', key: 'psi_high_th', type: 'number', value: safety.psi_high_th, min: 0, max: 5, step: 0.01, unit: 'bar' }
+          }
         ]
       });
       poolChemistryPanel.appendChild(grid);
@@ -4994,12 +5015,8 @@
         tr('pool.protectionSummary.protections', 'Protections générales'),
         'health_and_safety'
       );
-      poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.lowPressure', 'Seuil pression basse'), poolConfigFormatValue('poollogic/safety', 'psi_low_th', safety.psi_low_th));
-      poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.highPressure', 'Seuil pression haute'), poolConfigFormatValue('poollogic/safety', 'psi_high_th', safety.psi_high_th));
-      poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.pressureDelay', 'Délai avant contrôle pression'), poolConfigFormatValue('poollogic/safety', 'psi_start_dly_s', safety.psi_start_dly_s));
       const flowMonitoringEnabled = toBool(sensors.flow_switch_enabled)
         && Number(sensors.flow_switch_io_id) !== 65535;
-      poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.pressureMonitoring', 'Surveillance pression'), poolConfigBoolLabel(sensors.psi_monitoring, tr('pool.state.active', 'Active'), tr('pool.state.disabled', 'Désactivée')), toBool(sensors.psi_monitoring) ? 'active' : 'inactive');
       poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.flowMonitoring', 'Surveillance débit'), poolConfigBoolLabel(flowMonitoringEnabled, tr('pool.state.active', 'Active'), tr('pool.state.disabled', 'Désactivée')), flowMonitoringEnabled ? 'active' : 'inactive');
       if (flowMonitoringEnabled) {
         poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.flowDelay', 'Validation absence de débit'), poolConfigFormatValue('poollogic/safety', 'flow_start_dly_s', safety.flow_start_dly_s));
@@ -5016,13 +5033,6 @@
       }
       poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.freezeStart', 'Déclenchement hors gel'), poolConfigFormatValue('poollogic/safety', 'winter_start_t', safety.winter_start_t));
       poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.freezeHold', 'Maintien hors gel jusqu’à'), poolConfigFormatValue('poollogic/safety', 'freeze_hold_t', safety.freeze_hold_t));
-      poolConfigAppendProtectionRow(
-        protections,
-        tr('pool.protectionSummary.waterProbeLocation', 'Sonde température d’eau'),
-        toBool(safety.sensor_hold_wat)
-          ? tr('pool.protectionSummary.waterProbeInline', 'Canalisation')
-          : tr('pool.protectionSummary.waterProbeImmersed', 'Bassin')
-      );
       grid.appendChild(protections);
 
       const timings = poolConfigCreateProtectionGroup(
