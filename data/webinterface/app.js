@@ -1971,6 +1971,10 @@ ac_unit: '\u{eb3b}',
       }
       const deferredHeavyMs = Math.max(0, Number(opts.deferHeavyMs) || 0);
       const pageToken = ++pageLoadToken;
+      if (currentPageId === 'page-users' && pageId !== 'page-users') {
+        const usersStatus = document.getElementById('usersStatus');
+        if (usersStatus) usersStatus.textContent = '';
+      }
       currentPageId = pageId;
       if (pageId !== 'page-activity-log' && activityPage) activityPage.hide();
       if (pageId !== 'page-info' && infoPage) infoPage.hide();
