@@ -292,13 +292,13 @@
             Object.freeze({ value: true, label: 'pH+ (correcteur)' })
           ])
         }),
-        Object.freeze({ key: 'ph_window_ms', type: 'number', label: 'Fenêtre de dosage', min: 1, max: 180, step: 1, scale: 60000, unit: 'min' }),
+        Object.freeze({ key: 'ph_window_ms', type: 'number', label: 'Cycle de dosage', min: 1, max: 180, step: 1, scale: 60000, unit: 'min' }),
         Object.freeze({ key: 'ph_kp', type: 'number', label: 'Gain proportionnel Kp', min: 0, step: 0.001 }),
         Object.freeze({ key: 'ph_ki', type: 'number', label: 'Gain intégral Ki', min: 0, step: 0.001 }),
         Object.freeze({ key: 'ph_kd', type: 'number', label: 'Gain dérivé Kd', min: 0, step: 0.001 })
       ]),
       'poollogic/chlorine': Object.freeze([
-        Object.freeze({ key: 'dis_window_ms', type: 'number', label: 'Fenêtre de dosage', min: 1, max: 180, step: 1, scale: 60000, unit: 'min' }),
+        Object.freeze({ key: 'dis_window_ms', type: 'number', label: 'Cycle de dosage', min: 1, max: 180, step: 1, scale: 60000, unit: 'min' }),
         Object.freeze({ key: 'dis_kp', type: 'number', label: 'Gain proportionnel Kp', min: 0, step: 0.001 }),
         Object.freeze({ key: 'dis_ki', type: 'number', label: 'Gain intégral Ki', min: 0, step: 0.001 }),
         Object.freeze({ key: 'dis_kd', type: 'number', label: 'Gain dérivé Kd', min: 0, step: 0.001 })
@@ -3184,7 +3184,7 @@
       if (!parent) return null;
       const opts = options || {};
       const item = document.createElement('div');
-      item.className = 'pool-metric' + (opts.featured ? ' is-featured' : '');
+      item.className = 'pool-metric' + (opts.featured ? ' is-featured' : '') + (opts.disabled ? ' is-disabled' : '');
       if (opts.module) item.dataset.poolModule = String(opts.module);
       if (opts.key) item.dataset.poolKey = String(opts.key);
       const labelEl = document.createElement('span');
@@ -3224,6 +3224,7 @@
           control.step = Number.isFinite(Number(edit.step)) ? String(edit.step) : 'any';
           control.required = true;
         }
+        control.disabled = !!edit.disabled;
         if (!opts.deferApply) {
           control.addEventListener('change', () => {
             let nextValue;
@@ -3346,6 +3347,7 @@
       const changesByModule = {};
       try {
         entries.forEach((entry) => {
+          if (entry.edit.requiresPressureMonitoring && entry.control.disabled) return;
           if (!entry.control.reportValidity()) throw new Error(tr('pool.chemistry.invalid', 'Valeur invalide.'));
           const nextValue = poolConfigChemistryEntryValue(entry);
           if (poolConfigValuesEqual(nextValue, entry.initialValue)) return;
@@ -3389,7 +3391,11 @@
       } finally {
         poolConfigFieldApplyBusy = false;
         card.removeAttribute('aria-busy');
-        entries.forEach((entry) => { entry.control.disabled = false; });
+        entries.forEach((entry) => {
+          entry.control.disabled = !!(entry.edit.requiresPressureMonitoring
+            && card._psiMonitoringControl
+            && card._psiMonitoringControl.value !== 'true');
+        });
         if (saved) {
           syncState('saved', tr('pool.chemistry.saved', 'Modifications enregistrées.'));
         } else {
@@ -3778,6 +3784,7 @@
         control.className = 'pool-setting-control';
         control.name = spec.key;
 
+        let negativeSignToggle = null;
         if (spec.type === 'bool') {
           [
             { value: 'true', label: 'Activé' },
@@ -3826,11 +3833,33 @@
           if (Number.isFinite(Number(spec.max))) control.max = String(spec.max);
           control.step = Number.isFinite(Number(spec.step)) ? String(spec.step) : 'any';
           control.required = true;
+          if (Number(spec.min) < 0) {
+            control.inputMode = 'decimal';
+            negativeSignToggle = document.createElement('button');
+            negativeSignToggle.type = 'button';
+            negativeSignToggle.className = 'pool-setting-sign-toggle';
+            negativeSignToggle.textContent = '−';
+            negativeSignToggle.setAttribute('aria-label', 'Saisir un nombre négatif');
+            negativeSignToggle.title = 'Ajouter ou retirer le signe moins';
+            negativeSignToggle.addEventListener('click', () => {
+              const current = String(control.value || '');
+              if (current.startsWith('-')) {
+                control.value = current.slice(1);
+              } else if (current !== '' && Number.isFinite(Number(current))) {
+                control.value = String(-Number(current));
+              }
+              control.dispatchEvent(new Event('input', { bubbles: true }));
+              control.dispatchEvent(new Event('change', { bubbles: true }));
+              control.focus();
+            });
+          }
         }
 
         const controlWrap = document.createElement('div');
         controlWrap.className = 'pool-setting-control-wrap';
+        if (negativeSignToggle) controlWrap.classList.add('has-sign-toggle');
         controlWrap.appendChild(control);
+        if (negativeSignToggle) controlWrap.appendChild(negativeSignToggle);
         if (spec.unit) {
           const unit = document.createElement('span');
           unit.className = 'pool-setting-unit';
@@ -4521,6 +4550,7 @@
         const entry = poolConfigAppendMetric(metrics, metric.label, metric.value, {
           featured: !!metric.featured,
           editable: metric.editable || null,
+          disabled: !!metric.disabled,
           deferApply: true
         });
         if (entry) editableEntries.push(entry);
@@ -4528,6 +4558,7 @@
       card.appendChild(metrics);
 
       if (editableEntries.length) {
+        let syncPressureThresholds = null;
         const footer = document.createElement('div');
         footer.className = 'pool-chemistry-footer';
         const status = document.createElement('span');
@@ -4585,12 +4616,31 @@
           poolConfigRefreshChemistryPendingFlag();
         };
 
+        const pressureMonitoringEntry = editableEntries.find((entry) => entry.edit.key === 'psi_monitoring');
+        const pressureThresholdEntries = editableEntries.filter((entry) => entry.edit.requiresPressureMonitoring);
+        if (pressureMonitoringEntry && pressureThresholdEntries.length) {
+          card._psiMonitoringControl = pressureMonitoringEntry.control;
+          syncPressureThresholds = () => {
+            const enabled = pressureMonitoringEntry.control.value === 'true';
+            pressureThresholdEntries.forEach((entry) => {
+              if (!enabled && !entry.control.disabled) poolConfigRestoreChemistryEntry(entry);
+              entry.control.disabled = !enabled || poolConfigFieldApplyBusy;
+              entry.item.classList.toggle('is-disabled', !enabled);
+            });
+            syncState();
+          };
+          pressureMonitoringEntry.control.addEventListener('change', syncPressureThresholds);
+          pressureMonitoringEntry.control.addEventListener('input', syncPressureThresholds);
+          syncPressureThresholds();
+        }
+
         editableEntries.forEach((entry) => {
           entry.control.addEventListener('input', () => syncState());
           entry.control.addEventListener('change', () => syncState());
         });
         cancel.addEventListener('click', () => {
           editableEntries.forEach(poolConfigRestoreChemistryEntry);
+          if (syncPressureThresholds) syncPressureThresholds();
           syncState('cancelled', tr('pool.chemistry.cancelled', 'Modifications annulées.'));
         });
         validate.addEventListener('click', () => {
@@ -4615,10 +4665,11 @@
       const disinfectionType = Number(modes.disinfection_type);
       const swgSelected = disinfectionType === 1;
       const disinfectionDisabled = disinfectionType === 3;
-      const phAsset = poolAsset(2), orpAsset = poolAsset(1), waterAsset = poolAsset(5), pressureAsset = poolAsset(3);
+      const phAsset = poolAsset(2), orpAsset = poolAsset(1), pressureAsset = poolAsset(3), airAsset = poolAsset(4), waterAsset = poolAsset(5);
       const phAvailable = (!phAsset || phAsset.state === 'active') && live.ph !== null && typeof live.ph !== 'undefined' && Number.isFinite(Number(live.ph));
       const orpAvailable = (!orpAsset || orpAsset.state === 'active') && live.orp !== null && typeof live.orp !== 'undefined' && Number.isFinite(Number(live.orp));
       const waterAvailable = (!waterAsset || waterAsset.state === 'active') && live.wat !== null && typeof live.wat !== 'undefined' && Number.isFinite(Number(live.wat));
+      const airAvailable = (!airAsset || airAsset.state === 'active') && live.air !== null && typeof live.air !== 'undefined' && Number.isFinite(Number(live.air));
       const pressureAvailable = (!pressureAsset || pressureAsset.state === 'active') && live.psi !== null && typeof live.psi !== 'undefined' && Number.isFinite(Number(live.psi));
       const heldState = {
         kind: 'neutral',
@@ -4644,11 +4695,15 @@
               : tr('pool.chemistry.comparisonUnavailable', 'Comparaison à la consigne impossible.')
           };
       const temperatureState = toBool(live.wath) ? heldState : {
-        kind: waterAvailable ? 'ok' : 'unavailable',
-        label: waterAvailable ? tr('pool.chemistry.sensorAvailable', 'Sonde active') : tr('pool.chemistry.sensorUnavailable', 'Sonde indisponible'),
+        kind: waterAvailable ? (airAvailable ? 'ok' : 'neutral') : 'unavailable',
+        label: waterAvailable && airAvailable
+          ? tr('pool.chemistry.temperatureProbesAvailable', 'Sondes disponibles')
+          : (!waterAvailable && !airAvailable
+            ? tr('pool.chemistry.temperatureProbesUnavailable', 'Sondes indisponibles')
+            : tr('pool.chemistry.temperatureProbeUnavailable', 'Une sonde indisponible')),
         note: waterAvailable
-          ? tr('pool.chemistry.temperatureUsage', 'Cette mesure sert au calcul du temps de filtration et aux sécurités thermiques.')
-          : tr('pool.chemistry.temperatureUnavailable', 'Le calcul thermique conserve sa dernière plage valide.')
+          ? tr('pool.chemistry.temperatureUsage', 'Ces mesures servent aux automatismes et aux sécurités thermiques.')
+          : tr('pool.chemistry.temperatureUnavailable', 'Une mesure est indisponible ; PoolLogic conserve ses dernières valeurs fiables.')
       };
       const pressureState = poolConfigPressureState(live.psi, safety.psi_low_th, safety.psi_high_th, sensors.psi_monitoring);
 
@@ -4686,7 +4741,6 @@
             editable: { module: 'poollogic/ph', key: 'ph_setpoint', type: 'number', value: ph.ph_setpoint, min: 6, max: 8, step: 0.01 }
           },
           { label: 'Correcteur', value: toBool(ph.ph_dose_plus) ? 'pH+' : 'pH−' },
-          { label: 'Pompe', value: poolConfigBoolLabel(live.php, 'En marche', 'Arrêt') }
         ]
       });
       if (!disinfectionDisabled) {
@@ -4704,25 +4758,21 @@
               featured: true,
               editable: { module: 'poollogic/chlorine', key: 'dis_setpoint', type: 'number', value: chlorine.dis_setpoint, min: 300, max: 900, step: 1, unit: 'mV' }
             },
-            {
-              label: swgSelected ? 'Électrolyseur' : 'Pompe',
-              value: poolConfigBoolLabel(swgSelected ? live.swg : live.clp, 'En marche', 'Arrêt')
-            }
           ]
         });
       }
       poolConfigAppendChemistryCard(grid, {
-        title: 'Température',
-        subtitle: 'Température utilisée par PoolLogic',
+        title: tr('pool.chemistry.temperatureTitle', 'Températures'),
+        subtitle: tr('pool.chemistry.temperatureSubtitle', 'Mesures des sondes eau et air utilisées par PoolLogic'),
         icon: 'thermostat',
         accent: 'is-temperature',
         available: waterAvailable,
         state: temperatureState,
-        measurementLabel: 'Eau',
+        measurementLabel: tr('pool.chemistry.waterProbe', 'Sonde eau'),
         measured: poolConfigLiveNumber(live.wat, 1, '°C'),
         metrics: [
           {
-            label: 'Sonde eau',
+            label: tr('pool.chemistry.waterProbe', 'Sonde eau'),
             featured: true,
             editable: {
               module: 'poollogic/safety',
@@ -4735,7 +4785,11 @@
               ]
             }
           },
-          { label: 'Air', value: poolConfigLiveNumber(live.air, 1, '°C') }
+          {
+            label: tr('pool.chemistry.airProbe', 'Sonde air'),
+            value: airAvailable ? poolConfigLiveNumber(live.air, 1, '°C') : tr('pool.chemistry.sensorUnavailable', 'Sonde indisponible'),
+            disabled: !airAvailable
+          }
         ]
       });
       poolConfigAppendChemistryCard(grid, {
@@ -4754,15 +4808,18 @@
           },
           {
             label: 'Délai avant contrôle',
-            editable: { module: 'poollogic/safety', key: 'psi_start_dly_s', type: 'number', value: safety.psi_start_dly_s, min: 0, max: 600, step: 1, unit: 's' }
+            disabled: !toBool(sensors.psi_monitoring),
+            editable: { module: 'poollogic/safety', key: 'psi_start_dly_s', type: 'number', value: safety.psi_start_dly_s, min: 0, max: 600, step: 1, unit: 's', disabled: !toBool(sensors.psi_monitoring), requiresPressureMonitoring: true }
           },
           {
             label: 'Seuil minimum',
-            editable: { module: 'poollogic/safety', key: 'psi_low_th', type: 'number', value: safety.psi_low_th, min: 0, max: 5, step: 0.01, unit: 'bar' }
+            disabled: !toBool(sensors.psi_monitoring),
+            editable: { module: 'poollogic/safety', key: 'psi_low_th', type: 'number', value: safety.psi_low_th, min: 0, max: 5, step: 0.01, unit: 'bar', disabled: !toBool(sensors.psi_monitoring), requiresPressureMonitoring: true }
           },
           {
             label: 'Seuil maximum',
-            editable: { module: 'poollogic/safety', key: 'psi_high_th', type: 'number', value: safety.psi_high_th, min: 0, max: 5, step: 0.01, unit: 'bar' }
+            disabled: !toBool(sensors.psi_monitoring),
+            editable: { module: 'poollogic/safety', key: 'psi_high_th', type: 'number', value: safety.psi_high_th, min: 0, max: 5, step: 0.01, unit: 'bar', disabled: !toBool(sensors.psi_monitoring), requiresPressureMonitoring: true }
           }
         ]
       });
@@ -4845,9 +4902,7 @@
       const metrics = document.createElement('div');
       metrics.className = 'pool-metric-grid';
       if (selected && selectedDef.module) {
-        if (selectedDef.key === 'chlorine') {
-          poolConfigAppendMetric(metrics, tr('pool.metric.window', 'Fenêtre'), poolConfigFormatValue(selectedDef.module, 'dis_window_ms', data.dis_window_ms), { module: selectedDef.module, key: 'dis_window_ms' });
-        } else if (selectedDef.key === 'o2') {
+        if (selectedDef.key === 'o2') {
           poolConfigAppendMetric(metrics, tr('pool.metric.poolVolume', 'Volume bassin'), poolConfigFormatValue(selectedDef.module, 'pool_volume_m3', data.pool_volume_m3), { featured: true });
           poolConfigAppendMetric(metrics, tr('pool.metric.weeklyDose', 'Dose hebdo'), poolConfigFormatValue(selectedDef.module, 'dose_ml_10m3_week', data.dose_ml_10m3_week));
           poolConfigAppendMetric(metrics, tr('pool.metric.injections', 'Injections'), poolConfigFormatValue(selectedDef.module, 'split_count', data.split_count));

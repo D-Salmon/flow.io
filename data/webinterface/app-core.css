@@ -1554,3 +1554,13 @@ body:not(.menu-icons-remote) #page-pool-measures .dashboard-kpi-icon::before{fon
 #page-pool-measures .header-status-label{font-size:14px;}#page-pool-measures .header-status-value{font-size:14.5px;}
 
 @media(max-width:620px){.users-admin-card{padding:17px}.users-admin-head{align-items:stretch;flex-direction:column}.users-admin-head .btn-primary{align-self:flex-start}.user-row{align-items:flex-start;flex-wrap:wrap}.user-row-actions{width:100%;justify-content:flex-end}.user-row-copy{align-items:flex-start;flex-direction:column;gap:3px}.users-editor{padding:14px}.users-editor-actions{justify-content:stretch}.users-editor-actions button{flex:1}}
+
+.pool-metric.is-disabled{background:#F0F3F6;border-color:#DCE3EA;}
+.pool-metric.is-disabled .pool-metric-label,.pool-metric.is-disabled .pool-metric-value{color:#8795A3;}
+.pool-setting-control-wrap.has-sign-toggle{grid-template-columns:minmax(0,1fr) 42px auto;}
+.pool-setting-sign-toggle{width:42px;min-height:44px;border:1px solid #B9C8D7;border-radius:10px;background:#FFFFFF;color:var(--text);font:inherit;font-size:20px;font-weight:800;cursor:pointer;}
+.pool-setting-sign-toggle:hover{border-color:var(--primary);background:var(--surface-soft);}
+@media(max-width:640px){.dashboard-alarm-list{grid-template-columns:1fr}.dashboard-alarm-row{display:grid;grid-template-columns:minmax(0,1fr) auto;min-height:56px;padding:12px;gap:10px;align-items:start;justify-content:initial;text-align:left}.dashboard-alarm-row strong{overflow:visible;font-size:14px;line-height:1.35;text-overflow:clip;white-space:normal;overflow-wrap:anywhere}.dashboard-alarm-ack{min-height:36px;white-space:nowrap}.pool-alarm-title-wrap h3{font-size:18px}.pool-alarm-title-wrap p{font-size:14px;line-height:1.45}.pool-alarm-row{grid-template-columns:minmax(0,1fr);gap:6px}.pool-alarm-row b{font-size:15px;line-height:1.35}.pool-alarm-row span{font-size:13px}}
+:root[data-theme="dark"] .pool-metric.is-disabled{background:#202A35;border-color:#3B4652;}
+:root[data-theme="dark"] .pool-metric.is-disabled .pool-metric-label,:root[data-theme="dark"] .pool-metric.is-disabled .pool-metric-value{color:#8492A1;}
+:root[data-theme="dark"] .pool-setting-sign-toggle{background:var(--surface);border-color:var(--border);color:var(--text);}
