@@ -3845,7 +3845,11 @@
               const current = String(control.value || '');
               if (current.startsWith('-')) {
                 control.value = current.slice(1);
-              } else if (current !== '' && Number.isFinite(Number(current))) {
+              } else if (current === '') {
+                // Seed an editable negative value when the numeric keypad
+                // cannot enter a minus sign before the first digit.
+                control.value = '-0';
+              } else if (Number.isFinite(Number(current))) {
                 control.value = String(-Number(current));
               }
               control.dispatchEvent(new Event('input', { bubbles: true }));

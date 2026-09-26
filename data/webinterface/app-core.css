@@ -933,6 +933,7 @@ body.web-icons-disabled .control-field-apply{font-size:15px;font-weight:800;lett
 .pool-setting-control:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(0,116,232,0.14);}
 .pool-setting-control:invalid{border-color:var(--danger);}
 .pool-settings-form.is-disabled .pool-settings-fields,.pool-setting-field.is-disabled{opacity:0.52;}
+.pool-setting-field.is-disabled .pool-setting-label,.pool-setting-field.is-disabled .pool-setting-sublabel,.pool-setting-field.is-disabled .pool-setting-unit,.pool-setting-field.is-disabled .pool-setting-help{color:#8795A3;}
 .pool-setting-control:disabled{cursor:not-allowed;background:#E9EEF3;color:#647487;border-color:#CDD7E0;}
 .pool-setting-disabled-note{margin:0;padding:10px 12px;border-radius:10px;background:#EEF3F7;color:var(--text-muted);font-size:13px;font-weight:650;line-height:1.4;}
 .pool-setting-unit{min-width:28px;color:#536A7E;font-size:13px;font-weight:850;white-space:nowrap;}
@@ -1062,6 +1063,7 @@ body.web-icons-disabled .control-field-apply{font-size:15px;font-weight:800;lett
 :root[data-theme="dark"] .pool-chemistry-measure>span,:root[data-theme="dark"] .pool-setting-unit{color:var(--text-muted);}
 :root[data-theme="dark"] .pool-card-icon,:root[data-theme="dark"] .pool-treatment-detail .pool-card-icon,:root[data-theme="dark"] #page-control .cfg-detail-pane > .control-section-title:first-child .ui-msr{background:#173a56;color:var(--primary);}
 :root[data-theme="dark"] .pool-setting-sublabel,:root[data-theme="dark"] .pool-setting-disabled-note{color:var(--text-muted);}
+:root[data-theme="dark"] .pool-setting-field.is-disabled .pool-setting-label,:root[data-theme="dark"] .pool-setting-field.is-disabled .pool-setting-sublabel,:root[data-theme="dark"] .pool-setting-field.is-disabled .pool-setting-unit,:root[data-theme="dark"] .pool-setting-field.is-disabled .pool-setting-help{color:#8492A1;}
 :root[data-theme="dark"] .pool-setting-disabled-note{background:var(--surface-soft);border:1px solid var(--border);}
 :root[data-theme="dark"] .pool-alarm-card{background:#341722;color:#ffdce4;border-color:rgba(255,123,147,0.34);}
 :root[data-theme="dark"] .pool-alarm-row{background:#24111a;border-color:rgba(255,123,147,0.24);}
@@ -1557,10 +1559,14 @@ body:not(.menu-icons-remote) #page-pool-measures .dashboard-kpi-icon::before{fon
 
 .pool-metric.is-disabled{background:#F0F3F6;border-color:#DCE3EA;}
 .pool-metric.is-disabled .pool-metric-label,.pool-metric.is-disabled .pool-metric-value{color:#8795A3;}
+.pool-metric.is-disabled .pool-metric-control:disabled{cursor:not-allowed;background:#E9EEF3;color:#8795A3;border-color:#CDD7E0;opacity:1;}
+.pool-metric.is-disabled .pool-setting-unit{color:#8795A3;}
 .pool-setting-control-wrap.has-sign-toggle{grid-template-columns:minmax(0,1fr) 42px auto;}
 .pool-setting-sign-toggle{width:42px;min-height:44px;border:1px solid #B9C8D7;border-radius:10px;background:#FFFFFF;color:var(--text);font:inherit;font-size:20px;font-weight:800;cursor:pointer;}
 .pool-setting-sign-toggle:hover{border-color:var(--primary);background:var(--surface-soft);}
 @media(max-width:640px){.dashboard-alarm-list{grid-template-columns:1fr}.dashboard-alarm-row{display:grid;grid-template-columns:minmax(0,1fr) auto;min-height:56px;padding:12px;gap:10px;align-items:start;justify-content:initial;text-align:left}.dashboard-alarm-row strong{overflow:visible;font-size:14px;line-height:1.35;text-overflow:clip;white-space:normal;overflow-wrap:anywhere}.dashboard-alarm-ack{min-height:36px;white-space:nowrap}.pool-alarm-title-wrap h3{font-size:18px}.pool-alarm-title-wrap p{font-size:14px;line-height:1.45}.pool-alarm-row{grid-template-columns:minmax(0,1fr);gap:6px}.pool-alarm-row b{font-size:15px;line-height:1.35}.pool-alarm-row span{font-size:13px}}
 :root[data-theme="dark"] .pool-metric.is-disabled{background:#202A35;border-color:#3B4652;}
 :root[data-theme="dark"] .pool-metric.is-disabled .pool-metric-label,:root[data-theme="dark"] .pool-metric.is-disabled .pool-metric-value{color:#8492A1;}
+:root[data-theme="dark"] .pool-metric.is-disabled .pool-metric-control:disabled{background:#26313D;color:#8492A1;border-color:#3B4652;}
+:root[data-theme="dark"] .pool-metric.is-disabled .pool-setting-unit{color:#8492A1;}
 :root[data-theme="dark"] .pool-setting-sign-toggle{background:var(--surface);border-color:var(--border);color:var(--text);}
