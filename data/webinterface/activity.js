@@ -481,7 +481,11 @@
           }, fetch); // Retry only a confirmed pre-execution CSRF rejection, never a busy/network failure.
           if (!response.ok) {
             if (response.status === 401 || response.status === 403) {
-              throw new Error('connexion administrateur requise ou expirée.');
+              const loginMessage = 'Votre session administrateur est terminée. Reconnectez-vous comme administrateur pour supprimer des événements du journal.';
+              if (statusEl) statusEl.textContent = loginMessage;
+              window.alert(loginMessage);
+              window.location.assign('/login?page_ref=' + encodeURIComponent('/webinterface'));
+              return;
             }
             throw new Error('HTTP ' + response.status);
           }

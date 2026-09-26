@@ -3721,7 +3721,14 @@ ac_unit: '\u{eb3b}',
                 if (status) status.textContent = 'Administrateur ' + account.username + ' supprimé.';
               } catch (error) {
                 const status = document.getElementById('usersStatus');
-                if (status) status.textContent = error.message || 'Suppression refusée.';
+                const message = error.message || 'Suppression refusée.';
+                if (status) status.textContent = message;
+                if (message === 'Session terminée. Veuillez vous connecter comme administrateur.') {
+                  const loginMessage = 'Votre session administrateur est terminée. Reconnectez-vous comme administrateur pour supprimer un compte administrateur.';
+                  if (status) status.textContent = loginMessage;
+                  window.alert(loginMessage);
+                  window.location.assign('/login?page_ref=' + encodeURIComponent('/webinterface'));
+                }
               }
             };
           }
