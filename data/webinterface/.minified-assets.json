@@ -73,11 +73,11 @@
       "gzip_bytes": 10859
     },
     "pool.js": {
-      "source_sha256": "613a4527162b1722eceb32ad2fbc0368460ebc026501d466db9e4805764f26ce",
-      "gzip_sha256": "f3d8eb084f71a8ef29c1a73d86162f06542c890dd951dd64d1b98022fe991050",
-      "original_bytes": 265127,
-      "minified_bytes": 204270,
-      "gzip_bytes": 44412
+      "source_sha256": "09f589cb007760aed4aae47e2bf39228e88f9be563eaae99374fb7b121dba195",
+      "gzip_sha256": "64868360534087540679c2ce2b51cf94ea6ec2b4bfc9a563f64d156428faf6e3",
+      "original_bytes": 265480,
+      "minified_bytes": 204533,
+      "gzip_bytes": 44506
     },
     "config.js": {
       "source_sha256": "b1f16af4f6cb61b4cf8855733b775de3b182b8a46ab0601891bafe884084fddc",
@@ -87,18 +87,18 @@
       "gzip_bytes": 23804
     },
     "i18n/fr.json": {
-      "source_sha256": "9bb8ca0433947973f9383e99a91c273102b1268ec979e8160315b4279df70684",
-      "gzip_sha256": "dc07996c2017384c0afb240e47a1dfe253e494fb88491c3c9db8a24ea8bb5e16",
-      "original_bytes": 43084,
-      "minified_bytes": 38679,
-      "gzip_bytes": 10522
+      "source_sha256": "c5711cf8a64a8a3c3c6a26dd2f8f59b52081710c373ab338883e27880d376af9",
+      "gzip_sha256": "e3b28805dd83247df3d2f66d061f6d4d6ba7ecd47aa1f89b28274dc9b888febe",
+      "original_bytes": 43445,
+      "minified_bytes": 39004,
+      "gzip_bytes": 10589
     },
     "i18n/en.json": {
-      "source_sha256": "0541369e5c28335077efda394a432545ab6a7e3c8550a5ec3e75ef27f81973c9",
-      "gzip_sha256": "ebeec16f1b7b69adb60f2a4aaebc63b0e2c251c025ed2200b05737750b7c9e43",
-      "original_bytes": 40438,
-      "minified_bytes": 36033,
-      "gzip_bytes": 9521
+      "source_sha256": "da24358ab6c783a325a588244e877a22b31a4f89f22dca87da50669f1adfa853",
+      "gzip_sha256": "9e694493784458335648fb2ef174680d6c93825e30fd1aee61d529bd6ebe3f10",
+      "original_bytes": 40777,
+      "minified_bytes": 36336,
+      "gzip_bytes": 9580
     },
     "app-core.css": {
       "source_sha256": "5d982fc629faf2fdadda8d8a38d0e2d6ad495c7cad3b2fe73f59629d3a52e2a9",

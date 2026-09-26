@@ -111,7 +111,7 @@ administrateur** et le rôle **Utilisateur**.
 PoolLogic publie désormais un état central utilisé par les pages **Piscine**,
 **Entrées/Sorties** et les affectations de configuration. Les états possibles
 sont : actif, désactivé, non câblé, matériel absent, temporairement
-indisponible et bloqué par une sécurité. Les deux retours de contacteurs sont
+indisponible et bloqué par une sécurité. Les deux surveillances de disjoncteurs sont
 inclus dans cette vue commune.
 
 ## Couple de mise à jour A/B

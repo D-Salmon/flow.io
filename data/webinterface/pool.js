@@ -453,7 +453,7 @@
           key: 'filtr_fb_io_id',
           activeHighKey: 'filtr_fb_active_high',
           type: 'feedback',
-          label: 'Retour contacteur filtration',
+          label: 'Surveillance disjoncteur filtration',
           options: poolDigitalIoOptions,
           ioAssignmentGroup: 'digital'
         }),
@@ -461,7 +461,7 @@
           key: 'swg_fb_io_id',
           activeHighKey: 'swg_fb_active_high',
           type: 'feedback',
-          label: 'Retour contacteur électrolyseur',
+          label: 'Surveillance disjoncteur électrolyseur',
           options: poolDigitalIoOptions,
           ioAssignmentGroup: 'digital'
         }),
@@ -2010,7 +2010,9 @@
         if (dashboardModeStatus) {
           dashboardModeStatus.className = 'dashboard-mode-status ' + (confirmed ? 'is-ok' : 'is-error');
           dashboardModeStatus.textContent = confirmed
-            ? label + ' : ' + (desired ? 'actif' : 'arrêt') + '.'
+            ? (desired
+              ? tr('dashboard.mode.confirmedOn', '{label} activé.').replace('{label}', label)
+              : tr('dashboard.mode.confirmedOff', '{label} désactivé.').replace('{label}', label))
             : 'Commande acceptée, état non confirmé.';
         }
         return true;
@@ -2456,7 +2458,7 @@
               : (!available && centralAsset ? poolAssetStateLabel(centralAsset) : ''));
           if (actionable) {
             card.addEventListener('click', () => {
-              commandPoolEquipment(equipmentDef, !on).catch(() => {});
+              commandPoolEquipment(equipmentDef, !on, def.label).catch(() => {});
             });
           }
           card.className = 'dashboard-equipment-card is-actionable'
@@ -2754,7 +2756,20 @@
       return { wrap, input };
     }
 
-    async function commandPoolEquipment(def, desired) {
+    function poolEquipmentConfirmedMessage(def, desired, displayLabel) {
+      if (def && def.key === 'lights') {
+        return desired
+          ? tr('pool.control.lightsConfirmedOn', 'Piscine éclairée.')
+          : tr('pool.control.lightsConfirmedOff', 'Piscine éteinte.');
+      }
+      const label = String(displayLabel || tr(def.labelKey, def.label));
+      return (desired
+        ? tr('pool.control.confirmedOn', '{label} en marche.')
+        : tr('pool.control.confirmedOff', '{label} à l’arrêt.'))
+        .replace('{label}', label);
+    }
+
+    async function commandPoolEquipment(def, desired, displayLabel) {
       if (!def || poolEquipmentCommandBusy) return false;
       poolEquipmentCommandBusy = def.key;
       let confirmed = false;
@@ -2791,8 +2806,8 @@
         }
         poolEquipmentSetStatus(
           confirmed
-            ? tr('pool.control.applied', 'Commande appliquée') + ' · ' + tr(def.labelKey, def.label) + '.'
-            : tr('pool.control.unconfirmed', 'Commande acceptée, état non confirmé.') + ' · ' + tr(def.labelKey, def.label) + '.',
+            ? poolEquipmentConfirmedMessage(def, desired, displayLabel)
+            : tr('pool.control.unconfirmed', 'Commande acceptée, état non confirmé.') + ' · ' + String(displayLabel || tr(def.labelKey, def.label)) + '.',
           confirmed ? 'ok' : 'error'
         );
         return true;
@@ -4713,9 +4728,7 @@
         measurementLabel: 'Eau',
         measured: poolConfigLiveNumber(live.wat, 1, '°C'),
         metrics: [
-          { label: 'Air', value: poolConfigLiveNumber(live.air, 1, '°C') },
-          { label: 'Filtration', value: poolConfigBoolLabel(live.fil, 'En marche', 'Arrêt'), featured: true },
-          { label: 'Mode piscine', value: poolConfigBoolLabel(live.auto, 'Automatique', 'Manuel') }
+          { label: 'Air', value: poolConfigLiveNumber(live.air, 1, '°C') }
         ]
       });
       poolConfigAppendChemistryCard(grid, {
@@ -4729,8 +4742,7 @@
         metrics: [
           { label: tr('pool.chemistry.minimum', 'Minimum'), value: Number.isFinite(Number(safety.psi_low_th)) ? poolConfigLiveNumber(safety.psi_low_th, 2, 'bar') : '—' },
           { label: tr('pool.chemistry.maximum', 'Maximum'), value: Number.isFinite(Number(safety.psi_high_th)) ? poolConfigLiveNumber(safety.psi_high_th, 2, 'bar') : '—' },
-          { label: tr('pool.chemistry.monitoring', 'Surveillance'), value: poolConfigBoolLabel(sensors.psi_monitoring, tr('pool.state.active', 'Actif'), tr('pool.state.disabled', 'Désactivé')), featured: true },
-          { label: tr('pool.chemistry.filtration', 'Filtration'), value: poolConfigBoolLabel(live.fil, tr('dashboard.equipment.on', 'En marche'), tr('pool.state.stopped', 'Arrêt')) }
+          { label: tr('pool.chemistry.monitoring', 'Surveillance'), value: poolConfigBoolLabel(sensors.psi_monitoring, tr('pool.state.active', 'Actif'), tr('pool.state.disabled', 'Désactivé')), featured: true }
         ]
       });
       poolChemistryPanel.appendChild(grid);
@@ -4993,12 +5005,12 @@
         poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.flowDelay', 'Validation absence de débit'), poolConfigFormatValue('poollogic/safety', 'flow_start_dly_s', safety.flow_start_dly_s));
       }
       const filtrationFeedbackAsset = poolAsset(20);
-      poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.filtrationFeedback', 'Retour contacteur filtration'), filtrationFeedbackAsset
+      poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.filtrationFeedback', 'Surveillance disjoncteur filtration'), filtrationFeedbackAsset
         ? poolAssetStateLabel(filtrationFeedbackAsset)
         : (poolConfigSummaryConfigured(sensors.filtr_fb_io_id) ? tr('pool.protectionSummary.monitored', 'Surveillé') : tr('pool.protectionSummary.notWired', 'Non câblé')));
       if (disinfectionType === 1) {
         const swgFeedbackAsset = poolAsset(21);
-        poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.electrolysisFeedback', 'Retour contacteur électrolyseur'), swgFeedbackAsset
+        poolConfigAppendProtectionRow(protections, tr('pool.protectionSummary.electrolysisFeedback', 'Surveillance disjoncteur électrolyseur'), swgFeedbackAsset
           ? poolAssetStateLabel(swgFeedbackAsset)
           : (poolConfigSummaryConfigured(sensors.swg_fb_io_id) ? tr('pool.protectionSummary.monitored', 'Surveillé') : tr('pool.protectionSummary.notWired', 'Non câblé')));
       }

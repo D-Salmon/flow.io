@@ -1342,7 +1342,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
             1000,
             60000,
             "filtr_cont_mismatch",
-            "Défaut retour contacteur filtration",
+            "Défaut surveillance disjoncteur filtration",
             "poollogic"
         };
         if (!alarmSvc_->registerAlarm(alarmSvc_->ctx,
@@ -1360,7 +1360,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
             1000,
             60000,
             "swg_contactor_mismatch",
-            "Défaut retour contacteur électrolyseur",
+            "Défaut surveillance disjoncteur électrolyseur",
             "poollogic"
         };
         if (!alarmSvc_->registerAlarm(alarmSvc_->ctx,

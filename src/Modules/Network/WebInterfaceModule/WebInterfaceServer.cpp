@@ -3605,7 +3605,7 @@ void sendWaveshareIoSummaryResponse_(AsyncResponseStream& response,
                                         poolSvc,
                                         1001U,
                                         "filtration_feedback",
-                                        "Retour contacteur filtration",
+                                        "Surveillance disjoncteur filtration",
                                         IO_SLOT_DIGITAL_INPUT,
                                         filtrationFeedbackSlot);
     response.print(',');
@@ -3614,7 +3614,7 @@ void sendWaveshareIoSummaryResponse_(AsyncResponseStream& response,
                                         poolSvc,
                                         1002U,
                                         "electrolysis_feedback",
-                                        "Retour contacteur électrolyseur",
+                                        "Surveillance disjoncteur électrolyseur",
                                         IO_SLOT_DIGITAL_INPUT,
                                         electrolysisFeedbackSlot);
 
@@ -3655,8 +3655,8 @@ void sendWaveshareIoSummaryResponse_(AsyncResponseStream& response,
         response.print("}");
         first = false;
     };
-    printFeedbackError(1001U, "Retour contacteur filtration", filtrationFeedbackSlot, filtrationFeedbackState);
-    printFeedbackError(1002U, "Retour contacteur électrolyseur", electrolysisFeedbackSlot, electrolysisFeedbackState);
+    printFeedbackError(1001U, "Surveillance disjoncteur filtration", filtrationFeedbackSlot, filtrationFeedbackState);
+    printFeedbackError(1002U, "Surveillance disjoncteur électrolyseur", electrolysisFeedbackSlot, electrolysisFeedbackState);
     response.print("]}");
 }
 
