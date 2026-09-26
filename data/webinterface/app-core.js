@@ -92,6 +92,21 @@
     return secured;
   }
 
+  function isMutatingMethod(options) {
+    var method = String(options && options.method || 'GET').toUpperCase();
+    return method === 'POST' || method === 'PUT' || method === 'PATCH' || method === 'DELETE';
+  }
+
+  async function refreshCsrfToken() {
+    var response = await fetch('/api/web/meta', { cache: 'no-store' });
+    if (!response.ok) return false;
+    var meta = await response.json().catch(function () { return null; });
+    var previousToken = csrfToken;
+    ingestSecurityMeta(meta);
+    if (meta && meta.ok === true) window.__FLOW_WEB_META__ = meta;
+    return csrfToken.length === 32 && csrfToken !== previousToken;
+  }
+
   async function supervisorFetch(url, options, policy) {
     var cfg = policy || {};
     var retries = Number.isFinite(cfg.retries) ? cfg.retries : 4;
@@ -100,12 +115,21 @@
       : [300, 700, 1500, 2600];
 
     var lastError = null;
+    var csrfRefreshAttempted = false;
     for (var attempt = 0; attempt <= retries; attempt += 1) {
       try {
         var response = await fetch(url, secureFetchOptions(options));
         if (response.status === 401 && !String(url || '').startsWith('/api/auth/')) {
           window.location.replace('/login');
           return response;
+        }
+        if (response.status === 403 && !csrfRefreshAttempted && isMutatingMethod(options)) {
+          var rejected = await response.clone().json().catch(function () { return null; });
+          var rejectedCode = rejected && rejected.err && String(rejected.err.code || '');
+          if (rejectedCode === 'CsrfRejected') {
+            csrfRefreshAttempted = true;
+            if (await refreshCsrfToken()) continue;
+          }
         }
         if (response.status !== 503) return response;
         if (attempt >= retries) return response;

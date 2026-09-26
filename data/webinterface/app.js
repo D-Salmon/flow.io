@@ -945,7 +945,7 @@ ac_unit: '\u{eb3b}',
           throw new Error('connexion administrateur requise');
         }
         if (response.res && response.res.status === 403) {
-          throw new Error('opération refusée : session administrateur ou jeton de sécurité requis');
+          throw new Error('Session terminée. Veuillez vous connecter comme administrateur.');
         }
         throw new Error(extractApiErrorMessage(response.data, message));
       }
@@ -3570,7 +3570,7 @@ ac_unit: '\u{eb3b}',
       const avatar = document.getElementById('accountAvatar');
       const logout = document.getElementById('accountLogout');
       if (role) role.textContent = authSession.role === 'admin' && authSession.local_operator !== true ?
-        'Administrateur' : 'Utilisateur';
+        (authSession.username || 'Administrateur') : 'Utilisateur';
       if (avatar) avatar.textContent = authSession.local_operator === true ? 'U' :
         (authSession.username || '?').charAt(0).toUpperCase();
       if (logout) {
@@ -3646,22 +3646,125 @@ ac_unit: '\u{eb3b}',
     }
 
     function resetUserForm() {
-      const form=document.getElementById('userForm'); if(form) form.reset();
-      const username=document.getElementById('userUsername'); if(username){username.readOnly=false;username.value='';}
-      const title=document.getElementById('userFormTitle'); if(title) title.textContent='Ajouter un compte';
+      const form = document.getElementById('userForm');
+      if (form) {
+        form.reset();
+        form.hidden = true;
+      }
+      const username = document.getElementById('userUsername');
+      if (username) {
+        username.readOnly = false;
+        username.value = '';
+      }
+      const title = document.getElementById('userFormTitle');
+      if (title) title.textContent = 'Ajouter un administrateur';
     }
+
+    let usersLoadGeneration = 0;
 
     async function loadUsers() {
       if (authSession.role !== 'admin') return;
-      const list=document.getElementById('usersList'); if(!list)return;
-      try { const data=await fetchOkJson('/api/auth/users',{cache:'no-store'},'Comptes indisponibles');list.innerHTML='';(data.accounts||[]).forEach(account=>{const row=document.createElement('div');row.className='user-row';row.innerHTML='<span class="account-avatar">'+String(account.username||'?').charAt(0).toUpperCase()+'</span><span class="user-row-copy"><strong></strong><span class="user-role">'+(account.role==='admin'?'Administrateur':'Opérateur')+'</span></span><span class="user-row-actions"><button type="button" class="btn-tonal edit-user">Modifier</button><button type="button" class="btn-tonal delete-user">Supprimer</button></span>';row.querySelector('strong').textContent=account.username;row.querySelector('.edit-user').onclick=()=>{document.getElementById('userUsername').value=account.username;document.getElementById('userUsername').readOnly=true;document.getElementById('userRole').value=account.role;document.getElementById('userPassword').value='';document.getElementById('userFormTitle').textContent='Modifier le compte';};const deleteButton=row.querySelector('.delete-user');if(account.role==='admin'){deleteButton.remove();}else{deleteButton.onclick=async()=>{if(!confirm('Supprimer le compte '+account.username+' ?'))return;await fetchOkJson('/api/auth/users/delete',createFormPostOptions({username:account.username}),'Suppression refusée');await loadUsers();};}list.appendChild(row);}); } catch(error){list.textContent='Impossible de charger les comptes.';}
+      const list = document.getElementById('usersList');
+      if (!list) return;
+      const generation = ++usersLoadGeneration;
+      try {
+        const data = await fetchOkJson('/api/auth/users?t=' + Date.now(), { cache: 'no-store' }, 'Comptes indisponibles');
+        if (generation !== usersLoadGeneration) return;
+        const accounts = Array.isArray(data.accounts) ? data.accounts : [];
+        const adminCount = accounts.filter((account) => account.role === 'admin').length;
+        list.innerHTML = '';
+        accounts.forEach((account) => {
+          const isAdmin = account.role === 'admin';
+          const row = document.createElement('div');
+          row.className = 'user-row' + (authSession.username === account.username ? ' is-current' : '');
+          row.innerHTML = '<span class="account-avatar">' + String(account.username || '?').charAt(0).toUpperCase() + '</span>'
+            + '<span class="user-row-copy"><strong></strong><span class="user-role">'
+            + (isAdmin ? 'Administrateur' : 'Ancien compte utilisateur')
+            + (authSession.username === account.username ? '<span class="users-current-badge">Compte connecté</span>' : '')
+            + '</span></span><span class="user-row-actions"><button type="button" class="btn-tonal edit-user">Modifier</button>'
+            + '<button type="button" class="btn-tonal delete-user">Supprimer</button></span>';
+          row.querySelector('strong').textContent = account.username;
+          row.querySelector('.edit-user').onclick = () => {
+            document.getElementById('userUsername').value = account.username;
+            document.getElementById('userUsername').readOnly = true;
+            document.getElementById('userPassword').value = '';
+            document.getElementById('userPasswordConfirm').value = '';
+            document.getElementById('userFormTitle').textContent = isAdmin
+              ? 'Modifier l’administrateur'
+              : 'Convertir en administrateur';
+            const form = document.getElementById('userForm');
+            form.hidden = false;
+            document.getElementById('userPassword').focus();
+          };
+          const deleteButton = row.querySelector('.delete-user');
+          if (isAdmin && adminCount <= 1) {
+            deleteButton.remove();
+          } else {
+            deleteButton.onclick = async () => {
+              if (!confirm('Supprimer le compte ' + account.username + ' ?')) return;
+              const deletingCurrentAccount = authSession.username === account.username;
+              try {
+                await fetchOkJson('/api/auth/users/delete', createFormPostOptions({ username: account.username }), 'Suppression refusée');
+                if (deletingCurrentAccount) {
+                  window.location.replace('/webinterface');
+                  return;
+                }
+                await loadUsers();
+                const status = document.getElementById('usersStatus');
+                if (status) status.textContent = 'Administrateur ' + account.username + ' supprimé.';
+              } catch (error) {
+                const status = document.getElementById('usersStatus');
+                if (status) status.textContent = error.message || 'Suppression refusée.';
+              }
+            };
+          }
+          list.appendChild(row);
+        });
+      } catch (error) {
+        if (generation !== usersLoadGeneration) return;
+        list.textContent = 'Impossible de charger les comptes administrateurs.';
+      }
     }
-
     const accountLogout=document.getElementById('accountLogout'); if(accountLogout) accountLogout.addEventListener('click',logoutSession);
     const accountOpen=document.getElementById('accountOpen'); if(accountOpen) accountOpen.addEventListener('click',()=>{if(authSession&&authSession.role==='admin')showPage('page-users');else if(authSession&&authSession.local_operator===true)window.location.assign('/login');});
-    const userCancel=document.getElementById('userFormCancel'); if(userCancel) userCancel.addEventListener('click',resetUserForm);
-    const userForm=document.getElementById('userForm'); if(userForm) userForm.addEventListener('submit',async(event)=>{event.preventDefault();const username=document.getElementById('userUsername').value.trim(),password=document.getElementById('userPassword').value,role=document.getElementById('userRole').value,status=document.getElementById('usersStatus');try{await fetchOkJson('/api/auth/users',createFormPostOptions({username,password,role}),'Enregistrement refusé');resetUserForm();await loadUsers();if(status)status.textContent='Compte enregistré.';}catch(error){if(status)status.textContent=error.message||'Enregistrement refusé.';}});
-    const ownPasswordForm=document.getElementById('ownPasswordForm'); if(ownPasswordForm) ownPasswordForm.addEventListener('submit',async(event)=>{event.preventDefault();const input=document.getElementById('ownPassword'),status=document.getElementById('ownPasswordStatus');try{await fetchOkJson('/api/auth/password',createFormPostOptions({password:input.value}),'Modification refusée');input.value='';if(status)status.textContent='Mot de passe modifié.';}catch(error){if(status)status.textContent=error.message||'Modification refusée.';}});
+    const userAdd = document.getElementById('userAddBtn');
+    if (userAdd) userAdd.addEventListener('click', () => {
+      resetUserForm();
+      const form = document.getElementById('userForm');
+      form.hidden = false;
+      document.getElementById('userUsername').focus();
+    });
+    const userCancel = document.getElementById('userFormCancel');
+    if (userCancel) userCancel.addEventListener('click', resetUserForm);
+    const userForm = document.getElementById('userForm');
+    if (userForm) userForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const usernameInput = document.getElementById('userUsername');
+      const username = usernameInput.value.trim();
+      const password = document.getElementById('userPassword').value;
+      const confirmation = document.getElementById('userPasswordConfirm').value;
+      const status = document.getElementById('usersStatus');
+      if (!usernameInput.readOnly && !password) {
+        if (status) status.textContent = 'Saisissez un mot de passe de 12 caractères minimum.';
+        return;
+      }
+      if (password && password.length < 12) {
+        if (status) status.textContent = 'Le mot de passe doit contenir au moins 12 caractères.';
+        return;
+      }
+      if (password !== confirmation) {
+        if (status) status.textContent = 'La confirmation ne correspond pas au mot de passe.';
+        return;
+      }
+      try {
+        await fetchOkJson('/api/auth/users', createFormPostOptions({ username, password, confirmation, role: 'admin' }), 'Enregistrement refusé');
+        resetUserForm();
+        await loadUsers();
+        if (status) status.textContent = 'Administrateur enregistré.';
+      } catch (error) {
+        if (status) status.textContent = error.message || 'Enregistrement refusé.';
+      }
+    });
 
     initStatusBindings();
     initSystemBindings();

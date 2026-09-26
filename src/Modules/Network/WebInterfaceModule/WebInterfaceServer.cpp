@@ -9009,7 +9009,7 @@ void WebInterfaceModule::startServer_()
         response->print("}");
         request->send(response);
     });
-    server_.on("/api/auth/users", HTTP_GET, [this](AsyncWebServerRequest* request) {
+    server_.on(AsyncURIMatcher::exact("/api/auth/users"), HTTP_GET, [this](AsyncWebServerRequest* request) {
         if (!userSvc_ && services_) userSvc_ = services_->get<UserService>(ServiceId::User);
         char token[kSessionTokenMax] = {0};
         extractSessionCookie_(request, token, sizeof(token));
@@ -9022,13 +9022,21 @@ void WebInterfaceModule::startServer_()
         }
         request->send(200, "application/json", output);
     });
-    server_.on("/api/auth/users", HTTP_POST, [this](AsyncWebServerRequest* request) {
+    server_.on(AsyncURIMatcher::exact("/api/auth/users"), HTTP_POST, [this](AsyncWebServerRequest* request) {
         if (!userSvc_ && services_) userSvc_ = services_->get<UserService>(ServiceId::User);
-        char token[kSessionTokenMax] = {0}, username[40] = {0}, password[96] = {0}, roleName[16] = {0};
+        char token[kSessionTokenMax] = {0}, username[40] = {0}, password[96] = {0}, confirmation[96] = {0}, roleName[16] = {0};
         extractSessionCookie_(request, token, sizeof(token));
         copyRequestParamValue_(request, "username", true, username, sizeof(username), "");
         copyRequestParamValue_(request, "password", true, password, sizeof(password), "");
-        copyRequestParamValue_(request, "role", true, roleName, sizeof(roleName), "operator");
+        copyRequestParamValue_(request, "confirmation", true, confirmation, sizeof(confirmation), "");
+        if (strcmp(password, confirmation) != 0) {
+            request->send(
+                400,
+                "application/json",
+                "{\"ok\":false,\"err\":{\"code\":\"PasswordMismatch\",\"msg\":\"La confirmation ne correspond pas au mot de passe.\"}}");
+            return;
+        }
+        copyRequestParamValue_(request, "role", true, roleName, sizeof(roleName), "admin");
         UserRole role = UserRole::None;
         char error[40] = {0};
         if (!userRoleFromName(roleName, &role) || !userSvc_ || !userSvc_->saveUser ||
@@ -9038,14 +9046,22 @@ void WebInterfaceModule::startServer_()
         }
         request->send(200, "application/json", "{\"ok\":true}");
     });
-    server_.on("/api/auth/users/delete", HTTP_POST, [this](AsyncWebServerRequest* request) {
+    server_.on(AsyncURIMatcher::exact("/api/auth/users/delete"), HTTP_POST, [this](AsyncWebServerRequest* request) {
         if (!userSvc_ && services_) userSvc_ = services_->get<UserService>(ServiceId::User);
         char token[kSessionTokenMax] = {0}, username[40] = {0}, error[40] = {0};
         extractSessionCookie_(request, token, sizeof(token));
         copyRequestParamValue_(request, "username", true, username, sizeof(username), "");
         if (!userSvc_ || !userSvc_->deleteUser ||
             !userSvc_->deleteUser(userSvc_->ctx, token, username, error, sizeof(error))) {
-            request->send(403, "application/json", "{\"ok\":false,\"err\":{\"code\":\"Forbidden\"}}");
+            if (strcmp(error, "last_admin") == 0) {
+                request->send(409, "application/json", "{\"ok\":false,\"err\":{\"code\":\"LastAdmin\",\"msg\":\"Le dernier administrateur ne peut pas être supprimé.\"}}");
+            } else if (strcmp(error, "not_found") == 0) {
+                request->send(404, "application/json", "{\"ok\":false,\"err\":{\"code\":\"NotFound\",\"msg\":\"Ce compte n'existe plus.\"}}");
+            } else if (strcmp(error, "persist_failed") == 0) {
+                request->send(500, "application/json", "{\"ok\":false,\"err\":{\"code\":\"PersistFailed\",\"msg\":\"La suppression n'a pas pu être enregistrée.\"}}");
+            } else {
+                request->send(403, "application/json", "{\"ok\":false,\"err\":{\"code\":\"Forbidden\",\"msg\":\"Session administrateur requise.\"}}");
+            }
             return;
         }
         request->send(200, "application/json", "{\"ok\":true}");

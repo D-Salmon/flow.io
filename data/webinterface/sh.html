@@ -23,7 +23,7 @@
         <button class="menu-item" data-page="page-control" data-admin-only hidden><span class="ico icon-flowcfg" aria-hidden="true"></span><span class="label" data-i18n="menu.config">Configuration</span></button>
         <button class="menu-item" data-page="page-wifi" data-admin-only hidden><span class="ico icon-network" aria-hidden="true"></span><span class="label" data-i18n="menu.network">Réseau</span></button>
         <button class="menu-item" data-page="page-io-summary"><span class="ico icon-io" aria-hidden="true"></span><span class="label" data-i18n="menu.io">Entrées/Sorties</span></button>
-        <button class="menu-item" data-page="page-users" data-admin-only hidden><span class="ico icon-users" aria-hidden="true"></span><span class="label">Utilisateurs</span></button>
+        <button class="menu-item" data-page="page-users" data-admin-only hidden><span class="ico icon-users" aria-hidden="true"></span><span class="label">Administrateurs</span></button>
         <button class="menu-item" data-page="page-system" data-admin-only hidden><span class="ico icon-system" aria-hidden="true"></span><span class="label" data-i18n="menu.updates">Mises à Jour</span></button>
         <button class="menu-item" data-page="page-info"><span class="ico icon-info" aria-hidden="true"></span><span class="label" data-i18n="menu.info">Informations</span></button>
       </nav>
@@ -140,7 +140,7 @@
 
             <section class="dashboard-panel dashboard-equipment-panel">
               <div class="dashboard-panel-head">
-                <div class="dashboard-panel-title"><span class="ui-msr" data-fallback="⚙" aria-hidden="true">settings</span><h2 data-i18n="dashboard.equipment.kicker">Équipements</h2><span id="dashboardEquipmentCount" class="dashboard-panel-count">—</span></div>
+                <div class="dashboard-panel-title"><span class="ui-msr" data-fallback="⚙" aria-hidden="true">settings</span><h2 data-i18n="dashboard.equipment.kicker">État des équipements</h2><span id="dashboardEquipmentCount" class="dashboard-panel-count">—</span></div>
                 <button id="dashboardEquipmentManage" type="button" class="dashboard-panel-link">Gérer les équipements</button>
               </div>
               <div id="dashboardEquipmentGrid" class="dashboard-equipment-grid" aria-live="polite"></div>
@@ -496,12 +496,27 @@
 
       <section id="page-users" class="page">
         <div class="topbar">
-          <h1 class="ui-heading-inline"><span class="ui-msr" aria-hidden="true">manage_accounts</span><span>Compte et utilisateurs</span></h1>
+          <h1 class="ui-heading-inline"><span class="ui-msr" aria-hidden="true">manage_accounts</span><span>Administrateurs</span></h1>
         </div>
-        <div class="users-grid">
-          <form id="ownPasswordForm" class="card users-card"><h2>Mon mot de passe</h2><p>Modifiez le mot de passe du compte actuellement connecté.</p><div class="field"><label for="ownPassword">Nouveau mot de passe</label><input id="ownPassword" type="password" minlength="12" autocomplete="new-password" required><small>12 caractères minimum.</small></div><div class="btn-row"><button type="submit" class="btn-primary">Modifier</button></div><div id="ownPasswordStatus" class="config-status" aria-live="polite"></div></form>
-          <div class="card users-card" data-admin-only><h2>Comptes</h2><div id="usersList" class="users-list"></div><div id="usersStatus" class="config-status"></div></div>
-          <form id="userForm" class="card users-card" data-admin-only><h2 id="userFormTitle">Ajouter un compte</h2><div class="field"><label for="userUsername">Identifiant</label><input id="userUsername" maxlength="31" required></div><div class="field"><label for="userRole">Rôle</label><select id="userRole"><option value="operator">Opérateur</option><option value="admin">Administrateur</option></select></div><div class="field"><label for="userPassword">Mot de passe</label><input id="userPassword" type="password" minlength="12" autocomplete="new-password"><small>Laissez vide pour conserver le mot de passe d’un compte existant.</small></div><div class="btn-row"><button id="userFormCancel" type="button" class="btn-tonal">Annuler</button><button type="submit" class="btn-primary">Enregistrer</button></div></form>
+        <div class="card users-admin-card" data-admin-only>
+          <div class="users-admin-head">
+            <div>
+              <h2>Comptes administrateurs</h2>
+              <p>L’accès utilisateur reste disponible sans identification. Les comptes ci-dessous donnent accès aux réglages sensibles.</p>
+            </div>
+            <button id="userAddBtn" type="button" class="btn-primary"><span class="ui-msr ui-msr-sm" aria-hidden="true">person_add</span>Ajouter</button>
+          </div>
+          <div id="usersList" class="users-list"></div>
+          <div id="usersStatus" class="config-status" aria-live="polite"></div>
+          <form id="userForm" class="users-editor" hidden>
+            <h3 id="userFormTitle">Ajouter un administrateur</h3>
+            <div class="users-editor-fields">
+              <div class="field"><label for="userUsername">Identifiant</label><input id="userUsername" maxlength="31" required></div>
+              <div class="field"><label for="userPassword">Mot de passe</label><input id="userPassword" type="password" minlength="12" maxlength="95" autocomplete="new-password" aria-describedby="userPasswordHelp"><small id="userPasswordHelp">12 caractères minimum. Pour une modification, laissez les deux champs vides afin de conserver le mot de passe actuel.</small></div>
+              <div class="field"><label for="userPasswordConfirm">Confirmer le mot de passe</label><input id="userPasswordConfirm" type="password" minlength="12" maxlength="95" autocomplete="new-password" aria-describedby="userPasswordConfirmHelp"><small id="userPasswordConfirmHelp">Saisissez à nouveau le même mot de passe.</small></div>
+            </div>
+            <div class="btn-row users-editor-actions"><button id="userFormCancel" type="button" class="btn-tonal">Annuler</button><button type="submit" class="btn-primary">Enregistrer</button></div>
+          </form>
         </div>
       </section>
 

@@ -583,8 +583,10 @@ bool UserModule::saveUser_(const char* adminToken,
         snprintf(errOut, errOutLen, "invalid_username");
         return false;
     }
-    if (role != UserRole::Operator && role != UserRole::Admin) {
-        snprintf(errOut, errOutLen, "invalid_role");
+    // Named accounts are reserved for administrators. Anonymous local access
+    // provides the standard user/operator role when authentication is optional.
+    if (role != UserRole::Admin) {
+        snprintf(errOut, errOutLen, "admin_required");
         return false;
     }
     const bool hasPassword = !isBlankText_(password, 96U);
@@ -670,27 +672,43 @@ bool UserModule::deleteUser_(const char* adminToken,
         return false;
     }
 
-    const int8_t slot = findAccountSlot_(username);
-    if (slot < 0) {
+    bool found = false;
+    bool targetIsAdmin = false;
+    uint8_t remainingAdminCount = 0U;
+    for (uint8_t slot = 0; slot < kMaxAccounts; ++slot) {
+        AccountRecord record{};
+        if (!loadAccount_(slot, &record)) continue;
+        if (strncmp(record.username, username, kUsernameMax) == 0) {
+            found = true;
+            targetIsAdmin = targetIsAdmin || record.role == UserRole::Admin;
+        } else if (record.role == UserRole::Admin) {
+            ++remainingAdminCount;
+        }
+    }
+
+    if (!found) {
         snprintf(errOut, errOutLen, "not_found");
         return false;
     }
 
-    AccountRecord target{};
-    if (!loadAccount_((uint8_t)slot, &target)) {
-        snprintf(errOut, errOutLen, "not_found");
+    if (targetIsAdmin && remainingAdminCount == 0U) {
+        snprintf(errOut, errOutLen, "last_admin");
         return false;
     }
 
-    // Administrator accounts must be edited explicitly before removal. This
-    // prevents an accidental delete from immediately revoking privileged
-    // access and keeps the Users page consistent with the server-side rule.
-    if (target.role == UserRole::Admin) {
-        snprintf(errOut, errOutLen, "admin_delete_forbidden");
-        return false;
+    for (uint8_t slot = 0; slot < kMaxAccounts; ++slot) {
+        AccountRecord record{};
+        if (!loadAccount_(slot, &record) ||
+            strncmp(record.username, username, kUsernameMax) != 0) {
+            continue;
+        }
+        if (!eraseAccount_(slot)) {
+            snprintf(errOut, errOutLen, "persist_failed");
+            return false;
+        }
     }
 
-    if (!eraseAccount_((uint8_t)slot)) {
+    if (findAccountSlot_(username) >= 0) {
         snprintf(errOut, errOutLen, "persist_failed");
         return false;
     }
