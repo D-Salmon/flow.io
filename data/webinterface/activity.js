@@ -478,7 +478,7 @@
             method: 'POST', cache: 'no-store', signal: controller.signal,
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: all ? '' : 'ids=' + encodeURIComponent(ids.join(','))
-          }, fetch); // Keep CSRF protection, but never automatically retry a destructive POST.
+          }, fetch); // Retry only a confirmed pre-execution CSRF rejection, never a busy/network failure.
           if (!response.ok) {
             if (response.status === 401 || response.status === 403) {
               throw new Error('connexion administrateur requise ou expirée.');

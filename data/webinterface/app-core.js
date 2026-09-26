@@ -107,6 +107,16 @@
     return csrfToken.length === 32 && csrfToken !== previousToken;
   }
 
+  async function csrfAwareMutationFetch(url, options, fetchImpl) {
+    var request = typeof fetchImpl === 'function' ? fetchImpl : fetch;
+    var response = await request(url, secureFetchOptions(options));
+    if (response.status !== 403 || !isMutatingMethod(options)) return response;
+    var rejected = await response.clone().json().catch(function () { return null; });
+    var rejectedCode = rejected && rejected.err && String(rejected.err.code || '');
+    if (rejectedCode !== 'CsrfRejected' || !await refreshCsrfToken()) return response;
+    return request(url, secureFetchOptions(options));
+  }
+
   async function supervisorFetch(url, options, policy) {
     var cfg = policy || {};
     var retries = Number.isFinite(cfg.retries) ? cfg.retries : 4;
@@ -347,6 +357,7 @@
     csrfToken: function () { return csrfToken; },
     ingestSecurityMeta: ingestSecurityMeta,
     secureFetchOptions: secureFetchOptions,
+    csrfAwareMutationFetch: csrfAwareMutationFetch,
     supervisorFetch: supervisorFetch,
     loadScriptOnce: loadScriptOnce,
     loadCssOnce: loadCssOnce,

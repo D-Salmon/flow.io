@@ -813,6 +813,9 @@ ac_unit: '\u{eb3b}',
 
     async function fetchWithBusyRetry(url, options, fetchImpl) {
       if (typeof fetchImpl === 'function') {
+        if (window.FlowWebCore && typeof window.FlowWebCore.csrfAwareMutationFetch === 'function') {
+          return window.FlowWebCore.csrfAwareMutationFetch(url, options, fetchImpl);
+        }
         const secured = window.FlowWebCore && typeof window.FlowWebCore.secureFetchOptions === 'function'
           ? window.FlowWebCore.secureFetchOptions(options)
           : options;
