@@ -1,7 +1,7 @@
-# Home Assistant package for the Flow.io 3.4.1 dashboard.
+# Home Assistant package for the Flow.io 3.1.0 dashboard.
 #
 # Install this file under the Home Assistant `packages` directory. See
-# `../modules/HAModule.md` for MQTT Discovery setup.
+# Historical example; see `../../modules/HAModule.md` for current setup.
 #
 # Alarm states come from native MQTT Discovery binary sensors keyed by stable
 # AlarmId values. These compatibility aliases preserve the entity IDs used by

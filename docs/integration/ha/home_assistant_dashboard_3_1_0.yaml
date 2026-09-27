@@ -1,7 +1,7 @@
 # Lovelace dashboard card for Flow.io 3.1.0.
 #
 # Prerequisites and installation:
-# `docs/integration/home-assistant-3.1.0.md`
+# This is a historical example. See `../../modules/HAModule.md` for current setup.
 
 type: vertical-stack
 cards:

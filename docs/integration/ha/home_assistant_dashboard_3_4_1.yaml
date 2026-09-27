@@ -1,7 +1,7 @@
 # Lovelace dashboard card for Flow.io 3.4.1.
 #
 # Prerequisites and installation:
-# See `docs/modules/HAModule.md` for MQTT Discovery setup.
+# See `../../modules/HAModule.md` for MQTT Discovery setup.
 
 type: vertical-stack
 cards:
