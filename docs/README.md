@@ -23,8 +23,8 @@ cette branche ajoute les affectations configurables des relais.
 ## Réseau, interface et affichages
 
 - [Référence MQTT](core/mqtt-topics.md) et [intégration Home Assistant](modules/HAModule.md).
-- [Exemples de configuration Home Assistant](integration/ha/README.md) :
-  carte Lovelace et package optionnel.
+- [Exemples et guide d’installation Home Assistant](integration/ha/README.md) :
+  carte Lovelace, package YAML et étapes d’installation.
 - [Interface Web modulaire](core/webinterface-assets-modular.md).
 - [Valeurs runtime exposées à l’interface](core/runtime-ui-exposure.md).
 - [Interface Nextion](integration/nextion-esp-protocol.md) et
