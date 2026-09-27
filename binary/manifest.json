@@ -1,7 +1,7 @@
 {
   "schema": "flowio.firmware-manifest.v2",
-  "generated_at": "2026-09-26T23:12:32+02:00",
-  "release": "2026.09.26",
+  "generated_at": "2026-09-27T14:02:11+02:00",
+  "release": "2026.09.27",
   "artifacts": {
     "nextion": [
       {
@@ -34,13 +34,25 @@
         "title": "flowios3",
         "label": "flowios3",
         "version": "3.4.0",
-        "build_date": "2026-09-26T23:08:12+02:00",
+        "build_date": "2026-09-27T13:24:13+02:00",
         "target": "flowios3",
         "path": "flowios3-3.4.0.bin",
         "kind": "esp32-firmware",
         "route": "/fwupdate/waveshare",
         "size": 2298720,
         "sha256": "f3348a3b453964c846601901065af57ad462968280796cfe5876ace36f6a6b1b"
+      },
+      {
+        "title": "flowios3",
+        "label": "flowios3",
+        "version": "3.4.1",
+        "build_date": "2026-09-27T14:01:31+02:00",
+        "target": "flowios3",
+        "path": "flowios3-3.4.1.bin",
+        "kind": "esp32-firmware",
+        "route": "/fwupdate/waveshare",
+        "size": 2298720,
+        "sha256": "305f7bf28f6cec820d4815e9ef361b994d63e80835c0cac2a8cc06f9c3e23a43"
       }
     ],
     "spiffs": [
@@ -48,13 +60,25 @@
         "title": "flowios3-spiffs",
         "label": "flowios3-spiffs",
         "version": "3.4.0",
-        "build_date": "2026-09-26T23:12:32+02:00",
+        "build_date": "2026-09-27T13:24:13+02:00",
         "target": "spiffs",
         "path": "flowios3-spiffs-3.4.0.bin",
         "kind": "esp32-spiffs",
         "route": "/fwupdate/spiffs",
         "size": 1572864,
         "sha256": "8835723da3b879d00114345a4ede36a875e1fd929374b4b1e76b1d60cf5d23a0"
+      },
+      {
+        "title": "flowios3-spiffs",
+        "label": "flowios3-spiffs",
+        "version": "3.4.1",
+        "build_date": "2026-09-27T14:02:11+02:00",
+        "target": "spiffs",
+        "path": "flowios3-spiffs-3.4.1.bin",
+        "kind": "esp32-spiffs",
+        "route": "/fwupdate/spiffs",
+        "size": 1572864,
+        "sha256": "1f12fdf423f358184c1ed807b54f9ad4f254ef7fa8d040abc8afcbfc4735e664"
       }
     ]
   }

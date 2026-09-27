@@ -6,7 +6,7 @@
 
 flow.io automatise la filtration, le traitement et les équipements de la piscine à partir des mesures et des réglages de l’installation. Le contrôleur fonctionne localement sur une carte Waveshare ESP32-S3 : l’interface reste accessible sur le réseau local, même sans service cloud.
 
-Cette branche, **flow.io-waveshare-3.4.1**, poursuit la version firmware 3.4.0 et ajoute l’affectation flexible des relais.
+Cette branche, **flow.io-waveshare-3.4.1**, publie le firmware 3.4.1 avec l’affectation flexible des relais.
 
 ## Ce que flow.io peut faire
 
@@ -102,7 +102,7 @@ Le firmware et l’image SPIFFS doivent provenir de la même révision. Pour une
 
 L’interface Web de cette branche a été flashée sur le contrôleur réel. Le test a confirmé que les huit sorties sont proposées et que choisir un relais déjà utilisé échange bien les affectations dans le formulaire. Le test n’a pas été enregistré : les affectations physiques de l’appareil n’ont donc pas été modifiées.
 
-Cette évolution concerne l’interface SPIFFS ; le firmware du contrôleur affiche encore la version **3.4.0**. La compilation et le flash d’un firmware 3.4.1 ne sont pas annoncés comme terminés.
+Le firmware 3.4.1 et son image SPIFFS ont été compilés et flashés sur le contrôleur réel. L’interface de sélection des relais a été vérifiée sans enregistrer de changement d’affectation physique.
 
 ## Documentation et sécurité
 
@@ -110,7 +110,8 @@ Cette évolution concerne l’interface SPIFFS ; le firmware du contrôleur affi
 - [Première connexion et création du compte administrateur](docs/integration/premiere-connexion.md)
 - [Mise en service et vérifications](docs/integration/mise-en-service.md)
 - [Schéma de raccordement Waveshare](docs/integration/schema-raccordement-waveshare.md)
-- [Notes de version 3.4.0](docs/release-3.4.0.md)
+- [Notes de version 3.4.1](docs/release-3.4.1.md)
+- [Historique de la version 3.4.0](docs/release-3.4.0.md)
 - [Améliorations restantes](RESTANT_A_FAIRE.md)
 
 Les relais doivent piloter des contacteurs et des protections adaptés à l’installation. La carte de commande ne remplace ni les protections électriques, ni les dispositifs de sécurité du local technique. Toute intervention sur le secteur doit être réalisée hors tension par une personne qualifiée.

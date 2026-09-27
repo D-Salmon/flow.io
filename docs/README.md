@@ -5,8 +5,8 @@ Waveshare ESP32-S3-POE-ETH-8DI-8RO N16R8. Les autres profils historiques ne sont
 pas des cibles de compilation de cette branche.
 
 Le guide utilisateur et l’état de la branche sont dans le
-[README principal](../README.md). La version firmware déclarée reste 3.4.0 ;
-la branche 3.4.1 ajoute les affectations configurables des relais.
+[README principal](../README.md). La version firmware déclarée est 3.4.1 ;
+cette branche ajoute les affectations configurables des relais.
 
 ## Installation et mise en service
 
