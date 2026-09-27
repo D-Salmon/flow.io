@@ -5,15 +5,32 @@ est actuellement la carte **Waveshare ESP32-S3-POE-ETH-8DI-8RO N16R8**, utilisé
 façon autonome : un seul ESP32-S3 exécute les entrées/sorties, les automatismes,
 les sécurités, le réseau, l’interface Web, MQTT et l’intégration Home Assistant.
 
-La version déclarée pour cette cible est **3.4.0**. L’environnement PlatformIO à
-utiliser est `Waveshare-ESP32-S3`, également défini comme environnement par
-défaut dans `platformio.ini`.
+La version firmware déclarée pour cette cible reste **3.4.0** ; la branche de
+développement **`flow.io-waveshare-3.4.1`** ajoute les affectations de relais
+configurables décrites ci-dessous. L’environnement PlatformIO à utiliser est
+`Waveshare-ESP32-S3`, également défini comme environnement par défaut dans
+`platformio.ini`.
 
 Cette branche ne contient désormais que le profil Waveshare. Les profils FlowIO,
 Supervisor, FlowConnectDisplay et Micronova, leurs cartes et leurs modules exclusifs
 ont été retirés. Le Nextion local et le TFT S3 sont conservés ; le transport HMI UDP
 de FlowConnectDisplay est supprimé. Les anciens documents multi-profils ci-dessous
 sont des références historiques, pas des instructions de compilation de cette branche.
+
+## Branche 3.4.1 — Affectations des relais — 27 septembre 2026
+
+Dans `Piscine > Affectation des relais`, chacune des sept fonctions peut être
+affectée à n’importe quelle sortie `CH1` à `CH8`. Si la sortie choisie est déjà
+attribuée, les deux fonctions échangent leurs sorties ; une même sortie ne peut
+donc pas rester affectée à deux fonctions. Les changements sont enregistrés
+ensemble et le Waveshare redémarre pour reconfigurer les pilotes matériels.
+
+L’interface SPIFFS de cette branche a été flashée sur le Waveshare. Le test dans
+l’interface a confirmé que les huit sorties sont proposées et que choisir `CH2`
+pour la pompe pH échange bien son affectation avec la désinfection. Ce test n’a
+pas été enregistré : les affectations matérielles de l’appareil n’ont pas changé.
+Le firmware de l’appareil affiche donc encore la version 3.4.0 ; seul le SPIFFS
+a été flashé pour valider cette interface.
 
 ## État de validation 3.4.0 — 20 septembre 2026
 
@@ -245,21 +262,23 @@ Tous les automatismes sont désactivés par défaut à la première mise en serv
 
 ### Entrées, capteurs et sorties
 
-Le profil Waveshare affecte par défaut :
+La configuration observée sur l’appareil de test affecte actuellement :
 
 | Ressource | Usage principal |
 |---|---|
-| Relais 1 à 8 | filtration, pH, désinfection unique, robot, remplissage, libre, éclairage, chauffage |
+| Relais 1 à 8 | filtration (`CH1`), désinfection (`CH2`), pompe pH (`CH3`), éclairage (`CH4`), chauffage (`CH5`), remplissage (`CH6`), robot (`CH7`), `CH8` libre sur l’appareil de test |
 | DI1 à DI4 | niveau pH, niveau désinfectant, niveau piscine, compteur d’eau |
 | DI5 à DI8 | libres ou retours de contacteurs configurables |
 | ADS1115 pH/ORP `0x48` ou `0x49` | ORP sur A0 et pH sur A1 |
 | Second ADS1115, autre adresse | pression sur un canal A0 à A3 au choix |
 | RTC PCF85063 | horloge locale et planification |
 
-Sur Waveshare, le relais 3 (`CH3`) est l’unique sortie de désinfection : il
-commande la pompe à chlore/oxygène actif **ou** l’électrolyseur selon le type de
-traitement choisi. Le relais 6 (`CH6`) est désormais libre ; les deux appareils
-ne peuvent donc pas être commandés simultanément par erreur.
+Sur l’appareil de test, la désinfection est actuellement affectée à `CH2` et la
+pompe pH à `CH3`. Ce sont des affectations enregistrées, pas des contraintes
+matérielles : chaque fonction peut être déplacée sur n’importe quel relais
+`CH1` à `CH8` depuis `Piscine`. La fonction Désinfection commande la pompe de
+traitement sélectionnée (chlore/brome, oxygène actif ou électrolyseur) sur son
+relais affecté.
 
 Le bus Qwiic/I²C utilise `GPIO42` pour SDA et `GPIO41` pour SCL à `400 kHz`. Il peut aussi
 accueillir les capteurs optionnels INA226, SHT40, BMP280 et BME680.
@@ -277,16 +296,15 @@ libre, `0x48` ou `0x49`, selon l'adresse retenue pour la carte pH/ORP. La page
 ADS1115. Les entrées y sont nommées `DI1` à `DI8` et les sorties relais
 `CH1` à `CH8`, conformément à la sérigraphie du Waveshare. Les identifiants
 techniques `PortExio*` restent internes au firmware.
-L'ancien slot `io_chl_gen` devient un relais `CH6` ordinaire, disponible dans
-les affectations. L'électrolyse utilise toujours l'unique relais choisi pour la
-désinfection. Le tableau des affectations fonctionnelles est construit depuis
+Les huit sorties physiques restent `CH1` à `CH8` ; aucun canal n’est réservé à
+la désinfection. Le tableau des affectations fonctionnelles est construit depuis
 la configuration enregistrée et suit donc les changements effectués dans
 `Piscine`. Par défaut, la pression utilise le canal A0 du second ADS1115.
 
 Dans `Piscine > Affectation des relais`, chaque fonction conserve son type de
 périphérique et ses sécurités ; seul son raccordement physique `CH1` à
-`CH8` est modifié. Une sortie ne peut être choisie qu'une fois et `CH6` est
-libre par défaut. Les mêmes raccordements apparaissent dans
+`CH8` est modifié. Si le relais est déjà attribué, son affectation est échangée
+avec celle de la fonction qui le sélectionne. Les mêmes raccordements apparaissent dans
 `Configuration > io/output` et dans `Entrées/Sorties` après redémarrage. Les
 anciens sélecteurs internes `poollogic/devices` sont masqués sur Waveshare pour
 éviter deux réglages concurrents.
