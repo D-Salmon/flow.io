@@ -1,6 +1,9 @@
-# Exposition Runtime UI
+# Exposition des valeurs Runtime UI
 
-Cette page décrit le mécanisme d'exposition runtime utilisé entre `FlowIO` et `Supervisor` pour lire des valeurs vivantes sans exporter le `DataStore` brut.
+Cette page décrit le mécanisme qui expose à l’interface Web des valeurs runtime
+choisies, sans exporter le `DataStore` brut. Les références FlowIO/Supervisor
+plus bas sont historiques et ne désignent pas des firmwares compilables dans
+cette branche.
 
 ## Vue d'ensemble
 

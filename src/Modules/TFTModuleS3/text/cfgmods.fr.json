@@ -27,7 +27,6 @@
           "leds",
           "buzzer",
           "nextion",
-          "nextion_udp",
           "tft",
           "venice"
         ]

@@ -10,7 +10,6 @@ struct BoardSpec;
 struct DomainSpec;
 struct FirmwareProfile;
 struct ProductIdentity;
-struct SupervisorRuntimeOptions;
 
 struct AppContext {
     Preferences preferences{};
@@ -21,6 +20,5 @@ struct AppContext {
     const BoardSpec* board = nullptr;
     const DomainSpec* domain = nullptr;
     const ProductIdentity* identity = nullptr;
-    const SupervisorRuntimeOptions* supervisorRuntime = nullptr;
     bool bootCompleted = false;
 };

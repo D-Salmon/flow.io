@@ -45,7 +45,7 @@ Interfaces runtime exposées:
   - `rt/poollogic/heat_assist`
   - `rt/poollogic/disinfection`
 
-Ces snapshots sont routés vers MQTT via `MQTTModule::RuntimeProducer` (providers enregistrés dans le bootstrap de profil `FlowIO`), pas publiés directement par `PoolLogicModule`.
+Ces snapshots sont routés vers MQTT via `MQTTModule::RuntimeProducer`, enregistré par le bootstrap Waveshare, et non publiés directement par `PoolLogicModule`.
 
 ## Guide utilisateur: protocole chauffage assisté (`heat_assist`)
 

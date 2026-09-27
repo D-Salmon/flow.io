@@ -55,7 +55,6 @@ void run()
     gContext.board = profile.board;
     gContext.domain = profile.domain;
     gContext.identity = &profile.identity;
-    gContext.supervisorRuntime = profile.supervisorRuntime;
 
     if (profile.setup) {
         profile.setup(gContext);

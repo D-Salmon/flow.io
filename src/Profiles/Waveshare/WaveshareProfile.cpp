@@ -19,7 +19,6 @@ const FirmwareProfile& profile()
             FirmwareVersion::Full,
             "rt"
         },
-        nullptr,
         setupProfile,
         loopProfile
     };

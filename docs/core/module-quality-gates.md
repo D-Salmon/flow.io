@@ -1,9 +1,9 @@
-# Quality Gates modules - Waveshare ESP32-S3
+# Archive — ancienne analyse des Quality Gates
 
-Cette page suit l'état qualité des modules du firmware `Waveshare-ESP32-S3`.
-Elle remplace l'ancienne matrice historique `FlowIO` / `Supervisor` par une
-vue centrée sur le profil réellement compilé et instancié par
-`src/Profiles/Waveshare`.
+> Cette analyse date du 13 juin 2026 et n'est plus une description fiable de la
+> branche actuelle. Elle contient des profils et modules supprimés ainsi que des
+> conclusions de build dépassées. La source de vérité est `platformio.ini`,
+> `src/Profiles/Waveshare/` et le workflow CI.
 
 Dernière analyse: 2026-06-13.  
 Commande de vérification: `~/.platformio/penv/bin/pio run -e Waveshare-ESP32-S3`.

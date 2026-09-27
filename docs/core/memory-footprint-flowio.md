@@ -1,5 +1,8 @@
 # Empreinte memoire Flow.io
 
+> Archive de mesures d'une ancienne build `FlowIO`. Ces chiffres ne décrivent
+> pas le firmware Waveshare 3.4.x et ne doivent pas servir à estimer sa marge.
+
 Cette note documente l'occupation memoire du firmware `FlowIO` sur ESP32, avec deux angles:
 
 - DRAM statique au link (`.dram0.data` + `.dram0.bss`)

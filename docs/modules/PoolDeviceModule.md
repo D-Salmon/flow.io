@@ -215,19 +215,16 @@ Entités créées:
   - `reset_uptime_chlorine_generator` -> `{"cmd":"pool.uptime.reset","args":{"slot":5}}`
   - `reset_uptime_all` -> `{"cmd":"pool.uptime.reset_all"}`
 
-## Initialisation des slots dans le profil
+## Initialisation et affectation des slots
 
-Les slots `pd0..pd7` sont définis via `defineDevice()` dans `src/Profiles/FlowIO/FlowIOBootstrap.cpp`, à partir du domaine actif et des bindings `PoolBinding`:
+Le profil courant définit les slots dans
+`src/Profiles/Waveshare/WaveshareBootstrap.cpp`, à partir du domaine piscine.
+Les slots représentent les fonctions logiques ; leur relais physique est
+configuré séparément dans **Piscine → Affectation des relais**.
 
-Le type métier est fixé par le profil et n'est plus exposé en configuration. Le mapping effectif passe par `pdN -> dN -> binding_port -> relais physique`.
-
-| Slot | Rôle métier | Sortie IO | Relais physique | Dépendances | Particularités |
-| --- | --- | --- | --- | --- | --- |
-| `pd0` | filtration | `d0` | `PortRelay1` / `relay1` | aucune | pompe de filtration pilotée par `PoolLogic` |
-| `pd1` | pH | `d1` | `PortRelay2` / `relay2` | `pd0` | pompe péristaltique, cuve suivie, débit nominal, uptime max `30 min/j` |
-| `pd2` | chlore | `d2` | `PortRelay3` / `relay3` | `pd0` | pompe péristaltique, cuve suivie, débit nominal, uptime max `30 min/j` |
-| `pd3` | robot | `d3` | `PortRelay5` / `relay5` | `pd0` | relais standard |
-| `pd4` | remplissage | `d4` | `PortRelay7` / `relay7` | aucune | relais standard, uptime max `30 min/j` |
-| `pd5` | électrolyse | `d5` | `PortRelay4` / `relay4` | `pd0` | relais standard, uptime max `600 min/j` |
-| `pd6` | lumières | `d6` | `PortRelay6` / `relay6` | aucune | relais standard |
-| `pd7` | chauffage eau | `d7` | `PortRelay8` / `relay8` | aucune | relais standard |
+La branche 3.4.1 permet d’affecter librement ces fonctions aux relais `CH1` à
+`CH8`. Lorsqu’un relais déjà affecté est choisi, les affectations sont
+échangées afin d’éviter les doublons. Les tableaux fixes de relais présents
+dans d’anciennes versions ne décrivent donc plus nécessairement le câblage
+courant. Consulter **Entrées/Sorties** ou les réglages de l’appareil pour voir
+la configuration effectivement enregistrée.

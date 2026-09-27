@@ -1,226 +1,70 @@
-# Documentation Flow.io Waveshare 3.4.0
+# Documentation technique — Waveshare 3.4.x
 
-Cette documentation concerne la cible autonome
-`Waveshare-ESP32-S3` : une seule carte Waveshare
-ESP32-S3-POE-ETH-8DI-8RO N16R8 exécute la logique piscine, les capteurs, les
-relais, les sécurités, Ethernet, Wi-Fi, l’interface Web, MQTT, Home Assistant,
-la RTC et les interfaces locales.
+Cette branche produit un seul firmware : `Waveshare-ESP32-S3`, pour la carte
+Waveshare ESP32-S3-POE-ETH-8DI-8RO N16R8. Les autres profils historiques ne sont
+pas des cibles de compilation de cette branche.
 
-Le document d’entrée principal du projet est le [README général](../README.md).
-Les changements propres à cette livraison sont détaillés dans les
-[notes de version 3.4.0](release-3.4.0.md).
-Les travaux encore ouverts sont regroupés dans
-[RESTANT_A_FAIRE.md](../RESTANT_A_FAIRE.md).
+Le guide utilisateur et l’état de la branche sont dans le
+[README principal](../README.md). La version firmware déclarée reste 3.4.0 ;
+la branche 3.4.1 ajoute les affectations configurables des relais.
 
-## Démarrage rapide
+## Installation et mise en service
 
-1. Couper les alimentations et réaliser le câblage selon le
-   [schéma Waveshare](integration/schema-raccordement-waveshare.md).
-2. Ouvrir le projet dans Visual Studio Code avec PlatformIO.
-3. Sélectionner uniquement l’environnement `Waveshare-ESP32-S3`.
-4. Compiler et téléverser le firmware.
-5. Compiler et téléverser SPIFFS si la carte est vierge ou si l’interface Web a
-   changé.
-6. Ouvrir le moniteur série à 115200 bauds.
-7. Suivre le [tutoriel de première connexion](integration/premiere-connexion.md)
-   pour récupérer le mot de passe du point d'accès, créer l'administrateur et
-   configurer le réseau.
-8. Vérifier toutes les mesures et sorties avant d’activer un automatisme.
-
-Le firmware et l’image SPIFFS forment un couple de release. Après le premier
-flash USB de la 3.4.0, utiliser le package ZIP complet pour les mises à jour.
-
-## Architecture actuelle
-
-```mermaid
-flowchart LR
-    WEB["Interface Web locale"] --> NET["Ethernet / Wi-Fi"]
-    HA["Home Assistant"] --> MQTT["Broker MQTT TLS"]
-    MQTT --> NET
-    NET --> CTRL["Waveshare ESP32-S3"]
-    CTRL --> POOL["PoolLogic et appareils"]
-    CTRL --> IO["Capteurs, 8 entrées, 8 relais"]
-    CTRL --> ALM["Alarmes et sécurités"]
-    CTRL --> HMI["TFT / Nextion / buzzer"]
-```
-
-Ethernet W5500 est prioritaire. Le Wi-Fi enregistré sert de secours et le
-portail de configuration est lancé lorsqu’aucun réseau n’est disponible.
-L’interface Web est servie en HTTP sur le réseau local et ne doit pas être
-exposée directement à Internet.
-
-## Installation et raccordement
-
-- [Première connexion](integration/premiere-connexion.md) : point d'accès de
-  secours, création de l'administrateur, Wi-Fi domestique et MQTT.
-- [Mise en service](integration/mise-en-service.md) : flash, réseau, contrôles
-  des entrées/sorties et activation progressive des automatismes.
+- [Première connexion](integration/premiere-connexion.md) : récupération réseau
+  et création du premier administrateur.
+- [Mise en service](integration/mise-en-service.md) : flash, contrôles des E/S
+  et activation progressive des automatismes.
 - [Raccordement Waveshare](integration/schema-raccordement-waveshare.md) :
-  alimentation, bus, capteurs, entrées, relais et broches réservées.
-- [Schéma Fritzing](fritzing/README.md) : fichiers éditables du montage.
-- [Plan de tests fonctionnels](integration/plan_tests_poollogic_pdm_io.csv).
-- [Plan de tests séquentiels](integration/plan_tests_sequentiel_poollogic_pdm_io.csv).
+  câblage des capteurs, entrées, relais et bus.
+- [Schéma Fritzing](fritzing/README.md).
+- Plans de test : [fonctionnel](integration/plan_tests_poollogic_pdm_io.csv) et
+  [séquentiel](integration/plan_tests_sequentiel_poollogic_pdm_io.csv).
 
-Le câblage fonctionnel courant utilise notamment :
+## Réseau, interface et affichages
 
-| Fonction | Raccordement |
-|---|---|
-| W5500 Ethernet | INT 12, MOSI 13, MISO 14, SCLK 15, CS 16, RESET 39 |
-| Qwiic / I²C | SDA 42, SCL 41 |
-| DS18B20 direct | eau GPIO20, air GPIO19 |
-| Nextion UART2 | RX 44, TX 43 avec adaptation de niveaux |
-| Buzzer | GPIO46 |
-| Récupération physique | bouton BOOT, GPIO0 |
-
-## Capteurs et entrées/sorties
-
-- [IOModule](modules/IOModule.md) : acquisition, conversion, calibration,
-  affectations et valeurs d’exécution.
-- [Description du domaine piscine](integration/flowio-poollogic-business.md).
-
-Le raccordement de chaque sonde DS18B20 se choisit séparément dans
-`Piscine > Affectation des sondes`. La température d'eau peut utiliser une
-entrée Axx disponible reliée physiquement à GPIO20 ou le pont Qwiic DS2484 à
-l'adresse `0x18`. La température d'air offre le même choix, avec GPIO19 pour le
-raccordement direct. Les deux choix peuvent être combinés et prennent effet
-après redémarrage. Un seul DS2484 à l'adresse fixe `0x18` dessert les sondes qui
-l'utilisent ; le bus Qwiic reste disponible pour les autres composants.
-
-La carte pH/ORP obligatoire utilise des canaux fixes : ORP sur A0 et pH sur A1.
-Dans **Piscine > Affectation des sondes**, on choisit uniquement son adresse
-I²C `0x48` ou `0x49`; le second ADS1115 prend automatiquement l'autre adresse.
-
-La pression se raccorde soit à une entrée Axx disponible, soit à un canal A0,
-A1, A2 ou A3 de l'ADS1115 externe sur Qwiic. Le canal choisi est mesuré par
-rapport à la masse commune.
-
-## Automatismes piscine
-
-- [PoolLogicModule](modules/PoolLogicModule.md) : modes de fonctionnement,
-  filtration, pH, désinfection, oxygène actif, électrolyse, robot, remplissage,
-  chauffage assisté et surveillance de pression.
-- [PoolDeviceModule](modules/PoolDeviceModule.md) : appareils, dépendances,
-  interlocks, temps de marche et volumes injectés.
-- [AlarmModule](modules/AlarmModule.md) : conditions, acquittements, sévérités et
-  publications.
-- [TimeModule](modules/TimeModule.md) : RTC, synchronisation et planification.
-
-Les automatismes sont désactivés par défaut. La mise en service doit commencer
-par les commandes manuelles, continuer en mode manuel sécurisé, puis activer les
-fonctions automatiques une par une.
-
-En 3.1.5, le mode de fonctionnement est aussi modifiable depuis le tableau de
-bord. La page Piscine regroupe les commandes directes dans `Contrôle des
-équipements` et masque les appareils désactivés ou non affectés. En mode manuel
-ou maintenance, la limite quotidienne de l’électrolyseur est neutralisée ; en
-automatique, sa limite effective couvre au minimum la filtration calculée plus
-60 minutes. La dépendance à la filtration et les sécurités matérielles restent
-prioritaires.
-
-## Réseau, MQTT et Home Assistant
-
-- [WifiModule](modules/WifiModule.md) : connexion station et données réseau.
-- [MQTTModule](modules/MQTTModule.md) : connexion TLS, files de messages,
-  producteurs et commandes.
-- [Référence des topics MQTT](core/mqtt-topics.md).
-- [HAModule](modules/HAModule.md) : génération de la découverte Home Assistant.
-- [Tableau de bord Home Assistant](integration/home_assistant_dashboard_3_1_0.yaml).
-- [Paquet Home Assistant](integration/home_assistant_package_3_1_0.yaml).
-
-MQTT exige TLS ainsi qu’un utilisateur et un mot de passe. Le port par défaut
-est `8883`. Les mesures, appareils, modes, consignes et alarmes sont exposés à
-Home Assistant par MQTT Discovery.
-
-Les fichiers Home Assistant fournis sont des exemples à contrôler avant usage :
-leurs noms ne garantissent pas qu’ils couvrent toutes les entités générées par
-le firmware actuel.
-
-## Interface utilisateur et affichages
-
-- [Vues de l’interface Web 3.1.5](integration/interface-web-3.1.5.md) :
-  tableau de bord, page Piscine et assistant d’étalonnage illustrés.
+- [Référence MQTT](core/mqtt-topics.md) et [intégration Home Assistant](modules/HAModule.md).
 - [Interface Web modulaire](core/webinterface-assets-modular.md).
-- [Exposition des valeurs d’exécution](core/runtime-ui-exposure.md).
-- [HMIModule](modules/HMIModule.md) : écran Nextion et interactions locales.
-- [Protocole Nextion](integration/nextion-esp-protocol.md).
-- [SupervisorHMIModule](modules/SupervisorHMIModule.md) : référence du profil
-  d’affichage distinct, hors cible Waveshare autonome courante.
+- [Valeurs runtime exposées à l’interface](core/runtime-ui-exposure.md).
+- [Interface Nextion](integration/nextion-esp-protocol.md) et
+  [description du module HMI](modules/HMIModule.md).
+- [Kiosque d’affichage Raspberry Pi](../rpi-kiosk/README.md).
 
-L’interface Web complète est stockée dans SPIFFS. Une page de récupération
-minimale reste disponible depuis le firmware lorsque SPIFFS est absent ou
-endommagé.
+Les exemples Home Assistant suffixés `3_1_0` et les captures d’interface
+`3.1.5` sont des documents historiques. Vérifier leur compatibilité avec le
+firmware courant avant de les réutiliser.
 
-Après un appui de cinq secondes sur BOOT, cette page regroupe la création ou le
-remplacement du compte Web, le Wi-Fi, Ethernet et MQTT. Les changements restent
-en attente jusqu'au bouton d'enregistrement final, qui provoque alors un seul
-redémarrage. La fenêtre dure cinq minutes et est réservée à l'adresse IP du
-premier appareil qui ouvre explicitement Rescue.
+## Modules actifs
 
-La 3.1.5 réorganise le tableau de bord, la page Piscine et la navigation
-latérale. Le panneau `Contrôle des équipements` permet de commander directement
-la filtration, le traitement, l’éclairage, le robot, le chauffage et le
-remplissage lorsque ces appareils sont configurés.
+- Piscine : [PoolLogic](modules/PoolLogicModule.md),
+  [équipements](modules/PoolDeviceModule.md),
+  [historique](modules/PoolHistoryModule.md) et [alarmes](modules/AlarmModule.md).
+- E/S : [IOModule](modules/IOModule.md).
+- Réseau : [Wi-Fi](modules/WifiModule.md),
+  [MQTT](modules/MQTTModule.md), [heure](modules/TimeModule.md) et
+  [Home Assistant](modules/HAModule.md).
+- Infrastructure : [configuration](modules/ConfigStoreModule.md),
+  [données runtime](modules/DataStoreModule.md),
+  [événements](modules/EventBusModule.md), [commandes](modules/CommandModule.md),
+  [journalisation](modules/LogHubModule.md),
+  [distribution des logs](modules/LogDispatcherModule.md),
+  [sortie série](modules/LogSerialSinkModule.md),
+  [système](modules/SystemModule.md) et
+  [surveillance](modules/SystemMonitorModule.md).
 
-## Sécurité et mises à jour
+Le profil et les modules effectivement démarrés sont définis dans
+`platformio.ini` et `src/Profiles/Waveshare/`.
 
-- [Durcissement de sécurité](security-hardening.md).
-- [Signature des mises à jour OTA](ota-signing.md).
+## Architecture et sécurité
 
-Les protections présentes comprennent l’authentification Web Digest, la
-validation CSRF, la limitation des échecs d’authentification, MQTT TLS et la
-vérification ECDSA P-256 des firmwares OTA. Aucun administrateur par défaut
-n’existe : la création ou le remplacement du compte nécessite une pression de
-cinq secondes sur BOOT et ouvre une fenêtre de récupération de cinq minutes.
-Le point d’accès de secours utilise un secret aléatoire propre à la carte,
-visible uniquement sur le moniteur série USB. Les API n’exposent pas les mots de
-passe Wi-Fi ou MQTT enregistrés.
-
-La clé publique OTA de production n’est pas incluse dans le dépôt. Secure Boot,
-le chiffrement de la flash/NVS, l’anti-retour et la mise à jour signée de SPIFFS
-restent à finaliser avant une série de production.
-
-## Architecture logicielle
-
-- [Structure générale du programme](program_structure.md).
-- [Architecture du cœur](core/architecture.md).
+- [Architecture actuelle](core/architecture.md).
+- [Structure du programme](program_structure.md).
 - [Services entre modules](core/services.md).
 - [Modèle données et événements](core/data-event-model.md).
-- [Règles de qualité des modules](core/module-quality-gates.md).
-- [Empreinte mémoire](core/memory-footprint-flowio.md).
+- [Sécurité Web et réseau](security-hardening.md).
+- [Signature OTA](ota-signing.md).
+- [Travaux restants](../RESTANT_A_FAIRE.md).
+- [Historique des corrections de sécurité](../HISTORIQUE_CORRECTIFS_SECURITE.md).
 
-Le profil Waveshare active les modules de journalisation, configuration,
-données, commandes, alarmes, Ethernet, Wi-Fi, portail, Web, mise à jour, temps,
-MQTT, Home Assistant, E/S, logique piscine, appareils, HMI, TFT et surveillance
-système.
-
-## Anciens profils retirés en 3.2.0
-
-Les environnements `FlowIO`, `Supervisor`, `FlowConnectDisplay`, `Micronova` et
-les anciennes variantes de simulation ont été retirés de cette branche. Seul `Waveshare-ESP32-S3`
-est compilable. Les sources exclusives de ces anciens profils ont été supprimées.
-
-Les documents suivants sont conservés uniquement comme archives de ces architectures :
-
-- [Protocole Flow/Supervisor I²C](core/flow-supervisor-i2c-protocol.md) ;
-- [Affichage distant](remote-display-udp.md) ;
-- [Firmware Micronova](micronova-firmware.md).
-
-Ils ne doivent pas être utilisés pour déduire le câblage ou la procédure de
-flash de la Waveshare autonome.
-
-## État de la documentation
-
-Le [README général](../README.md) et le présent sommaire décrivent l’état actuel
-du projet. Plusieurs fichiers secondaires, schémas ou exemples portent encore
-un ancien numéro dans leur nom. Leur contenu doit être vérifié contre le code et
-le raccordement courant avant usage. Leur mise à niveau est recensée dans
-[RESTANT_A_FAIRE.md](../RESTANT_A_FAIRE.md).
-
-## Livraison courante
-
-- [Notes de version 3.4.0](release-3.4.0.md)
-- Package complet : [`binary/flowio-3.4.0.zip`](../binary/flowio-3.4.0.zip)
-- Firmware : [`binary/flowios3-3.4.0.bin`](../binary/flowios3-3.4.0.bin)
-- Interface SPIFFS :
-  [`binary/flowios3-spiffs-3.4.0.bin`](../binary/flowios3-spiffs-3.4.0.bin)
-- Environnement PlatformIO : `Waveshare-ESP32-S3`
+Les documents de versions 3.1.x à 3.4.0 restent disponibles comme historique
+dans `docs/release-*.md`. Ils décrivent leur version respective, pas toujours
+l’état courant de la branche.

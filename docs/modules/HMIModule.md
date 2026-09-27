@@ -11,7 +11,7 @@ Couche d'orchestration HMI locale:
 En V1, le driver interactif embarqué est `NextionDriver`.
 Une sortie déportée `TfaVeniceRf433Sink` peut aussi émettre la température d'eau
 vers un récepteur TFA Venice compatible.
-Le menu Nextion de configuration est activé dans le build FlowIO, mais il ne
+Le menu Nextion de configuration est activé dans le build Waveshare, mais il ne
 rend `pageCfgMenu` qu'après une commande d'ouverture explicite depuis l'écran.
 Le modèle menu est stateless côté RAM longue durée : il relit la page courante
 depuis le `ConfigStore` et applique les changements simples immédiatement.

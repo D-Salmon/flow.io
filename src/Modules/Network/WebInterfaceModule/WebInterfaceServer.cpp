@@ -4551,7 +4551,7 @@ static const char kWebSerialLogPage[] PROGMEM = R"HTML(
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Micronova - Logs Locaux</title>
+<title>Flow.io — Journaux série</title>
 <style>
   :root { color-scheme: dark; }
   html, body { margin: 0; padding: 0; background: #091220; color: #dbeafe; font-family: "SFMono-Regular", Menlo, Monaco, Consolas, monospace; }
