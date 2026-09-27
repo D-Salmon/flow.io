@@ -626,12 +626,24 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
         const HASwitchEntry orpAutoModeSwitch{
             "poollogic",
             "pl_dis_auto",
-            "Orp Auto-regulation",
+            "Régulation ORP automatique",
             "cfg/poollogic/chlorine",
             "{% if value_json.dis_auto_mode %}ON{% else %}OFF{% endif %}",
             MqttTopics::SuffixCfgSet,
             "{\\\"poollogic/chlorine\\\":{\\\"dis_auto_mode\\\":true}}",
             "{\\\"poollogic/chlorine\\\":{\\\"dis_auto_mode\\\":false}}",
+            "mdi:water-check-outline",
+            "config"
+        };
+        const HASwitchEntry treatmentAutoModeSwitch{
+            "poollogic",
+            "pl_treatment_auto",
+            "Automatisme du traitement sélectionné",
+            "cfg/poollogic/modes",
+            "{% if value_json.treatment_auto_mode %}ON{% else %}OFF{% endif %}",
+            MqttTopics::SuffixCfgSet,
+            "{\\\"poollogic/modes\\\":{\\\"treatment_auto_mode\\\":true}}",
+            "{\\\"poollogic/modes\\\":{\\\"treatment_auto_mode\\\":false}}",
             "mdi:water-check-outline",
             "config"
         };
@@ -699,6 +711,7 @@ void PoolLogicModule::init(ConfigStore& cfg, ServiceRegistry& services)
         (void)haSvc->addSwitch(haSvc->ctx, &winterModeSwitch);
         (void)haSvc->addSwitch(haSvc->ctx, &phAutoModeSwitch);
         (void)haSvc->addSwitch(haSvc->ctx, &orpAutoModeSwitch);
+        (void)haSvc->addSwitch(haSvc->ctx, &treatmentAutoModeSwitch);
         (void)haSvc->addSwitch(haSvc->ctx, &heaterAutoModeSwitch);
         (void)haSvc->addSwitch(haSvc->ctx, &robotAutoModeSwitch);
         (void)haSvc->addSwitch(haSvc->ctx, &phDosePlusSwitch);
