@@ -198,7 +198,7 @@
       Object.freeze({ module: 'poollogic/regulation', titleKey: 'pool.card.regulation.title', title: 'Régulation', icon: 'speed', noteKey: 'pool.card.regulation.note', note: 'Temporisations communes aux régulateurs pH et désinfection.' }),
       Object.freeze({ module: 'poollogic/robot', titleKey: 'pool.card.robot.title', title: 'Robot', icon: 'smart_toy', noteKey: 'pool.card.robot.note', note: 'Fenêtre de lancement et durée du nettoyage automatique.' }),
       Object.freeze({ module: 'poollogic/sensors', titleKey: 'pool.card.sensors.title', title: 'Affectation des sondes', icon: 'sensors', noteKey: 'pool.card.sensors.note', note: 'Entrées logiques utilisées pour les mesures et détecteurs de niveau.' }),
-      Object.freeze({ module: 'poollogic/devices', titleKey: 'pool.card.devices.title', title: 'Affectation des relais', icon: 'electrical_services', noteKey: 'pool.card.devices.note', note: 'Choisissez la sortie relais CH commandée par chaque fonction. Une sortie ne peut être affectée qu’une fois.' })
+      Object.freeze({ module: 'poollogic/devices', titleKey: 'pool.card.devices.title', title: 'Affectation des relais', icon: 'electrical_services', noteKey: 'pool.card.devices.note', note: 'Choisissez un relais CH pour chaque fonction. Si le relais choisi est déjà utilisé, les deux fonctions échangent leurs relais.' })
     ]);
     const poolDisinfectionModeDefs = Object.freeze([
       Object.freeze({
@@ -3987,6 +3987,10 @@
         && entry.input
         && entry.input.tagName === 'SELECT'
       ));
+      const relayPreviousValues = new Map(ioAssignmentEntries
+        .filter((entry) => entry.spec.ioAssignmentGroup === 'relay')
+        .map((entry) => [entry, String(entry.input.value)]));
+      let suppressRelaySwap = false;
       const refreshIoAssignmentOptions = () => {
         ioAssignmentEntries.forEach((entry) => {
           const currentValue = String(entry.input.value);
@@ -4009,6 +4013,15 @@
               if (fixedValue !== '65535') usedByOthers.add(fixedValue);
             });
           }
+          // Relay choices stay available: selecting an occupied channel
+          // exchanges it with the previous channel of the other function.
+          if (entry.spec.ioAssignmentGroup === 'relay') {
+            Array.from(entry.input.options).forEach((option) => {
+              option.hidden = false;
+              option.disabled = false;
+            });
+            return;
+          }
           Array.from(entry.input.options).forEach((option) => {
             const optionAssignmentValue = String(
               typeof entry.spec.assignmentValue === 'function'
@@ -4024,7 +4037,33 @@
         });
       };
       ioAssignmentEntries.forEach((entry) => {
-        entry.input.addEventListener('change', refreshIoAssignmentOptions);
+        entry.input.addEventListener('change', () => {
+          if (entry.spec.ioAssignmentGroup === 'relay') {
+            const nextValue = String(entry.input.value);
+            const previousValue = relayPreviousValues.get(entry);
+            if (!suppressRelaySwap && nextValue !== previousValue) {
+              const selectedAssignment = String(
+                typeof entry.spec.assignmentValue === 'function'
+                  ? entry.spec.assignmentValue(nextValue)
+                  : nextValue
+              );
+              const conflicts = ioAssignmentEntries.filter((other) => other !== entry
+                && other.spec.ioAssignmentGroup === 'relay'
+                && String(typeof other.spec.assignmentValue === 'function'
+                  ? other.spec.assignmentValue(other.input.value)
+                  : other.input.value) === selectedAssignment);
+              if (conflicts.length === 1 && previousValue !== undefined) {
+                const other = conflicts[0];
+                other.input.value = previousValue;
+                relayPreviousValues.set(other, previousValue);
+              } else if (conflicts.length > 1 || previousValue === undefined) {
+                entry.input.value = previousValue;
+              }
+            }
+            relayPreviousValues.set(entry, String(entry.input.value));
+          }
+          refreshIoAssignmentOptions();
+        });
       });
       refreshIoAssignmentOptions();
       if (moduleName === 'poollogic/sensors') {
@@ -4172,12 +4211,17 @@
         control.addEventListener('change', () => syncEditorActions(false));
       });
       cancel.addEventListener('click', () => {
-        initialControlValues.forEach((entry) => {
-          entry.control.value = entry.value;
-        });
-        trackedControls.forEach((control) => {
-          control.dispatchEvent(new Event('change', { bubbles: true }));
-        });
+        suppressRelaySwap = true;
+        try {
+          initialControlValues.forEach((entry) => {
+            entry.control.value = entry.value;
+          });
+          trackedControls.forEach((control) => {
+            control.dispatchEvent(new Event('change', { bubbles: true }));
+          });
+        } finally {
+          suppressRelaySwap = false;
+        }
         syncEditorActions(false);
       });
       form.appendChild(footer);

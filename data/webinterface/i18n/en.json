@@ -300,7 +300,7 @@
     "pool.card.alarmSound.title": "Audible alerts",
     "pool.card.alarmSound.note": "Alarm sounds can be muted without hiding alarm status.",
     "pool.card.devices.title": "Relay assignments",
-    "pool.card.devices.note": "Choose the CH relay output controlled by each function. An output can only be assigned once.",
+    "pool.card.devices.note": "Choose a CH relay for each function. If the selected relay is already in use, the two functions swap relays.",
     "pool.card.filtration.title": "Filtration",
     "pool.card.filtration.note": "The filtration window combines timing constraints and water temperature to protect the pool.",
     "pool.card.heater.title": "Heater",

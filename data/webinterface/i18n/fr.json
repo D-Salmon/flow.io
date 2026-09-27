@@ -300,7 +300,7 @@
     "pool.card.alarmSound.title": "Signal sonore",
     "pool.card.alarmSound.note": "Le son des alarmes peut être coupé sans masquer les alarmes affichées.",
     "pool.card.devices.title": "Affectation des relais",
-    "pool.card.devices.note": "Choisissez la sortie relais CH commandée par chaque fonction. Une sortie ne peut être affectée qu’une fois.",
+    "pool.card.devices.note": "Choisissez un relais CH pour chaque fonction. Si le relais choisi est déjà utilisé, les deux fonctions échangent leurs relais.",
     "pool.card.filtration.title": "Filtration",
     "pool.card.filtration.note": "La plage de filtration combine contraintes horaires et température d’eau pour protéger le bassin.",
     "pool.card.heater.title": "Chauffage",
