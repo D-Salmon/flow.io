@@ -80,7 +80,8 @@ Publié par `RuntimeProducer` + publishers périodiques:
 - `rt/poollogic/*`
 - `rt/network/state` (périodique)
 - `rt/system/state` (périodique)
-- `rt/alarms/m` : résumé (`a` = nombre actif, `h` = sévérité maximale)
+- `rt/alarms/m` : résumé (`a` = alarmes actives, `h` = sévérité maximale,
+  `r` = alarmes acquittables)
 - `rt/alarms/p` : représentation compacte historique `alm_pack`
 - `rt/alarms/id<AlarmId>` : état individuel stable d’une alarme
 
@@ -115,9 +116,10 @@ Topics discovery typiques:
 
 ### Occupation max depuis boot
 
-`queue occ max/boot jobs=A/80 qh=B/80 qn=C/80 ql=D/60`
+`queue occ max/boot jobs=A/<jobs> qh=B/<high> qn=C/<normal> ql=D/<low>`
 - niveau log: `DEBUG` (métrologie d'occupation max depuis boot)
-- `jobs`: max slots jobs utilisés
+- `jobs`: maximum de slots jobs utilisés ; les capacités dépendent du profil
+  de carte
 - `qh/qn/ql`: max profondeur observée par queue priorité
 
 ### Rejets enqueue du cœur
@@ -125,6 +127,27 @@ Topics discovery typiques:
 `enqueue reject reason=slot_full|queue_full producer=P msg=M prio=R ...`
 - `slot_full`: plus aucun slot job libre
 - `queue_full`: queue de priorité cible pleine
+
+### Publications différées dans la file
+
+`enqueue deferred reason=promotion_full producer=P msg=M prio=R ...`
+- une publication déjà acceptée reste conservée quand sa promotion échoue ;
+  elle est retentée automatiquement
+- les reprises préservent le délai de retry et sont réparties par priorité avec
+  un curseur circulaire
+
+`queue state jobs=A queued=B processing=C waiting=D`
+- occupation instantanée ; `jobs = queued + processing + waiting`
+- `waiting` regroupe les jobs acceptés en attente d’une place ou de l’échéance
+  de retry
+
+Les jobs acceptés survivent aux déconnexions MQTT et reprennent après
+reconnexion. Le dispatch est limité à un message par cycle avec un intervalle
+minimal configurable entre publications. Le stockage TX préfère la PSRAM et
+retombe sur la RAM interne ; les envois sont suspendus si la réserve RAM interne
+descend sous les seuils de sécurité.
+
+Test ciblé sur hôte : `python scripts/tests/test_mqtt_queue.py`.
 
 ### Télémétrie cfg route-producer
 

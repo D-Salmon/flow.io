@@ -5,6 +5,12 @@
 Flow.io sépare les responsabilités en 4 blocs:
 1. `ConfigStore`: configuration persistante (NVS)
 2. `DataStore`: état runtime RAM (`RuntimeData`)
+
+Au démarrage, les notifications initiales du DataStore sont regroupées par clé
+et publiées progressivement par la tâche EventBus après `SystemStarted`. Une
+file temporairement pleine retarde la publication sans compter une perte ni
+oublier la clé. Après vidage de cet instantané initial, les notifications
+reprennent leur envoi immédiat habituel.
 3. `EventBus`: signalisation asynchrone (payload max `48` octets)
 4. `MQTTModule`: transport MQTT unifié job-based
 

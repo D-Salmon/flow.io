@@ -19,14 +19,21 @@ void EventBusModule::init(ConfigStore&, ServiceRegistry& services) {
     LOGI("EventBusService registered");
 }
 
-void EventBusModule::onStart(ConfigStore&, ServiceRegistry&)
+void EventBusModule::onStart(ConfigStore&, ServiceRegistry& services)
 {
-    /// Broadcast system started after all modules completed config loading and subscriptions.
-    _bus.post(EventId::SystemStarted, nullptr, 0, ModuleId::EventBus);
+    const auto* dataStore = services.get<DataStoreService>(ServiceId::DataStore);
+    dataStore_ = dataStore ? dataStore->store : nullptr;
 }
 
 void EventBusModule::loop() {
     /// Dispatch queued events.
     _bus.dispatch(16);
+    // Retry this lifecycle event instead of losing it when startup fills the queue.
+    if (systemStartedPending_) {
+        systemStartedPending_ = !_bus.tryPost(EventId::SystemStarted, nullptr, 0, ModuleId::EventBus);
+    }
+    // Initial runtime state is coalesced by DataKey and sent gradually after
+    // SystemStarted has been accepted, leaving room for operational events.
+    if (!systemStartedPending_ && dataStore_) dataStore_->flushStartupChanges(4U);
     vTaskDelay(pdMS_TO_TICKS(5));
 }

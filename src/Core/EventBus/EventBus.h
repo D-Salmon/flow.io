@@ -68,6 +68,14 @@ public:
               size_t len = 0,
               ModuleId producer = ModuleId::Unknown);
 
+    /** Attempt delivery without counting a full queue as a lost event.
+     * The caller must retain and retry the event when this returns false.
+     */
+    bool tryPost(EventId id,
+                 const void* payload = nullptr,
+                 size_t len = 0,
+                 ModuleId producer = ModuleId::Unknown);
+
     /** @brief Post an event from ISR context. */
     bool postFromISR(EventId id,
                      const void* payload = nullptr,
@@ -127,6 +135,8 @@ private:
     SubscribeRejectInfo _subRejectRing[SUB_REJECT_RING_CAP]{};
     uint8_t _subRejectWriteIdx = 0;
 
+    bool post_(EventId id, const void* payload, size_t len, ModuleId producer,
+               bool retryOnFull);
     void dispatchOne(const QueuedEvent& qe);
     void recordSubscribeReject_(EventId id, EventCallback cb, void* user, SubRejectReason reason);
     static const char* subRejectReasonStr_(uint8_t reason);

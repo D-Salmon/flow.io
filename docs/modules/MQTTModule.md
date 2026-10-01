@@ -154,7 +154,7 @@ Effets:
 
 ### Occupation queues/jobs
 
-`queue occ max/boot jobs=A/80 qh=B/80 qn=C/80 ql=D/60`
+`queue occ max/boot jobs=A/<jobs> qh=B/<high> qn=C/<normal> ql=D/<low>`
 - niveau log: `DEBUG` (métrologie uniquement, pas d'alerte à elle seule)
 - max observés depuis le boot (non remis à zéro)
 - `jobs`: slots jobs utilisés
@@ -163,9 +163,44 @@ Effets:
 ### Rejet enqueue (noyau)
 
 `enqueue reject reason=<slot_full|queue_full> producer=P msg=M prio=R jobs=...`
-- `slot_full`: plus de slot job libre (`80/80`)
+- `slot_full`: plus de slot job libre (capacités définies par le profil de carte)
 - `queue_full`: ring de priorité cible saturé
 - peut être silencé par flag `MqttEnqueueFlags::SilentRejectLog`
+
+### Publications conservées et reprises
+
+`enqueue deferred reason=promotion_full producer=P msg=M prio=R ...`
+- la mise à jour d’une publication déjà acceptée reste acceptée, même si sa
+  promotion immédiate vers une file plus prioritaire échoue ; l’entrée active
+  d’origine reste en place et la promotion est retentée automatiquement
+- les diagnostics sont limités en fréquence et respectent
+  `MqttEnqueueFlags::SilentRejectLog`
+
+`queue state jobs=A queued=B processing=C waiting=D`
+- niveau `DEBUG`, état instantané cohérent relevé sous le verrou de la file
+- `jobs = queued + processing + waiting`
+- `waiting` désigne les jobs conservés en attente d’une place ou de la fin de
+  leur délai de retry ; les références obsolètes présentes dans les rings ne
+  sont pas comptées comme jobs actifs
+
+Les jobs ont un état explicite (libre, en file, en traitement ou en attente).
+Les délais de retry ne sont pas remis à zéro lors d’une mise à jour doublon.
+Les promotions et réadmissions utilisent un parcours circulaire afin d’éviter
+qu’un job reste indéfiniment derrière les autres. Les jobs déjà acceptés sont
+conservés pendant une déconnexion et reprennent après reconnexion ; une nouvelle
+publication reste refusée si aucun slot ou emplacement initial n’est disponible.
+
+Le dispatch publie au plus un job par cycle et espace deux publications d’au
+moins `PublishDispatchIntervalMs` pour limiter les rafales.
+
+Le stockage des jobs et ACK est alloué en PSRAM, avec repli sur la RAM interne.
+Le transport reporte périodiquement la marge RAM interne, l’occupation de
+l’outbox et le watermark de pile du client MQTT. Une publication est différée
+si la réserve minimale de RAM interne ou de bloc contigu n’est plus disponible.
+
+Le test hôte ciblé de la file se lance avec
+`python scripts/tests/test_mqtt_queue.py`. Il couvre les promotions, retries,
+échecs d’envoi, reconnexion, équité et références obsolètes.
 
 ### Métriques cfg route producer
 

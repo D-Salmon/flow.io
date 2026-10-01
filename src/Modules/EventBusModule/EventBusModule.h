@@ -6,6 +6,7 @@
 #include "Core/Module.h"
 #include "Core/Services/Services.h"
 #include "Core/EventBus/EventBus.h"
+#include "Core/DataStore/DataStore.h"
 
 /**
  * @brief Active module that owns the EventBus instance.
@@ -45,6 +46,8 @@ public:
 private:
     EventBus _bus;
     EventBusService _svc { &_bus };
+    DataStore* dataStore_ = nullptr;
+    bool systemStartedPending_ = true;
 
     const LogHubService* logHub = nullptr;
 };

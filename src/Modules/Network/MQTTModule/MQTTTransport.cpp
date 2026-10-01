@@ -134,6 +134,11 @@ bool MQTTModule::ensureClient_()
     cfg.session.last_will.qos = 1;
     cfg.session.last_will.retain = 1;
     cfg.network.disable_auto_reconnect = true;
+    cfg.network.timeout_ms = Limits::Mqtt::Client::NetworkTimeoutMs;
+    cfg.task.stack_size = (int)Limits::Mqtt::Client::TaskStackSize;
+    cfg.buffer.size = Limits::Mqtt::Client::BufferSize;
+    cfg.buffer.out_size = Limits::Mqtt::Client::BufferSize;
+    cfg.outbox.limit = Limits::Mqtt::Client::OutboxLimitBytes;
 #else
     cfg.uri = brokerUri_;
     if (useTls) {

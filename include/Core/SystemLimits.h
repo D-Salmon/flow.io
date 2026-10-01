@@ -181,7 +181,19 @@ constexpr uint32_t NetWarmupMs = 2000;
 constexpr uint32_t ConnectTimeoutMs = 10000;
 /** @brief Main MQTT task loop delay in ms (`MQTTModule::loop`). */
 constexpr uint32_t LoopDelayMs = 50;
+/** @brief Minimum gap between MQTT publish dispatches to limit burst pressure. */
+constexpr uint32_t PublishDispatchIntervalMs = 100U;
+/** @brief Delay after MQTT connection before the client task stack is reported. */
+constexpr uint32_t ClientStackReportDelayMs = 10000U;
 }  // namespace Timing
+
+/** @brief ESP-MQTT client task, buffers, outbox, and blocking-call limits. */
+namespace Client {
+constexpr uint32_t TaskStackSize = 4U * 1024U;
+constexpr int BufferSize = 2 * 1024;
+constexpr uint64_t OutboxLimitBytes = 8U * 1024U;
+constexpr int NetworkTimeoutMs = 3000;
+}  // namespace Client
 
 /** @brief MQTT reconnect backoff profile. */
 namespace Backoff {
@@ -323,6 +335,10 @@ namespace NetworkPublish {
 constexpr uint32_t MinFreeHeapBytes = 4000U;
 /** @brief Minimum largest 8-bit free block (bytes) required before attempting publish. */
 constexpr uint32_t MinLargestBlockBytes = 4096U;
+/** @brief Minimum free internal heap required by the ESP MQTT client. */
+constexpr uint32_t MinInternalFreeBytes = 16U * 1024U;
+/** @brief Minimum largest internal block required by the ESP MQTT client. */
+constexpr uint32_t MinInternalLargestBlockBytes = 6U * 1024U;
 }  // namespace NetworkPublish
 
 /** @brief Boot orchestration timings used in `main.cpp` staged startup. */

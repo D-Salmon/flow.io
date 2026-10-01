@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include "Core/DataModel.h"
+#include "Core/DataStore/StartupDataChanges.h"
 #include "Core/EventBus/EventBus.h"
 #include "Core/EventBus/EventId.h"
 #include "Core/EventBus/EventPayloads.h"
@@ -29,8 +30,11 @@ public:
 
     /** @brief Notify a data key change. */
     void notifyChanged(DataKey key);
+    /** Publish retained initial state notifications after EventBus startup. */
+    void flushStartupChanges(uint16_t budget);
 
 private:
+    StartupDataChanges startupChanges_;
     RuntimeData _rt{};
     EventBus* _bus = nullptr;
 

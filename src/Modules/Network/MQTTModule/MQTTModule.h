@@ -64,8 +64,11 @@ public:
     }
     void onStart(ConfigStore& cfg, ServiceRegistry& services) override;
     void loop() override;
-    uint16_t taskStackSize() const override {
-        return 5120;
+    uint16_t taskStackSize() const override { return Limits::Mqtt::TaskStackSize; }
+    UBaseType_t taskStackCaps() const override {
+        // RX configuration patches and commands synchronously persist to NVS.
+        // Flash writes can disable the cache, so this stack must stay in internal RAM.
+        return MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT;
     }
     uint32_t startDelayMs() const override {
         return 4000U;
@@ -126,10 +129,16 @@ private:
         char payload[Limits::Mqtt::Buffers::Reply] = {0};
     };
 
+    enum class JobState : uint8_t { Free, Queued, Processing, WaitingForQueue };
+
+    struct JobStateCounts {
+        uint16_t queued = 0;
+        uint16_t processing = 0;
+        uint16_t waiting = 0;
+    };
+
     struct Job {
-        bool used = false;
-        bool queued = false;
-        bool processing = false;
+        JobState state = JobState::Free;
         bool requeueAfterProcess = false;
         uint8_t producerId = 0;
         uint16_t messageId = 0;
@@ -179,7 +188,7 @@ private:
     static constexpr uint8_t MaxJobs = Limits::Mqtt::Capacity::MaxJobs;
     static constexpr uint16_t RetryMinMs = 250;
     static constexpr uint16_t RetryMaxMs = 10000;
-    static constexpr uint8_t ProcessBudgetPerTick = 8;
+    static constexpr uint8_t ProcessBudgetPerTick = 1;
 
     static constexpr uint16_t HighQueueCap = Limits::Mqtt::Capacity::HighQueueCap;
     static constexpr uint16_t NormalQueueCap = Limits::Mqtt::Capacity::NormalQueueCap;
@@ -255,15 +264,21 @@ private:
     uint8_t inboundHandlerCount_ = 0;
     portMUX_TYPE inboundMux_ = portMUX_INITIALIZER_UNLOCKED;
 
-    Job jobs_[MaxJobs]{};
-    JobRing<HighQueueCap> highQ_{};
-    JobRing<NormalQueueCap> normalQ_{};
-    JobRing<LowQueueCap> lowQ_{};
+    struct TxStorage {
+        Job jobs[MaxJobs]{};
+        JobRing<HighQueueCap> highQ{};
+        JobRing<NormalQueueCap> normalQ{};
+        JobRing<LowQueueCap> lowQ{};
+        AckMessage ackMessages[MaxAckMessages]{};
+    };
+
+    // Constructed during single-threaded init, before publishing the service.
+    // The pointer and storage remain valid for the firmware lifetime; no ISR access.
+    TxStorage* txStorage_ = nullptr;
     portMUX_TYPE jobsMux_ = portMUX_INITIALIZER_UNLOCKED;
 
     ScratchBuffers* scratch_ = nullptr;
 
-    AckMessage ackMessages_[MaxAckMessages]{};
     uint8_t ackWriteCursor_ = 0;
     uint16_t ackNextMessageId_ = 1;
 
@@ -281,8 +296,13 @@ private:
     uint32_t parseFailCount_ = 0;
     uint32_t handlerFailCount_ = 0;
     uint32_t oversizeDropCount_ = 0;
-    uint32_t lastEnqueueRejectLogMs_ = 0;
+    uint32_t lastEnqueueIssueLogMs_ = 0;
+    uint8_t queueRetryCursor_[3]{};
     uint32_t lastDataChangedTraceLogMs_ = 0;
+    uint32_t lastPublishDispatchMs_ = 0;
+    uint32_t lastMemoryGuardLogMs_ = 0;
+    uint32_t mqttClientStackReportDueMs_ = 0;
+    bool mqttClientStackReportPending_ = false;
     uint32_t occLastReportMs_ = 0;
     uint16_t occMaxJobs_ = 0;
     uint16_t occMaxHigh_ = 0;
@@ -300,6 +320,8 @@ private:
     void setState_(MQTTState s);
     static void onRuntimeInitialSnapshotCompleteStatic_(void* ctx);
     void onRuntimeInitialSnapshotComplete_();
+    void reportClientTaskStackIfDue_(uint32_t nowMs);
+    bool allocateTxStorage_();
     bool allocateScratchBuffers_();
     bool allocateRxQueue_();
     void refreshTopicDeviceId_();
@@ -343,24 +365,29 @@ private:
     void snapshotQueueStatsNoLock_(uint16_t& jobsUsed,
                                    uint16_t& highCount,
                                    uint16_t& normalCount,
-                                   uint16_t& lowCount) const;
-    void logEnqueueReject_(uint8_t producerId,
+                                   uint16_t& lowCount,
+                                   JobStateCounts* states = nullptr) const;
+    void logEnqueueIssue_(uint8_t producerId,
                            uint16_t messageId,
                            uint8_t priority,
                            const char* reason,
                            uint16_t jobsUsed,
                            uint16_t highCount,
                            uint16_t normalCount,
-                           uint16_t lowCount);
+                           uint16_t lowCount,
+                           bool accepted);
     bool queuePush_(uint8_t prio, const JobQueueItem& item);
     bool queuePop_(uint8_t prio, JobQueueItem& out);
-    bool queueSlot_(uint8_t slotIdx, uint8_t prio, bool invalidateOld);
+    // Caller holds jobsMux_. A failed promotion preserves the old queue entry.
+    bool queueSlot_(uint8_t slotIdx, uint8_t prio);
+    void deferJob_(uint8_t slotIdx);
+    void releaseJob_(uint8_t slotIdx);
+    void retryPendingJobsNoLock_(uint32_t nowMs);
     bool dequeueNextJob_(uint32_t nowMs, uint8_t& slotIdx);
     int16_t findJobSlot_(uint8_t producerId, uint16_t messageId) const;
     int16_t allocJobSlot_();
     const MqttPublishProducer* findProducer_(uint8_t producerId) const;
     void updateAndReportQueueOccupancy_(uint32_t nowMs);
-    void clearAllJobs_(const char* reason);
 
     // Producers and runtime publishing
     void enqueueAlarmFullSync_();
