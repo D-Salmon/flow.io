@@ -98,6 +98,12 @@ bool PoolDeviceModule::cmdPoolWrite_(void* userCtx, const CommandRequest& req, c
     return self->handlePoolWrite_(req, reply, replyLen);
 }
 
+bool PoolDeviceModule::cmdPoolOverride_(void* userCtx, const CommandRequest& req, char* reply, size_t replyLen)
+{
+    PoolDeviceModule* self = static_cast<PoolDeviceModule*>(userCtx);
+    return self ? self->handlePoolOverride_(req, reply, replyLen) : false;
+}
+
 bool PoolDeviceModule::cmdPoolRefill_(void* userCtx, const CommandRequest& req, char* reply, size_t replyLen)
 {
     PoolDeviceModule* self = static_cast<PoolDeviceModule*>(userCtx);
@@ -363,6 +369,54 @@ bool PoolDeviceModule::handlePoolWrite_(const CommandRequest& req, char* reply, 
                   detail,
                   requested ? "play_arrow" : "stop");
     snprintf(reply, replyLen, "{\"ok\":true,\"slot\":%u}", (unsigned)slot);
+    return true;
+}
+
+bool PoolDeviceModule::handlePoolOverride_(const CommandRequest& req, char* reply, size_t replyLen)
+{
+    JsonObjectConst args;
+    if (!parseCmdArgsObject_(req, args) || !args["slot"].is<uint8_t>() || !args["value"].is<bool>() ||
+        !args["duration_min"].is<uint16_t>()) {
+        writeCmdError_(reply, replyLen, "pooldevice.override", ErrorCode::MissingArgs);
+        return false;
+    }
+    const uint8_t slot = args["slot"].as<uint8_t>();
+    const uint16_t duration = args["duration_min"].as<uint16_t>();
+    if (slot >= POOL_DEVICE_MAX || duration == 0U || duration > 1440U) {
+        writeCmdError_(reply, replyLen, "pooldevice.override", ErrorCode::BadSlot);
+        return false;
+    }
+    const PoolDeviceSvcStatus status = svcSetTemporaryOverrideImpl_(slot,
+                                                                    args["value"].as<bool>() ? 1U : 0U,
+                                                                    duration);
+    if (status != POOLDEV_SVC_OK) {
+        ErrorCode code = ErrorCode::Failed;
+        if (status == POOLDEV_SVC_ERR_UNKNOWN_SLOT) code = ErrorCode::UnknownSlot;
+        else if (status == POOLDEV_SVC_ERR_NOT_READY) code = ErrorCode::NotReady;
+        else if (status == POOLDEV_SVC_ERR_DISABLED) code = ErrorCode::Disabled;
+        else if (status == POOLDEV_SVC_ERR_INTERLOCK) code = ErrorCode::InterlockBlocked;
+        else if (status == POOLDEV_SVC_ERR_MAX_UPTIME) code = ErrorCode::MaxUptimeReached;
+        else if (status == POOLDEV_SVC_ERR_IO) code = ErrorCode::IoError;
+        writeCmdErrorSlot_(reply, replyLen, "pooldevice.override", code, slot);
+        return false;
+    }
+    const bool requested = args["value"].as<bool>();
+    char title[64] = {0};
+    char detail[96] = {0};
+    const char* label = deviceLabel(slot);
+    snprintf(title, sizeof(title), "%s %s temporairement", label ? label : "Équipement", requested ? "activé" : "arrêté");
+    snprintf(detail, sizeof(detail), "Forçage manuel pendant %u min.", (unsigned)duration);
+    emitActivity_(requested ? ActivityCode::PoolDeviceManualStart : ActivityCode::PoolDeviceManualStop,
+                  ActivitySource::Manual,
+                  ActivitySeverity::Info,
+                  activityRoleForSlot_(slot),
+                  requested ? ActivityState::RequestedOn : ActivityState::RequestedOff,
+                  ActivityReason::Manual,
+                  slot,
+                  title,
+                  detail,
+                  requested ? "play_arrow" : "stop");
+    if (reply && replyLen) snprintf(reply, replyLen, "{\"ok\":true,\"temporary\":true,\"duration_min\":%u}", (unsigned)duration);
     return true;
 }
 

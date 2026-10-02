@@ -103,6 +103,9 @@ private:
 
         bool desiredOn = false;
         bool actualOn = false;
+        bool overrideActive = false;
+        bool overrideOn = false;
+        uint32_t overrideUntilMs = 0;
         uint8_t blockReason = POOL_DEVICE_BLOCK_NONE;
         bool runtimePublishable = false;
 
@@ -144,6 +147,7 @@ private:
     PoolDeviceSvcStatus svcMetaImpl_(uint8_t slot, PoolDeviceSvcMeta* outMeta) const;
     PoolDeviceSvcStatus svcReadActualOnImpl_(uint8_t slot, uint8_t* outOn, uint32_t* outTsMs) const;
     PoolDeviceSvcStatus svcWriteDesiredImpl_(uint8_t slot, uint8_t on);
+    PoolDeviceSvcStatus svcSetTemporaryOverrideImpl_(uint8_t slot, uint8_t on, uint16_t durationMinutes);
     PoolDeviceSvcStatus svcSetWritesEnabledImpl_(uint8_t enabled);
     uint8_t svcWritesEnabledImpl_() const;
     PoolDeviceSvcStatus svcRefillTankImpl_(uint8_t slot, float remainingMl);
@@ -180,10 +184,12 @@ private:
 
     // Commands
     static bool cmdPoolWrite_(void* userCtx, const CommandRequest& req, char* reply, size_t replyLen);
+    static bool cmdPoolOverride_(void* userCtx, const CommandRequest& req, char* reply, size_t replyLen);
     static bool cmdPoolRefill_(void* userCtx, const CommandRequest& req, char* reply, size_t replyLen);
     static bool cmdPoolResetUptime_(void* userCtx, const CommandRequest& req, char* reply, size_t replyLen);
     static bool cmdPoolResetUptimeAll_(void* userCtx, const CommandRequest& req, char* reply, size_t replyLen);
     bool handlePoolWrite_(const CommandRequest& req, char* reply, size_t replyLen);
+    bool handlePoolOverride_(const CommandRequest& req, char* reply, size_t replyLen);
     bool handlePoolRefill_(const CommandRequest& req, char* reply, size_t replyLen);
     bool handlePoolResetUptime_(const CommandRequest& req, char* reply, size_t replyLen);
     bool handlePoolResetUptimeAll_(const CommandRequest& req, char* reply, size_t replyLen);

@@ -8499,6 +8499,71 @@ void WebInterfaceModule::startServer_()
         request->send(200, "application/json", (reply[0] != '\0') ? reply : "{\"ok\":true}");
     });
 
+    server_.on("/api/poollogic/equipment/override", HTTP_POST, [this](AsyncWebServerRequest* request) {
+        HttpLatencyScope latency(request, "/api/poollogic/equipment/override");
+        if (!request->hasParam("equipment", true) || !request->hasParam("value", true) ||
+            !request->hasParam("duration_min", true)) {
+            request->send(400, "application/json", "{\"ok\":false,\"err\":{\"code\":\"InvalidArg\",\"where\":\"poollogic.equipment.override\"}}");
+            return;
+        }
+        char equipment[24] = {0};
+        char valueText[8] = {0};
+        char durationText[12] = {0};
+        copyRequestParamValue_(request, "equipment", true, equipment, sizeof(equipment), "");
+        copyRequestParamValue_(request, "value", true, valueText, sizeof(valueText), "");
+        copyRequestParamValue_(request, "duration_min", true, durationText, sizeof(durationText), "");
+        const bool value = strcmp(valueText, "true") == 0 || strcmp(valueText, "1") == 0 || strcmp(valueText, "on") == 0;
+        const bool validValue = value || strcmp(valueText, "false") == 0 || strcmp(valueText, "0") == 0 || strcmp(valueText, "off") == 0;
+        char* end = nullptr;
+        const long duration = strtol(durationText, &end, 10);
+        if (!validValue || !end || *end != '\0' || duration < 1 || duration > 1440) {
+            request->send(400, "application/json", "{\"ok\":false,\"err\":{\"code\":\"InvalidArg\",\"where\":\"poollogic.equipment.override\"}}");
+            return;
+        }
+        uint8_t slot = POOL_DEVICE_MAX;
+        const char* configSlotKey = nullptr;
+        if (strcmp(equipment, "filtration") == 0) { slot = PoolIds::DeviceFiltrationPump; configSlotKey = "filtr_slot"; }
+        else if (strcmp(equipment, "ph") == 0) { slot = PoolIds::DevicePhPump; configSlotKey = "ph_pump_slot"; }
+        else if (strcmp(equipment, "chlorine") == 0 || strcmp(equipment, "electrolysis") == 0) {
+            slot = PoolIds::DeviceChlorinePump; configSlotKey = "dis_pump_slot";
+        }
+        else if (strcmp(equipment, "robot") == 0) { slot = PoolIds::DeviceRobot; configSlotKey = "robot_slot"; }
+        else if (strcmp(equipment, "filling") == 0) { slot = PoolIds::DeviceFillPump; configSlotKey = "fill_slot"; }
+        else if (strcmp(equipment, "lights") == 0) { slot = PoolIds::DeviceLights; configSlotKey = "lights_slot"; }
+        else if (strcmp(equipment, "heater") == 0) { slot = PoolIds::DeviceWaterHeater; configSlotKey = "heater_slot"; }
+        if (configSlotKey && cfgStore_) {
+            char devicesJson[384] = {0};
+            bool truncated = false;
+            if (cfgStore_->toJsonModule("poollogic/devices", devicesJson, sizeof(devicesJson), &truncated, true) && !truncated) {
+                JsonDocument devicesDoc;
+                if (!deserializeJson(devicesDoc, devicesJson)) {
+                    const JsonVariantConst configuredSlot = devicesDoc.as<JsonObjectConst>()[configSlotKey];
+                    if (configuredSlot.is<uint16_t>() && configuredSlot.as<uint16_t>() < POOL_DEVICE_MAX) {
+                        slot = (uint8_t)configuredSlot.as<uint16_t>();
+                    }
+                }
+            }
+        }
+        if (slot >= POOL_DEVICE_MAX) {
+            request->send(400, "application/json", "{\"ok\":false,\"err\":{\"code\":\"UnknownSlot\",\"where\":\"poollogic.equipment.override\"}}");
+            return;
+        }
+        if (!cmdSvc_ && services_) cmdSvc_ = services_->get<CommandService>(ServiceId::Command);
+        if (!cmdSvc_ || !cmdSvc_->execute) {
+            request->send(503, "application/json", "{\"ok\":false,\"err\":{\"code\":\"NotReady\",\"where\":\"poollogic.equipment.override\"}}");
+            return;
+        }
+        char args[96] = {0};
+        snprintf(args, sizeof(args), "{\"slot\":%u,\"value\":%s,\"duration_min\":%ld}",
+                 (unsigned)slot, value ? "true" : "false", duration);
+        char reply[220] = {0};
+        if (!cmdSvc_->execute(cmdSvc_->ctx, "pooldevice.override", args, nullptr, reply, sizeof(reply))) {
+            request->send(409, "application/json", reply[0] ? reply : "{\"ok\":false,\"err\":{\"code\":\"Failed\",\"where\":\"poollogic.equipment.override\"}}");
+            return;
+        }
+        request->send(200, "application/json", reply[0] ? reply : "{\"ok\":true}");
+    });
+
     server_.on("/api/poollogic/mode", HTTP_POST, [this](AsyncWebServerRequest* request) {
         HttpLatencyScope latency(request, "/api/poollogic/mode");
         if (!request->hasParam("mode", true) || !request->hasParam("value", true)) {

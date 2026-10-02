@@ -73,11 +73,11 @@
       "gzip_bytes": 10859
     },
     "pool.js": {
-      "source_sha256": "9d603670c68b1a43b43efeb77425e96e7d8cc87debfdd2f4628c5ced3acc60a1",
-      "gzip_sha256": "ed031a6d4bdc031184bbd272115c0664a971034cf182d2409c08378ffce55596",
-      "original_bytes": 275526,
-      "minified_bytes": 207009,
-      "gzip_bytes": 44997
+      "source_sha256": "5d4bbaf077c5cd9b612f745cf0e66f856334d602f37582c663d56ac16f87ae4a",
+      "gzip_sha256": "a6feca051285f7735a27df6fe5c4322d47322f3cf787ca854793127feb6968cc",
+      "original_bytes": 277340,
+      "minified_bytes": 208383,
+      "gzip_bytes": 45335
     },
     "config.js": {
       "source_sha256": "d40ad1a2957f0211dfb60679d927ba941671a16470a7816074aad055492a7410",
@@ -87,18 +87,18 @@
       "gzip_bytes": 23804
     },
     "i18n/fr.json": {
-      "source_sha256": "f20307a9f9ada8d55cca1452bfc89d35522a5689ec61b4a80da4b52cbea33648",
-      "gzip_sha256": "2c614940d30c6e455976412176d9adfe94f2f50f8ecb1167f21861c27a5f28c5",
-      "original_bytes": 44656,
-      "minified_bytes": 39423,
-      "gzip_bytes": 10680
+      "source_sha256": "76c5c796180b85228f5feb56f0097a19b83909e34d04ea4e52c5f71f79c8e6cf",
+      "gzip_sha256": "2a6a39a31670425df2cb6e8af4e62b1a71feb8939356fc88788af83ad29233b3",
+      "original_bytes": 45028,
+      "minified_bytes": 39767,
+      "gzip_bytes": 10781
     },
     "i18n/en.json": {
-      "source_sha256": "9f81b94691ff3fec587d0d262b4121883377616c6c392968d0baad522169de93",
-      "gzip_sha256": "e16bb27615b0c0a9da0b9d03bf735a002204828871f9f76c34ae4ed39609adde",
-      "original_bytes": 41948,
-      "minified_bytes": 36715,
-      "gzip_bytes": 9638
+      "source_sha256": "895726a0aa2615cec0457771bbcc49c0bbc0b164c511af0dce4a5404e9a18131",
+      "gzip_sha256": "334533e2eb6e9eee4a4ac8730e680de55502e0b3e95e7c7c9d3cb2b9341c0285",
+      "original_bytes": 42306,
+      "minified_bytes": 37045,
+      "gzip_bytes": 9735
     },
     "app-core.css": {
       "source_sha256": "ce1f2c891d6661419c221e3c2fd38074ee3046a69d5219ac7cdd8d032962df05",

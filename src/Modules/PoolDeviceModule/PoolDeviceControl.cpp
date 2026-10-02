@@ -176,6 +176,30 @@ PoolDeviceSvcStatus PoolDeviceModule::svcWriteDesiredImpl_(uint8_t slot, uint8_t
     return POOLDEV_SVC_OK;
 }
 
+PoolDeviceSvcStatus PoolDeviceModule::svcSetTemporaryOverrideImpl_(uint8_t slot, uint8_t on, uint16_t durationMinutes)
+{
+    if (durationMinutes == 0U || durationMinutes > 1440U) return POOLDEV_SVC_ERR_INVALID_ARG;
+    if (!lockState_()) return POOLDEV_SVC_ERR_NOT_READY;
+    if (slot >= POOL_DEVICE_MAX || !slots_[slot].used) {
+        unlockState_();
+        return POOLDEV_SVC_ERR_UNKNOWN_SLOT;
+    }
+    PoolDeviceSlot& s = slots_[slot];
+    if (!runtimeReady_) { unlockState_(); return POOLDEV_SVC_ERR_NOT_READY; }
+    if (on != 0U) {
+        if (!s.def.enabled) { unlockState_(); return POOLDEV_SVC_ERR_DISABLED; }
+        if (s.blockReason == POOL_DEVICE_BLOCK_UNBOUND) { unlockState_(); return POOLDEV_SVC_ERR_IO; }
+        if (maxUptimeReached_(slot, s)) { unlockState_(); return POOLDEV_SVC_ERR_MAX_UPTIME; }
+        if (!dependenciesSatisfied_(slot)) { unlockState_(); return POOLDEV_SVC_ERR_INTERLOCK; }
+    }
+    s.overrideActive = true;
+    s.overrideOn = on != 0U;
+    s.overrideUntilMs = millis() + (uint32_t)durationMinutes * 60000UL;
+    tickDevices_(millis(), false);
+    unlockState_();
+    return POOLDEV_SVC_OK;
+}
+
 PoolDeviceSvcStatus PoolDeviceModule::svcSetWritesEnabledImpl_(uint8_t enabled)
 {
     if (!lockState_()) return POOLDEV_SVC_ERR_NOT_READY;
@@ -665,6 +689,10 @@ void PoolDeviceModule::tickDevices_(uint32_t nowMs, bool allowPersist)
         if (!s.used) continue;
         if (runtimeReady_ && !s.runtimePublishable) continue;
         const bool wasActualOn = s.actualOn;
+        if (s.overrideActive && (int32_t)(nowMs - s.overrideUntilMs) >= 0) {
+            s.overrideActive = false;
+            s.overrideOn = false;
+        }
         bool stateChanged = false;
         bool metricsChanged = (pending != 0U) || s.forceMetricsCommit;
         s.forceMetricsCommit = false;
@@ -694,9 +722,11 @@ void PoolDeviceModule::tickDevices_(uint32_t nowMs, bool allowPersist)
             s.blockReason = POOL_DEVICE_BLOCK_DISABLED;
             stateChanged = true;
         }
+        if (!s.def.enabled) s.overrideActive = false;
 
         const bool maxUptimeReached = maxUptimeReached_(i, s);
         if (s.def.enabled && maxUptimeReached) {
+            s.overrideActive = false;
             if (s.desiredOn) {
                 s.desiredOn = false;
                 stateChanged = true;
@@ -731,7 +761,8 @@ void PoolDeviceModule::tickDevices_(uint32_t nowMs, bool allowPersist)
             stateChanged = true;
         }
 
-        if (s.desiredOn && !s.actualOn && writesEnabled_) {
+        const bool targetOn = s.overrideActive ? s.overrideOn : s.desiredOn;
+        if (targetOn && !s.actualOn && writesEnabled_) {
             if (dependenciesSatisfied_(i)) {
                 if (writeIo_(s.ioId, true)) {
                     s.actualOn = true;
@@ -745,7 +776,7 @@ void PoolDeviceModule::tickDevices_(uint32_t nowMs, bool allowPersist)
                 s.blockReason = POOL_DEVICE_BLOCK_INTERLOCK;
                 stateChanged = true;
             }
-        } else if (!s.desiredOn && s.actualOn && writesEnabled_) {
+        } else if (!targetOn && s.actualOn && writesEnabled_) {
             if (writeIo_(s.ioId, false)) {
                 s.actualOn = false;
                 s.blockReason = maxUptimeReached_(i, s) ? POOL_DEVICE_BLOCK_MAX_UPTIME : POOL_DEVICE_BLOCK_NONE;
