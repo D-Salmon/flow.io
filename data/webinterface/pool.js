@@ -684,17 +684,18 @@
         const row = document.createElement('tr');
         const name = document.createElement('th');
         name.className = 'runtime-name';
-        // Equipment identity follows the function, independent of its relay binding.
+        // The API exposes PoolDevice IDs (pd0...), not actuator IO IDs.
+        // These IDs remain stable when the physical relay binding changes.
         const equipmentLabels = {
-          io_flt_pmp: ['filtration', 'Pompe de filtration'],
-          io_ph_pmp: ['ph', 'Pompe pH'],
-          io_chl_pmp: ['disinfection', 'Désinfection'],
-          io_robot: ['robot', 'Robot'],
-          io_fill_pmp: ['filling', 'Pompe de remplissage'],
-          EXIO6: ['availableRelay', 'Relais disponible'],
+          pd0: ['filtration', 'Pompe de filtration'],
+          pd1: ['ph', 'Pompe pH'],
+          pd2: ['disinfection', 'Désinfection'],
+          pd3: ['robot', 'Robot'],
+          pd4: ['filling', 'Pompe de remplissage'],
+          pd5: ['availableRelay', 'Relais disponible'],
           io_chl_gen: ['electrolysis', 'Électrolyseur'],
-          io_lights: ['lights', 'Éclairage'],
-          io_wat_htr: ['heater', 'Chauffage']
+          pd6: ['lights', 'Éclairage'],
+          pd7: ['heater', 'Chauffage']
         };
         const equipmentLabel = equipmentLabels[device.deviceId];
         name.textContent = equipmentLabel
