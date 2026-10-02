@@ -73,11 +73,11 @@
       "gzip_bytes": 10859
     },
     "pool.js": {
-      "source_sha256": "4fde5d9884074cf1e0947a5ecf5739249fa8545c2eb96de538796b8bd132649a",
-      "gzip_sha256": "ed031a6d4bdc031184bbd272115c0664a971034cf182d2409c08378ffce55596",
-      "original_bytes": 269944,
-      "minified_bytes": 207009,
-      "gzip_bytes": 44997
+      "source_sha256": "b069044a35d618ff4abb018eb3d9a02c613933c79c7281bdd9fc9157430828d2",
+      "gzip_sha256": "d97786fa1b7294e144d5d37ff89f854bd05842295099060f3e17993cd19ceeee",
+      "original_bytes": 270909,
+      "minified_bytes": 207655,
+      "gzip_bytes": 45204
     },
     "config.js": {
       "source_sha256": "b1f16af4f6cb61b4cf8855733b775de3b182b8a46ab0601891bafe884084fddc",
@@ -87,18 +87,18 @@
       "gzip_bytes": 23804
     },
     "i18n/fr.json": {
-      "source_sha256": "a5e2961c1c6e082151b122f75df553b0ad0e6e870212a2cd1ab31d792e8181a3",
-      "gzip_sha256": "2c614940d30c6e455976412176d9adfe94f2f50f8ecb1167f21861c27a5f28c5",
-      "original_bytes": 43906,
-      "minified_bytes": 39423,
-      "gzip_bytes": 10680
+      "source_sha256": "dd18518ce87218302a1888ab3e13c581e10a00d742da1c28296f86d90d827426",
+      "gzip_sha256": "47cb94d8798f537c4d16564c2d560b6a81ecf44d8ba0eb2e6efd84abe7de7700",
+      "original_bytes": 44347,
+      "minified_bytes": 39810,
+      "gzip_bytes": 10767
     },
     "i18n/en.json": {
-      "source_sha256": "6462aef3fc7810b941721a24b41b84bcf0b598b918021fa2cc475f8ac69e86ba",
-      "gzip_sha256": "e16bb27615b0c0a9da0b9d03bf735a002204828871f9f76c34ae4ed39609adde",
-      "original_bytes": 41198,
-      "minified_bytes": 36715,
-      "gzip_bytes": 9638
+      "source_sha256": "6f3264ed78fd979bc7ca877628e52f8b7cc7d382c4ae3c8438f6a673c28e33b4",
+      "gzip_sha256": "a3a3665257cab474228d36053af2b4d5176746b1da6496f1ef18feb82a2d0fd8",
+      "original_bytes": 41624,
+      "minified_bytes": 37087,
+      "gzip_bytes": 9717
     },
     "app-core.css": {
       "source_sha256": "16cf5027710e04bf35a475af93724012e047e0f6025ff659bfaed92fcf7cb97e",

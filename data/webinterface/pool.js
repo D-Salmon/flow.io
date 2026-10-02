@@ -684,7 +684,22 @@
         const row = document.createElement('tr');
         const name = document.createElement('th');
         name.className = 'runtime-name';
-        name.textContent = String(device.name || device.deviceId || ('Slot ' + device.value));
+        // Equipment identity follows the function, independent of its relay binding.
+        const equipmentLabels = {
+          io_flt_pmp: ['filtration', 'Pompe de filtration'],
+          io_ph_pmp: ['ph', 'Pompe pH'],
+          io_chl_pmp: ['disinfection', 'Désinfection'],
+          io_robot: ['robot', 'Robot'],
+          io_fill_pmp: ['filling', 'Pompe de remplissage'],
+          EXIO6: ['availableRelay', 'Relais disponible'],
+          io_chl_gen: ['electrolysis', 'Électrolyseur'],
+          io_lights: ['lights', 'Éclairage'],
+          io_wat_htr: ['heater', 'Chauffage']
+        };
+        const equipmentLabel = equipmentLabels[device.deviceId];
+        name.textContent = equipmentLabel
+          ? tr('pool.management.' + equipmentLabel[0], equipmentLabel[1])
+          : String(device.name || device.deviceId || ('Slot ' + device.value));
         const sub = document.createElement('span');
         sub.className = 'runtime-subtitle';
         sub.textContent = String(device.deviceId || '') + ' · slot ' + String(device.value);
@@ -5563,6 +5578,10 @@
         hidePool: stopPoolConfigTimer,
         refreshLocale: function refreshLocale() {
           refreshPoolMeasuresView();
+          if (runtimeManagementDialog && runtimeManagementDialog.open
+            && runtimeManagementType === 'equipment') {
+            refreshRuntimeManagementDialog().catch(() => {});
+          }
           if (getActivePageId() === 'page-pool' && poolConfigLoadedOnce) loadPoolConfig(true).catch(() => {});
         },
         visibilityChanged: function visibilityChanged(pageId) {

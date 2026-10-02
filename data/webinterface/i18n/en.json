@@ -745,6 +745,15 @@
     "calibration.err.rawConversionImpossible": "raw conversion impossible",
     "calibration.err.rawPointsTooClose": "raw points are too close",
     "calibration.err.coeffCalcImpossible": "unable to compute coefficients",
-    "calibration.err.c1CalcImpossible": "unable to compute C1"
+    "calibration.err.c1CalcImpossible": "unable to compute C1",
+    "pool.management.disinfection": "Disinfection",
+    "pool.management.filtration": "Filtration pump",
+    "pool.management.ph": "pH pump",
+    "pool.management.robot": "Pool cleaner",
+    "pool.management.filling": "Filling pump",
+    "pool.management.availableRelay": "Available relay",
+    "pool.management.electrolysis": "Electrolyzer",
+    "pool.management.lights": "Lighting",
+    "pool.management.heater": "Heating"
   }
 }

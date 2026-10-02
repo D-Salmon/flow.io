@@ -745,6 +745,15 @@
     "calibration.err.rawConversionImpossible": "conversion brute impossible",
     "calibration.err.rawPointsTooClose": "les points bruts sont trop proches",
     "calibration.err.coeffCalcImpossible": "calcul des coefficients impossible",
-    "calibration.err.c1CalcImpossible": "calcul C1 impossible"
+    "calibration.err.c1CalcImpossible": "calcul C1 impossible",
+    "pool.management.disinfection": "Désinfection",
+    "pool.management.filtration": "Pompe de filtration",
+    "pool.management.ph": "Pompe pH",
+    "pool.management.robot": "Robot",
+    "pool.management.filling": "Pompe de remplissage",
+    "pool.management.availableRelay": "Relais disponible",
+    "pool.management.electrolysis": "Électrolyseur",
+    "pool.management.lights": "Éclairage",
+    "pool.management.heater": "Chauffage"
   }
 }
