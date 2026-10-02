@@ -3774,6 +3774,7 @@
         label.textContent = spec.label || poolConfigFieldLabel(moduleName, spec.key);
         const assetSlot = poolConfigAssetSlot(moduleName, spec);
         const asset = poolAsset(assetSlot);
+        let sensorAssignmentBadge = null;
         if (asset) {
           // In the relay-assignment card, the badge describes whether the
           // physical relay is assigned. In particular, the shared disinfection
@@ -3786,6 +3787,9 @@
             (badgeState === 'active' ? 'is-active' :
               ((badgeState === 'hardware_missing' || badgeState === 'safety_blocked') ? 'is-error' : 'is-sleeping'));
           badge.textContent = badgeState === 'active' ? 'Actif' : poolAssetStateLabel(asset);
+          if (moduleName === 'poollogic/sensors' && spec.ioAssignmentGroup === 'digital') {
+            sensorAssignmentBadge = badge;
+          }
           label.appendChild(badge);
         }
         const isPressureMonitoring = spec.key === 'psi_monitoring';
@@ -3886,6 +3890,14 @@
           unit.textContent = spec.unit;
           controlWrap.appendChild(unit);
         }
+        if (sensorAssignmentBadge) {
+          const syncSensorAssignmentBadge = () => poolConfigUpdateWiringBadge(
+            sensorAssignmentBadge, Number(control.value) !== 65535, asset, 'Câblé'
+          );
+          control.addEventListener('change', syncSensorAssignmentBadge);
+          syncSensorAssignmentBadge();
+        }
+
         field.appendChild(label);
         field.appendChild(controlWrap);
 
