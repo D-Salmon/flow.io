@@ -10,6 +10,7 @@
 #include "Core/MqttTopics.h"
 #include "Core/SystemLimits.h"
 #include <ArduinoJson.h>
+#include <esp_heap_caps.h>
 #include <esp_mac.h>
 #include <esp_system.h>
 #include <ctype.h>
@@ -39,6 +40,15 @@ static constexpr MqttConfigRouteProducer::Route kHaCfgRoutes[] = {
     {1, {(uint8_t)ConfigModuleId::Ha, kHaCfgBranch}, "ha", "ha", (uint8_t)MqttPublishPriority::Normal, nullptr},
 };
 static constexpr const char* kHaDeviceConfigUrl = "http://flowio.local";
+
+template <typename T>
+T* allocateHaTable(size_t count)
+{
+    if (count == 0) return nullptr;
+    void* memory = heap_caps_calloc(count, sizeof(T), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!memory) memory = heap_caps_calloc(count, sizeof(T), MALLOC_CAP_8BIT);
+    return static_cast<T*>(memory);
+}
 }
 
 static void buildAvailabilityField(const MqttService* mqttSvc_,
@@ -217,12 +227,14 @@ bool HAModule::ensureStorage_()
     if (oneShotResourcesReleased_) return false;
     if (sensors_ && binarySensors_ && switches_ && numbers_ && buttons_ && selects_ && pendingBits_) return true;
 
-    if (!sensors_) sensors_ = new (std::nothrow) HASensorEntry[MAX_HA_SENSORS]{};
-    if (!binarySensors_) binarySensors_ = new (std::nothrow) HABinarySensorEntry[MAX_HA_BINARY_SENSORS]{};
-    if (!switches_) switches_ = new (std::nothrow) HASwitchEntry[MAX_HA_SWITCHES]{};
-    if (!numbers_) numbers_ = new (std::nothrow) HANumberEntry[MAX_HA_NUMBERS]{};
-    if (!buttons_) buttons_ = new (std::nothrow) HAButtonEntry[MAX_HA_BUTTONS]{};
-    if (!selects_) selects_ = new (std::nothrow) HASelectEntry[MAX_HA_SELECTS]{};
+    // Discovery tables are populated during startup and read only while building
+    // MQTT discovery payloads. Keep this bulk metadata off scarce internal RAM.
+    if (!sensors_) sensors_ = allocateHaTable<HASensorEntry>(MAX_HA_SENSORS);
+    if (!binarySensors_) binarySensors_ = allocateHaTable<HABinarySensorEntry>(MAX_HA_BINARY_SENSORS);
+    if (!switches_) switches_ = allocateHaTable<HASwitchEntry>(MAX_HA_SWITCHES);
+    if (!numbers_) numbers_ = allocateHaTable<HANumberEntry>(MAX_HA_NUMBERS);
+    if (!buttons_) buttons_ = allocateHaTable<HAButtonEntry>(MAX_HA_BUTTONS);
+    if (!selects_) selects_ = allocateHaTable<HASelectEntry>(MAX_HA_SELECTS);
     if (!pendingBits_) pendingBits_ = new (std::nothrow) uint32_t[HA_PENDING_WORDS]{};
 
     if (sensors_ && binarySensors_ && switches_ && numbers_ && buttons_ && selects_ && pendingBits_) {
@@ -266,12 +278,12 @@ void HAModule::releaseOneShotResources_()
     const size_t releasedEntityUsedBytes = entityTableUsedBytes_();
     const size_t releasedEntityCapBytes = entityTableCapacityBytes_();
     const size_t releasedPendingBytes = sizeof(uint32_t) * HA_PENDING_WORDS;
-    delete[] sensors_;
-    delete[] binarySensors_;
-    delete[] switches_;
-    delete[] numbers_;
-    delete[] buttons_;
-    delete[] selects_;
+    heap_caps_free(sensors_);
+    heap_caps_free(binarySensors_);
+    heap_caps_free(switches_);
+    heap_caps_free(numbers_);
+    heap_caps_free(buttons_);
+    heap_caps_free(selects_);
     delete[] pendingBits_;
     sensors_ = nullptr;
     binarySensors_ = nullptr;
