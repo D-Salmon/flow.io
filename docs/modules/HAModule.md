@@ -3,9 +3,9 @@
 ## Rôle
 
 Publication Home Assistant MQTT Discovery:
-- registre d'entités statiques (sensor, binary_sensor, switch, number, button)
+- registre d'entités (sensor, binary_sensor, switch, number, select, button)
 - publication discovery retainée
-- refresh automatique sur changements runtime pertinents
+- publication initiale des entités au démarrage, en mode one-shot sur la cible Waveshare
 - support du champ discovery `has_entity_name` sur les sensors (piloté par l'entité appelante)
 
 Type: module actif (event-driven par notification task).
@@ -26,7 +26,7 @@ Type: module actif (event-driven par notification task).
 ## Services exposés
 
 - `ha` -> `HAService`
-  - `addSensor`, `addBinarySensor`, `addSwitch`, `addNumber`, `addButton`
+  - `addSensor`, `addBinarySensor`, `addSwitch`, `addNumber`, `addSelect`, `addButton`
   - `requestRefresh`
 
 ## Services consommés
@@ -41,12 +41,12 @@ Capacités compile-time actuelles dans `src/Modules/Network/HAModule/HAModule.h`
 
 | Type d'entité | Capacité |
 |---|---:|
-| sensors | 40 |
+| sensors | 48 |
 | binary sensors | 6 |
-| switches | 14 |
-| numbers | 14 |
+| switches | 16 |
+| numbers | 30 |
+| selects | 6 |
 | buttons | 24 |
-| cleanups discovery | 9 |
 
 ## Config / NVS
 
@@ -89,7 +89,6 @@ Réactions:
   - `<discoveryPrefix>/<component>/<nodeTopicId>/<objectId>/config`
 - préfixe `object_id` configurable par profil:
   - défaut `fio_*` (via `entity_prefix=fio`)
-  - profil `Micronova`: `pio_*`
   - si `entity_prefix` est non vide: `object_id = <prefix>_<entity>`
   - si `entity_prefix` est vide: `object_id = <entity>` (sans préfixe)
 - payloads incluent:
@@ -109,22 +108,30 @@ Réactions:
   - `sys_hp_min_free` (`rt/system/state`, conversion en `ko`)
   - `sys_hp_frag` (`rt/system/state`, valeur `%`)
 
+Les automatismes de désinfection sont exposés séparément selon leur rôle :
+- `pl_dis_auto` commande la régulation ORP du mode chlore/brome ;
+- `pl_treatment_auto` commande l'automatisme du traitement choisi lorsqu'il s'agit d'électrolyse ou d'oxygène actif.
+
+Le sélecteur `pl_modes_dis` définit le traitement actif. PoolLogic maintient les automatismes cohérents avec le mode général : en mode automatique, il active la régulation ORP pour le chlore/brome, ou l'automatisme du traitement pour l'électrolyse/oxygène actif ; en mode manuel, ces automatismes sont désactivés. Le commutateur ORP reste distinct, car il correspond à une régulation spécifique.
+
 Avec le préfixe par défaut, les entités deviennent par exemple
 `binary_sensor.fio_alm_psi_low`, `sensor.fio_sys_upt_mn` et
 `sensor.fio_sys_hp_free`.
 
-## Comportement refresh
+## Publication et rafraîchissement
 
-- `add*` met à jour la table d'entités et demande refresh
-- `requestRefresh` remet `published=false` et notifie la task
+- `add*` enregistre une entité et marque sa configuration Discovery comme à publier
+- `requestRefresh` relance la publication lorsque le mode continu est utilisé
 - publication effective seulement si MQTT connecté et `mqttReady(DataStore)==true`
+- sur la cible Waveshare 3.4.1, le build active `FLOW_HA_ONESHOT_DISCOVERY=1` : les configurations Discovery sont publiées une fois au démarrage, puis les tables sont libérées
+- les changements d'état et de configuration continuent d'être publiés sur leurs topics MQTT habituels ; le mode one-shot concerne uniquement la découverte des entités
 
 ## Mode one-shot
 
 Le build peut définir `FLOW_HA_ONESHOT_DISCOVERY=1` pour publier l'auto-discovery une seule fois au démarrage.
-Ce mode est utilisé par les profils `FlowIO` et `Micronova`:
+Ce mode est activé pour le profil Waveshare 3.4.1:
 - les tables d'entités HA sont allouées dynamiquement au lieu d'être conservées en `.bss`
 - le producteur MQTT de configuration HA n'est pas instancié
 - après publication retained de toutes les entités discovery, les tables sont libérées et la tâche `ha` appelle `vTaskDelete(nullptr)`
 - le service HA reste présent mais refuse les nouveaux enregistrements après teardown, afin d'éviter des pointeurs pendants dans les services/callbacks existants
-- pour diagnostiquer la séquence de boot one-shot, le build `FlowIO` peut activer `FLOW_HA_BOOT_TRACE=1` (logs de jalons alloc/enqueue/publish/release)
+- pour diagnostiquer la séquence de boot one-shot, le build Waveshare peut activer `FLOW_HA_BOOT_TRACE=1` (logs de jalons alloc/enqueue/publish/release)

@@ -23,6 +23,8 @@ cette branche ajoute les affectations configurables des relais.
 ## Réseau, interface et affichages
 
 - [Référence MQTT](core/mqtt-topics.md) et [intégration Home Assistant](modules/HAModule.md).
+- [Exemples et guide d’installation Home Assistant](integration/ha/README.md) :
+  carte Lovelace, package YAML et étapes d’installation.
 - [Interface Web modulaire](core/webinterface-assets-modular.md).
 - [Valeurs runtime exposées à l’interface](core/runtime-ui-exposure.md).
 - [Interface Nextion](integration/nextion-esp-protocol.md) et
@@ -30,8 +32,8 @@ cette branche ajoute les affectations configurables des relais.
 - [Kiosque d’affichage Raspberry Pi](../rpi-kiosk/README.md).
 
 Les exemples Home Assistant suffixés `3_1_0` et les captures d’interface
-`3.1.5` sont des documents historiques. Vérifier leur compatibilité avec le
-firmware courant avant de les réutiliser.
+`3.1.5` sont conservés comme archives historiques. Pour le firmware 3.4.1,
+utiliser les exemples suffixés `3_4_1` ci-dessus.
 
 ## Modules actifs
 
