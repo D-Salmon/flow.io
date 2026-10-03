@@ -6,9 +6,15 @@ Les équipements normalement pilotés par les automatismes peuvent recevoir un f
 
 Les sécurités restent prioritaires : un équipement désactivé ou non câblé ne peut pas être démarré, les dépendances (notamment la filtration) sont contrôlées et les limites de durée maximale restent actives. Un forçage qui échoue à ces contrôles est refusé.
 
+Après essai, le tableau de bord conserve le bouton d’un équipement bloqué par une
+sécurité pour permettre d’ouvrir sa commande; le contrôleur applique toujours
+l’interverrouillage. Le statut de blocage est effacé dès qu’aucune demande de
+marche ne subsiste.
+
 ## Validation
 
 - Vérification syntaxique du JavaScript et des fichiers de traduction.
 - Compilation PlatformIO Waveshare ESP32-S3 réussie (RAM 31,7 %, Flash 33,9 %).
 - Image SPIFFS et archive de la version 3.4.3 générées.
-- Aucun flash effectué pour cette version.
+- Firmware et image SPIFFS de la version 3.4.3 flashés sur le Waveshare réel.
+- Contrôleur revenu en ligne après redémarrage; tableau de bord vérifié.

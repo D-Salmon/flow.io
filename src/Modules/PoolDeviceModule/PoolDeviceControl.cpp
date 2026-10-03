@@ -762,6 +762,13 @@ void PoolDeviceModule::tickDevices_(uint32_t nowMs, bool allowPersist)
         }
 
         const bool targetOn = s.overrideActive ? s.overrideOn : s.desiredOn;
+        // An interlock block is only current while there is still a request to
+        // run. Once a timed override expires (or the request is cancelled), do
+        // not leave the dashboard showing a stale "blocked by safety" state.
+        if (!targetOn && !s.actualOn && s.blockReason == POOL_DEVICE_BLOCK_INTERLOCK) {
+            s.blockReason = POOL_DEVICE_BLOCK_NONE;
+            stateChanged = true;
+        }
         if (targetOn && !s.actualOn && writesEnabled_) {
             if (dependenciesSatisfied_(i)) {
                 if (writeIo_(s.ioId, true)) {

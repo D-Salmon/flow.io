@@ -73,11 +73,11 @@
       "gzip_bytes": 10859
     },
     "pool.js": {
-      "source_sha256": "6609173b5aea259e65ea28ee21b79ad5a674e00ed005e859d5f48b285d7bc7cf",
-      "gzip_sha256": "c7b3da839d092588d956b71e72a34ff5c96e082780b2bdc30436cfcb71885396",
-      "original_bytes": 283896,
-      "minified_bytes": 212827,
-      "gzip_bytes": 46470
+      "source_sha256": "be4a0ca7ff49e29b62d1cbe2f1f8dd6ba777c37b9db68054c36ff8a80209ffa3",
+      "gzip_sha256": "ddcfc49fcfd170d8914deb8df7dade91429d9f2d7bbea5c3917e79220d9b8b85",
+      "original_bytes": 284098,
+      "minified_bytes": 212969,
+      "gzip_bytes": 46502
     },
     "config.js": {
       "source_sha256": "d40ad1a2957f0211dfb60679d927ba941671a16470a7816074aad055492a7410",

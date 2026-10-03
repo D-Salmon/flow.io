@@ -2412,7 +2412,8 @@
         visibleEquipmentDefs.forEach((def) => {
           const equipmentDef = poolEquipmentDefs.find((entry) => entry.key === def.equipmentKey);
           const centralAsset = equipmentDef ? poolAsset(equipmentDef.slot) : null;
-          const centralActive = !centralAsset || centralAsset.state === 'active';
+          const safetyBlocked = !!centralAsset && centralAsset.state === 'safety_blocked';
+          const centralActive = !centralAsset || centralAsset.state === 'active' || safetyBlocked;
           const available = !!pool && typeof pool[def.key] === 'boolean' && !!equipmentDef && centralActive;
           const on = available && dashboardOptimisticValue(
             dashboardOptimisticEquipment,
@@ -2488,9 +2489,11 @@
               ? (centralAsset ? poolAssetStateLabel(centralAsset) : tr('dashboard.equipment.unavailable', 'Indisponible'))
               : (blockedByCirculation
                 ? tr('pool.control.filtrationRequired', 'Filtration requise')
+              : (safetyBlocked && !on
+                ? poolAssetStateLabel(centralAsset)
               : (on
                 ? (forcedOn ? tr('pool.control.forcedOn', 'En marche forcée') : (commandOnly ? tr('dashboard.equipment.commanded', 'Commandé') : tr('dashboard.equipment.on', 'En marche')))
-                : tr('dashboard.equipment.off', 'À l’arrêt')))));
+                : tr('dashboard.equipment.off', 'À l’arrêt'))))));
           copy.appendChild(label);
           copy.appendChild(state);
           const toggle = document.createElement('span');
