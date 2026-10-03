@@ -821,6 +821,8 @@ void PoolDeviceModule::tickDevices_(uint32_t nowMs, bool allowPersist)
                 if ((prevState.enabled != s.def.enabled) ||
                     (prevState.desiredOn != s.desiredOn) ||
                     (prevState.actualOn != s.actualOn) ||
+                    (prevState.overrideActive != s.overrideActive) ||
+                    (prevState.overrideOn != s.overrideOn) ||
                     (prevState.type != s.def.type) ||
                     (prevState.blockReason != s.blockReason)) {
                     stateChanged = true;
@@ -845,6 +847,8 @@ void PoolDeviceModule::tickDevices_(uint32_t nowMs, bool allowPersist)
             rtState.enabled = s.def.enabled;
             rtState.desiredOn = s.desiredOn;
             rtState.actualOn = s.actualOn;
+            rtState.overrideActive = s.overrideActive;
+            rtState.overrideOn = s.overrideOn;
             rtState.type = s.def.type;
             rtState.blockReason = s.blockReason;
             rtState.tsMs = s.stateTsMs;

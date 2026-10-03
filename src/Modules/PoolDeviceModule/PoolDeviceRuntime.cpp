@@ -210,12 +210,15 @@ bool PoolDeviceModule::buildStateSnapshot_(uint8_t slotIdx, char* out, size_t le
     const int wrote = snprintf(
         out, len,
         "{\"id\":\"pd%u\",\"name\":\"%s\",\"enabled\":%s,\"desired\":%s,\"on\":%s,"
+        "\"override\":%s,\"override_on\":%s,"
         "\"block\":\"%s\",\"ts\":%lu}",
         (unsigned)slotIdx,
         label[0] ? label : "pd",
         entry.enabled ? "true" : "false",
         entry.desiredOn ? "true" : "false",
         entry.actualOn ? "true" : "false",
+        entry.overrideActive ? "true" : "false",
+        entry.overrideOn ? "true" : "false",
         blockReason,
         (unsigned long)entry.tsMs
     );
@@ -400,6 +403,8 @@ bool PoolDeviceModule::configureRuntime_()
         rtState.enabled = s.def.enabled;
         rtState.desiredOn = s.desiredOn;
         rtState.actualOn = s.actualOn;
+        rtState.overrideActive = s.overrideActive;
+        rtState.overrideOn = s.overrideOn;
         rtState.type = s.def.type;
         rtState.blockReason = s.blockReason;
         rtState.tsMs = s.stateTsMs;

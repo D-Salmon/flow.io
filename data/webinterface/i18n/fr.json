@@ -143,6 +143,7 @@
     "pool.control.on": "Allumé",
     "pool.control.off": "Éteint",
     "pool.control.running": "En marche",
+    "pool.control.forcedOn": "En marche forcée",
     "pool.control.commanded": "Commandé",
     "pool.control.commandOnlyNote": "Ordre envoyé au relais ; aucun retour matériel n’est configuré.",
     "config.feedback.disabled": "Désactivé / non câblé",

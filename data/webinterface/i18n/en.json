@@ -143,6 +143,7 @@
     "pool.control.on": "On",
     "pool.control.off": "Off",
     "pool.control.running": "Running",
+    "pool.control.forcedOn": "Forced on",
     "pool.control.commanded": "Commanded",
     "pool.control.commandOnlyNote": "Command sent to the relay; no hardware feedback is configured.",
     "config.feedback.disabled": "Disabled / not wired",

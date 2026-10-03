@@ -122,6 +122,7 @@
     let poolEquipmentCommandBusy = '';
     let poolEquipmentStatusMessage = '';
     let poolEquipmentStatusTone = '';
+    let poolEquipmentStatusTimer = null;
     let poolOperatingModeApplyBusy = false;
     let poolOperatingModeCurrent = '';
     let poolOperatingModeStatusMessage = '';
@@ -2420,6 +2421,7 @@
           const blockedByCirculation = available && !on &&
             (def.key === 'rbt' || def.key === 'htr') && pool.fil !== true;
           const pending = poolEquipmentCommandBusy === def.equipmentKey;
+          const forcedOn = available && !!pool[def.key + 'Forced'];
           const actionable = available && !blockedByCirculation && !poolEquipmentCommandBusy;
           if (available) equipmentAvailableCount += 1;
           if (on) equipmentOnCount += 1;
@@ -2442,9 +2444,23 @@
               ? tr('pool.control.filtrationRequired', 'Filtration requise')
               : (!available && centralAsset ? poolAssetStateLabel(centralAsset) : ''));
           if (actionable) {
-            card.addEventListener('click', () => {
-              if (blockedByAutomatic) {
-                const duration = promptPoolOverrideDuration();
+            card.addEventListener('click', async () => {
+              let forceForAuto = blockedByAutomatic;
+              if (def.key === 'fil') {
+                try {
+                  const currentConfig = await fetchOkJson(
+                    '/api/pool/config',
+                    { cache: 'no-store' },
+                    tr('pool.control.error.notReady', 'Équipement momentanément indisponible.')
+                  );
+                  forceForAuto = poolEquipmentAutomaticMode(currentConfig && currentConfig.modules);
+                } catch (err) {
+                  // Keep the displayed mode as a fallback if config polling is
+                  // temporarily unavailable; the controller validates it too.
+                }
+              }
+              if (forceForAuto) {
+                const duration = await promptPoolOverrideDuration();
                 if (duration !== null) commandPoolEquipment(equipmentDef, !on, def.label, duration).catch(() => {});
               } else {
                 commandPoolEquipment(equipmentDef, !on, def.label).catch(() => {});
@@ -2455,6 +2471,7 @@
             + ' is-equipment-' + def.key
             + (def.key === 'lgt' ? ' is-lighting' : '')
             + (available ? (on ? ' is-on' : ' is-off') : ' is-unavailable')
+            + (forcedOn ? ' is-forced' : '')
             + (blockedByAutomatic ? ' is-automatic' : '')
             + (pending ? ' is-pending' : '');
           const copy = document.createElement('div');
@@ -2470,7 +2487,7 @@
               : (blockedByCirculation
                 ? tr('pool.control.filtrationRequired', 'Filtration requise')
               : (on
-                ? (commandOnly ? tr('dashboard.equipment.commanded', 'Commandé') : tr('dashboard.equipment.on', 'En marche'))
+                ? (forcedOn ? tr('pool.control.forcedOn', 'En marche forcée') : (commandOnly ? tr('dashboard.equipment.commanded', 'Commandé') : tr('dashboard.equipment.on', 'En marche')))
                 : tr('dashboard.equipment.off', 'À l’arrêt')))));
           copy.appendChild(label);
           copy.appendChild(state);
@@ -2706,13 +2723,33 @@
       return toBool(modes.enabled) && toBool(modes.auto_mode);
     }
 
-    function poolEquipmentSetStatus(message, tone) {
+    function poolEquipmentSetStatus(message, tone, clearAfterMs) {
+      if (poolEquipmentStatusTimer !== null) {
+        clearTimeout(poolEquipmentStatusTimer);
+        poolEquipmentStatusTimer = null;
+      }
       poolEquipmentStatusMessage = String(message || '').trim();
       poolEquipmentStatusTone = String(tone || '').trim();
+      if (poolEquipmentStatusMessage && Number.isFinite(clearAfterMs) && clearAfterMs > 0) {
+        const expectedMessage = poolEquipmentStatusMessage;
+        const expectedTone = poolEquipmentStatusTone;
+        poolEquipmentStatusTimer = setTimeout(() => {
+          if (poolEquipmentStatusMessage === expectedMessage && poolEquipmentStatusTone === expectedTone) {
+            poolEquipmentSetStatus('', '');
+            renderDashboardEquipmentStatus();
+            if (getActivePageId() === 'page-pool') {
+              renderPoolEquipmentControl(poolConfigModulesCache, poolConfigLiveState);
+            }
+          }
+        }, clearAfterMs);
+      }
     }
 
     function poolEquipmentErrorText(err) {
       const raw = String(err || '');
+      if (raw.includes('InvalidMode')) {
+        return tr('pool.control.error.invalidMode', 'Le mode automatique est actif. Utilisez le forçage temporaire.');
+      }
       if (raw.includes('InterlockBlocked')) {
         return tr('pool.control.error.interlock', 'Commande bloquée par une sécurité ou une condition de fonctionnement.');
       }
@@ -2760,19 +2797,77 @@
     }
 
     function promptPoolOverrideDuration() {
-      const input = window.prompt(tr('pool.control.overrideDuration', 'Durée du forçage temporaire en minutes (1 à 1440) :'), '30');
-      if (input === null) return null;
-      const minutes = Number(input);
-      if (!Number.isInteger(minutes) || minutes < 1 || minutes > 1440) {
-        poolEquipmentSetStatus(tr('pool.control.overrideDurationInvalid', 'Durée invalide : indiquez une valeur de 1 à 1440 minutes.'), 'error');
-        return null;
-      }
-      return minutes;
+      return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'pool-override-overlay';
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.setAttribute('aria-labelledby', 'poolOverrideTitle');
+        const panel = document.createElement('div');
+        panel.className = 'pool-override-panel';
+        const title = document.createElement('h2');
+        title.id = 'poolOverrideTitle';
+        title.textContent = tr('pool.control.overrideTitle', 'Forçage temporaire');
+        const description = document.createElement('p');
+        description.textContent = tr('pool.control.overrideDuration', 'Durée du forçage temporaire en minutes (1 à 1440) :');
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.min = '1';
+        input.max = '1440';
+        input.step = '1';
+        input.value = '30';
+        input.inputMode = 'numeric';
+        input.setAttribute('aria-label', tr('pool.control.overrideDuration', 'Durée du forçage temporaire en minutes (1 à 1440) :'));
+        const error = document.createElement('p');
+        error.className = 'pool-override-error';
+        error.setAttribute('aria-live', 'polite');
+        const actions = document.createElement('div');
+        actions.className = 'pool-override-actions';
+        const cancel = document.createElement('button');
+        cancel.type = 'button';
+        cancel.className = 'btn-tonal';
+        cancel.textContent = tr('common.cancel', 'Annuler');
+        const confirm = document.createElement('button');
+        confirm.type = 'button';
+        confirm.className = 'btn-primary';
+        confirm.textContent = tr('common.confirm', 'Valider');
+        let finished = false;
+        const finish = (value) => {
+          if (finished) return;
+          finished = true;
+          document.removeEventListener('keydown', onKeyDown);
+          overlay.remove();
+          resolve(value);
+        };
+        const submit = () => {
+          const minutes = Number(input.value);
+          if (!Number.isInteger(minutes) || minutes < 1 || minutes > 1440) {
+            error.textContent = tr('pool.control.overrideDurationInvalid', 'Durée invalide : indiquez une valeur de 1 à 1440 minutes.');
+            input.focus();
+            return;
+          }
+          finish(minutes);
+        };
+        const onKeyDown = (event) => {
+          if (event.key === 'Escape') finish(null);
+          else if (event.key === 'Enter') submit();
+        };
+        cancel.addEventListener('click', () => finish(null));
+        confirm.addEventListener('click', submit);
+        overlay.addEventListener('click', (event) => { if (event.target === overlay) finish(null); });
+        actions.append(cancel, confirm);
+        panel.append(title, description, input, error, actions);
+        overlay.appendChild(panel);
+        document.body.appendChild(overlay);
+        document.addEventListener('keydown', onKeyDown);
+        input.focus();
+        input.select();
+      });
     }
 
     async function commandPoolEquipment(def, desired, displayLabel, temporaryDurationMinutes) {
       if (!def || poolEquipmentCommandBusy) return false;
-      const temporary = Number.isInteger(temporaryDurationMinutes);
+      let temporary = Number.isInteger(temporaryDurationMinutes);
       if (temporary && (temporaryDurationMinutes < 1 || temporaryDurationMinutes > 1440)) {
         poolEquipmentSetStatus(tr('pool.control.overrideDurationInvalid', 'Durée invalide : indiquez une valeur de 1 à 1440 minutes.'), 'error');
         return false;
@@ -2791,14 +2886,30 @@
         renderPoolEquipmentControl(poolConfigModulesCache, poolConfigLiveState);
       }
       try {
-        await fetchOkJson(
-          temporary ? '/api/poollogic/equipment/override' : '/api/poollogic/equipment',
-          createFormPostOptions(temporary
-            ? { equipment: def.key, value: desired ? 'true' : 'false', duration_min: String(temporaryDurationMinutes) }
+        const postEquipmentCommand = (useOverride, duration) => fetchOkJson(
+          useOverride ? '/api/poollogic/equipment/override' : '/api/poollogic/equipment',
+          createFormPostOptions(useOverride
+            ? { equipment: def.key, value: desired ? 'true' : 'false', duration_min: String(duration) }
             : { equipment: def.key, value: desired ? 'true' : 'false' }),
           tr('pool.control.error.generic', 'Commande refusée.'),
           fetchFlowRemoteQueued
         );
+        try {
+          await postEquipmentCommand(temporary, temporaryDurationMinutes);
+        } catch (err) {
+          // Runtime mode data can briefly lag behind configuration. If the
+          // controller confirms that filtration is actually in auto mode,
+          // offer the timed override instead of leaving the operator stuck.
+          if (temporary || def.key !== 'filtration' || !String(err || '').includes('InvalidMode')) throw err;
+          const fallbackDuration = await promptPoolOverrideDuration();
+          if (fallbackDuration === null) {
+            poolEquipmentSetStatus('', '');
+            return false;
+          }
+          temporary = true;
+          temporaryDurationMinutes = fallbackDuration;
+          await postEquipmentCommand(true, fallbackDuration);
+        }
         for (const delay of [120, 180, 300, 500]) {
           await waitMs(delay);
           const poolResult = await fetchFlowStatusDomain('pool', true, 'equipment-command').catch(() => null);
@@ -2812,14 +2923,16 @@
           }
           if (confirmed) break;
         }
-        poolEquipmentSetStatus(
-          confirmed
+        const statusMessage = confirmed
           ? (temporary
             ? tr('pool.control.overrideConfirmed', 'Forçage temporaire appliqué pendant {minutes} min.')
                 .replace('{minutes}', String(temporaryDurationMinutes))
             : poolEquipmentConfirmedMessage(def, desired, displayLabel))
-            : tr('pool.control.unconfirmed', 'Commande acceptée, état non confirmé.') + ' · ' + String(displayLabel || tr(def.labelKey, def.label)) + '.',
-          confirmed ? 'ok' : 'error'
+          : tr('pool.control.unconfirmed', 'Commande acceptée, état non confirmé.') + ' · ' + String(displayLabel || tr(def.labelKey, def.label)) + '.';
+        poolEquipmentSetStatus(
+          statusMessage,
+          confirmed ? 'ok' : 'error',
+          confirmed && temporary ? temporaryDurationMinutes * 60 * 1000 : 0
         );
         return true;
       } catch (err) {
@@ -2987,6 +3100,7 @@
         const on = available && state[def.stateKey] === true;
         const blockedByAutomatic = automatic && def.automatic;
         const pending = poolEquipmentCommandBusy === def.key;
+        const forcedOn = available && !!state[def.stateKey + 'Forced'];
         const disabled = !available || !!poolEquipmentCommandBusy;
         const isLights = def.key === 'lights';
         const commandOnly = def.key === 'electrolysis' && !electrolysisFeedbackMonitored;
@@ -2996,6 +3110,7 @@
           + (def.featured ? ' is-featured' : '')
           + (isLights ? ' is-lighting' : '')
           + (available ? (on ? ' is-on' : ' is-off') : ' is-unavailable')
+          + (forcedOn ? ' is-forced' : '')
           + (blockedByAutomatic ? ' is-automatic' : '')
           + (pending ? ' is-pending' : '');
 
@@ -3014,7 +3129,7 @@
             : (on
               ? (isLights
                 ? tr('pool.control.on', 'Allumé')
-                : (commandOnly ? tr('pool.control.commanded', 'Commandé') : tr('pool.control.running', 'En marche')))
+                : (forcedOn ? tr('pool.control.forcedOn', 'En marche forcée') : (commandOnly ? tr('pool.control.commanded', 'Commandé') : tr('pool.control.running', 'En marche'))))
               : (isLights ? tr('pool.control.off', 'Éteint') : tr('pool.control.stopped', 'À l’arrêt'))));
         top.appendChild(icon);
         top.appendChild(stateLabel);
@@ -3034,11 +3149,11 @@
           ? (isLights ? tr('pool.control.action.stop', 'Éteindre') : tr('pool.control.action.stopEquipment', 'Arrêter'))
           : (isLights ? tr('pool.control.action.start', 'Allumer') : tr('pool.control.action.startEquipment', 'Démarrer'));
         const toggle = poolEquipmentBuildSwitch(def, on, disabled);
-        toggle.input.addEventListener('change', () => {
+        toggle.input.addEventListener('change', async () => {
           const desired = toggle.input.checked;
           let duration;
           if (blockedByAutomatic) {
-            duration = promptPoolOverrideDuration();
+            duration = await promptPoolOverrideDuration();
             if (duration === null) { toggle.input.checked = !desired; return; }
           }
           commandPoolEquipment(def, desired, undefined, duration).then((ok) => {

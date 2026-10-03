@@ -2193,14 +2193,18 @@ bool waveshareBuildStatusDomainJson_(FlowStatusDomain domain,
 
         auto setDevice = [&](const char* key, uint8_t slot) {
             PoolDeviceRuntimeStateEntry state{};
+            char forcedKey[20] = {0};
+            snprintf(forcedKey, sizeof(forcedKey), "%sForced", key);
             if (!dataStore ||
                 !poolDeviceRuntimeState(*dataStore, slot, state) ||
                 !state.enabled ||
                 state.blockReason == POOL_DEVICE_BLOCK_UNBOUND) {
                 pool[key] = nullptr;
+                pool[forcedKey] = false;
                 return;
             }
             pool[key] = state.actualOn;
+            pool[forcedKey] = state.overrideActive && state.overrideOn;
         };
         setDevice("fil", filtrationSlot);
         setDevice("php", phPumpSlot);
@@ -8423,7 +8427,9 @@ void WebInterfaceModule::startServer_()
         request->send(202, "application/json", (reply[0] != '\0') ? reply : "{\"ok\":true,\"queued\":true}");
     });
 
-    server_.on("/api/poollogic/equipment", HTTP_POST, [this](AsyncWebServerRequest* request) {
+    // Match this command endpoint exactly: the default URI matcher also
+    // accepts subpaths, which would shadow /equipment/override below.
+    server_.on(AsyncURIMatcher::exact("/api/poollogic/equipment"), HTTP_POST, [this](AsyncWebServerRequest* request) {
         HttpLatencyScope latency(request, "/api/poollogic/equipment");
         if (!request->hasParam("equipment", true) || !request->hasParam("value", true)) {
             request->send(400,
@@ -8445,6 +8451,33 @@ void WebInterfaceModule::startServer_()
                           "application/json",
                           "{\"ok\":false,\"err\":{\"code\":\"InvalidArg\",\"where\":\"poollogic.equipment.value\"}}");
             return;
+        }
+
+        // A regular filtration write deliberately switches PoolLogic to manual
+        // mode. If a stale UI state routes an automatic-mode click here instead
+        // of to /equipment/override, refuse it rather than silently disabling
+        // automation. Timed filtration forcing uses the dedicated override
+        // endpoint below and leaves auto_mode untouched.
+        if (strcmp(equipment, "filtration") == 0 && cfgStore_) {
+            char modesJson[192] = {0};
+            bool modesTruncated = false;
+            if (cfgStore_->toJsonModule("poollogic/modes", modesJson, sizeof(modesJson), &modesTruncated) &&
+                !modesTruncated) {
+                JsonDocument modesDoc(psramOnlyJsonAllocator());
+                const DeserializationError modesErr = deserializeJson(modesDoc, modesJson);
+                if (!modesErr && modesDoc.is<JsonObjectConst>()) {
+                    const JsonObjectConst modes = modesDoc.as<JsonObjectConst>();
+                    // Match the UI's effective mode: auto_mode only applies
+                    // while PoolLogic is enabled. A stale auto_mode bit in
+                    // maintenance must not reject a normal manual command.
+                    if ((modes["enabled"] | false) && (modes["auto_mode"] | false)) {
+                        request->send(409,
+                                      "application/json",
+                                      "{\"ok\":false,\"err\":{\"code\":\"InvalidMode\",\"where\":\"poollogic.equipment.filtration\",\"message\":\"Le mode automatique est actif : utilisez le forçage temporaire.\"}}");
+                        return;
+                    }
+                }
+            }
         }
 
         const char* command = nullptr;

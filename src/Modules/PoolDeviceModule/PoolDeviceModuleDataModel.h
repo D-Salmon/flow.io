@@ -30,6 +30,8 @@ struct PoolDeviceRuntimeStateEntry {
     bool enabled = false;
     bool desiredOn = false;
     bool actualOn = false;
+    bool overrideActive = false;
+    bool overrideOn = false;
     uint8_t type = POOL_DEVICE_RT_RELAY_STD;
     uint8_t blockReason = POOL_DEVICE_BLOCK_NONE;
     uint32_t tsMs = 0;
