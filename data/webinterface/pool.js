@@ -123,6 +123,7 @@
     let poolEquipmentStatusMessage = '';
     let poolEquipmentStatusTone = '';
     let poolEquipmentStatusTimer = null;
+    let poolEquipmentStatusOverrideWatch = null;
     let poolOperatingModeApplyBusy = false;
     let poolOperatingModeCurrent = '';
     let poolOperatingModeStatusMessage = '';
@@ -2263,6 +2264,7 @@
       const pool = payload.poolDomain && payload.poolDomain.ok === true && payload.poolDomain.pool
         ? payload.poolDomain.pool
         : null;
+      poolEquipmentClearStatusIfOverrideEnded(pool);
       const wifi = payload.wifiDomain && payload.wifiDomain.ok === true && payload.wifiDomain.wifi
         ? payload.wifiDomain.wifi
         : null;
@@ -2723,13 +2725,16 @@
       return toBool(modes.enabled) && toBool(modes.auto_mode);
     }
 
-    function poolEquipmentSetStatus(message, tone, clearAfterMs) {
+    function poolEquipmentSetStatus(message, tone, clearAfterMs, overrideStateKey) {
       if (poolEquipmentStatusTimer !== null) {
         clearTimeout(poolEquipmentStatusTimer);
         poolEquipmentStatusTimer = null;
       }
       poolEquipmentStatusMessage = String(message || '').trim();
       poolEquipmentStatusTone = String(tone || '').trim();
+      poolEquipmentStatusOverrideWatch = poolEquipmentStatusMessage && overrideStateKey
+        ? { stateKey: overrideStateKey, desired: true }
+        : null;
       if (poolEquipmentStatusMessage && Number.isFinite(clearAfterMs) && clearAfterMs > 0) {
         const expectedMessage = poolEquipmentStatusMessage;
         const expectedTone = poolEquipmentStatusTone;
@@ -2743,6 +2748,14 @@
           }
         }, clearAfterMs);
       }
+    }
+
+    function poolEquipmentClearStatusIfOverrideEnded(state) {
+      const watch = poolEquipmentStatusOverrideWatch;
+      if (!watch || !state || typeof state[watch.stateKey] !== 'boolean') return;
+      if (state[watch.stateKey] === watch.desired) return;
+      poolEquipmentSetStatus('', '');
+      renderDashboardEquipmentStatus();
     }
 
     function poolEquipmentErrorText(err) {
@@ -2932,7 +2945,8 @@
         poolEquipmentSetStatus(
           statusMessage,
           confirmed ? 'ok' : 'error',
-          confirmed && temporary ? temporaryDurationMinutes * 60 * 1000 : 0
+          confirmed && temporary ? temporaryDurationMinutes * 60 * 1000 : 0,
+          confirmed && temporary && desired ? def.stateKey : ''
         );
         return true;
       } catch (err) {
@@ -2985,6 +2999,7 @@
     function renderPoolEquipmentControl(modules, liveState) {
       if (!poolEquipmentControl) return;
       const state = liveState && typeof liveState === 'object' ? liveState : {};
+      poolEquipmentClearStatusIfOverrideEnded(state);
       const modes = modules && modules['poollogic/modes'] && typeof modules['poollogic/modes'] === 'object'
         ? modules['poollogic/modes']
         : {};
